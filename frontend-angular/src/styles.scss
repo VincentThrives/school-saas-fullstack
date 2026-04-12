@@ -426,3 +426,126 @@ a, button, input, select, textarea {
 .fade-in { animation: fadeIn 0.5s ease-out; }
 .slide-up { animation: slideUp 0.5s ease-out; }
 .scale-in { animation: scaleIn 0.3s ease-out; }
+
+// ── Dark Theme ──────────────────────────────────────────
+body.dark-theme {
+  background-color: #0A0A0A !important;
+  color: #E0E0E0 !important;
+
+  .mat-mdc-card,
+  .mat-mdc-table {
+    background-color: #1A1A1A !important;
+    color: #E0E0E0 !important;
+  }
+
+  .mat-toolbar {
+    background-color: #111111 !important;
+    color: #E0E0E0 !important;
+  }
+
+  .mat-mdc-form-field {
+    color: #E0E0E0 !important;
+  }
+
+  .mat-mdc-text-field-wrapper {
+    background-color: #222222 !important;
+  }
+
+  .mdc-text-field--outlined .mdc-notched-outline__leading,
+  .mdc-text-field--outlined .mdc-notched-outline__notch,
+  .mdc-text-field--outlined .mdc-notched-outline__trailing {
+    border-color: #444444 !important;
+  }
+
+  input.mat-mdc-input-element,
+  textarea.mat-mdc-input-element {
+    color: #E0E0E0 !important;
+  }
+
+  .mat-mdc-select-value,
+  .mat-mdc-select-arrow {
+    color: #E0E0E0 !important;
+  }
+
+  .mat-mdc-header-cell {
+    background-color: #1E1E1E !important;
+    color: #D4A843 !important;
+  }
+
+  .mat-mdc-cell {
+    color: #CCCCCC !important;
+    border-bottom-color: #333333 !important;
+  }
+
+  .mat-mdc-row:hover {
+    background-color: #222222 !important;
+  }
+
+  .mat-mdc-dialog-container {
+    background-color: #1A1A1A !important;
+    color: #E0E0E0 !important;
+  }
+
+  .mat-mdc-menu-panel {
+    background-color: #1A1A1A !important;
+  }
+
+  .mat-mdc-menu-item {
+    color: #E0E0E0 !important;
+  }
+
+  .mat-mdc-paginator {
+    background-color: #1A1A1A !important;
+    color: #CCCCCC !important;
+  }
+
+  .mat-mdc-tab-header {
+    background-color: #141414 !important;
+  }
+
+  h1, h2, h3, h4, h5, h6, p, span, label {
+    color: #E0E0E0 !important;
+  }
+
+  .page-header__title {
+    color: #FFFFFF !important;
+  }
+
+  .page-header__subtitle {
+    color: #AAAAAA !important;
+  }
+
+  .stat-card {
+    background-color: #1A1A1A !important;
+  }
+
+  .mat-mdc-chip {
+    background-color: #333333 !important;
+  }
+
+  a:not(.mat-mdc-button-base) {
+    color: #D4A843 !important;
+  }
+
+  .mat-mdc-snack-bar-container {
+    background-color: #333333 !important;
+  }
+
+  // Content area
+  .main-layout__content {
+    background-color: #0D0D0D !important;
+  }
+
+  // Cards in dark mode
+  mat-card {
+    border-color: #333333 !important;
+  }
+
+  // Scrollbar in dark
+  ::-webkit-scrollbar-track {
+    background: #1A1A1A;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #444444;
+  }
+}

@@ -1,5 +1,5 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, Input, Output, EventEmitter, OnInit, Renderer2, inject } from '@angular/core';
+import { CommonModule, DOCUMENT } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
@@ -28,17 +28,25 @@ import { User, UserRole } from '../../core/models';
   templateUrl: './header.component.html',
   styleUrl: './header.component.scss',
 })
-export class HeaderComponent {
+export class HeaderComponent implements OnInit {
   @Input() pageTitle = '';
   @Output() menuToggle = new EventEmitter<void>();
 
   isDarkMode = false;
   unreadCount = 0;
 
+  private renderer = inject(Renderer2);
+  private document = inject(DOCUMENT);
+
   constructor(
     public authService: AuthService,
     private router: Router
   ) {}
+
+  ngOnInit(): void {
+    this.isDarkMode = localStorage.getItem('darkMode') === 'true';
+    this.applyTheme();
+  }
 
   get user(): User | null {
     return this.authService.currentUser;
@@ -76,6 +84,16 @@ export class HeaderComponent {
 
   toggleDarkMode(): void {
     this.isDarkMode = !this.isDarkMode;
+    localStorage.setItem('darkMode', String(this.isDarkMode));
+    this.applyTheme();
+  }
+
+  private applyTheme(): void {
+    if (this.isDarkMode) {
+      this.renderer.addClass(this.document.body, 'dark-theme');
+    } else {
+      this.renderer.removeClass(this.document.body, 'dark-theme');
+    }
   }
 
   navigateToProfile(): void {

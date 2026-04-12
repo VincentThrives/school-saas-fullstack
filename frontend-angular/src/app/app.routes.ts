@@ -391,6 +391,13 @@ export const routes: Routes = [
       },
 
       {
+        path: 'superadmin/audit-logs',
+        loadComponent: () =>
+          import('./features/placeholder/placeholder.component').then(m => m.PlaceholderComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SUPER_ADMIN], title: 'Audit Logs' },
+      },
+      {
         path: 'superadmin/settings',
         loadComponent: () =>
           import('./features/placeholder/placeholder.component').then(m => m.PlaceholderComponent),
