@@ -1,0 +1,143 @@
+
+// Custom Theming for Angular Material
+// For more information: https://material.angular.io/guide/theming
+@use '@angular/material' as mat;
+// Plus imports for other components in your app.
+
+// Include the common styles for Angular Material. We include this here so that you only
+// have to load a single css file for Angular Material in your app.
+// Be sure that you only ever include this mixin once!
+@include mat.core();
+
+// Define the theme object.
+$frontend-angular-theme: mat.define-theme((
+  color: (
+    theme-type: light,
+    primary: mat.$yellow-palette,
+    tertiary: mat.$orange-palette,
+  ),
+  density: (
+    scale: 0,
+  )
+));
+
+// Include theme styles for core and each component used in your app.
+// Alternatively, you can import and @include the theme mixins for each component
+// that you are using.
+:root {
+  @include mat.all-component-themes($frontend-angular-theme);
+}
+
+// Comment out the line below if you want to use the pre-defined typography utility classes.
+// For more information: https://material.angular.io/guide/typography#using-typography-styles-in-your-application.
+// @include mat.typography-hierarchy($frontend-angular-theme);
+
+// Comment out the line below if you want to use the deprecated `color` inputs.
+// @include mat.color-variants-backwards-compatibility($frontend-angular-theme);
+/* You can add global styles to this file, and also import other style files */
+
+// ── Gold Theme Variables ──────────────────────────────────────────────
+:root {
+  --gold-primary: #D4A843;
+  --gold-primary-light: #E4C373;
+  --gold-primary-dark: #B08A2E;
+  --sidebar-bg: #1e1e2f;
+  --header-bg: #1a1a2e;
+  --content-bg: #f5f5f5;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  background-color: var(--content-bg);
+  color: var(--text-primary);
+}
+
+// ── Global Material Overrides ─────────────────────────────────────────
+
+// Toolbar gold accent
+.mat-toolbar {
+  &.mat-primary {
+    background-color: var(--header-bg);
+    color: #ffffff;
+  }
+}
+
+// Active sidebar link gold highlight
+.active-link {
+  background-color: rgba(212, 168, 67, 0.15) !important;
+  color: var(--gold-primary) !important;
+
+  .mat-icon {
+    color: var(--gold-primary) !important;
+  }
+
+  .mdc-list-item__primary-text {
+    color: var(--gold-primary) !important;
+  }
+}
+
+// Sidenav styling
+.mat-drawer {
+  border-right: none !important;
+}
+
+// FAB and raised buttons with gold
+.mat-mdc-fab.mat-primary,
+.mat-mdc-mini-fab.mat-primary {
+  --mdc-fab-container-color: var(--gold-primary);
+}
+
+.mat-mdc-raised-button.mat-primary {
+  --mdc-protected-button-container-color: var(--gold-primary);
+}
+
+// ── Utility Classes ───────────────────────────────────────────────────
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+
+  h1 {
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin: 0;
+  }
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.stat-card {
+  padding: 24px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+// Scrollbar styling
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.25);
+}
