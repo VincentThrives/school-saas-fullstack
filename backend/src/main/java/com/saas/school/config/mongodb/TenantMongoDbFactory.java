@@ -5,7 +5,9 @@ import com.mongodb.client.MongoDatabase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.support.PersistenceExceptionTranslator;
 import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.core.MongoExceptionTranslator;
 import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
 import org.springframework.stereotype.Component;
 
@@ -77,6 +79,11 @@ public class TenantMongoDbFactory implements MongoDatabaseFactory {
     public void evictTenant(String tenantId) {
         tenantFactories.remove(tenantId);
         log.info("Evicted database factory for tenant: {}", tenantId);
+    }
+
+    @Override
+    public PersistenceExceptionTranslator getExceptionTranslator() {
+        return new MongoExceptionTranslator();
     }
 
     @Override

@@ -70,12 +70,7 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, error.getDefaultMessage());
         });
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.<Map<String, String>>builder()
-                        .success(false)
-                        .message("Validation failed")
-                        .data(errors)
-                        .timestamp(java.time.Instant.now().toString())
-                        .build());
+                .body(new ApiResponse<>(false, "Validation failed", errors, java.time.Instant.now().toString()));
     }
 
     @ExceptionHandler(RateLimitException.class)

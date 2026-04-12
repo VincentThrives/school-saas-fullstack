@@ -131,11 +131,7 @@ public class FeatureFlagFilter extends OncePerRequestFilter {
             throws IOException {
         response.setStatus(HttpStatus.FORBIDDEN.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        ApiResponse<Void> body = ApiResponse.<Void>builder()
-                .success(false)
-                .message("Feature not enabled for this tenant: " + featureKey)
-                .timestamp(Instant.now().toString())
-                .build();
+        ApiResponse<Void> body = new ApiResponse<>(false, "Feature not enabled for this tenant: " + featureKey, null, Instant.now().toString());
         objectMapper.writeValue(response.getWriter(), body);
     }
 }
