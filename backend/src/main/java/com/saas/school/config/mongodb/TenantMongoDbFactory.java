@@ -1,15 +1,19 @@
 package com.saas.school.config.mongodb;
 
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.dao.support.PersistenceExceptionTranslator;
 import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.core.MongoExceptionTranslator;
 import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
-import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -21,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * Database connections are cached per tenant to avoid repeated handshakes.
  */
-@Component
+@Configuration
 public class TenantMongoDbFactory implements MongoDatabaseFactory {
 
     private static final Logger log = LoggerFactory.getLogger(TenantMongoDbFactory.class);
@@ -31,10 +35,19 @@ public class TenantMongoDbFactory implements MongoDatabaseFactory {
     private final ConcurrentHashMap<String, MongoDatabaseFactory> tenantFactories = new ConcurrentHashMap<>();
 
     public TenantMongoDbFactory(
-            MongoClient mongoClient,
+            @Value("${spring.data.mongodb.uri:mongodb://localhost:27017}") String mongoUri,
             @Value("${spring.data.mongodb.database:saas_central}") String centralDbName) {
-        this.mongoClient = mongoClient;
+        this.mongoClient = MongoClients.create(
+                MongoClientSettings.builder()
+                        .applyConnectionString(new ConnectionString(mongoUri))
+                        .build());
         this.centralDbName = centralDbName;
+        log.info("TenantMongoDbFactory initialized with central DB: {}", centralDbName);
+    }
+
+    @Bean
+    public MongoClient mongoClient() {
+        return this.mongoClient;
     }
 
     @Override
