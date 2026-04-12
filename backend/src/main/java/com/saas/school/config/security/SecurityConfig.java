@@ -62,6 +62,9 @@ public class SecurityConfig {
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                // Super Admin auth endpoints (public — listed again to override super/** catch-all)
+                .requestMatchers("/api/v1/super/auth/**").permitAll()
+
                 // Super Admin only — cannot be accessed with tenant JWT
                 .requestMatchers("/api/v1/super/**").hasRole("SUPER_ADMIN")
 
