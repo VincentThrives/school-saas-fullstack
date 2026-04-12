@@ -64,7 +64,7 @@ public class WhatsAppService {
         var users = userRepository.findAllById(allParentIds);
         return users.stream()
                 .filter(user -> user.getPhone() != null && !user.getPhone().isBlank())
-                .map(user -> new RecipientInfo(user.getId(), user.getName(), user.getPhone()))
+                .map(user -> new RecipientInfo(user.getUserId(), user.getFirstName() + " " + user.getLastName(), user.getPhone()))
                 .collect(Collectors.toList());
     }
 

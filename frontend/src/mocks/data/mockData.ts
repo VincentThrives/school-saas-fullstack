@@ -116,7 +116,7 @@ export const mockTenants = [
     featureFlags: {
       attendance: true, timetable: true, exams: true, mcq: true, fee: true,
       notifications: true, events: true, messaging: true, content: true,
-      report_cards: true, bulk_import: true, parent_portal: true, analytics: true,
+      report_cards: true, bulk_import: true, parent_portal: true, analytics: true, whatsapp: true,
     },
     limits: { maxStudents: 3000, maxUsers: 150, storageGb: 50 },
     createdAt: '2024-01-01T00:00:00Z',
@@ -136,7 +136,7 @@ export const mockTenants = [
     featureFlags: {
       attendance: true, timetable: true, exams: true, mcq: true, fee: true,
       notifications: true, events: true, messaging: true, content: true,
-      report_cards: true, bulk_import: true, parent_portal: true, analytics: true,
+      report_cards: true, bulk_import: true, parent_portal: true, analytics: true, whatsapp: true,
     },
     limits: { maxStudents: 5000, maxUsers: 250, storageGb: 100 },
     createdAt: '2024-01-15T00:00:00Z',

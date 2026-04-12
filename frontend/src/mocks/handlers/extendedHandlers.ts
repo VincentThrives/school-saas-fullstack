@@ -296,6 +296,143 @@ export const extendedHandlers = [
     const { mockDashboardStats } = await import('../data/mockData');
     return HttpResponse.json(apiResponse(mockDashboardStats.schoolAdmin));
   }),
+
+  // ==================== WhatsApp ====================
+  http.post(`${API_BASE}/whatsapp/resolve-recipients`, async () => {
+    await delay(500);
+    return HttpResponse.json(apiResponse([
+      { parentId: 'p1', parentName: 'Rajesh Kumar', phone: '+919876543210' },
+      { parentId: 'p2', parentName: 'Priya Sharma', phone: '+919876543211' },
+      { parentId: 'p3', parentName: 'Amit Patel', phone: '+919876543212' },
+      { parentId: 'p4', parentName: 'Sunita Verma', phone: '+919876543213' },
+      { parentId: 'p5', parentName: 'Deepak Singh', phone: '+919876543214' },
+    ]));
+  }),
+
+  http.post(`${API_BASE}/whatsapp/send`, async () => {
+    await delay(800);
+    return HttpResponse.json(apiResponse({
+      messageId: 'wa-' + Date.now(),
+      sentBy: 'user-1',
+      sentByName: 'John Teacher',
+      recipientType: 'CLASS',
+      classId: 'class-1',
+      className: '10th Grade - A',
+      parentIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
+      recipients: [
+        { parentId: 'p1', parentName: 'Rajesh Kumar', phone: '+919876543210', deliveryStatus: 'PENDING' },
+        { parentId: 'p2', parentName: 'Priya Sharma', phone: '+919876543211', deliveryStatus: 'PENDING' },
+        { parentId: 'p3', parentName: 'Amit Patel', phone: '+919876543212', deliveryStatus: 'PENDING' },
+      ],
+      messageBody: 'Test message',
+      contentType: 'TEXT',
+      totalRecipients: 3,
+      successCount: 0,
+      failureCount: 0,
+      status: 'QUEUED',
+      createdAt: new Date().toISOString(),
+    }, 'WhatsApp messages queued for delivery'));
+  }),
+
+  http.get(`${API_BASE}/whatsapp/messages`, async () => {
+    await delay(500);
+    return HttpResponse.json(apiResponse({
+      content: [
+        {
+          messageId: 'wa-1',
+          sentBy: 'user-1',
+          sentByName: 'John Teacher',
+          recipientType: 'CLASS',
+          className: '10th Grade - A',
+          messageBody: 'Dear parents, please note that the parent-teacher meeting is scheduled for this Saturday.',
+          contentType: 'TEXT',
+          totalRecipients: 25,
+          successCount: 23,
+          failureCount: 2,
+          status: 'PARTIALLY_FAILED',
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+          completedAt: new Date(Date.now() - 86300000).toISOString(),
+          recipients: [],
+          parentIds: [],
+        },
+        {
+          messageId: 'wa-2',
+          sentBy: 'user-1',
+          sentByName: 'John Teacher',
+          recipientType: 'CLASS',
+          className: '9th Grade - B',
+          messageBody: 'Reminder: Annual day practice tomorrow at 3 PM.',
+          contentType: 'TEXT',
+          totalRecipients: 30,
+          successCount: 30,
+          failureCount: 0,
+          status: 'COMPLETED',
+          createdAt: new Date(Date.now() - 172800000).toISOString(),
+          completedAt: new Date(Date.now() - 172700000).toISOString(),
+          recipients: [],
+          parentIds: [],
+        },
+        {
+          messageId: 'wa-3',
+          sentBy: 'user-2',
+          sentByName: 'Admin User',
+          recipientType: 'INDIVIDUAL',
+          messageBody: 'Fee payment reminder for the current semester.',
+          contentType: 'DOCUMENT',
+          mediaFileName: 'fee_notice.pdf',
+          totalRecipients: 5,
+          successCount: 5,
+          failureCount: 0,
+          status: 'COMPLETED',
+          createdAt: new Date(Date.now() - 259200000).toISOString(),
+          completedAt: new Date(Date.now() - 259100000).toISOString(),
+          recipients: [],
+          parentIds: [],
+        },
+      ],
+      totalElements: 3,
+      totalPages: 1,
+      page: 0,
+      size: 10,
+    }));
+  }),
+
+  http.get(`${API_BASE}/whatsapp/messages/:messageId`, async () => {
+    await delay(500);
+    return HttpResponse.json(apiResponse({
+      messageId: 'wa-1',
+      sentBy: 'user-1',
+      sentByName: 'John Teacher',
+      recipientType: 'CLASS',
+      classId: 'class-1',
+      className: '10th Grade - A',
+      parentIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
+      recipients: [
+        { parentId: 'p1', parentName: 'Rajesh Kumar', phone: '+919876543210', whatsappMessageId: 'wamid_1', deliveryStatus: 'SENT' },
+        { parentId: 'p2', parentName: 'Priya Sharma', phone: '+919876543211', whatsappMessageId: 'wamid_2', deliveryStatus: 'SENT' },
+        { parentId: 'p3', parentName: 'Amit Patel', phone: '+919876543212', whatsappMessageId: 'wamid_3', deliveryStatus: 'DELIVERED' },
+        { parentId: 'p4', parentName: 'Sunita Verma', phone: '+919876543213', deliveryStatus: 'FAILED', errorMessage: 'Phone number not on WhatsApp' },
+        { parentId: 'p5', parentName: 'Deepak Singh', phone: '+919876543214', whatsappMessageId: 'wamid_5', deliveryStatus: 'SENT' },
+      ],
+      messageBody: 'Dear parents, please note that the parent-teacher meeting is scheduled for this Saturday at 10 AM. Kindly confirm your attendance.',
+      contentType: 'TEXT',
+      totalRecipients: 5,
+      successCount: 4,
+      failureCount: 1,
+      status: 'PARTIALLY_FAILED',
+      createdAt: new Date(Date.now() - 86400000).toISOString(),
+      completedAt: new Date(Date.now() - 86300000).toISOString(),
+    }));
+  }),
+
+  http.post(`${API_BASE}/whatsapp/upload-media`, async () => {
+    await delay(600);
+    return HttpResponse.json(apiResponse({
+      url: '/uploads/whatsapp/sample_doc.pdf',
+      fileName: 'sample_doc.pdf',
+      mimeType: 'application/pdf',
+    }));
+  }),
 ];
 
 export default extendedHandlers;
