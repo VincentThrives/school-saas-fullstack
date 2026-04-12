@@ -100,7 +100,7 @@ export class MarkAttendanceComponent implements OnInit {
 
     this.isLoading = true;
     this.api
-      .getStudents(0, 100, this.selectedClassId)
+      .getStudents(0, 100, { classId: this.selectedClassId, sectionId: this.selectedSectionId })
       .subscribe({
         next: (res) => {
           const studentList = res.data?.content || [];

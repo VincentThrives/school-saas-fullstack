@@ -79,7 +79,7 @@ export class StudentsListComponent implements OnInit {
 
   loadStudents(): void {
     this.isLoading = true;
-    this.apiService.getStudents(this.pageIndex, this.pageSize, this.classFilter || undefined).subscribe({
+    this.apiService.getStudents(this.pageIndex, this.pageSize, this.classFilter ? { classId: this.classFilter } : undefined).subscribe({
       next: (response) => {
         this.dataSource.data = response.data.content;
         this.totalElements = response.data.totalElements;

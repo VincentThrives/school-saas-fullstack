@@ -97,7 +97,7 @@ export class AttendanceReportComponent implements OnInit {
     this.isLoading = true;
     const month = this.formatMonth(this.startDate);
 
-    this.api.getAttendanceSummary(this.selectedClassId, month).subscribe({
+    this.api.getClassAttendance(this.selectedClassId, this.selectedSectionId || '', this.startDate.toISOString().split('T')[0]).subscribe({
       next: (res) => {
         const data = res.data;
         if (data) {

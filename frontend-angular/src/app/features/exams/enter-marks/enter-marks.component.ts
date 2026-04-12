@@ -86,7 +86,7 @@ export class EnterMarksComponent implements OnInit {
       return;
     }
 
-    this.api.getStudents(0, 100, this.exam.classId).subscribe({
+    this.api.getStudents(0, 100, { classId: this.exam.classId }).subscribe({
       next: (res) => {
         const studentList = res.data?.content || [];
         this.students = studentList.map((s) => ({
@@ -150,7 +150,7 @@ export class EnterMarksComponent implements OnInit {
     }
 
     this.isSaving = true;
-    this.api.enterMarks(this.examId, validMarks).subscribe({
+    this.api.enterMarks({ examId: this.examId, marks: validMarks }).subscribe({
       next: () => {
         this.isSaving = false;
         this.snackBar.open('Marks saved successfully', 'Close', { duration: 3000 });
