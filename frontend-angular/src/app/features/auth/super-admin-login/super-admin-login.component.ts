@@ -56,18 +56,22 @@ export class SuperAdminLoginComponent {
       })
       .subscribe({
         next: (res) => {
+          console.log('Super admin login response:', res);
           this.isLoading = false;
           if (res.success) {
             this.router.navigate(['/superadmin/dashboard'], { replaceUrl: true });
+          } else {
+            this.errorMessage = res.message || 'Login failed.';
           }
         },
         error: (err) => {
+          console.error('Super admin login error:', err);
           this.isLoading = false;
           if (err?.status === 429) {
             this.errorMessage = 'Too many login attempts. Please wait before trying again.';
           } else {
             this.errorMessage =
-              err?.error?.message || 'Invalid credentials.';
+              err?.error?.message || err?.message || 'Invalid credentials. Please check your email and password.';
           }
         },
       });
