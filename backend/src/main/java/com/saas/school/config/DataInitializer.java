@@ -45,7 +45,7 @@ public class DataInitializer implements CommandLineRunner {
             admin.setPasswordHash(passwordEncoder.encode("Admin@123"));
             admin.setFirstName("Super");
             admin.setLastName("Admin");
-            admin.setIsActive(true);
+            admin.setActive(true);
             superAdminRepo.save(admin);
             log.warn("⚠️  Default Super Admin created: admin@schoolsaas.com / Admin@123 — CHANGE IMMEDIATELY");
         }
