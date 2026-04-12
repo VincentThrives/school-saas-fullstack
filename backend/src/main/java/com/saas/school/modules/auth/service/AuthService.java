@@ -47,9 +47,8 @@ public class AuthService {
     // ── Tenant Login ───────────────────────────────────────────────
 
     public AuthResponse login(LoginRequest req) {
-        // Route to the correct tenant DB
-        TenantContext.setTenantId(req.getTenantId());
-
+        // Look up tenant in CENTRAL DB first (no tenant context)
+        TenantContext.clear();
         Tenant tenant = tenantRepository.findById(req.getTenantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Tenant not found"));
 
@@ -60,7 +59,12 @@ public class AuthService {
             throw new TenantAccessException("School account is inactive.");
         }
 
+        // NOW route to the tenant DB for user lookup
+        TenantContext.setTenantId(req.getTenantId());
+
+        // Support login by email OR username
         User user = userRepository.findByEmailAndDeletedAtIsNull(req.getUsername())
+                .or(() -> userRepository.findByUsernameAndDeletedAtIsNull(req.getUsername()))
                 .orElseThrow(() -> new BusinessException("Invalid credentials."));
 
         if (user.getRole() == UserRole.SUPER_ADMIN) {
@@ -171,6 +175,12 @@ public class AuthService {
             return new TokenRefreshResponse(newAccess, newRefresh);
         }
 
+        // Look up tenant in CENTRAL DB first (no tenant context)
+        TenantContext.clear();
+        Tenant tenant = tenantRepository.findById(tenantId)
+                .orElseThrow(() -> new BusinessException("Tenant not found."));
+
+        // NOW route to tenant DB for user lookup
         TenantContext.setTenantId(tenantId);
         User user = userRepository.findByUserIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new BusinessException("User not found."));
@@ -178,9 +188,6 @@ public class AuthService {
         if (!passwordEncoder.matches(refreshToken, user.getRefreshToken())) {
             throw new BusinessException("Refresh token revoked.");
         }
-
-        Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new BusinessException("Tenant not found."));
 
         String newAccess  = jwtUtil.generateAccessToken(userId, tenantId, user.getRole(), tenant.getFeatureFlags());
         String newRefresh = jwtUtil.generateRefreshToken(userId, tenantId, user.getRole());

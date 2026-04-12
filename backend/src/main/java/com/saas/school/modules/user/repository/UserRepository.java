@@ -11,6 +11,7 @@ import java.util.Optional;
 
 public interface UserRepository extends MongoRepository<User, String> {
     Optional<User> findByEmailAndDeletedAtIsNull(String email);
+    Optional<User> findByUsernameAndDeletedAtIsNull(String username);
     Optional<User> findByUserIdAndDeletedAtIsNull(String userId);
     Page<User> findByRoleAndDeletedAtIsNull(UserRole role, Pageable pageable);
 
