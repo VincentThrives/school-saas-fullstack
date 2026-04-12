@@ -4,6 +4,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { AuthService } from '../core/services/auth.service';
 import { UserRole } from '../core/models';
 
@@ -16,6 +17,7 @@ import { UserRole } from '../core/models';
     MatIconModule,
     MatButtonModule,
     MatMenuModule,
+    MatDividerModule,
   ],
   template: `
     <mat-toolbar class="app-header">
