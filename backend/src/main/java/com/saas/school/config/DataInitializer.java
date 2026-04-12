@@ -53,35 +53,41 @@ public class DataInitializer implements CommandLineRunner {
 
     private void seedFeatureCatalog() {
         if (featureCatalogRepo.count() == 0) {
+            int order = 0;
             List<FeatureCatalog> catalog = List.of(
-                feature("attendance",   "Attendance",          "Daily attendance tracking",          true,  SubscriptionPlan.BASIC,    SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("timetable",    "Timetable",           "Class schedule management",          true,  SubscriptionPlan.BASIC,    SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("exams",        "Exams & Marks",       "Traditional exam management",        true,  SubscriptionPlan.BASIC,    SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("mcq",          "MCQ Engine",          "Online MCQ exam system",             false, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("fee",          "Fee Management",      "Fee structure and payments",         true,  SubscriptionPlan.BASIC,    SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("notifications","Notifications",        "In-app and email notifications",    true,  SubscriptionPlan.BASIC,    SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("events",       "Events & Holidays",   "School calendar management",        true,  SubscriptionPlan.BASIC,    SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("messaging",    "Messaging",           "Internal messaging between users",   false, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("content",      "Study Materials",     "Upload and manage study content",    true,  SubscriptionPlan.BASIC,    SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("report_cards", "Report Cards",        "Generate PDF report cards",          true,  SubscriptionPlan.BASIC,    SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("bulk_import",  "Bulk Import",         "CSV/Excel data import",              false, SubscriptionPlan.ENTERPRISE),
-                feature("parent_portal","Parent Portal",       "Parent access and notifications",    false, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("analytics",    "Analytics",           "Advanced reports and charts",        false, SubscriptionPlan.ENTERPRISE),
-                feature("whatsapp",    "WhatsApp Messaging",  "Send bulk WhatsApp messages to parents", false, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE)
+                feature("attendance",    "Attendance",          "Daily attendance tracking",                     true,  "academics",      false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("timetable",     "Timetable",           "Class schedule management",                     true,  "academics",      false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("exams",         "Exams & Marks",       "Traditional exam management",                   true,  "exams",          false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("mcq",           "MCQ Engine",          "Online MCQ exam system",                        false, "exams",          false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("fee",           "Fee Management",      "Fee structure and payments",                    true,  "finance",        false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("notifications", "Notifications",       "In-app and email notifications",                true,  "communication",  false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("events",        "Events & Holidays",   "School calendar management",                    true,  "academics",      false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("messaging",     "Messaging",           "Internal messaging between users",              false, "communication",  false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("content",       "Study Materials",     "Upload and manage study content",               true,  "academics",      false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("report_cards",  "Report Cards",        "Generate PDF report cards",                     true,  "reports",        false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("bulk_import",   "Bulk Import",         "CSV/Excel data import",                         false, "system",         false, ++order, SubscriptionPlan.ENTERPRISE),
+                feature("parent_portal", "Parent Portal",       "Parent access and notifications",               false, "communication",  false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("analytics",     "Analytics",           "Advanced reports and charts",                   false, "reports",        false, ++order, SubscriptionPlan.ENTERPRISE),
+                feature("whatsapp",      "WhatsApp Messaging",  "Send bulk WhatsApp messages to parents",       false, "communication",  false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE)
             );
             featureCatalogRepo.saveAll(catalog);
-            log.info("✅ Feature catalog seeded with {} features", catalog.size());
+            log.info("Feature catalog seeded with {} features", catalog.size());
         }
     }
 
     private FeatureCatalog feature(String key, String name, String desc,
-                                    boolean defaultEnabled, SubscriptionPlan... plans) {
+                                    boolean defaultEnabled, String category,
+                                    boolean coreFeature, int sortOrder,
+                                    SubscriptionPlan... plans) {
         FeatureCatalog catalog = new FeatureCatalog();
         catalog.setFeatureKey(key);
         catalog.setDisplayName(name);
         catalog.setDescription(desc);
         catalog.setDefaultEnabled(defaultEnabled);
         catalog.setAvailableInPlans(List.of(plans));
+        catalog.setCategory(category);
+        catalog.setCoreFeature(coreFeature);
+        catalog.setSortOrder(sortOrder);
         return catalog;
     }
 }

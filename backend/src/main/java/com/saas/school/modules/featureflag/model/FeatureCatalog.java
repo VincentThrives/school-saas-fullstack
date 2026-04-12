@@ -14,6 +14,9 @@ public class FeatureCatalog {
     private String description;
     private boolean defaultEnabled;
     private List<Tenant.SubscriptionPlan> availableInPlans;
+    private String category;
+    private boolean coreFeature;
+    private int sortOrder;
 
     public FeatureCatalog() {
     }
@@ -41,4 +44,13 @@ public class FeatureCatalog {
 
     public List<Tenant.SubscriptionPlan> getAvailableInPlans() { return availableInPlans; }
     public void setAvailableInPlans(List<Tenant.SubscriptionPlan> availableInPlans) { this.availableInPlans = availableInPlans; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public boolean isCoreFeature() { return coreFeature; }
+    public void setCoreFeature(boolean coreFeature) { this.coreFeature = coreFeature; }
+
+    public int getSortOrder() { return sortOrder; }
+    public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
 }

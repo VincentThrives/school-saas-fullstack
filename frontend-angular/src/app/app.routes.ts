@@ -359,13 +359,37 @@ export const routes: Routes = [
         canActivate: [roleGuard],
         data: { roles: [UserRole.SUPER_ADMIN], title: 'Tenants' },
       },
+
+      // Feature Management (Super Admin)
       {
         path: 'superadmin/features',
         loadComponent: () =>
-          import('./features/placeholder/placeholder.component').then(m => m.PlaceholderComponent),
+          import('./features/feature-management/school-features/school-features.component').then(m => m.SchoolFeaturesComponent),
         canActivate: [roleGuard],
-        data: { roles: [UserRole.SUPER_ADMIN], title: 'Feature Flags' },
+        data: { roles: [UserRole.SUPER_ADMIN] },
       },
+      {
+        path: 'superadmin/features/:tenantId',
+        loadComponent: () =>
+          import('./features/feature-management/school-features/school-features.component').then(m => m.SchoolFeaturesComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SUPER_ADMIN] },
+      },
+      {
+        path: 'superadmin/features/:tenantId/audit',
+        loadComponent: () =>
+          import('./features/feature-management/feature-audit-log/feature-audit-log.component').then(m => m.FeatureAuditLogComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SUPER_ADMIN] },
+      },
+      {
+        path: 'superadmin/templates',
+        loadComponent: () =>
+          import('./features/feature-management/feature-templates/feature-templates.component').then(m => m.FeatureTemplatesComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SUPER_ADMIN] },
+      },
+
       {
         path: 'superadmin/settings',
         loadComponent: () =>

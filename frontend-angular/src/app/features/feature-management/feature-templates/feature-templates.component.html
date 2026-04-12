@@ -1,0 +1,73 @@
+<div class="templates-container">
+  <app-page-header
+    title="Feature Templates"
+    [breadcrumbs]="breadcrumbs"
+    actionLabel="Create Template"
+    actionIcon="add"
+    (actionClick)="openCreateDialog()"
+  ></app-page-header>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <mat-spinner diameter="48"></mat-spinner>
+    <p>Loading templates...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && templates.length === 0" class="empty-state">
+    <mat-icon class="empty-icon">bookmark_border</mat-icon>
+    <h3>No Templates Yet</h3>
+    <p>Create a feature template to quickly apply a set of features to schools.</p>
+    <button mat-flat-button class="gold-button" (click)="openCreateDialog()">
+      <mat-icon>add</mat-icon>
+      Create First Template
+    </button>
+  </div>
+
+  <!-- Template Cards Grid -->
+  <div *ngIf="!isLoading && templates.length > 0" class="templates-grid">
+    <mat-card *ngFor="let template of templates" class="template-card">
+      <mat-card-content>
+        <div class="template-header">
+          <div class="template-icon">
+            <mat-icon>bookmark</mat-icon>
+          </div>
+          <div class="template-info">
+            <h3 class="template-name">{{ template.name }}</h3>
+            <p class="template-description">{{ template.description || 'No description' }}</p>
+          </div>
+        </div>
+
+        <div class="template-stats">
+          <div class="stat">
+            <mat-icon class="stat-icon">toggle_on</mat-icon>
+            <span class="stat-value">{{ getEnabledCount(template) }}</span>
+            <span class="stat-label">of {{ getTotalCount(template) }} enabled</span>
+          </div>
+        </div>
+
+        <div class="template-meta">
+          <span class="meta-item">
+            <mat-icon class="meta-icon">person</mat-icon>
+            {{ template.createdByName }}
+          </span>
+          <span class="meta-item">
+            <mat-icon class="meta-icon">schedule</mat-icon>
+            {{ template.createdAt | date:'MMM d, y' }}
+          </span>
+        </div>
+      </mat-card-content>
+
+      <mat-card-actions class="template-actions">
+        <button mat-button class="apply-button" (click)="applyToSchool(template)" matTooltip="Navigate to tenants to apply">
+          <mat-icon>school</mat-icon>
+          Apply to School
+        </button>
+        <button mat-button color="warn" (click)="deleteTemplate(template)">
+          <mat-icon>delete</mat-icon>
+          Delete
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+</div>

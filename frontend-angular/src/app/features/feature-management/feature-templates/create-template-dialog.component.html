@@ -1,0 +1,58 @@
+<h2 mat-dialog-title>Create Feature Template</h2>
+<mat-dialog-content>
+  <div class="form-section">
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Template Name</mat-label>
+      <input matInput [(ngModel)]="name" placeholder="e.g., Basic School Setup" required />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Description</mat-label>
+      <textarea matInput [(ngModel)]="description" rows="2" placeholder="Describe what this template is for..."></textarea>
+    </mat-form-field>
+  </div>
+
+  <mat-divider></mat-divider>
+
+  <div class="features-section">
+    <div class="features-header">
+      <h3>Select Features</h3>
+      <span class="selected-count">{{ selectedCount }} selected</span>
+    </div>
+
+    <div *ngFor="let category of categories" class="category-group">
+      <div class="category-header">
+        <mat-checkbox
+          [checked]="isCategoryAllSelected(category)"
+          [indeterminate]="isCategorySomeSelected(category)"
+          (change)="toggleAll(category, $event.checked)"
+          class="category-checkbox"
+        >
+          <span class="category-name">{{ category }}</span>
+        </mat-checkbox>
+      </div>
+
+      <div class="feature-list">
+        <div *ngFor="let item of catalogByCategory[category]" class="feature-item">
+          <mat-checkbox
+            [(ngModel)]="featureSelections[item.featureKey]"
+            class="feature-checkbox"
+          >
+            <div class="feature-label">
+              <span class="feature-name">{{ item.displayName }}</span>
+              <span *ngIf="item.coreFeature" class="core-badge">Core</span>
+            </div>
+          </mat-checkbox>
+        </div>
+      </div>
+    </div>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Cancel</button>
+  <button mat-flat-button class="save-button" [disabled]="!isValid" (click)="onSave()">
+    <mat-icon>save</mat-icon>
+    Save Template
+  </button>
+</mat-dialog-actions>

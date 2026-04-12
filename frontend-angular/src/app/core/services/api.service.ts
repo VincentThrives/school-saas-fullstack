@@ -15,6 +15,11 @@ import {
   SendWhatsAppRequest,
   Tenant,
   CreateTenantRequest,
+  FeatureToggleRequest,
+  BulkFeatureToggleRequest,
+  SchoolFeatureResponse,
+  FeatureAuditLog,
+  FeatureTemplate,
 } from '../models';
 
 @Injectable({ providedIn: 'root' })
@@ -378,5 +383,47 @@ export class ApiService {
 
   getStudentFeePayments(studentId: string): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.API}/fees/payments/student/${studentId}`);
+  }
+
+  // ── Feature Management ───────────────────────────────────────────────
+  getFeatureCatalog(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/super/features/catalog`);
+  }
+
+  getSchoolFeatures(tenantId: string): Observable<ApiResponse<SchoolFeatureResponse>> {
+    return this.http.get<ApiResponse<SchoolFeatureResponse>>(`${this.API}/super/features/schools/${tenantId}`);
+  }
+
+  toggleFeature(tenantId: string, req: FeatureToggleRequest): Observable<ApiResponse<Record<string, boolean>>> {
+    return this.http.put<ApiResponse<Record<string, boolean>>>(`${this.API}/super/features/schools/${tenantId}/toggle`, req);
+  }
+
+  bulkToggleFeatures(tenantId: string, req: BulkFeatureToggleRequest): Observable<ApiResponse<Record<string, boolean>>> {
+    return this.http.put<ApiResponse<Record<string, boolean>>>(`${this.API}/super/features/schools/${tenantId}/bulk`, req);
+  }
+
+  getFeatureAuditLog(tenantId: string, page = 0, size = 20): Observable<ApiResponse<PaginatedResponse<FeatureAuditLog>>> {
+    const params = new HttpParams().set('page', page).set('size', size);
+    return this.http.get<ApiResponse<PaginatedResponse<FeatureAuditLog>>>(`${this.API}/super/features/schools/${tenantId}/audit`, { params });
+  }
+
+  undoFeatureToggle(tenantId: string, auditId: string): Observable<ApiResponse<void>> {
+    return this.http.post<ApiResponse<void>>(`${this.API}/super/features/schools/${tenantId}/audit/${auditId}/undo`, null);
+  }
+
+  applyFeatureTemplate(tenantId: string, templateId: string): Observable<ApiResponse<Record<string, boolean>>> {
+    return this.http.post<ApiResponse<Record<string, boolean>>>(`${this.API}/super/features/schools/${tenantId}/apply-template`, { templateId });
+  }
+
+  getFeatureTemplates(): Observable<ApiResponse<FeatureTemplate[]>> {
+    return this.http.get<ApiResponse<FeatureTemplate[]>>(`${this.API}/super/features/templates`);
+  }
+
+  createFeatureTemplate(req: { name: string; description: string; featureFlags: Record<string, boolean> }): Observable<ApiResponse<FeatureTemplate>> {
+    return this.http.post<ApiResponse<FeatureTemplate>>(`${this.API}/super/features/templates`, req);
+  }
+
+  deleteFeatureTemplate(templateId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/super/features/templates/${templateId}`);
   }
 }

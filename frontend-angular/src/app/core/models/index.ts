@@ -248,3 +248,71 @@ export interface CreateTenantRequest {
   adminFirstName: string;
   adminLastName: string;
 }
+
+// Feature Management
+export interface FeatureCatalogItem {
+  featureKey: string;
+  displayName: string;
+  description: string;
+  category: string;
+  coreFeature: boolean;
+  defaultEnabled: boolean;
+  sortOrder: number;
+  availableInPlans: string[];
+}
+
+export interface FeatureDetail {
+  featureKey: string;
+  displayName: string;
+  description: string;
+  category: string;
+  enabled: boolean;
+  coreFeature: boolean;
+  availableInPlan: boolean;
+}
+
+export interface SchoolFeatureResponse {
+  tenantId: string;
+  schoolName: string;
+  plan: string;
+  totalFeatures: number;
+  enabledFeatures: number;
+  features: FeatureDetail[];
+  categories: Record<string, FeatureDetail[]>;
+}
+
+export interface FeatureAuditLog {
+  id: string;
+  tenantId: string;
+  featureKey: string;
+  featureDisplayName: string;
+  previousState: boolean;
+  newState: boolean;
+  changedBy: string;
+  changedByName: string;
+  changeReason?: string;
+  timestamp: string;
+  undone: boolean;
+  undoneAt?: string;
+}
+
+export interface FeatureTemplate {
+  id: string;
+  name: string;
+  description: string;
+  featureFlags: Record<string, boolean>;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+}
+
+export interface FeatureToggleRequest {
+  featureKey: string;
+  enabled: boolean;
+  reason?: string;
+}
+
+export interface BulkFeatureToggleRequest {
+  features: Record<string, boolean>;
+  reason?: string;
+}

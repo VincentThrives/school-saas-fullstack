@@ -157,7 +157,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
       this.menuItems = [
         { title: 'Dashboard', path: '/superadmin/dashboard', icon: 'dashboard' },
         { title: 'Tenants', path: '/superadmin/tenants', icon: 'business' },
-        { title: 'Feature Flags', path: '/superadmin/features', icon: 'toggle_on' },
+        { title: 'Feature Management', path: '/superadmin/features', icon: 'toggle_on' },
+        { title: 'Templates', path: '/superadmin/templates', icon: 'bookmark' },
         { title: 'Audit Logs', path: '/superadmin/audit-logs', icon: 'description' },
         { title: 'Settings', path: '/superadmin/settings', icon: 'settings' },
       ];

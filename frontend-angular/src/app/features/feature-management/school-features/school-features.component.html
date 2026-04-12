@@ -1,0 +1,155 @@
+<div class="school-features-container">
+  <app-page-header
+    title="Feature Settings"
+    [breadcrumbs]="breadcrumbs"
+  ></app-page-header>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <mat-spinner diameter="48"></mat-spinner>
+    <p>Loading feature settings...</p>
+  </div>
+
+  <!-- No Tenant Selected -->
+  <div *ngIf="!isLoading && !tenantId" class="empty-state">
+    <mat-icon class="empty-icon">toggle_on</mat-icon>
+    <h3>No School Selected</h3>
+    <p>Please select a school from the Tenants page to manage its features.</p>
+    <button mat-flat-button class="gold-button" routerLink="/superadmin/tenants">
+      <mat-icon>business</mat-icon>
+      Go to Tenants
+    </button>
+  </div>
+
+  <!-- School Features Content -->
+  <div *ngIf="!isLoading && schoolData" class="features-content">
+    <!-- School Info Card -->
+    <mat-card class="school-info-card">
+      <mat-card-content>
+        <div class="school-info-row">
+          <div class="school-info-left">
+            <div class="school-avatar">
+              {{ schoolData.schoolName.charAt(0) || 'S' }}
+            </div>
+            <div class="school-details">
+              <h2 class="school-name">{{ schoolData.schoolName }}</h2>
+              <div class="school-meta">
+                <span
+                  class="plan-chip"
+                  [style.background-color]="getPlanColor(schoolData.plan)"
+                >
+                  {{ schoolData.plan }}
+                </span>
+                <span class="feature-count">
+                  <mat-icon class="count-icon">toggle_on</mat-icon>
+                  {{ getEnabledCount() }} of {{ getTotalCount() }} features enabled
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="school-info-right">
+            <div class="feature-progress">
+              <div class="progress-bar">
+                <div
+                  class="progress-fill"
+                  [style.width.%]="getTotalCount() ? (getEnabledCount() / getTotalCount()) * 100 : 0"
+                ></div>
+              </div>
+              <span class="progress-text">
+                {{ getTotalCount() ? ((getEnabledCount() / getTotalCount()) * 100 | number:'1.0-0') : 0 }}%
+              </span>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Actions Bar -->
+    <div class="actions-bar">
+      <div class="actions-left">
+        <button mat-stroked-button class="action-btn" (click)="enableAll()" [disabled]="isSaving">
+          <mat-icon>check_circle</mat-icon>
+          Enable All
+        </button>
+        <button mat-stroked-button class="action-btn" color="warn" (click)="disableAll()" [disabled]="isSaving">
+          <mat-icon>cancel</mat-icon>
+          Disable All
+        </button>
+        <button mat-stroked-button class="action-btn" [matMenuTriggerFor]="templateMenu" [disabled]="isSaving || templates.length === 0">
+          <mat-icon>bookmark</mat-icon>
+          Apply Template
+        </button>
+        <mat-menu #templateMenu="matMenu">
+          <button mat-menu-item *ngFor="let tpl of templates" (click)="applyTemplate(tpl)">
+            <mat-icon>bookmark</mat-icon>
+            <span>{{ tpl.name }}</span>
+          </button>
+          <button mat-menu-item *ngIf="templates.length === 0" disabled>
+            <span>No templates available</span>
+          </button>
+        </mat-menu>
+      </div>
+      <div class="actions-right">
+        <button mat-stroked-button class="action-btn" (click)="viewAuditLog()">
+          <mat-icon>history</mat-icon>
+          View Audit Log
+        </button>
+      </div>
+    </div>
+
+    <!-- Saving Overlay -->
+    <div *ngIf="isSaving" class="saving-overlay">
+      <mat-spinner diameter="24"></mat-spinner>
+      <span>Saving...</span>
+    </div>
+
+    <!-- Feature Categories -->
+    <div class="categories-container">
+      <div *ngFor="let category of categories" class="category-section">
+        <div class="category-header">
+          <div class="category-title">
+            <mat-icon class="category-icon">{{ getCategoryIcon(category) }}</mat-icon>
+            <h3>{{ category }}</h3>
+            <span class="category-count">
+              ({{ getEnabledInCategory(category) }}/{{ getFeaturesForCategory(category).length }})
+            </span>
+          </div>
+          <button mat-button class="enable-all-link" (click)="enableAllInCategory(category)" [disabled]="isSaving">
+            Enable All in Category
+          </button>
+        </div>
+
+        <mat-card class="features-card">
+          <div
+            *ngFor="let feature of getFeaturesForCategory(category); let last = last"
+            class="feature-row"
+            [class.disabled-row]="!feature.enabled"
+            [class.core-row]="feature.coreFeature"
+          >
+            <div class="feature-info">
+              <div class="feature-name-row">
+                <span class="feature-name">{{ feature.displayName }}</span>
+                <span *ngIf="feature.coreFeature" class="core-chip">Core</span>
+                <span *ngIf="!feature.availableInPlan" class="plan-warning-chip">
+                  <mat-icon class="warning-icon-small">warning</mat-icon>
+                  Not in plan
+                </span>
+              </div>
+              <p class="feature-description">{{ feature.description }}</p>
+            </div>
+            <div class="feature-toggle">
+              <mat-slide-toggle
+                [checked]="feature.enabled"
+                [disabled]="feature.coreFeature || isSaving"
+                (change)="toggleFeature(feature)"
+                [matTooltip]="feature.coreFeature ? 'Core features cannot be disabled' : ''"
+                class="gold-toggle"
+              ></mat-slide-toggle>
+            </div>
+            <mat-divider *ngIf="!last"></mat-divider>
+          </div>
+        </mat-card>
+      </div>
+    </div>
+  </div>
+</div>
