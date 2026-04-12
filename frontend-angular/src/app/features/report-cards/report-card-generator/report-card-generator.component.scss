@@ -1,0 +1,91 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.report-card-container {
+  padding: 0;
+}
+
+.filter-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 16px 24px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-field {
+  min-width: 200px;
+  flex: 1;
+}
+
+.table-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.selected-count {
+  font-weight: 600;
+  color: $gold-dark;
+}
+
+.generate-btn {
+  background-color: $gold !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.report-table {
+  width: 100%;
+}
+
+.grade-chip {
+  background-color: rgba(212, 168, 67, 0.12) !important;
+  color: $gold-dark !important;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.actions-col {
+  text-align: right !important;
+  width: 100px;
+}
+
+.table-row:hover {
+  background-color: rgba(212, 168, 67, 0.04);
+  cursor: pointer;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: rgba(0, 0, 0, 0.5);
+
+  p {
+    margin: 8px 0 0;
+  }
+}
+
+.empty-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: rgba(0, 0, 0, 0.15);
+}

@@ -1,0 +1,91 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.report-view-container {
+  padding: 0;
+}
+
+.info-card,
+.marks-card,
+.remarks-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 24px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.54);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.info-value {
+  font-size: 1rem;
+  font-weight: 500;
+
+  &.highlight {
+    color: $gold-dark;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+}
+
+.grade-chip {
+  background-color: rgba(212, 168, 67, 0.12) !important;
+  color: $gold-dark !important;
+  font-weight: 600;
+}
+
+.grade-chip-sm {
+  background-color: rgba(212, 168, 67, 0.12) !important;
+  color: $gold-dark !important;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.section-title {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.marks-table {
+  width: 100%;
+}
+
+.totals-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background-color: rgba(212, 168, 67, 0.06);
+  border-top: 2px solid $gold;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.remarks-text {
+  color: rgba(0, 0, 0, 0.7);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}

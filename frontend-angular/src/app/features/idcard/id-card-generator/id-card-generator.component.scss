@@ -1,0 +1,94 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.id-card-container {
+  padding: 0;
+}
+
+.filter-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 16px 24px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.type-radio {
+  display: flex;
+  gap: 16px;
+
+  ::ng-deep .mat-mdc-radio-button.mat-mdc-radio-checked {
+    .mdc-radio__outer-circle {
+      border-color: $gold !important;
+    }
+    .mdc-radio__inner-circle {
+      border-color: $gold !important;
+    }
+  }
+}
+
+.search-field {
+  flex: 1;
+  min-width: 250px;
+}
+
+.table-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.selected-count {
+  font-weight: 600;
+  color: $gold-dark;
+}
+
+.generate-btn {
+  background-color: $gold !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.users-table {
+  width: 100%;
+}
+
+.table-row:hover {
+  background-color: rgba(212, 168, 67, 0.04);
+  cursor: pointer;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: rgba(0, 0, 0, 0.5);
+
+  p {
+    margin: 8px 0 0;
+  }
+}
+
+.empty-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: rgba(0, 0, 0, 0.15);
+}

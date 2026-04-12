@@ -1,0 +1,101 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.rankings-container {
+  padding: 0;
+}
+
+.filter-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 16px 24px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-field {
+  min-width: 200px;
+  flex: 1;
+}
+
+.table-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.rankings-table {
+  width: 100%;
+}
+
+.rank-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.medal-icon {
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+}
+
+.gold-medal {
+  color: #FFD700;
+}
+
+.silver-medal {
+  color: #C0C0C0;
+}
+
+.bronze-medal {
+  color: #CD7F32;
+}
+
+.rank-number {
+  font-weight: 500;
+
+  &.top-rank {
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+}
+
+.top-student {
+  font-weight: 600;
+}
+
+.top-row {
+  background-color: rgba(212, 168, 67, 0.04);
+}
+
+.percentage-value {
+  font-weight: 600;
+  color: $gold-dark;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: rgba(0, 0, 0, 0.5);
+
+  p {
+    margin: 8px 0 0;
+  }
+}
+
+.empty-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: rgba(0, 0, 0, 0.15);
+}

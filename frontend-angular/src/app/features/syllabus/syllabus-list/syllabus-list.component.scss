@@ -1,0 +1,136 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.syllabus-list-container {
+  padding: 0;
+}
+
+.filter-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 16px 24px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-field {
+  min-width: 200px;
+  flex: 1;
+}
+
+.syllabus-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.syllabus-card {
+  border-radius: 12px !important;
+  padding: 20px;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.2s;
+
+  &:hover {
+    box-shadow: 0 4px 16px rgba(212, 168, 67, 0.2);
+    transform: translateY(-2px);
+  }
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.subject-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.class-name {
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.card-icon {
+  color: $gold;
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+}
+
+.teacher-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.6);
+  margin-bottom: 16px;
+}
+
+.teacher-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.progress-section {
+  margin-bottom: 12px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.progress-value {
+  font-weight: 700;
+  color: $gold-dark;
+}
+
+.progress-bar {
+  ::ng-deep .mdc-linear-progress__bar-inner {
+    border-color: $gold !important;
+  }
+  ::ng-deep .mdc-linear-progress__buffer-bar {
+    background-color: rgba(212, 168, 67, 0.15) !important;
+  }
+}
+
+.topics-count {
+  font-size: 0.8rem;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: rgba(0, 0, 0, 0.5);
+
+  p {
+    margin: 8px 0 0;
+  }
+}
+
+.empty-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: rgba(0, 0, 0, 0.15);
+}

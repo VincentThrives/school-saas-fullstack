@@ -1,0 +1,95 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.syllabus-form-container {
+  padding: 0;
+}
+
+.form-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 24px;
+}
+
+.section-title {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.form-field {
+  flex: 1;
+  min-width: 200px;
+}
+
+.topics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+
+  .section-title {
+    margin: 0;
+  }
+}
+
+.add-topic-btn {
+  color: $gold-dark !important;
+  border-color: $gold !important;
+}
+
+.topic-row {
+  margin-bottom: 12px;
+}
+
+.topic-fields {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.topic-name-field {
+  flex: 2;
+  min-width: 200px;
+}
+
+.topic-desc-field {
+  flex: 2;
+  min-width: 200px;
+}
+
+.topic-date-field {
+  flex: 1;
+  min-width: 160px;
+}
+
+.remove-btn {
+  color: #c62828;
+  margin-top: 8px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.save-btn {
+  background-color: $gold !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}

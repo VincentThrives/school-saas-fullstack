@@ -1,0 +1,133 @@
+<div class="report-card-container">
+  <app-page-header
+    title="Report Cards"
+    subtitle="Generate and manage student report cards"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Report Cards' }
+    ]"
+  ></app-page-header>
+
+  <mat-card class="filter-card">
+    <div class="filter-row">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Class</mat-label>
+        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadReportCards()">
+          <mat-option *ngFor="let cls of classes" [value]="cls.id">{{ cls.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="loadReportCards()">
+          <mat-option *ngFor="let ay of academicYears" [value]="ay.id">{{ ay.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+  </mat-card>
+
+  <mat-card class="table-card">
+    <div class="table-header">
+      <span class="selected-count" *ngIf="selection.selected.length > 0">
+        {{ selection.selected.length }} selected
+      </span>
+      <span *ngIf="selection.selected.length === 0"></span>
+      <button
+        mat-raised-button
+        class="generate-btn"
+        [disabled]="selection.isEmpty() || isGenerating"
+        (click)="generateReportCards()"
+      >
+        <mat-icon>description</mat-icon>
+        {{ isGenerating ? 'Generating...' : 'Generate Report Cards' }}
+      </button>
+    </div>
+
+    <table mat-table [dataSource]="reportCards" class="report-table">
+      <!-- Checkbox -->
+      <ng-container matColumnDef="select">
+        <th mat-header-cell *matHeaderCellDef>
+          <mat-checkbox
+            (change)="toggleAllRows()"
+            [checked]="isAllSelected()"
+            [indeterminate]="selection.hasValue() && !isAllSelected()"
+          ></mat-checkbox>
+        </th>
+        <td mat-cell *matCellDef="let rc">
+          <mat-checkbox
+            (click)="$event.stopPropagation()"
+            (change)="selection.toggle(rc)"
+            [checked]="selection.isSelected(rc)"
+          ></mat-checkbox>
+        </td>
+      </ng-container>
+
+      <!-- Student Name -->
+      <ng-container matColumnDef="studentName">
+        <th mat-header-cell *matHeaderCellDef>Student Name</th>
+        <td mat-cell *matCellDef="let rc">{{ rc.studentName }}</td>
+      </ng-container>
+
+      <!-- Roll Number -->
+      <ng-container matColumnDef="rollNumber">
+        <th mat-header-cell *matHeaderCellDef>Roll No</th>
+        <td mat-cell *matCellDef="let rc">{{ rc.rollNumber || '-' }}</td>
+      </ng-container>
+
+      <!-- Percentage -->
+      <ng-container matColumnDef="percentage">
+        <th mat-header-cell *matHeaderCellDef>Percentage</th>
+        <td mat-cell *matCellDef="let rc">{{ rc.percentage | number:'1.1-1' }}%</td>
+      </ng-container>
+
+      <!-- Grade -->
+      <ng-container matColumnDef="grade">
+        <th mat-header-cell *matHeaderCellDef>Grade</th>
+        <td mat-cell *matCellDef="let rc">
+          <mat-chip class="grade-chip">{{ rc.grade }}</mat-chip>
+        </td>
+      </ng-container>
+
+      <!-- Rank -->
+      <ng-container matColumnDef="rank">
+        <th mat-header-cell *matHeaderCellDef>Rank</th>
+        <td mat-cell *matCellDef="let rc">{{ rc.rank || '-' }}</td>
+      </ng-container>
+
+      <!-- Actions -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
+        <td mat-cell *matCellDef="let rc" class="actions-col">
+          <button mat-icon-button (click)="viewReportCard(rc.reportCardId); $event.stopPropagation()" matTooltip="View">
+            <mat-icon>visibility</mat-icon>
+          </button>
+          <button mat-icon-button (click)="downloadPdf(rc.reportCardId); $event.stopPropagation()" matTooltip="Download PDF">
+            <mat-icon>download</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr
+        mat-row
+        *matRowDef="let row; columns: displayedColumns;"
+        class="table-row"
+        (click)="viewReportCard(row.reportCardId)"
+      ></tr>
+    </table>
+
+    <div class="loading-row" *ngIf="isLoading">
+      <mat-spinner diameter="36"></mat-spinner>
+    </div>
+
+    <div class="empty-state" *ngIf="!isLoading && reportCards.length === 0 && selectedClassId">
+      <mat-icon class="empty-icon">description</mat-icon>
+      <p>No report cards found for the selected class</p>
+    </div>
+
+    <div class="empty-state" *ngIf="!selectedClassId">
+      <mat-icon class="empty-icon">filter_list</mat-icon>
+      <p>Select a class and academic year to view report cards</p>
+    </div>
+  </mat-card>
+</div>

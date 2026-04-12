@@ -1,0 +1,87 @@
+<div class="ptm-book-container">
+  <app-page-header
+    title="Book PTM Slot"
+    [subtitle]="meeting?.title || ''"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Parent-Teacher Meetings', link: '/ptm' },
+      { label: 'Book Slot' }
+    ]"
+  ></app-page-header>
+
+  <!-- Teacher Selection -->
+  <mat-card class="filter-card">
+    <mat-form-field appearance="outline" class="teacher-select">
+      <mat-label>Select Teacher</mat-label>
+      <mat-select [(ngModel)]="selectedTeacherId" (selectionChange)="filterSlots()">
+        <mat-option *ngFor="let t of teachers" [value]="t.id">{{ t.name }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </mat-card>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <!-- Time Grid -->
+  <mat-card class="slots-card" *ngIf="!isLoading">
+    <h3 class="section-title">Available Time Slots</h3>
+    <div class="slots-grid">
+      <div
+        *ngFor="let slot of filteredSlots"
+        class="slot-cell"
+        [class.available]="slot.status === 'AVAILABLE'"
+        [class.booked]="slot.status === 'BOOKED'"
+        [class.completed]="slot.status === 'COMPLETED'"
+        [class.selected]="selectedSlot?.slotId === slot.slotId"
+        (click)="selectSlot(slot)"
+      >
+        <span class="slot-time">{{ slot.startTime }} - {{ slot.endTime }}</span>
+        <span class="slot-status" *ngIf="slot.status === 'BOOKED'">Booked</span>
+        <span class="slot-status" *ngIf="slot.status === 'COMPLETED'">Completed</span>
+        <span class="slot-status" *ngIf="slot.status === 'AVAILABLE'">Available</span>
+      </div>
+    </div>
+
+    <div class="empty-state" *ngIf="filteredSlots.length === 0">
+      <p>No slots available for this teacher</p>
+    </div>
+  </mat-card>
+
+  <!-- Confirm Booking -->
+  <mat-card class="confirm-card" *ngIf="selectedSlot">
+    <h3 class="section-title">Confirm Booking</h3>
+    <div class="confirm-details">
+      <div class="confirm-item">
+        <span class="confirm-label">Teacher</span>
+        <span class="confirm-value">{{ selectedSlot.teacherName }}</span>
+      </div>
+      <div class="confirm-item">
+        <span class="confirm-label">Time</span>
+        <span class="confirm-value">{{ selectedSlot.startTime }} - {{ selectedSlot.endTime }}</span>
+      </div>
+    </div>
+    <div class="confirm-actions">
+      <button mat-stroked-button (click)="cancelSelection()">Cancel</button>
+      <button mat-raised-button class="confirm-btn" (click)="confirmBooking()" [disabled]="isBooking">
+        {{ isBooking ? 'Booking...' : 'Confirm Booking' }}
+      </button>
+    </div>
+  </mat-card>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item">
+      <span class="legend-color available-color"></span>
+      <span>Available</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-color booked-color"></span>
+      <span>Booked</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-color completed-color"></span>
+      <span>Completed</span>
+    </div>
+  </div>
+</div>

@@ -20,6 +20,24 @@ import {
   SchoolFeatureResponse,
   FeatureAuditLog,
   FeatureTemplate,
+  IdCardRequest,
+  IdCardResponse,
+  ReportCard,
+  GenerateReportCardRequest,
+  Syllabus,
+  CreateSyllabusRequest,
+  UpdateTopicStatusRequest,
+  Assignment,
+  AssignmentSubmission,
+  CreateAssignmentRequest,
+  GradeSubmissionRequest,
+  StudentPerformance,
+  ClassRanking,
+  GradeDistribution,
+  PtmMeeting,
+  PtmSlot,
+  CreatePtmRequest,
+  BookPtmSlotRequest,
 } from '../models';
 
 @Injectable({ providedIn: 'root' })
@@ -425,5 +443,163 @@ export class ApiService {
 
   deleteFeatureTemplate(templateId: string): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.API}/super/features/templates/${templateId}`);
+  }
+
+  // ── ID Card ───────────────────────────────────────────────────────────
+  generateIdCards(req: IdCardRequest): Observable<Blob> {
+    return this.http.post(`${this.API}/id-cards/generate`, req, { responseType: 'blob' });
+  }
+
+  // ── Report Cards ──────────────────────────────────────────────────────
+  getReportCards(classId: string, academicYearId: string): Observable<ApiResponse<ReportCard[]>> {
+    const params = new HttpParams().set('classId', classId).set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<ReportCard[]>>(`${this.API}/report-cards`, { params });
+  }
+
+  getReportCardById(reportCardId: string): Observable<ApiResponse<ReportCard>> {
+    return this.http.get<ApiResponse<ReportCard>>(`${this.API}/report-cards/${reportCardId}`);
+  }
+
+  generateReportCards(req: GenerateReportCardRequest): Observable<ApiResponse<ReportCard[]>> {
+    return this.http.post<ApiResponse<ReportCard[]>>(`${this.API}/report-cards/generate`, req);
+  }
+
+  downloadReportCardPdf(reportCardId: string): Observable<Blob> {
+    return this.http.get(`${this.API}/report-cards/${reportCardId}/download`, { responseType: 'blob' });
+  }
+
+  // ── Syllabus ──────────────────────────────────────────────────────────
+  getSyllabusList(params?: { classId?: string; academicYearId?: string }): Observable<ApiResponse<Syllabus[]>> {
+    let httpParams = new HttpParams();
+    if (params?.classId) httpParams = httpParams.set('classId', params.classId);
+    if (params?.academicYearId) httpParams = httpParams.set('academicYearId', params.academicYearId);
+    return this.http.get<ApiResponse<Syllabus[]>>(`${this.API}/syllabus`, { params: httpParams });
+  }
+
+  getSyllabusById(syllabusId: string): Observable<ApiResponse<Syllabus>> {
+    return this.http.get<ApiResponse<Syllabus>>(`${this.API}/syllabus/${syllabusId}`);
+  }
+
+  createSyllabus(req: CreateSyllabusRequest): Observable<ApiResponse<Syllabus>> {
+    return this.http.post<ApiResponse<Syllabus>>(`${this.API}/syllabus`, req);
+  }
+
+  updateSyllabus(syllabusId: string, req: CreateSyllabusRequest): Observable<ApiResponse<Syllabus>> {
+    return this.http.put<ApiResponse<Syllabus>>(`${this.API}/syllabus/${syllabusId}`, req);
+  }
+
+  updateTopicStatus(syllabusId: string, req: UpdateTopicStatusRequest): Observable<ApiResponse<Syllabus>> {
+    return this.http.patch<ApiResponse<Syllabus>>(`${this.API}/syllabus/${syllabusId}/topics`, req);
+  }
+
+  deleteSyllabus(syllabusId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/syllabus/${syllabusId}`);
+  }
+
+  // ── Assignments ───────────────────────────────────────────────────────
+  getAssignments(page = 0, size = 20, params?: { classId?: string; subjectId?: string; status?: string }): Observable<ApiResponse<PaginatedResponse<Assignment>>> {
+    let httpParams = new HttpParams().set('page', page).set('size', size);
+    if (params?.classId) httpParams = httpParams.set('classId', params.classId);
+    if (params?.subjectId) httpParams = httpParams.set('subjectId', params.subjectId);
+    if (params?.status) httpParams = httpParams.set('status', params.status);
+    return this.http.get<ApiResponse<PaginatedResponse<Assignment>>>(`${this.API}/assignments`, { params: httpParams });
+  }
+
+  getAssignmentById(assignmentId: string): Observable<ApiResponse<Assignment>> {
+    return this.http.get<ApiResponse<Assignment>>(`${this.API}/assignments/${assignmentId}`);
+  }
+
+  createAssignment(req: CreateAssignmentRequest): Observable<ApiResponse<Assignment>> {
+    return this.http.post<ApiResponse<Assignment>>(`${this.API}/assignments`, req);
+  }
+
+  updateAssignment(assignmentId: string, req: CreateAssignmentRequest): Observable<ApiResponse<Assignment>> {
+    return this.http.put<ApiResponse<Assignment>>(`${this.API}/assignments/${assignmentId}`, req);
+  }
+
+  deleteAssignment(assignmentId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/assignments/${assignmentId}`);
+  }
+
+  uploadAssignmentFile(assignmentId: string, file: File): Observable<ApiResponse<{ url: string; fileName: string }>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<ApiResponse<{ url: string; fileName: string }>>(`${this.API}/assignments/${assignmentId}/upload`, formData);
+  }
+
+  getAssignmentSubmissions(assignmentId: string): Observable<ApiResponse<AssignmentSubmission[]>> {
+    return this.http.get<ApiResponse<AssignmentSubmission[]>>(`${this.API}/assignments/${assignmentId}/submissions`);
+  }
+
+  submitAssignment(assignmentId: string, formData: FormData): Observable<ApiResponse<AssignmentSubmission>> {
+    return this.http.post<ApiResponse<AssignmentSubmission>>(`${this.API}/assignments/${assignmentId}/submit`, formData);
+  }
+
+  gradeSubmission(assignmentId: string, submissionId: string, req: GradeSubmissionRequest): Observable<ApiResponse<AssignmentSubmission>> {
+    return this.http.patch<ApiResponse<AssignmentSubmission>>(`${this.API}/assignments/${assignmentId}/submissions/${submissionId}/grade`, req);
+  }
+
+  // ── Performance Analytics ─────────────────────────────────────────────
+  getStudentPerformance(studentId: string, academicYearId?: string): Observable<ApiResponse<StudentPerformance>> {
+    let params = new HttpParams();
+    if (academicYearId) params = params.set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<StudentPerformance>>(`${this.API}/analytics/students/${studentId}`, { params });
+  }
+
+  getClassRankings(classId: string, examId?: string): Observable<ApiResponse<ClassRanking[]>> {
+    let params = new HttpParams();
+    if (examId) params = params.set('examId', examId);
+    return this.http.get<ApiResponse<ClassRanking[]>>(`${this.API}/analytics/classes/${classId}/rankings`, { params });
+  }
+
+  getClassPerformance(classId: string, academicYearId?: string): Observable<ApiResponse<any>> {
+    let params = new HttpParams();
+    if (academicYearId) params = params.set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<any>>(`${this.API}/analytics/classes/${classId}`, { params });
+  }
+
+  // ── PTM ───────────────────────────────────────────────────────────────
+  getPtmMeetings(params?: { status?: string }): Observable<ApiResponse<PtmMeeting[]>> {
+    let httpParams = new HttpParams();
+    if (params?.status) httpParams = httpParams.set('status', params.status);
+    return this.http.get<ApiResponse<PtmMeeting[]>>(`${this.API}/ptm`, { params: httpParams });
+  }
+
+  getPtmById(ptmId: string): Observable<ApiResponse<PtmMeeting>> {
+    return this.http.get<ApiResponse<PtmMeeting>>(`${this.API}/ptm/${ptmId}`);
+  }
+
+  createPtm(req: CreatePtmRequest): Observable<ApiResponse<PtmMeeting>> {
+    return this.http.post<ApiResponse<PtmMeeting>>(`${this.API}/ptm`, req);
+  }
+
+  updatePtm(ptmId: string, req: Partial<CreatePtmRequest>): Observable<ApiResponse<PtmMeeting>> {
+    return this.http.put<ApiResponse<PtmMeeting>>(`${this.API}/ptm/${ptmId}`, req);
+  }
+
+  deletePtm(ptmId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/ptm/${ptmId}`);
+  }
+
+  getPtmSlots(ptmId: string, teacherId?: string): Observable<ApiResponse<PtmSlot[]>> {
+    let params = new HttpParams();
+    if (teacherId) params = params.set('teacherId', teacherId);
+    return this.http.get<ApiResponse<PtmSlot[]>>(`${this.API}/ptm/${ptmId}/slots`, { params });
+  }
+
+  bookPtmSlot(ptmId: string, req: BookPtmSlotRequest): Observable<ApiResponse<PtmSlot>> {
+    return this.http.post<ApiResponse<PtmSlot>>(`${this.API}/ptm/${ptmId}/book`, req);
+  }
+
+  cancelPtmSlot(ptmId: string, slotId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/ptm/${ptmId}/slots/${slotId}`);
+  }
+
+  completePtmSlot(ptmId: string, slotId: string): Observable<ApiResponse<PtmSlot>> {
+    return this.http.patch<ApiResponse<PtmSlot>>(`${this.API}/ptm/${ptmId}/slots/${slotId}/complete`, null);
+  }
+
+  getTeacherPtmSchedule(ptmId: string, teacherId: string): Observable<ApiResponse<PtmSlot[]>> {
+    return this.http.get<ApiResponse<PtmSlot[]>>(`${this.API}/ptm/${ptmId}/teachers/${teacherId}/schedule`);
   }
 }

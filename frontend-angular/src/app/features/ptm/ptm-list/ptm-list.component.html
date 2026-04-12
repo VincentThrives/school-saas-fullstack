@@ -1,0 +1,82 @@
+<div class="ptm-list-container">
+  <app-page-header
+    title="Parent-Teacher Meetings"
+    subtitle="Schedule and manage PTM sessions"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Parent-Teacher Meetings' }
+    ]"
+    [actionLabel]="isAdmin ? 'Schedule New PTM' : ''"
+    actionIcon="add"
+    (actionClick)="createPtm()"
+  ></app-page-header>
+
+  <mat-card class="table-card">
+    <table mat-table [dataSource]="meetings" class="ptm-table">
+      <!-- Title -->
+      <ng-container matColumnDef="title">
+        <th mat-header-cell *matHeaderCellDef>Title</th>
+        <td mat-cell *matCellDef="let m">{{ m.title }}</td>
+      </ng-container>
+
+      <!-- Date -->
+      <ng-container matColumnDef="date">
+        <th mat-header-cell *matHeaderCellDef>Date</th>
+        <td mat-cell *matCellDef="let m">{{ m.date | date:'dd MMM yyyy' }}</td>
+      </ng-container>
+
+      <!-- Time -->
+      <ng-container matColumnDef="time">
+        <th mat-header-cell *matHeaderCellDef>Time</th>
+        <td mat-cell *matCellDef="let m">{{ m.startTime }} - {{ m.endTime }}</td>
+      </ng-container>
+
+      <!-- Location -->
+      <ng-container matColumnDef="location">
+        <th mat-header-cell *matHeaderCellDef>Location</th>
+        <td mat-cell *matCellDef="let m">{{ m.location || '-' }}</td>
+      </ng-container>
+
+      <!-- Slots -->
+      <ng-container matColumnDef="slots">
+        <th mat-header-cell *matHeaderCellDef>Slots</th>
+        <td mat-cell *matCellDef="let m">
+          <span class="slots-count">{{ m.bookedSlots }} / {{ m.totalSlots }}</span>
+        </td>
+      </ng-container>
+
+      <!-- Status -->
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let m">
+          <mat-chip [class]="getStatusClass(m.status)" class="status-chip">{{ m.status }}</mat-chip>
+        </td>
+      </ng-container>
+
+      <!-- Actions -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
+        <td mat-cell *matCellDef="let m" class="actions-col">
+          <button mat-stroked-button class="action-btn" *ngIf="isParent && m.status !== 'COMPLETED' && m.status !== 'CANCELLED'" (click)="bookSlots(m.ptmId)">
+            Book Slot
+          </button>
+          <button mat-icon-button *ngIf="isTeacher || isAdmin" (click)="viewSchedule(m.ptmId)">
+            <mat-icon>calendar_today</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="table-row"></tr>
+    </table>
+
+    <div class="loading-row" *ngIf="isLoading">
+      <mat-spinner diameter="36"></mat-spinner>
+    </div>
+
+    <div class="empty-state" *ngIf="!isLoading && meetings.length === 0">
+      <mat-icon class="empty-icon">groups</mat-icon>
+      <p>No PTM sessions scheduled</p>
+    </div>
+  </mat-card>
+</div>

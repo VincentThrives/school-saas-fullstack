@@ -283,6 +283,138 @@ export const routes: Routes = [
         data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER], feature: 'whatsapp' },
       },
 
+      // ── ID Card Generator ────────────────────────────────
+      {
+        path: 'id-cards',
+        loadComponent: () =>
+          import('./features/idcard/id-card-generator/id-card-generator.component').then(m => m.IdCardGeneratorComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+      },
+
+      // ── Report Cards (feature-gated) ────────────────────
+      {
+        path: 'report-cards',
+        loadComponent: () =>
+          import('./features/report-cards/report-card-generator/report-card-generator.component').then(m => m.ReportCardGeneratorComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'report_cards' },
+      },
+      {
+        path: 'report-cards/:reportCardId',
+        loadComponent: () =>
+          import('./features/report-cards/report-card-view/report-card-view.component').then(m => m.ReportCardViewComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'report_cards' },
+      },
+
+      // ── Syllabus Tracker ────────────────────────────────
+      {
+        path: 'syllabus',
+        loadComponent: () =>
+          import('./features/syllabus/syllabus-list/syllabus-list.component').then(m => m.SyllabusListComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER] },
+      },
+      {
+        path: 'syllabus/new',
+        loadComponent: () =>
+          import('./features/syllabus/syllabus-form/syllabus-form.component').then(m => m.SyllabusFormComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER] },
+      },
+      {
+        path: 'syllabus/:syllabusId',
+        loadComponent: () =>
+          import('./features/syllabus/syllabus-detail/syllabus-detail.component').then(m => m.SyllabusDetailComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER] },
+      },
+      {
+        path: 'syllabus/:syllabusId/edit',
+        loadComponent: () =>
+          import('./features/syllabus/syllabus-form/syllabus-form.component').then(m => m.SyllabusFormComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER] },
+      },
+
+      // ── Assignments ─────────────────────────────────────
+      {
+        path: 'assignments',
+        loadComponent: () =>
+          import('./features/assignments/assignments-list/assignments-list.component').then(m => m.AssignmentsListComponent),
+      },
+      {
+        path: 'assignments/new',
+        loadComponent: () =>
+          import('./features/assignments/assignment-form/assignment-form.component').then(m => m.AssignmentFormComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER] },
+      },
+      {
+        path: 'assignments/:assignmentId',
+        loadComponent: () =>
+          import('./features/assignments/assignment-detail/assignment-detail.component').then(m => m.AssignmentDetailComponent),
+      },
+      {
+        path: 'assignments/:assignmentId/edit',
+        loadComponent: () =>
+          import('./features/assignments/assignment-form/assignment-form.component').then(m => m.AssignmentFormComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER] },
+      },
+
+      // ── Performance Analytics (feature-gated) ───────────
+      {
+        path: 'analytics',
+        loadComponent: () =>
+          import('./features/analytics/performance-dashboard/performance-dashboard.component').then(m => m.PerformanceDashboardComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'analytics' },
+      },
+      {
+        path: 'analytics/rankings',
+        loadComponent: () =>
+          import('./features/analytics/class-rankings/class-rankings.component').then(m => m.ClassRankingsComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'analytics' },
+      },
+      {
+        path: 'analytics/student/:studentId',
+        loadComponent: () =>
+          import('./features/analytics/student-report/student-report.component').then(m => m.StudentReportComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'analytics' },
+      },
+
+      // ── PTM (Parent-Teacher Meetings) ───────────────────
+      {
+        path: 'ptm',
+        loadComponent: () =>
+          import('./features/ptm/ptm-list/ptm-list.component').then(m => m.PtmListComponent),
+      },
+      {
+        path: 'ptm/new',
+        loadComponent: () =>
+          import('./features/ptm/ptm-create/ptm-create.component').then(m => m.PtmCreateComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+      },
+      {
+        path: 'ptm/:ptmId/book',
+        loadComponent: () =>
+          import('./features/ptm/ptm-book/ptm-book.component').then(m => m.PtmBookComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.PARENT] },
+      },
+      {
+        path: 'ptm/:ptmId/schedule',
+        loadComponent: () =>
+          import('./features/ptm/ptm-schedule/ptm-schedule.component').then(m => m.PtmScheduleComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER] },
+      },
+
       // Timetable (feature-gated)
       {
         path: 'timetable',

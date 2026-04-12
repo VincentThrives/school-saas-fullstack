@@ -1,0 +1,181 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.ptm-schedule-container {
+  padding: 0;
+}
+
+.schedule-timeline {
+  position: relative;
+  padding-left: 0;
+}
+
+.slot-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 8px;
+
+  &.completed-row {
+    opacity: 0.6;
+  }
+}
+
+.time-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+  padding-top: 12px;
+}
+
+.time-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.time-dash {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.3);
+}
+
+.timeline-dot {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.2);
+  margin-top: 18px;
+  flex-shrink: 0;
+
+  &.dot-booked {
+    background-color: $gold;
+  }
+
+  &.dot-completed {
+    background-color: #4caf50;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 12px;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 48px;
+    background-color: rgba(0, 0, 0, 0.08);
+  }
+}
+
+.slot-row:last-child .timeline-dot::after {
+  display: none;
+}
+
+.slot-content {
+  flex: 1;
+}
+
+.slot-card {
+  border-radius: 10px !important;
+  padding: 14px 18px;
+  border-left: 3px solid $gold;
+
+  &.slot-completed {
+    border-left-color: #4caf50;
+    background-color: rgba(0, 0, 0, 0.02);
+  }
+}
+
+.slot-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.slot-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.parent-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.student-name {
+  font-size: 0.8rem;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.available-text {
+  color: #4caf50;
+  font-weight: 500;
+}
+
+.cancelled-text {
+  color: #c62828;
+  font-weight: 500;
+}
+
+.slot-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-chip {
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.status-available {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+}
+
+.status-booked {
+  background-color: rgba(212, 168, 67, 0.12) !important;
+  color: $gold-dark !important;
+}
+
+.status-completed {
+  background-color: rgba(158, 158, 158, 0.12) !important;
+  color: #616161 !important;
+}
+
+.status-cancelled {
+  background-color: rgba(244, 67, 54, 0.12) !important;
+  color: #c62828 !important;
+}
+
+.complete-btn {
+  color: #2e7d32 !important;
+  border-color: #4caf50 !important;
+  font-size: 0.75rem;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: rgba(0, 0, 0, 0.5);
+
+  p {
+    margin: 8px 0 0;
+  }
+}
+
+.empty-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: rgba(0, 0, 0, 0.15);
+}

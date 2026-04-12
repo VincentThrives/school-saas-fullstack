@@ -22,7 +22,11 @@ export type FeatureKey =
   | 'bulk_import'
   | 'parent_portal'
   | 'analytics'
-  | 'whatsapp';
+  | 'whatsapp'
+  | 'assignments'
+  | 'syllabus'
+  | 'ptm'
+  | 'id_cards';
 
 // API Response
 export interface ApiResponse<T> {
@@ -315,4 +319,248 @@ export interface FeatureToggleRequest {
 export interface BulkFeatureToggleRequest {
   features: Record<string, boolean>;
   reason?: string;
+}
+
+// ── ID Card ─────────────────────────────────────────────────────────────
+export interface IdCardRequest {
+  userType: 'STUDENT' | 'TEACHER';
+  userIds: string[];
+}
+
+export interface IdCardResponse {
+  downloadUrl: string;
+  generatedCount: number;
+}
+
+// ── Report Cards ────────────────────────────────────────────────────────
+export interface ReportCard {
+  reportCardId: string;
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  classId: string;
+  className: string;
+  sectionName?: string;
+  academicYearId: string;
+  academicYearLabel: string;
+  marks: ReportCardMark[];
+  totalMarks: number;
+  obtainedMarks: number;
+  percentage: number;
+  grade: string;
+  rank?: number;
+  attendancePercentage?: number;
+  remarks?: string;
+  downloadUrl?: string;
+  generatedAt?: string;
+}
+
+export interface ReportCardMark {
+  subjectId: string;
+  subjectName: string;
+  maxMarks: number;
+  obtainedMarks: number;
+  grade: string;
+}
+
+export interface GenerateReportCardRequest {
+  classId: string;
+  academicYearId: string;
+  studentIds: string[];
+}
+
+// ── Syllabus Tracker ────────────────────────────────────────────────────
+export type SyllabusTopicStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+
+export interface SyllabusTopic {
+  topicId: string;
+  topicName: string;
+  description?: string;
+  plannedDate?: string;
+  completionDate?: string;
+  status: SyllabusTopicStatus;
+  completionPercentage: number;
+}
+
+export interface Syllabus {
+  syllabusId: string;
+  classId: string;
+  className: string;
+  subjectId: string;
+  subjectName: string;
+  academicYearId: string;
+  academicYearLabel: string;
+  teacherId?: string;
+  teacherName?: string;
+  topics: SyllabusTopic[];
+  totalTopics: number;
+  completedTopics: number;
+  progressPercentage: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateSyllabusRequest {
+  classId: string;
+  subjectId: string;
+  academicYearId: string;
+  topics: { topicName: string; description?: string; plannedDate?: string }[];
+}
+
+export interface UpdateTopicStatusRequest {
+  topicId: string;
+  status: SyllabusTopicStatus;
+  completionPercentage: number;
+}
+
+// ── Assignments ─────────────────────────────────────────────────────────
+export type AssignmentStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED';
+export type SubmissionStatus = 'PENDING' | 'SUBMITTED' | 'LATE' | 'GRADED';
+
+export interface Assignment {
+  assignmentId: string;
+  title: string;
+  description?: string;
+  classId: string;
+  className: string;
+  sectionId?: string;
+  sectionName?: string;
+  subjectId: string;
+  subjectName: string;
+  teacherId: string;
+  teacherName: string;
+  dueDate: string;
+  maxMarks: number;
+  fileUrl?: string;
+  fileName?: string;
+  status: AssignmentStatus;
+  submissionsCount: number;
+  totalStudents: number;
+  createdAt: string;
+}
+
+export interface AssignmentSubmission {
+  submissionId: string;
+  assignmentId: string;
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  submittedAt?: string;
+  fileUrl?: string;
+  fileName?: string;
+  answer?: string;
+  marks?: number;
+  feedback?: string;
+  status: SubmissionStatus;
+}
+
+export interface CreateAssignmentRequest {
+  title: string;
+  description?: string;
+  classId: string;
+  sectionId?: string;
+  subjectId: string;
+  dueDate: string;
+  maxMarks: number;
+}
+
+export interface GradeSubmissionRequest {
+  marks: number;
+  feedback?: string;
+}
+
+// ── Performance Analytics ───────────────────────────────────────────────
+export interface PerformanceTrend {
+  examName: string;
+  examDate: string;
+  totalMarks: number;
+  obtainedMarks: number;
+  percentage: number;
+}
+
+export interface SubjectAnalysis {
+  subjectId: string;
+  subjectName: string;
+  averageMarks: number;
+  maxMarks: number;
+  percentage: number;
+}
+
+export interface GradeDistribution {
+  grade: string;
+  count: number;
+  percentage: number;
+}
+
+export interface StudentPerformance {
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  className: string;
+  trends: PerformanceTrend[];
+  subjectAnalysis: SubjectAnalysis[];
+  gradeDistribution: GradeDistribution[];
+  overallPercentage: number;
+  rank?: number;
+  strengths: string[];
+  areasToImprove: string[];
+}
+
+export interface ClassRanking {
+  rank: number;
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  totalMarks: number;
+  obtainedMarks: number;
+  percentage: number;
+}
+
+// ── PTM (Parent-Teacher Meeting) ────────────────────────────────────────
+export type PtmStatus = 'SCHEDULED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
+export type PtmSlotStatus = 'AVAILABLE' | 'BOOKED' | 'COMPLETED' | 'CANCELLED';
+
+export interface PtmMeeting {
+  ptmId: string;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  slotDuration: number;
+  location?: string;
+  status: PtmStatus;
+  totalSlots: number;
+  bookedSlots: number;
+  teacherIds: string[];
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface PtmSlot {
+  slotId: string;
+  ptmId: string;
+  teacherId: string;
+  teacherName: string;
+  startTime: string;
+  endTime: string;
+  status: PtmSlotStatus;
+  parentId?: string;
+  parentName?: string;
+  studentId?: string;
+  studentName?: string;
+}
+
+export interface CreatePtmRequest {
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  slotDuration: number;
+  location?: string;
+  teacherIds: string[];
+}
+
+export interface BookPtmSlotRequest {
+  slotId: string;
+  studentId: string;
 }

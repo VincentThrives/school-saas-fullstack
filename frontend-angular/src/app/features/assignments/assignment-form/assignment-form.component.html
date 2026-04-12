@@ -1,0 +1,90 @@
+<div class="assignment-form-container">
+  <app-page-header
+    [title]="isEdit ? 'Edit Assignment' : 'Create Assignment'"
+    subtitle="Define assignment details for students"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Assignments', link: '/assignments' },
+      { label: isEdit ? 'Edit' : 'Create' }
+    ]"
+  ></app-page-header>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <form *ngIf="!isLoading" (ngSubmit)="save()">
+    <mat-card class="form-card">
+      <h3 class="section-title">Assignment Details</h3>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Title</mat-label>
+        <input matInput [(ngModel)]="title" name="title" required>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Description</mat-label>
+        <textarea matInput [(ngModel)]="description" name="description" rows="4"></textarea>
+      </mat-form-field>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Class</mat-label>
+          <mat-select [(ngModel)]="selectedClassId" name="classId" required>
+            <mat-option *ngFor="let cls of classes" [value]="cls.id">{{ cls.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Section</mat-label>
+          <mat-select [(ngModel)]="selectedSectionId" name="sectionId">
+            <mat-option value="">All Sections</mat-option>
+            <mat-option *ngFor="let sec of selectedClass?.sections || []" [value]="sec.sectionId || sec.name">
+              {{ sec.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Subject</mat-label>
+          <mat-select [(ngModel)]="selectedSubjectId" name="subjectId" required>
+            <mat-option *ngFor="let sub of subjects" [value]="sub.id">{{ sub.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Due Date</mat-label>
+          <input matInput [matDatepicker]="picker" [(ngModel)]="dueDate" name="dueDate" required>
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Max Marks</mat-label>
+          <input matInput type="number" [(ngModel)]="maxMarks" name="maxMarks" required>
+        </mat-form-field>
+      </div>
+
+      <div class="file-upload-section">
+        <label class="file-label">Attachment (optional)</label>
+        <div class="file-upload-row">
+          <button mat-stroked-button type="button" (click)="fileInput.click()" class="upload-btn">
+            <mat-icon>attach_file</mat-icon>
+            Choose File
+          </button>
+          <input #fileInput type="file" hidden (change)="onFileSelected($event)">
+          <span class="file-name" *ngIf="selectedFile">{{ selectedFile.name }}</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <div class="form-actions">
+      <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
+      <button mat-raised-button type="submit" class="save-btn" [disabled]="isSaving">
+        {{ isSaving ? 'Saving...' : 'Save Assignment' }}
+      </button>
+    </div>
+  </form>
+</div>

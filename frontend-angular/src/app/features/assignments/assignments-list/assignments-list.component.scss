@@ -1,0 +1,96 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.assignments-list-container {
+  padding: 0;
+}
+
+.table-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.assignments-table {
+  width: 100%;
+}
+
+.submissions-count {
+  font-weight: 600;
+  color: $gold-dark;
+}
+
+.status-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-published {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+}
+
+.status-draft {
+  background-color: rgba(158, 158, 158, 0.12) !important;
+  color: #616161 !important;
+}
+
+.status-closed {
+  background-color: rgba(244, 67, 54, 0.12) !important;
+  color: #c62828 !important;
+}
+
+.status-submitted {
+  background-color: rgba(33, 150, 243, 0.12) !important;
+  color: #1565c0 !important;
+}
+
+.status-graded {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+}
+
+.status-late {
+  background-color: rgba(255, 152, 0, 0.12) !important;
+  color: #e65100 !important;
+}
+
+.status-pending {
+  background-color: rgba(158, 158, 158, 0.12) !important;
+  color: #616161 !important;
+}
+
+.actions-col {
+  text-align: right !important;
+  width: 100px;
+}
+
+.table-row:hover {
+  background-color: rgba(212, 168, 67, 0.04);
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: rgba(0, 0, 0, 0.5);
+
+  p {
+    margin: 8px 0 0;
+  }
+}
+
+.empty-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: rgba(0, 0, 0, 0.15);
+}

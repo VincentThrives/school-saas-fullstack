@@ -1,0 +1,66 @@
+<div class="ptm-schedule-container">
+  <app-page-header
+    [title]="meeting?.title || 'PTM Schedule'"
+    [subtitle]="meeting ? (meeting.date | date:'dd MMM yyyy') + ' | ' + meeting.startTime + ' - ' + meeting.endTime : ''"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Parent-Teacher Meetings', link: '/ptm' },
+      { label: 'Schedule' }
+    ]"
+  ></app-page-header>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <div class="schedule-timeline" *ngIf="!isLoading">
+    <div
+      *ngFor="let slot of slots"
+      class="slot-row"
+      [class.completed-row]="isCompleted(slot)"
+    >
+      <div class="time-column">
+        <span class="time-text">{{ slot.startTime }}</span>
+        <span class="time-dash">-</span>
+        <span class="time-text">{{ slot.endTime }}</span>
+      </div>
+
+      <div class="timeline-dot" [class.dot-completed]="isCompleted(slot)" [class.dot-booked]="slot.status === 'BOOKED'"></div>
+
+      <div class="slot-content">
+        <mat-card class="slot-card" [class.slot-completed]="isCompleted(slot)">
+          <div class="slot-info">
+            <div class="slot-main" *ngIf="slot.status === 'BOOKED' || slot.status === 'COMPLETED'">
+              <span class="parent-name">{{ slot.parentName || 'Parent' }}</span>
+              <span class="student-name">Student: {{ slot.studentName || '-' }}</span>
+            </div>
+            <div class="slot-main" *ngIf="slot.status === 'AVAILABLE'">
+              <span class="available-text">Available</span>
+            </div>
+            <div class="slot-main" *ngIf="slot.status === 'CANCELLED'">
+              <span class="cancelled-text">Cancelled</span>
+            </div>
+            <div class="slot-actions">
+              <mat-chip [class]="getStatusClass(slot.status)" class="status-chip">
+                {{ slot.status }}
+              </mat-chip>
+              <button
+                mat-stroked-button
+                class="complete-btn"
+                *ngIf="slot.status === 'BOOKED'"
+                (click)="markComplete(slot)"
+              >
+                Mark Complete
+              </button>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty-state" *ngIf="!isLoading && slots.length === 0">
+    <mat-icon class="empty-icon">calendar_today</mat-icon>
+    <p>No slots in this schedule</p>
+  </div>
+</div>

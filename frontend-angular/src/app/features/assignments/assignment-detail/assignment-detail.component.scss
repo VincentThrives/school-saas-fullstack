@@ -1,0 +1,177 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.assignment-detail-container {
+  padding: 0;
+}
+
+.info-card,
+.submissions-card,
+.submit-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 24px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.54);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.info-value {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.status-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-submitted {
+  background-color: rgba(33, 150, 243, 0.12) !important;
+  color: #1565c0 !important;
+}
+
+.status-graded {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+}
+
+.status-late {
+  background-color: rgba(255, 152, 0, 0.12) !important;
+  color: #e65100 !important;
+}
+
+.status-pending {
+  background-color: rgba(158, 158, 158, 0.12) !important;
+  color: #616161 !important;
+}
+
+.description-section {
+  margin-top: 16px;
+
+  h4 {
+    margin: 12px 0 8px;
+    font-weight: 600;
+  }
+
+  p {
+    color: rgba(0, 0, 0, 0.7);
+    line-height: 1.6;
+  }
+}
+
+.attachment-section {
+  margin-top: 16px;
+  padding-top: 12px;
+}
+
+.attachment-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: $gold-dark;
+  text-decoration: none;
+  font-weight: 500;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.section-title {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.submissions-table {
+  width: 100%;
+}
+
+.grade-input {
+  width: 80px;
+
+  ::ng-deep .mat-mdc-form-field-wrapper {
+    padding: 0;
+  }
+}
+
+.actions-col {
+  text-align: right !important;
+  min-width: 160px;
+}
+
+.grade-btn {
+  color: $gold-dark !important;
+  border-color: $gold !important;
+  font-size: 0.8rem;
+}
+
+.save-grade-btn {
+  background-color: $gold !important;
+  color: #fff !important;
+  font-size: 0.8rem;
+  margin-right: 4px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.file-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.upload-btn {
+  color: $gold-dark !important;
+  border-color: $gold !important;
+}
+
+.file-name {
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.submit-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.submit-btn {
+  background-color: $gold !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 32px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}

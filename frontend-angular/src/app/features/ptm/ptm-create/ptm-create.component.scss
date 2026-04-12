@@ -1,0 +1,106 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.ptm-create-container {
+  padding: 0;
+}
+
+.form-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 24px;
+}
+
+.section-title {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.form-field {
+  flex: 1;
+  min-width: 180px;
+}
+
+.teachers-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+
+  .section-title {
+    margin: 0;
+  }
+}
+
+.selected-count {
+  font-weight: 600;
+  color: $gold-dark;
+  font-size: 0.9rem;
+}
+
+.teachers-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+}
+
+.teacher-item {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background-color: rgba(212, 168, 67, 0.04);
+  }
+
+  &.select-all {
+    background-color: rgba(0, 0, 0, 0.02);
+    font-weight: 600;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.12);
+  }
+}
+
+.teacher-subject {
+  color: rgba(0, 0, 0, 0.54);
+  font-size: 0.85rem;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.create-btn {
+  background-color: $gold !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 32px;
+  color: rgba(0, 0, 0, 0.5);
+}

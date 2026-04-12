@@ -1,0 +1,174 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.ptm-book-container {
+  padding: 0;
+}
+
+.filter-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 16px 24px;
+}
+
+.teacher-select {
+  min-width: 300px;
+}
+
+.slots-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 24px;
+}
+
+.section-title {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.slot-cell {
+  padding: 14px;
+  border-radius: 8px;
+  text-align: center;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  &.available {
+    background-color: rgba(76, 175, 80, 0.08);
+    border-color: rgba(76, 175, 80, 0.3);
+    cursor: pointer;
+
+    &:hover {
+      border-color: #4caf50;
+      box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+    }
+  }
+
+  &.booked {
+    background-color: rgba(158, 158, 158, 0.12);
+    border-color: rgba(158, 158, 158, 0.3);
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+
+  &.completed {
+    background-color: rgba(158, 158, 158, 0.08);
+    border-color: rgba(158, 158, 158, 0.2);
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  &.selected {
+    border-color: $gold !important;
+    background-color: rgba(212, 168, 67, 0.12) !important;
+    box-shadow: 0 2px 8px rgba(212, 168, 67, 0.3);
+  }
+}
+
+.slot-time {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.slot-status {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.confirm-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 24px;
+  border-left: 4px solid $gold;
+}
+
+.confirm-details {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 16px;
+}
+
+.confirm-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.confirm-label {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.54);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.confirm-value {
+  font-weight: 500;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.confirm-btn {
+  background-color: $gold !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.legend {
+  display: flex;
+  gap: 24px;
+  padding: 12px 0;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.available-color {
+  background-color: rgba(76, 175, 80, 0.3);
+  border: 1px solid rgba(76, 175, 80, 0.6);
+}
+
+.booked-color {
+  background-color: rgba(158, 158, 158, 0.3);
+  border: 1px solid rgba(158, 158, 158, 0.6);
+}
+
+.completed-color {
+  background-color: rgba(158, 158, 158, 0.15);
+  border: 1px solid rgba(158, 158, 158, 0.3);
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 32px;
+  color: rgba(0, 0, 0, 0.5);
+}

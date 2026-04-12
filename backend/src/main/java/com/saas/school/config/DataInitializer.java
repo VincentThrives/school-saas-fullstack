@@ -68,7 +68,11 @@ public class DataInitializer implements CommandLineRunner {
                 feature("bulk_import",   "Bulk Import",         "CSV/Excel data import",                         false, "system",         false, ++order, SubscriptionPlan.ENTERPRISE),
                 feature("parent_portal", "Parent Portal",       "Parent access and notifications",               false, "communication",  false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
                 feature("analytics",     "Analytics",           "Advanced reports and charts",                   false, "reports",        false, ++order, SubscriptionPlan.ENTERPRISE),
-                feature("whatsapp",      "WhatsApp Messaging",  "Send bulk WhatsApp messages to parents",       false, "communication",  false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE)
+                feature("whatsapp",      "WhatsApp Messaging",  "Send bulk WhatsApp messages to parents",       false, "communication",  false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("idcards",       "ID Card Generator",   "Generate student and staff ID cards with QR codes", false, "system",    false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("syllabus",      "Syllabus Tracker",    "Track syllabus completion per subject per class",   false, "academics", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("assignments",   "Assignments",         "Create assignments, students submit online",        false, "academics", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+                feature("ptm",           "PTM Scheduler",       "Schedule parent-teacher meetings with time slots",  false, "communication", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE)
             );
             featureCatalogRepo.saveAll(catalog);
             log.info("Feature catalog seeded with {} features", catalog.size());

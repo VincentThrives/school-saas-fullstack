@@ -1,0 +1,100 @@
+<div class="ptm-create-container">
+  <app-page-header
+    title="Schedule New PTM"
+    subtitle="Create a new parent-teacher meeting schedule"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Parent-Teacher Meetings', link: '/ptm' },
+      { label: 'Schedule New' }
+    ]"
+  ></app-page-header>
+
+  <form (ngSubmit)="save()">
+    <mat-card class="form-card">
+      <h3 class="section-title">Meeting Details</h3>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Title</mat-label>
+        <input matInput [(ngModel)]="title" name="title" required placeholder="e.g. Mid-Term PTM">
+      </mat-form-field>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Date</mat-label>
+          <input matInput [matDatepicker]="picker" [(ngModel)]="date" name="date" required>
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Start Time</mat-label>
+          <input matInput type="time" [(ngModel)]="startTime" name="startTime" required>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>End Time</mat-label>
+          <input matInput type="time" [(ngModel)]="endTime" name="endTime" required>
+        </mat-form-field>
+      </div>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Slot Duration</mat-label>
+          <mat-select [(ngModel)]="slotDuration" name="slotDuration">
+            <mat-option *ngFor="let d of slotDurations" [value]="d.value">{{ d.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Location</mat-label>
+          <input matInput [(ngModel)]="location" name="location" placeholder="e.g. Staff Room">
+        </mat-form-field>
+      </div>
+    </mat-card>
+
+    <mat-card class="form-card">
+      <div class="teachers-header">
+        <h3 class="section-title">Select Teachers</h3>
+        <span class="selected-count" *ngIf="teacherSelection.selected.length > 0">
+          {{ teacherSelection.selected.length }} selected
+        </span>
+      </div>
+
+      <div class="loading-row" *ngIf="isLoading">
+        <mat-spinner diameter="36"></mat-spinner>
+      </div>
+
+      <div class="teachers-list" *ngIf="!isLoading">
+        <div class="teacher-item select-all">
+          <mat-checkbox
+            (change)="toggleAllTeachers()"
+            [checked]="isAllTeachersSelected()"
+            [indeterminate]="teacherSelection.hasValue() && !isAllTeachersSelected()"
+          >
+            Select All
+          </mat-checkbox>
+        </div>
+        <div class="teacher-item" *ngFor="let teacher of teachers">
+          <mat-checkbox
+            (change)="teacherSelection.toggle(teacher)"
+            [checked]="teacherSelection.isSelected(teacher)"
+          >
+            {{ teacher.employeeId }} - {{ teacher.qualification || 'Teacher' }}
+            <span class="teacher-subject" *ngIf="teacher.specialization"> ({{ teacher.specialization }})</span>
+          </mat-checkbox>
+        </div>
+      </div>
+
+      <div class="empty-state" *ngIf="!isLoading && teachers.length === 0">
+        <p>No teachers available</p>
+      </div>
+    </mat-card>
+
+    <div class="form-actions">
+      <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
+      <button mat-raised-button type="submit" class="create-btn" [disabled]="isSaving">
+        {{ isSaving ? 'Creating...' : 'Create Schedule' }}
+      </button>
+    </div>
+  </form>
+</div>

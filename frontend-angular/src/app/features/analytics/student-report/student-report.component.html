@@ -1,0 +1,103 @@
+<div class="student-report-container">
+  <app-page-header
+    [title]="performance?.studentName || 'Student Report'"
+    [subtitle]="performance?.className || ''"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Performance Analytics', link: '/analytics' },
+      { label: performance?.studentName || 'Student Report' }
+    ]"
+  ></app-page-header>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <div *ngIf="performance && !isLoading">
+    <!-- Summary Stats -->
+    <div class="stats-row">
+      <mat-card class="stat-card">
+        <span class="stat-label">Overall Percentage</span>
+        <span class="stat-value gold">{{ performance.overallPercentage | number:'1.1-1' }}%</span>
+      </mat-card>
+      <mat-card class="stat-card" *ngIf="performance.rank">
+        <span class="stat-label">Class Rank</span>
+        <span class="stat-value gold">#{{ performance.rank }}</span>
+      </mat-card>
+      <mat-card class="stat-card">
+        <span class="stat-label">Subjects</span>
+        <span class="stat-value">{{ performance.subjectAnalysis.length }}</span>
+      </mat-card>
+      <mat-card class="stat-card">
+        <span class="stat-label">Exams Taken</span>
+        <span class="stat-value">{{ performance.trends.length }}</span>
+      </mat-card>
+    </div>
+
+    <!-- Subject Table -->
+    <mat-card class="section-card">
+      <h3 class="section-title">Subject-wise Performance</h3>
+      <table mat-table [dataSource]="performance.subjectAnalysis" class="subjects-table">
+        <ng-container matColumnDef="subjectName">
+          <th mat-header-cell *matHeaderCellDef>Subject</th>
+          <td mat-cell *matCellDef="let s">{{ s.subjectName }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="averageMarks">
+          <th mat-header-cell *matHeaderCellDef>Average Marks</th>
+          <td mat-cell *matCellDef="let s">{{ s.averageMarks | number:'1.1-1' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="maxMarks">
+          <th mat-header-cell *matHeaderCellDef>Max Marks</th>
+          <td mat-cell *matCellDef="let s">{{ s.maxMarks }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="percentage">
+          <th mat-header-cell *matHeaderCellDef>Percentage</th>
+          <td mat-cell *matCellDef="let s">
+            <span class="percentage-value">{{ s.percentage | number:'1.1-1' }}%</span>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="subjectColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: subjectColumns;"></tr>
+      </table>
+    </mat-card>
+
+    <!-- Trend Chart -->
+    <mat-card class="section-card">
+      <h3 class="section-title">Performance Trend</h3>
+      <div class="chart-container">
+        <canvas baseChart
+          [data]="trendChartData"
+          [options]="trendChartOptions"
+          type="line">
+        </canvas>
+      </div>
+    </mat-card>
+
+    <!-- Strengths & Weaknesses -->
+    <div class="insights-row">
+      <mat-card class="insight-card" *ngIf="performance.strengths.length > 0">
+        <h3 class="section-title">
+          <mat-icon class="strength-icon">trending_up</mat-icon>
+          Strengths
+        </h3>
+        <div class="tag-list">
+          <span class="strength-tag" *ngFor="let s of performance.strengths">{{ s }}</span>
+        </div>
+      </mat-card>
+
+      <mat-card class="insight-card" *ngIf="performance.areasToImprove.length > 0">
+        <h3 class="section-title">
+          <mat-icon class="improve-icon">trending_down</mat-icon>
+          Areas to Improve
+        </h3>
+        <div class="tag-list">
+          <span class="improve-tag" *ngFor="let a of performance.areasToImprove">{{ a }}</span>
+        </div>
+      </mat-card>
+    </div>
+  </div>
+</div>

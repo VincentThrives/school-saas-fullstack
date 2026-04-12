@@ -1,0 +1,86 @@
+<div class="syllabus-form-container">
+  <app-page-header
+    [title]="isEdit ? 'Edit Syllabus' : 'Create Syllabus'"
+    subtitle="Define syllabus topics for a subject"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Syllabus Tracker', link: '/syllabus' },
+      { label: isEdit ? 'Edit' : 'Create' }
+    ]"
+  ></app-page-header>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <form *ngIf="!isLoading" (ngSubmit)="save()">
+    <mat-card class="form-card">
+      <h3 class="section-title">Basic Information</h3>
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Class</mat-label>
+          <mat-select [(ngModel)]="selectedClassId" name="classId" required>
+            <mat-option *ngFor="let cls of classes" [value]="cls.id">{{ cls.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Subject</mat-label>
+          <mat-select [(ngModel)]="selectedSubjectId" name="subjectId" required>
+            <mat-option *ngFor="let sub of subjects" [value]="sub.id">{{ sub.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Academic Year</mat-label>
+          <mat-select [(ngModel)]="selectedAcademicYearId" name="academicYearId" required>
+            <mat-option *ngFor="let ay of academicYears" [value]="ay.id">{{ ay.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </mat-card>
+
+    <mat-card class="form-card">
+      <div class="topics-header">
+        <h3 class="section-title">Topics</h3>
+        <button mat-stroked-button type="button" (click)="addTopic()" class="add-topic-btn">
+          <mat-icon>add</mat-icon>
+          Add Topic
+        </button>
+      </div>
+
+      <div class="topic-row" *ngFor="let topic of topics; let i = index">
+        <div class="topic-fields">
+          <mat-form-field appearance="outline" class="topic-name-field">
+            <mat-label>Topic Name</mat-label>
+            <input matInput [(ngModel)]="topic.topicName" [name]="'topicName_' + i" required>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="topic-desc-field">
+            <mat-label>Description</mat-label>
+            <input matInput [(ngModel)]="topic.description" [name]="'description_' + i">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="topic-date-field">
+            <mat-label>Planned Date</mat-label>
+            <input matInput [matDatepicker]="picker" [(ngModel)]="topic.plannedDate" [name]="'plannedDate_' + i">
+            <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+          </mat-form-field>
+
+          <button mat-icon-button type="button" (click)="removeTopic(i)" class="remove-btn" [disabled]="topics.length === 1">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+        <mat-divider *ngIf="i < topics.length - 1"></mat-divider>
+      </div>
+    </mat-card>
+
+    <div class="form-actions">
+      <button mat-stroked-button type="button" (click)="cancel()">Cancel</button>
+      <button mat-raised-button type="submit" class="save-btn" [disabled]="isSaving">
+        {{ isSaving ? 'Saving...' : (isEdit ? 'Update Syllabus' : 'Create Syllabus') }}
+      </button>
+    </div>
+  </form>
+</div>

@@ -1,0 +1,152 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.syllabus-detail-container {
+  padding: 0;
+}
+
+.progress-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 24px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.progress-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.progress-subtitle {
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.progress-percentage {
+  font-size: 2rem;
+  font-weight: 700;
+  color: $gold-dark;
+}
+
+.overall-progress-bar {
+  height: 10px !important;
+  border-radius: 5px;
+
+  ::ng-deep .mdc-linear-progress__bar-inner {
+    border-color: $gold !important;
+  }
+  ::ng-deep .mdc-linear-progress__buffer-bar {
+    background-color: rgba(212, 168, 67, 0.15) !important;
+  }
+}
+
+.topics-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.topics-table {
+  width: 100%;
+}
+
+.topic-name {
+  font-weight: 500;
+}
+
+.topic-desc {
+  font-size: 0.8rem;
+  color: rgba(0, 0, 0, 0.54);
+  margin-top: 2px;
+}
+
+.status-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-completed {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+}
+
+.status-in-progress {
+  background-color: rgba(33, 150, 243, 0.12) !important;
+  color: #1565c0 !important;
+}
+
+.status-pending {
+  background-color: rgba(158, 158, 158, 0.12) !important;
+  color: #616161 !important;
+}
+
+.completion-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.topic-progress-bar {
+  flex: 1;
+
+  ::ng-deep .mdc-linear-progress__bar-inner {
+    border-color: $gold !important;
+  }
+  ::ng-deep .mdc-linear-progress__buffer-bar {
+    background-color: rgba(212, 168, 67, 0.15) !important;
+  }
+}
+
+.completion-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  min-width: 36px;
+}
+
+.actions-col {
+  text-align: right !important;
+  min-width: 200px;
+}
+
+.action-btn {
+  font-size: 0.75rem;
+  margin-left: 4px;
+}
+
+.in-progress-btn {
+  color: #1565c0 !important;
+  border-color: #1565c0 !important;
+}
+
+.complete-btn {
+  color: #2e7d32 !important;
+  border-color: #2e7d32 !important;
+}
+
+.completed-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #2e7d32;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.done-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}

@@ -1,0 +1,103 @@
+<div class="report-view-container">
+  <app-page-header
+    title="Report Card"
+    [subtitle]="reportCard?.studentName || ''"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Report Cards', link: '/report-cards' },
+      { label: reportCard?.studentName || 'View' }
+    ]"
+    actionLabel="Download PDF"
+    actionIcon="download"
+    (actionClick)="downloadPdf()"
+  ></app-page-header>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <div *ngIf="reportCard && !isLoading">
+    <!-- Student Info -->
+    <mat-card class="info-card">
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">Student Name</span>
+          <span class="info-value">{{ reportCard.studentName }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Roll Number</span>
+          <span class="info-value">{{ reportCard.rollNumber || '-' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Class</span>
+          <span class="info-value">{{ reportCard.className }} {{ reportCard.sectionName ? '- ' + reportCard.sectionName : '' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Academic Year</span>
+          <span class="info-value">{{ reportCard.academicYearLabel }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Overall Percentage</span>
+          <span class="info-value highlight">{{ reportCard.percentage | number:'1.1-1' }}%</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Grade</span>
+          <span class="info-value">
+            <mat-chip class="grade-chip">{{ reportCard.grade }}</mat-chip>
+          </span>
+        </div>
+        <div class="info-item" *ngIf="reportCard.rank">
+          <span class="info-label">Rank</span>
+          <span class="info-value highlight">{{ reportCard.rank }}</span>
+        </div>
+        <div class="info-item" *ngIf="reportCard.attendancePercentage !== undefined">
+          <span class="info-label">Attendance</span>
+          <span class="info-value">{{ reportCard.attendancePercentage | number:'1.1-1' }}%</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Marks Table -->
+    <mat-card class="marks-card">
+      <h3 class="section-title">Subject-wise Marks</h3>
+      <table mat-table [dataSource]="reportCard.marks" class="marks-table">
+        <ng-container matColumnDef="subjectName">
+          <th mat-header-cell *matHeaderCellDef>Subject</th>
+          <td mat-cell *matCellDef="let mark">{{ mark.subjectName }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="maxMarks">
+          <th mat-header-cell *matHeaderCellDef>Max Marks</th>
+          <td mat-cell *matCellDef="let mark">{{ mark.maxMarks }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="obtainedMarks">
+          <th mat-header-cell *matHeaderCellDef>Obtained Marks</th>
+          <td mat-cell *matCellDef="let mark">{{ mark.obtainedMarks }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="grade">
+          <th mat-header-cell *matHeaderCellDef>Grade</th>
+          <td mat-cell *matCellDef="let mark">
+            <mat-chip class="grade-chip-sm">{{ mark.grade }}</mat-chip>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="marksColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: marksColumns;"></tr>
+      </table>
+
+      <!-- Totals Row -->
+      <div class="totals-row">
+        <span>Total: {{ reportCard.obtainedMarks }} / {{ reportCard.totalMarks }}</span>
+        <span>Percentage: {{ reportCard.percentage | number:'1.1-1' }}%</span>
+      </div>
+    </mat-card>
+
+    <!-- Remarks -->
+    <mat-card class="remarks-card" *ngIf="reportCard.remarks">
+      <h3 class="section-title">Remarks</h3>
+      <p class="remarks-text">{{ reportCard.remarks }}</p>
+    </mat-card>
+  </div>
+</div>
