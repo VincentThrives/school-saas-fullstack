@@ -46,6 +46,7 @@ import {
   Note as NoteIcon,
   CalendarToday as AcademicYearIcon,
   DateRange as DateRangeIcon,
+  WhatsApp as WhatsAppIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -99,6 +100,7 @@ const getMenuItems = (role: UserRole | null, isSuperAdmin: boolean): MenuItem[] 
       { title: 'Fees', path: '/fees', icon: <FeeIcon />, feature: 'fee', roles: [UserRole.SCHOOL_ADMIN] },
       { title: 'Events', path: '/events', icon: <EventIcon />, feature: 'events' },
       { title: 'Notifications', path: '/notifications', icon: <NotificationIcon />, feature: 'notifications' },
+      { title: 'WhatsApp', path: '/whatsapp', icon: <WhatsAppIcon />, feature: 'whatsapp' as FeatureKey },
       { title: 'Reports', path: '/reports', icon: <ReportIcon />, feature: 'analytics', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
       { title: 'Settings', path: '/settings', icon: <SettingsIcon />, roles: [UserRole.SCHOOL_ADMIN] }
     );
@@ -115,6 +117,7 @@ const getMenuItems = (role: UserRole | null, isSuperAdmin: boolean): MenuItem[] 
       { title: 'Study Materials', path: '/study-materials', icon: <ContentIcon />, feature: 'content' },
       { title: 'Mentoring Notes', path: '/mentoring', icon: <NoteIcon /> },
       { title: 'Messages', path: '/messages', icon: <MessageIcon />, feature: 'messaging' },
+      { title: 'WhatsApp', path: '/whatsapp', icon: <WhatsAppIcon />, feature: 'whatsapp' as FeatureKey },
       { title: 'Notifications', path: '/notifications', icon: <NotificationIcon />, feature: 'notifications' }
     );
   }

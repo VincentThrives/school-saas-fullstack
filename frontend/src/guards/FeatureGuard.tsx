@@ -97,6 +97,7 @@ const featureDisplayNames: Record<FeatureKey, string> = {
   bulk_import: 'Bulk Import',
   parent_portal: 'Parent Portal',
   analytics: 'Analytics & Reports',
+  whatsapp: 'WhatsApp Messaging',
 };
 
 const getFeatureDisplayName = (feature: FeatureKey): string => {

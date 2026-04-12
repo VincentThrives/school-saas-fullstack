@@ -53,7 +53,8 @@ public class FeatureFlagFilter extends OncePerRequestFilter {
             Map.entry("/api/v1/content",       "content"),
             Map.entry("/api/v1/report-cards",  "report_cards"),
             Map.entry("/api/v1/reports",       "analytics"),
-            Map.entry("/api/v1/bulk-import",   "bulk_import")
+            Map.entry("/api/v1/bulk-import",   "bulk_import"),
+            Map.entry("/api/v1/whatsapp",     "whatsapp")
     );
 
     @Override

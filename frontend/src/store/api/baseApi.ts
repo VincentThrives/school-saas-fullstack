@@ -139,6 +139,8 @@ export const apiTags = [
   'AuditLog',
   'AuditLogs',
   'Dashboard',
+  'WhatsAppMessage',
+  'WhatsAppMessages',
 ] as const;
 
 // Create the API

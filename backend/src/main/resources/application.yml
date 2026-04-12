@@ -60,6 +60,13 @@ app:
     resolve-tenant: 20
     default: 200
 
+  # WhatsApp Cloud API
+  whatsapp:
+    phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
+    access-token: ${WHATSAPP_ACCESS_TOKEN:}
+    api-version: ${WHATSAPP_API_VERSION:v21.0}
+    api-base-url: ${WHATSAPP_API_BASE_URL:https://graph.facebook.com}
+
   # Tenant provisioning defaults
   tenant:
     default-max-students: 500

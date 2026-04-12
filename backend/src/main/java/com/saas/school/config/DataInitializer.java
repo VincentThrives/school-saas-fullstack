@@ -66,7 +66,8 @@ public class DataInitializer implements CommandLineRunner {
                 feature("report_cards", "Report Cards",        "Generate PDF report cards",          true,  SubscriptionPlan.BASIC,    SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
                 feature("bulk_import",  "Bulk Import",         "CSV/Excel data import",              false, SubscriptionPlan.ENTERPRISE),
                 feature("parent_portal","Parent Portal",       "Parent access and notifications",    false, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("analytics",    "Analytics",           "Advanced reports and charts",        false, SubscriptionPlan.ENTERPRISE)
+                feature("analytics",    "Analytics",           "Advanced reports and charts",        false, SubscriptionPlan.ENTERPRISE),
+                feature("whatsapp",    "WhatsApp Messaging",  "Send bulk WhatsApp messages to parents", false, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE)
             );
             featureCatalogRepo.saveAll(catalog);
             log.info("✅ Feature catalog seeded with {} features", catalog.size());

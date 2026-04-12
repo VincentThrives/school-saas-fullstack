@@ -39,6 +39,9 @@ import { MarkAttendancePage, AttendanceReportPage } from './features/attendance'
 import { ExamsListPage, ExamFormPage, EnterMarksPage } from './features/exams';
 import { McqExamsListPage, QuestionBankPage, TakeMcqExamPage, AvailableMcqExamsPage } from './features/mcq';
 
+// WhatsApp
+import { WhatsAppComposePage, WhatsAppHistoryPage, WhatsAppMessageDetailPage } from './features/whatsapp';
+
 // Lazy load other pages
 import { Suspense } from 'react';
 import { Box, CircularProgress, Typography, alpha } from '@mui/material';
@@ -222,6 +225,11 @@ const ThemedApp = () => {
 
                     {/* Messages */}
                     <Route path="/messages" element={<PlaceholderPage title="Messages" />} />
+
+                    {/* WhatsApp */}
+                    <Route path="/whatsapp" element={<RoleGuard allowedRoles={[UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER]}><WhatsAppHistoryPage /></RoleGuard>} />
+                    <Route path="/whatsapp/compose" element={<RoleGuard allowedRoles={[UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER]}><WhatsAppComposePage /></RoleGuard>} />
+                    <Route path="/whatsapp/:messageId" element={<RoleGuard allowedRoles={[UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER]}><WhatsAppMessageDetailPage /></RoleGuard>} />
 
                     {/* Study Materials */}
                     <Route path="/study-materials" element={<PlaceholderPage title="Study Materials" />} />

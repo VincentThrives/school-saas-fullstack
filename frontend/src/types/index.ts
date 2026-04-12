@@ -164,7 +164,8 @@ export type FeatureKey =
   | 'report_cards'
   | 'bulk_import'
   | 'parent_portal'
-  | 'analytics';
+  | 'analytics'
+  | 'whatsapp';
 
 export interface FeatureCatalog {
   featureKey: FeatureKey;
@@ -751,4 +752,73 @@ export interface BulkImportResult {
     field: string;
     message: string;
   }[];
+}
+
+// WhatsApp
+export enum WhatsAppMessageStatus {
+  QUEUED = 'QUEUED',
+  PROCESSING = 'PROCESSING',
+  COMPLETED = 'COMPLETED',
+  PARTIALLY_FAILED = 'PARTIALLY_FAILED',
+  FAILED = 'FAILED',
+}
+
+export enum WhatsAppDeliveryStatus {
+  PENDING = 'PENDING',
+  SENT = 'SENT',
+  DELIVERED = 'DELIVERED',
+  FAILED = 'FAILED',
+}
+
+export enum WhatsAppContentType {
+  TEXT = 'TEXT',
+  IMAGE = 'IMAGE',
+  DOCUMENT = 'DOCUMENT',
+}
+
+export interface WhatsAppRecipientDetail {
+  parentId: string;
+  parentName: string;
+  phone: string;
+  whatsappMessageId?: string;
+  deliveryStatus: WhatsAppDeliveryStatus;
+  errorMessage?: string;
+}
+
+export interface WhatsAppMessage {
+  messageId: string;
+  sentBy: string;
+  sentByName: string;
+  recipientType: 'CLASS' | 'INDIVIDUAL';
+  classId?: string;
+  className?: string;
+  parentIds: string[];
+  recipients: WhatsAppRecipientDetail[];
+  messageBody: string;
+  contentType: WhatsAppContentType;
+  mediaUrl?: string;
+  mediaFileName?: string;
+  mediaMimeType?: string;
+  totalRecipients: number;
+  successCount: number;
+  failureCount: number;
+  status: WhatsAppMessageStatus;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface WhatsAppRecipientInfo {
+  parentId: string;
+  parentName: string;
+  phone: string;
+}
+
+export interface SendWhatsAppRequest {
+  recipientType: 'CLASS' | 'INDIVIDUAL';
+  classId?: string;
+  parentIds?: string[];
+  messageBody: string;
+  mediaUrl?: string;
+  mediaFileName?: string;
+  mediaMimeType?: string;
 }
