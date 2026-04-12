@@ -3,14 +3,14 @@ import com.saas.school.common.audit.AuditService;
 import com.saas.school.common.exception.BusinessException;
 import com.saas.school.modules.fee.model.*;
 import com.saas.school.modules.fee.repository.*;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.time.LocalDate; import java.util.*; 
-@Service @RequiredArgsConstructor
+@Service
 public class FeeService {
-    private final FeeStructureRepository structureRepo;
-    private final FeePaymentRepository paymentRepo;
-    private final AuditService auditService;
+    @Autowired private FeeStructureRepository structureRepo;
+    @Autowired private FeePaymentRepository paymentRepo;
+    @Autowired private AuditService auditService;
 
     public FeeStructure createStructure(FeeStructure req) {
         req.setFeeStructureId(UUID.randomUUID().toString());

@@ -15,8 +15,9 @@ import com.saas.school.modules.tenant.repository.TenantRepository;
 import com.saas.school.modules.user.model.User;
 import com.saas.school.modules.user.model.UserRole;
 import com.saas.school.modules.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -27,18 +28,18 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository userRepository;
-    private final SuperAdminUserRepository superAdminUserRepository;
-    private final TenantRepository tenantRepository;
-    private final JwtUtil jwtUtil;
-    private final PasswordEncoder passwordEncoder;
-    private final AuditService auditService;
-    private final JavaMailSender mailSender;
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
+    @Autowired private UserRepository userRepository;
+    @Autowired private SuperAdminUserRepository superAdminUserRepository;
+    @Autowired private TenantRepository tenantRepository;
+    @Autowired private JwtUtil jwtUtil;
+    @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private AuditService auditService;
+    @Autowired private JavaMailSender mailSender;
 
     @Value("${app.jwt.refresh-token-expiry-ms:604800000}")
     private long refreshTokenExpiryMs;
@@ -92,13 +93,13 @@ public class AuthService {
 
         auditService.log("USER_LOGIN", "User", user.getUserId(), "Successful login");
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .role(user.getRole())
-                .featureFlags(tenant.getFeatureFlags())
-                .user(toUserDto(user))
-                .build();
+        AuthResponse authResponse = new AuthResponse();
+        authResponse.setAccessToken(accessToken);
+        authResponse.setRefreshToken(refreshToken);
+        authResponse.setRole(user.getRole());
+        authResponse.setFeatureFlags(tenant.getFeatureFlags());
+        authResponse.setUser(toUserDto(user));
+        return authResponse;
     }
 
     // ── Super Admin Login ──────────────────────────────────────────
@@ -130,21 +131,20 @@ public class AuthService {
 
         auditService.log("SUPER_ADMIN_LOGIN", "SuperAdminUser", admin.getUserId(), "Super admin logged in");
 
-        UserDto userDto = UserDto.builder()
-                .userId(admin.getUserId())
-                .email(admin.getEmail())
-                .firstName(admin.getFirstName())
-                .lastName(admin.getLastName())
-                .role(UserRole.SUPER_ADMIN)
-                .build();
+        UserDto userDto = new UserDto();
+        userDto.setUserId(admin.getUserId());
+        userDto.setEmail(admin.getEmail());
+        userDto.setFirstName(admin.getFirstName());
+        userDto.setLastName(admin.getLastName());
+        userDto.setRole(UserRole.SUPER_ADMIN);
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .role(UserRole.SUPER_ADMIN)
-                .featureFlags(Map.of())
-                .user(userDto)
-                .build();
+        AuthResponse authResponse = new AuthResponse();
+        authResponse.setAccessToken(accessToken);
+        authResponse.setRefreshToken(refreshToken);
+        authResponse.setRole(UserRole.SUPER_ADMIN);
+        authResponse.setFeatureFlags(Map.of());
+        authResponse.setUser(userDto);
+        return authResponse;
     }
 
     // ── Token Refresh ──────────────────────────────────────────────
@@ -256,13 +256,13 @@ public class AuthService {
     }
 
     private UserDto toUserDto(User user) {
-        return UserDto.builder()
-                .userId(user.getUserId())
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .role(user.getRole())
-                .profilePhotoUrl(user.getProfilePhotoUrl())
-                .build();
+        UserDto dto = new UserDto();
+        dto.setUserId(user.getUserId());
+        dto.setEmail(user.getEmail());
+        dto.setFirstName(user.getFirstName());
+        dto.setLastName(user.getLastName());
+        dto.setRole(user.getRole());
+        dto.setProfilePhotoUrl(user.getProfilePhotoUrl());
+        return dto;
     }
 }

@@ -5,7 +5,7 @@ import com.saas.school.modules.student.dto.*;
 import com.saas.school.modules.student.service.StudentService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,9 +14,8 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Students")
 @RestController
 @RequestMapping("/api/v1/students")
-@RequiredArgsConstructor
 public class StudentController {
-    private final StudentService studentService;
+    @Autowired private StudentService studentService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")

@@ -9,8 +9,9 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
@@ -31,13 +32,13 @@ import java.util.Map;
  * Super Admin endpoints bypass this check entirely.
  * Public endpoints bypass this check entirely.
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class FeatureFlagFilter extends OncePerRequestFilter {
 
-    private final JwtUtil jwtUtil;
-    private final ObjectMapper objectMapper;
+    private static final Logger log = LoggerFactory.getLogger(FeatureFlagFilter.class);
+
+    @Autowired private JwtUtil jwtUtil;
+    @Autowired private ObjectMapper objectMapper;
 
     // Maps URI path segments to feature keys
     private static final Map<String, String> PATH_TO_FEATURE = Map.ofEntries(

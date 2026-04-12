@@ -5,8 +5,9 @@ import com.saas.school.modules.featureflag.repository.FeatureCatalogRepository;
 import com.saas.school.modules.superadmin.model.SuperAdminUser;
 import com.saas.school.modules.superadmin.repository.SuperAdminUserRepository;
 import com.saas.school.modules.tenant.model.Tenant.SubscriptionPlan;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -21,14 +22,14 @@ import java.util.UUID;
  *
  * Safe to run on every startup — checks existence before inserting.
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
-    private final SuperAdminUserRepository superAdminRepo;
-    private final FeatureCatalogRepository featureCatalogRepo;
-    private final PasswordEncoder passwordEncoder;
+    private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
+
+    @Autowired private SuperAdminUserRepository superAdminRepo;
+    @Autowired private FeatureCatalogRepository featureCatalogRepo;
+    @Autowired private PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) {
@@ -38,14 +39,13 @@ public class DataInitializer implements CommandLineRunner {
 
     private void seedSuperAdmin() {
         if (superAdminRepo.findByEmail("admin@schoolsaas.com").isEmpty()) {
-            SuperAdminUser admin = SuperAdminUser.builder()
-                    .userId(UUID.randomUUID().toString())
-                    .email("admin@schoolsaas.com")
-                    .passwordHash(passwordEncoder.encode("Admin@123"))
-                    .firstName("Super")
-                    .lastName("Admin")
-                    .isActive(true)
-                    .build();
+            SuperAdminUser admin = new SuperAdminUser();
+            admin.setUserId(UUID.randomUUID().toString());
+            admin.setEmail("admin@schoolsaas.com");
+            admin.setPasswordHash(passwordEncoder.encode("Admin@123"));
+            admin.setFirstName("Super");
+            admin.setLastName("Admin");
+            admin.setIsActive(true);
             superAdminRepo.save(admin);
             log.warn("⚠️  Default Super Admin created: admin@schoolsaas.com / Admin@123 — CHANGE IMMEDIATELY");
         }
@@ -75,12 +75,12 @@ public class DataInitializer implements CommandLineRunner {
 
     private FeatureCatalog feature(String key, String name, String desc,
                                     boolean defaultEnabled, SubscriptionPlan... plans) {
-        return FeatureCatalog.builder()
-                .featureKey(key)
-                .displayName(name)
-                .description(desc)
-                .defaultEnabled(defaultEnabled)
-                .availableInPlans(List.of(plans))
-                .build();
+        FeatureCatalog catalog = new FeatureCatalog();
+        catalog.setFeatureKey(key);
+        catalog.setDisplayName(name);
+        catalog.setDescription(desc);
+        catalog.setDefaultEnabled(defaultEnabled);
+        catalog.setAvailableInPlans(List.of(plans));
+        return catalog;
     }
 }

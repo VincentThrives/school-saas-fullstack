@@ -3,7 +3,7 @@ package com.saas.school.config.security;
 import com.saas.school.config.filter.FeatureFlagFilter;
 import com.saas.school.config.filter.JwtAuthFilter;
 import com.saas.school.config.filter.RateLimitFilter;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,12 +29,11 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
-    private final FeatureFlagFilter featureFlagFilter;
-    private final RateLimitFilter rateLimitFilter;
+    @Autowired private JwtAuthFilter jwtAuthFilter;
+    @Autowired private FeatureFlagFilter featureFlagFilter;
+    @Autowired private RateLimitFilter rateLimitFilter;
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;

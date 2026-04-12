@@ -5,7 +5,7 @@ import com.saas.school.modules.classes.model.Subject;
 import com.saas.school.modules.classes.repository.SchoolClassRepository;
 import com.saas.school.modules.classes.repository.SubjectRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -13,10 +13,9 @@ import java.util.*;
 @Tag(name="Classes & Subjects")
 @RestController
 @RequestMapping("/api/v1")
-@RequiredArgsConstructor
 public class ClassController {
-    private final SchoolClassRepository classRepo;
-    private final SubjectRepository subjectRepo;
+    @Autowired private SchoolClassRepository classRepo;
+    @Autowired private SubjectRepository subjectRepo;
 
     @GetMapping("/classes")
     public ResponseEntity<ApiResponse<List<SchoolClass>>> listClasses(

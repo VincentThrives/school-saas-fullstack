@@ -1,13 +1,9 @@
 package com.saas.school.common.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.Builder;
-import lombok.Getter;
 
 import java.time.Instant;
 
-@Getter
-@Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
 
@@ -16,13 +12,31 @@ public class ApiResponse<T> {
     private final T data;
     private final String timestamp;
 
+    public ApiResponse(boolean success, String message, T data, String timestamp) {
+        this.success = success;
+        this.message = message;
+        this.data = data;
+        this.timestamp = timestamp;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public T getData() {
+        return data;
+    }
+
+    public String getTimestamp() {
+        return timestamp;
+    }
+
     public static <T> ApiResponse<T> success(T data, String message) {
-        return ApiResponse.<T>builder()
-                .success(true)
-                .message(message)
-                .data(data)
-                .timestamp(Instant.now().toString())
-                .build();
+        return new ApiResponse<>(true, message, data, Instant.now().toString());
     }
 
     public static <T> ApiResponse<T> success(T data) {
@@ -30,10 +44,6 @@ public class ApiResponse<T> {
     }
 
     public static <T> ApiResponse<T> error(String message) {
-        return ApiResponse.<T>builder()
-                .success(false)
-                .message(message)
-                .timestamp(Instant.now().toString())
-                .build();
+        return new ApiResponse<>(false, message, null, Instant.now().toString());
     }
 }

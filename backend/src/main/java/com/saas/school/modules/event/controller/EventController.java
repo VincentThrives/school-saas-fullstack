@@ -3,7 +3,7 @@ import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.event.model.SchoolEvent;
 import com.saas.school.modules.event.repository.SchoolEventRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,9 +13,8 @@ import java.time.LocalDate; import java.util.*;
 @Tag(name="Events & Holidays")
 @RestController
 @RequestMapping("/api/v1/events")
-@RequiredArgsConstructor
 public class EventController {
-    private final SchoolEventRepository eventRepo;
+    @Autowired private SchoolEventRepository eventRepo;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<SchoolEvent>>> list(

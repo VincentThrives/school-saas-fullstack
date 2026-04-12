@@ -3,12 +3,12 @@ import com.saas.school.common.exception.BusinessException;
 import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.modules.academicyear.model.AcademicYear;
 import com.saas.school.modules.academicyear.repository.AcademicYearRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.*; 
-@Service @RequiredArgsConstructor
+@Service
 public class AcademicYearService {
-    private final AcademicYearRepository repo;
+    @Autowired private AcademicYearRepository repo;
 
     public List<AcademicYear> listAll() { return repo.findAll(); }
 

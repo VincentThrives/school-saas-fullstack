@@ -7,7 +7,7 @@ import com.saas.school.common.response.PageResponse;
 import com.saas.school.modules.student.dto.*;
 import com.saas.school.modules.student.model.Student;
 import com.saas.school.modules.student.repository.StudentRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -17,11 +17,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class StudentService {
 
-    private final StudentRepository studentRepository;
-    private final AuditService auditService;
+    @Autowired private StudentRepository studentRepository;
+    @Autowired private AuditService auditService;
 
     public PageResponse<StudentDto> listStudents(int page, int size,
                                                   String classId, String sectionId, String search) {
@@ -51,20 +50,19 @@ public class StudentService {
             throw new BusinessException("Admission number already exists: " + req.getAdmissionNumber());
         }
 
-        Student student = Student.builder()
-                .studentId(UUID.randomUUID().toString())
-                .userId(req.getUserId())
-                .admissionNumber(req.getAdmissionNumber())
-                .rollNumber(req.getRollNumber())
-                .classId(req.getClassId())
-                .sectionId(req.getSectionId())
-                .academicYearId(req.getAcademicYearId())
-                .parentIds(req.getParentIds())
-                .dateOfBirth(req.getDateOfBirth())
-                .gender(req.getGender())
-                .bloodGroup(req.getBloodGroup())
-                .address(mapAddress(req.getAddress()))
-                .build();
+        Student student = new Student();
+        student.setStudentId(UUID.randomUUID().toString());
+        student.setUserId(req.getUserId());
+        student.setAdmissionNumber(req.getAdmissionNumber());
+        student.setRollNumber(req.getRollNumber());
+        student.setClassId(req.getClassId());
+        student.setSectionId(req.getSectionId());
+        student.setAcademicYearId(req.getAcademicYearId());
+        student.setParentIds(req.getParentIds());
+        student.setDateOfBirth(req.getDateOfBirth());
+        student.setGender(req.getGender());
+        student.setBloodGroup(req.getBloodGroup());
+        student.setAddress(mapAddress(req.getAddress()));
 
         studentRepository.save(student);
         auditService.log("CREATE_STUDENT", "Student", student.getStudentId(),
@@ -124,26 +122,38 @@ public class StudentService {
 
     private Student.Address mapAddress(CreateStudentRequest.AddressDto dto) {
         if (dto == null) return null;
-        return Student.Address.builder()
-                .street(dto.getStreet()).city(dto.getCity())
-                .state(dto.getState()).zip(dto.getZip()).build();
+        Student.Address address = new Student.Address();
+        address.setStreet(dto.getStreet());
+        address.setCity(dto.getCity());
+        address.setState(dto.getState());
+        address.setZip(dto.getZip());
+        return address;
     }
 
     private Student.Address mapAddress(UpdateStudentRequest.AddressDto dto) {
         if (dto == null) return null;
-        return Student.Address.builder()
-                .street(dto.getStreet()).city(dto.getCity())
-                .state(dto.getState()).zip(dto.getZip()).build();
+        Student.Address address = new Student.Address();
+        address.setStreet(dto.getStreet());
+        address.setCity(dto.getCity());
+        address.setState(dto.getState());
+        address.setZip(dto.getZip());
+        return address;
     }
 
     public StudentDto toDto(Student s) {
-        return StudentDto.builder()
-                .studentId(s.getStudentId()).userId(s.getUserId())
-                .admissionNumber(s.getAdmissionNumber()).rollNumber(s.getRollNumber())
-                .classId(s.getClassId()).sectionId(s.getSectionId())
-                .academicYearId(s.getAcademicYearId()).parentIds(s.getParentIds())
-                .dateOfBirth(s.getDateOfBirth()).gender(s.getGender())
-                .bloodGroup(s.getBloodGroup()).createdAt(s.getCreatedAt())
-                .build();
+        StudentDto dto = new StudentDto();
+        dto.setStudentId(s.getStudentId());
+        dto.setUserId(s.getUserId());
+        dto.setAdmissionNumber(s.getAdmissionNumber());
+        dto.setRollNumber(s.getRollNumber());
+        dto.setClassId(s.getClassId());
+        dto.setSectionId(s.getSectionId());
+        dto.setAcademicYearId(s.getAcademicYearId());
+        dto.setParentIds(s.getParentIds());
+        dto.setDateOfBirth(s.getDateOfBirth());
+        dto.setGender(s.getGender());
+        dto.setBloodGroup(s.getBloodGroup());
+        dto.setCreatedAt(s.getCreatedAt());
+        return dto;
     }
 }

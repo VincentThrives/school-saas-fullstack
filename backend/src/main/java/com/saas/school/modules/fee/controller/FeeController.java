@@ -3,7 +3,7 @@ import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.fee.model.*;
 import com.saas.school.modules.fee.service.FeeService;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,9 +12,8 @@ import java.util.List;
 @Tag(name="Fees")
 @RestController
 @RequestMapping("/api/v1/fees")
-@RequiredArgsConstructor
 public class FeeController {
-    private final FeeService feeService;
+    @Autowired private FeeService feeService;
 
     @GetMapping("/structures")
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','PARENT')")

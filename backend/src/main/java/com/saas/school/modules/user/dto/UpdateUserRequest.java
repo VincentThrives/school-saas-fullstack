@@ -1,6 +1,44 @@
 package com.saas.school.modules.user.dto;
-import lombok.Data;
-@Data
+
 public class UpdateUserRequest {
-    private String firstName, lastName, phone, profilePhotoUrl;
+
+    private String firstName;
+    private String lastName;
+    private String phone;
+    private String profilePhotoUrl;
+
+    public UpdateUserRequest() {
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getProfilePhotoUrl() {
+        return profilePhotoUrl;
+    }
+
+    public void setProfilePhotoUrl(String profilePhotoUrl) {
+        this.profilePhotoUrl = profilePhotoUrl;
+    }
 }

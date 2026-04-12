@@ -3,7 +3,7 @@ import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.mentoring.model.MentoringNote;
 import com.saas.school.modules.mentoring.repository.MentoringNoteRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,9 +12,8 @@ import java.util.*;
 @Tag(name="Mentoring")
 @RestController
 @RequestMapping("/api/v1/students/{studentId}/mentoring-notes")
-@RequiredArgsConstructor
 public class MentoringController {
-    private final MentoringNoteRepository noteRepo;
+    @Autowired private MentoringNoteRepository noteRepo;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")

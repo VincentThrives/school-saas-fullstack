@@ -8,7 +8,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -22,10 +22,9 @@ import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-@RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private final ObjectMapper objectMapper;
+    @Autowired private ObjectMapper objectMapper;
 
     @Value("${app.rate-limit.auth-login:10}")
     private int authLoginLimit;
@@ -58,11 +57,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
         } else {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            ApiResponse<Void> body = ApiResponse.<Void>builder()
-                    .success(false)
-                    .message("Too many requests. Please try again later.")
-                    .timestamp(Instant.now().toString())
-                    .build();
+            ApiResponse<Void> body = new ApiResponse<>();
+            body.setSuccess(false);
+            body.setMessage("Too many requests. Please try again later.");
+            body.setTimestamp(Instant.now().toString());
             objectMapper.writeValue(response.getWriter(), body);
         }
     }

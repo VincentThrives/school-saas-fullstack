@@ -8,18 +8,17 @@ import com.saas.school.modules.tenant.service.TenantService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Authentication")
 @RestController
-@RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthService authService;
-    private final TenantService tenantService;
+    @Autowired private AuthService authService;
+    @Autowired private TenantService tenantService;
 
     // ── Public Tenant Auth ─────────────────────────────────────────
 

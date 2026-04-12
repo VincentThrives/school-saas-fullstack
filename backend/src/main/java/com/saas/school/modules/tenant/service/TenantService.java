@@ -14,8 +14,9 @@ import com.saas.school.modules.tenant.model.Tenant.SubscriptionPlan;
 import com.saas.school.modules.tenant.repository.TenantRepository;
 import com.saas.school.modules.user.model.User;
 import com.saas.school.modules.user.model.UserRole;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -29,18 +30,18 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.*;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class TenantService {
 
-    private final TenantRepository tenantRepository;
-    private final FeatureCatalogRepository featureCatalogRepository;
-    private final TenantMongoDbFactory tenantMongoDbFactory;
-    private final MongoTemplate centralMongoTemplate;
-    private final PasswordEncoder passwordEncoder;
-    private final AuditService auditService;
-    private final JavaMailSender mailSender;
+    private static final Logger log = LoggerFactory.getLogger(TenantService.class);
+
+    @Autowired private TenantRepository tenantRepository;
+    @Autowired private FeatureCatalogRepository featureCatalogRepository;
+    @Autowired private TenantMongoDbFactory tenantMongoDbFactory;
+    @Autowired private MongoTemplate centralMongoTemplate;
+    @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private AuditService auditService;
+    @Autowired private JavaMailSender mailSender;
 
     @Value("${app.tenant.default-max-students:500}")
     private int defaultMaxStudents;
@@ -111,20 +112,19 @@ public class TenantService {
 
         Tenant.TenantLimits limits = buildLimitsForPlan(req.getPlan());
 
-        Tenant tenant = Tenant.builder()
-                .tenantId(tenantId)
-                .schoolName(req.getSchoolName())
-                .subdomain(req.getSubdomain().toLowerCase())
-                .contactEmail(req.getContactEmail())
-                .contactPhone(req.getContactPhone())
-                .address(mapAddress(req.getAddress()))
-                .logoUrl(req.getLogoUrl())
-                .plan(req.getPlan())
-                .featureFlags(featureFlags)
-                .limits(limits)
-                .databaseName(dbName)
-                .status(TenantStatus.ACTIVE)
-                .build();
+        Tenant tenant = new Tenant();
+        tenant.setTenantId(tenantId);
+        tenant.setSchoolName(req.getSchoolName());
+        tenant.setSubdomain(req.getSubdomain().toLowerCase());
+        tenant.setContactEmail(req.getContactEmail());
+        tenant.setContactPhone(req.getContactPhone());
+        tenant.setAddress(mapAddress(req.getAddress()));
+        tenant.setLogoUrl(req.getLogoUrl());
+        tenant.setPlan(req.getPlan());
+        tenant.setFeatureFlags(featureFlags);
+        tenant.setLimits(limits);
+        tenant.setDatabaseName(dbName);
+        tenant.setStatus(TenantStatus.ACTIVE);
 
         tenantRepository.save(tenant);
 
@@ -228,12 +228,12 @@ public class TenantService {
     // ── Stats ──────────────────────────────────────────────────────
 
     public GlobalStatsDto getGlobalStats() {
-        return GlobalStatsDto.builder()
-                .totalTenants(tenantRepository.count())
-                .activeTenants(tenantRepository.countByStatus(TenantStatus.ACTIVE))
-                .inactiveTenants(tenantRepository.countByStatus(TenantStatus.INACTIVE))
-                .suspendedTenants(tenantRepository.countByStatus(TenantStatus.SUSPENDED))
-                .build();
+        GlobalStatsDto stats = new GlobalStatsDto();
+        stats.setTotalTenants(tenantRepository.count());
+        stats.setActiveTenants(tenantRepository.countByStatus(TenantStatus.ACTIVE));
+        stats.setInactiveTenants(tenantRepository.countByStatus(TenantStatus.INACTIVE));
+        stats.setSuspendedTenants(tenantRepository.countByStatus(TenantStatus.SUSPENDED));
+        return stats;
     }
 
     // ── Helpers ────────────────────────────────────────────────────
@@ -267,45 +267,65 @@ public class TenantService {
 
     private Tenant.TenantLimits buildLimitsForPlan(SubscriptionPlan plan) {
         return switch (plan) {
-            case BASIC      -> Tenant.TenantLimits.builder()
-                    .maxStudents(500).maxUsers(30).storageGb(5).build();
-            case STANDARD   -> Tenant.TenantLimits.builder()
-                    .maxStudents(2000).maxUsers(100).storageGb(20).build();
-            case ENTERPRISE -> Tenant.TenantLimits.builder()
-                    .maxStudents(10000).maxUsers(500).storageGb(100).build();
+            case BASIC -> {
+                Tenant.TenantLimits limits = new Tenant.TenantLimits();
+                limits.setMaxStudents(500);
+                limits.setMaxUsers(30);
+                limits.setStorageGb(5);
+                yield limits;
+            }
+            case STANDARD -> {
+                Tenant.TenantLimits limits = new Tenant.TenantLimits();
+                limits.setMaxStudents(2000);
+                limits.setMaxUsers(100);
+                limits.setStorageGb(20);
+                yield limits;
+            }
+            case ENTERPRISE -> {
+                Tenant.TenantLimits limits = new Tenant.TenantLimits();
+                limits.setMaxStudents(10000);
+                limits.setMaxUsers(500);
+                limits.setStorageGb(100);
+                yield limits;
+            }
         };
     }
 
     private Tenant.Address mapAddress(CreateTenantRequest.AddressDto dto) {
         if (dto == null) return null;
-        return Tenant.Address.builder()
-                .street(dto.getStreet()).city(dto.getCity())
-                .state(dto.getState()).country(dto.getCountry()).zip(dto.getZip())
-                .build();
+        Tenant.Address address = new Tenant.Address();
+        address.setStreet(dto.getStreet());
+        address.setCity(dto.getCity());
+        address.setState(dto.getState());
+        address.setCountry(dto.getCountry());
+        address.setZip(dto.getZip());
+        return address;
     }
 
     private Tenant.Address mapAddress(UpdateTenantRequest.AddressDto dto) {
         if (dto == null) return null;
-        return Tenant.Address.builder()
-                .street(dto.getStreet()).city(dto.getCity())
-                .state(dto.getState()).country(dto.getCountry()).zip(dto.getZip())
-                .build();
+        Tenant.Address address = new Tenant.Address();
+        address.setStreet(dto.getStreet());
+        address.setCity(dto.getCity());
+        address.setState(dto.getState());
+        address.setCountry(dto.getCountry());
+        address.setZip(dto.getZip());
+        return address;
     }
 
     private void seedSchoolAdmin(String tenantId, CreateTenantRequest req) {
-        User admin = User.builder()
-                .userId(UUID.randomUUID().toString())
-                .tenantId(tenantId)
-                .email(req.getAdminEmail())
-                .passwordHash(passwordEncoder.encode(req.getAdminPassword()))
-                .firstName(req.getAdminFirstName())
-                .lastName(req.getAdminLastName())
-                .role(UserRole.SCHOOL_ADMIN)
-                .isActive(true)
-                .isLocked(false)
-                .failedLoginAttempts(0)
-                .createdAt(Instant.now())
-                .build();
+        User admin = new User();
+        admin.setUserId(UUID.randomUUID().toString());
+        admin.setTenantId(tenantId);
+        admin.setEmail(req.getAdminEmail());
+        admin.setPasswordHash(passwordEncoder.encode(req.getAdminPassword()));
+        admin.setFirstName(req.getAdminFirstName());
+        admin.setLastName(req.getAdminLastName());
+        admin.setRole(UserRole.SCHOOL_ADMIN);
+        admin.setActive(true);
+        admin.setLocked(false);
+        admin.setFailedLoginAttempts(0);
+        admin.setCreatedAt(Instant.now());
 
         // Save to TENANT DB — must temporarily set tenant context
         com.saas.school.config.mongodb.TenantContext.setTenantId(tenantId);

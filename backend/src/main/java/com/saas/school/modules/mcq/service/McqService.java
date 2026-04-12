@@ -4,15 +4,15 @@ import com.saas.school.common.exception.BusinessException;
 import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.modules.mcq.model.*;
 import com.saas.school.modules.mcq.repository.*;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.time.Instant; import java.util.*; 
-@Service @RequiredArgsConstructor
+@Service
 public class McqService {
-    private final McqQuestionRepository questionRepo;
-    private final McqExamRepository examRepo;
-    private final McqResultRepository resultRepo;
-    private final AuditService auditService;
+    @Autowired private McqQuestionRepository questionRepo;
+    @Autowired private McqExamRepository examRepo;
+    @Autowired private McqResultRepository resultRepo;
+    @Autowired private AuditService auditService;
 
     public McqQuestion createQuestion(McqQuestion q, String createdBy) {
         q.setQuestionId(UUID.randomUUID().toString());
@@ -44,12 +44,14 @@ public class McqService {
             throw new BusinessException("Exam is not within the scheduled window.");
         if (resultRepo.findByMcqExamIdAndStudentId(examId, studentId).filter(McqResult::isSubmitted).isPresent())
             throw new BusinessException("You have already submitted this exam.");
-        McqResult result = McqResult.builder()
-            .resultId(UUID.randomUUID().toString())
-            .mcqExamId(examId).studentId(studentId)
-            .totalQuestions(exam.getQuestionIds().size())
-            .answers(new ArrayList<>(Collections.nCopies(exam.getQuestionIds().size(), -1)))
-            .startedAt(now).isSubmitted(false).build();
+        McqResult result = new McqResult();
+        result.setResultId(UUID.randomUUID().toString());
+        result.setMcqExamId(examId);
+        result.setStudentId(studentId);
+        result.setTotalQuestions(exam.getQuestionIds().size());
+        result.setAnswers(new ArrayList<>(Collections.nCopies(exam.getQuestionIds().size(), -1)));
+        result.setStartedAt(now);
+        result.setSubmitted(false);
         return resultRepo.save(result);
     }
 

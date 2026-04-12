@@ -3,7 +3,7 @@ import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.timetable.model.Timetable;
 import com.saas.school.modules.timetable.repository.TimetableRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -11,9 +11,8 @@ import java.util.UUID;
 @Tag(name="Timetable")
 @RestController
 @RequestMapping("/api/v1/timetable")
-@RequiredArgsConstructor
 public class TimetableController {
-    private final TimetableRepository timetableRepo;
+    @Autowired private TimetableRepository timetableRepo;
 
     @GetMapping
     public ResponseEntity<ApiResponse<Timetable>> get(

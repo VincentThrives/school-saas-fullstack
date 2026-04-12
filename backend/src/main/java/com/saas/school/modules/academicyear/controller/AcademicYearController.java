@@ -3,7 +3,7 @@ import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.academicyear.model.AcademicYear;
 import com.saas.school.modules.academicyear.service.AcademicYearService;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -11,9 +11,8 @@ import java.util.List;
 @Tag(name="Academic Years")
 @RestController
 @RequestMapping("/api/v1/academic-years")
-@RequiredArgsConstructor
 public class AcademicYearController {
-    private final AcademicYearService service;
+    @Autowired private AcademicYearService service;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<AcademicYear>>> list() {

@@ -1,17 +1,20 @@
 package com.saas.school.modules.notification.service;
 import com.saas.school.modules.notification.model.Notification;
 import com.saas.school.modules.notification.repository.NotificationRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import java.time.Instant; import java.util.*;
-@Slf4j @Service @RequiredArgsConstructor
+@Service
 public class NotificationService {
-    private final NotificationRepository notificationRepository;
-    private final JavaMailSender mailSender;
+    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
+
+    @Autowired private NotificationRepository notificationRepository;
+    @Autowired private JavaMailSender mailSender;
 
     public Notification send(Notification req, String sentBy) {
         req.setNotificationId(UUID.randomUUID().toString());

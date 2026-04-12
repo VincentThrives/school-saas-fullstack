@@ -7,14 +7,14 @@ import com.saas.school.modules.exam.model.Exam;
 import com.saas.school.modules.exam.model.ExamMark;
 import com.saas.school.modules.exam.repository.ExamMarkRepository;
 import com.saas.school.modules.exam.repository.ExamRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.*; 
-@Service @RequiredArgsConstructor
+@Service
 public class ExamService {
-    private final ExamRepository examRepository;
-    private final ExamMarkRepository markRepository;
-    private final AuditService auditService;
+    @Autowired private ExamRepository examRepository;
+    @Autowired private ExamMarkRepository markRepository;
+    @Autowired private AuditService auditService;
 
     public Exam createExam(Exam req) {
         req.setExamId(UUID.randomUUID().toString());
@@ -38,11 +38,14 @@ public class ExamService {
                 throw new BusinessException("Marks must be between 0 and " + exam.getMaxMarks());
 
             ExamMark mark = markRepository.findByExamIdAndStudentId(exam.getExamId(), entry.getStudentId())
-                .orElseGet(() -> ExamMark.builder()
-                    .markId(UUID.randomUUID().toString())
-                    .examId(exam.getExamId())
-                    .studentId(entry.getStudentId())
-                    .teacherId(teacherId).build());
+                .orElseGet(() -> {
+                    ExamMark m = new ExamMark();
+                    m.setMarkId(UUID.randomUUID().toString());
+                    m.setExamId(exam.getExamId());
+                    m.setStudentId(entry.getStudentId());
+                    m.setTeacherId(teacherId);
+                    return m;
+                });
             mark.setMarksObtained(entry.getMarksObtained());
             mark.setRemarks(entry.getRemarks());
             mark.setPassed(entry.getMarksObtained() >= exam.getPassingMarks());

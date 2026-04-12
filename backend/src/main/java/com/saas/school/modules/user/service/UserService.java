@@ -9,8 +9,9 @@ import com.saas.school.modules.user.dto.*;
 import com.saas.school.modules.user.model.User;
 import com.saas.school.modules.user.model.UserRole;
 import com.saas.school.modules.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Page;
@@ -26,14 +27,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class UserService {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final AuditService auditService;
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
+
+    @Autowired private UserRepository userRepository;
+    @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private AuditService auditService;
 
     // ── List / Search ──────────────────────────────────────────────
 
@@ -68,20 +69,19 @@ public class UserService {
             throw new BusinessException("Email already in use: " + req.getEmail());
         }
 
-        User user = User.builder()
-                .userId(UUID.randomUUID().toString())
-                .tenantId(TenantContext.getTenantId())
-                .email(req.getEmail())
-                .passwordHash(passwordEncoder.encode(req.getPassword()))
-                .role(req.getRole())
-                .firstName(req.getFirstName())
-                .lastName(req.getLastName())
-                .phone(req.getPhone())
-                .isActive(true)
-                .isLocked(false)
-                .failedLoginAttempts(0)
-                .createdAt(Instant.now())
-                .build();
+        User user = new User();
+        user.setUserId(UUID.randomUUID().toString());
+        user.setTenantId(TenantContext.getTenantId());
+        user.setEmail(req.getEmail());
+        user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+        user.setRole(req.getRole());
+        user.setFirstName(req.getFirstName());
+        user.setLastName(req.getLastName());
+        user.setPhone(req.getPhone());
+        user.setActive(true);
+        user.setLocked(false);
+        user.setFailedLoginAttempts(0);
+        user.setCreatedAt(Instant.now());
 
         userRepository.save(user);
         auditService.log("CREATE_USER", "User", user.getUserId(),
@@ -194,18 +194,18 @@ public class UserService {
     }
 
     public UserDto toDto(User user) {
-        return UserDto.builder()
-                .userId(user.getUserId())
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .isActive(user.isActive())
-                .isLocked(user.isLocked())
-                .profilePhotoUrl(user.getProfilePhotoUrl())
-                .lastLoginAt(user.getLastLoginAt())
-                .createdAt(user.getCreatedAt())
-                .build();
+        UserDto dto = new UserDto();
+        dto.setUserId(user.getUserId());
+        dto.setEmail(user.getEmail());
+        dto.setFirstName(user.getFirstName());
+        dto.setLastName(user.getLastName());
+        dto.setPhone(user.getPhone());
+        dto.setRole(user.getRole());
+        dto.setActive(user.isActive());
+        dto.setLocked(user.isLocked());
+        dto.setProfilePhotoUrl(user.getProfilePhotoUrl());
+        dto.setLastLoginAt(user.getLastLoginAt());
+        dto.setCreatedAt(user.getCreatedAt());
+        return dto;
     }
 }

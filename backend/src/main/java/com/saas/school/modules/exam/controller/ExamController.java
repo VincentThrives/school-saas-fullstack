@@ -7,7 +7,7 @@ import com.saas.school.modules.exam.repository.ExamMarkRepository;
 import com.saas.school.modules.exam.service.ExamService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,10 +16,9 @@ import java.util.List;
 @Tag(name="Exams")
 @RestController
 @RequestMapping("/api/v1/exams")
-@RequiredArgsConstructor
 public class ExamController {
-    private final ExamService examService;
-    private final ExamMarkRepository markRepository;
+    @Autowired private ExamService examService;
+    @Autowired private ExamMarkRepository markRepository;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<Exam>>> list(

@@ -5,7 +5,7 @@ import com.saas.school.modules.attendance.model.Attendance;
 import com.saas.school.modules.attendance.service.AttendanceService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,9 +15,8 @@ import java.time.LocalDate; import java.util.List;
 @Tag(name="Attendance")
 @RestController
 @RequestMapping("/api/v1/attendance")
-@RequiredArgsConstructor
 public class AttendanceController {
-    private final AttendanceService attendanceService;
+    @Autowired private AttendanceService attendanceService;
 
     @PostMapping("/mark")
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','TEACHER')")

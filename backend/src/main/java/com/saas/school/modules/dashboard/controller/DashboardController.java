@@ -5,26 +5,24 @@ import com.saas.school.modules.student.repository.StudentRepository;
 import com.saas.school.modules.teacher.repository.TeacherRepository;
 import com.saas.school.modules.user.repository.UserRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name="Dashboard")
 @RestController
 @RequestMapping("/api/v1/dashboard")
-@RequiredArgsConstructor
 public class DashboardController {
-    private final StudentRepository studentRepo;
-    private final TeacherRepository teacherRepo;
-    private final UserRepository userRepo;
+    @Autowired private StudentRepository studentRepo;
+    @Autowired private TeacherRepository teacherRepo;
+    @Autowired private UserRepository userRepo;
 
     @GetMapping
     public ResponseEntity<ApiResponse<DashboardDto>> getDashboard() {
-        DashboardDto dto = DashboardDto.builder()
-            .totalStudents(studentRepo.countByDeletedAtIsNull())
-            .totalTeachers(teacherRepo.count())
-            .totalUsers(userRepo.count())
-            .build();
+        DashboardDto dto = new DashboardDto();
+        dto.setTotalStudents(studentRepo.countByDeletedAtIsNull());
+        dto.setTotalTeachers(teacherRepo.count());
+        dto.setTotalUsers(userRepo.count());
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 }

@@ -2,7 +2,8 @@ package com.saas.school.config.mongodb;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoDatabase;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
@@ -18,9 +19,10 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * Database connections are cached per tenant to avoid repeated handshakes.
  */
-@Slf4j
 @Component
 public class TenantMongoDbFactory implements MongoDatabaseFactory {
+
+    private static final Logger log = LoggerFactory.getLogger(TenantMongoDbFactory.class);
 
     private final MongoClient mongoClient;
     private final String centralDbName;

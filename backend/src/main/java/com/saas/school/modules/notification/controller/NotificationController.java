@@ -3,7 +3,7 @@ import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.notification.model.Notification;
 import com.saas.school.modules.notification.service.NotificationService;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -11,9 +11,8 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name="Notifications")
 @RestController
 @RequestMapping("/api/v1/notifications")
-@RequiredArgsConstructor
 public class NotificationController {
-    private final NotificationService notificationService;
+    @Autowired private NotificationService notificationService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','TEACHER')")

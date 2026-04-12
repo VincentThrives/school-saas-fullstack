@@ -3,7 +3,7 @@ import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.mcq.model.*;
 import com.saas.school.modules.mcq.service.McqService;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,9 +12,8 @@ import java.util.List;
 @Tag(name="MCQ Exams")
 @RestController
 @RequestMapping("/api/v1/mcq")
-@RequiredArgsConstructor
 public class McqController {
-    private final McqService mcqService;
+    @Autowired private McqService mcqService;
 
     @PostMapping("/questions")
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','TEACHER')")
