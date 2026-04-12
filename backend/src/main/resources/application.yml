@@ -1,0 +1,98 @@
+spring:
+  application:
+    name: school-management-saas
+
+  # MongoDB - central DB (tenant registry)
+  data:
+    mongodb:
+      uri: ${MONGO_URI:mongodb://localhost:27017}
+      database: saas_central
+      auto-index-creation: true
+
+  # Mail
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  # Cache
+  cache:
+    type: simple  # switch to 'redis' when Redis is available
+
+  # File upload
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+# JWT
+app:
+  jwt:
+    secret: ${JWT_SECRET:ThisIsAVeryLongSecretKeyForJWTTokenSigningMustBe256BitsAtMinimum!!}
+    access-token-expiry-ms: ${JWT_ACCESS_EXPIRY:900000}       # 15 minutes
+    refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY:604800000}  # 7 days
+    super-admin-access-expiry-ms: ${SA_ACCESS_EXPIRY:3600000} # 1 hour
+
+  # File storage
+  file:
+    upload-dir: ${FILE_UPLOAD_DIR:./uploads}
+    max-size-mb: 10
+    allowed-types: image/jpeg,image/png,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+
+  # CORS
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:3000}
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: true
+
+  # Rate limiting (requests/minute)
+  rate-limit:
+    auth-login: 10
+    super-auth-login: 5
+    resolve-tenant: 20
+    default: 200
+
+  # Tenant provisioning defaults
+  tenant:
+    default-max-students: 500
+    default-max-users: 30
+    default-storage-gb: 5
+    data-retention-days: 90
+
+# Springdoc (Swagger)
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui
+    operations-sorter: method
+    tags-sorter: alpha
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+---
+# Test profile
+spring:
+  config:
+    activate:
+      on-profile: test
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017
+      database: saas_central_test

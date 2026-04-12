@@ -1,0 +1,84 @@
+package com.saas.school.config.mongodb;
+
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoDatabase;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Dynamically routes MongoDB operations to the correct tenant database.
+ *
+ * Central DB  → saas_central          (used for tenant registry, super admin)
+ * Tenant DB   → school_tenant_<tenantId>  (used for all school data)
+ *
+ * Database connections are cached per tenant to avoid repeated handshakes.
+ */
+@Slf4j
+@Component
+public class TenantMongoDbFactory implements MongoDatabaseFactory {
+
+    private final MongoClient mongoClient;
+    private final String centralDbName;
+    private final ConcurrentHashMap<String, MongoDatabaseFactory> tenantFactories = new ConcurrentHashMap<>();
+
+    public TenantMongoDbFactory(
+            MongoClient mongoClient,
+            @Value("${spring.data.mongodb.database:saas_central}") String centralDbName) {
+        this.mongoClient = mongoClient;
+        this.centralDbName = centralDbName;
+    }
+
+    @Override
+    public MongoDatabase getMongoDatabase() {
+        String tenantId = TenantContext.getTenantId();
+        if (tenantId == null) {
+            // No tenant context → use central DB (super admin, resolve-tenant, etc.)
+            return mongoClient.getDatabase(centralDbName);
+        }
+        return getTenantFactory(tenantId).getMongoDatabase();
+    }
+
+    @Override
+    public MongoDatabase getMongoDatabase(String dbName) {
+        return mongoClient.getDatabase(dbName);
+    }
+
+    /**
+     * Returns (and caches) a factory for the given tenant.
+     * Database name pattern: school_tenant_<tenantId>
+     */
+    private MongoDatabaseFactory getTenantFactory(String tenantId) {
+        return tenantFactories.computeIfAbsent(tenantId, id -> {
+            String dbName = buildTenantDbName(id);
+            log.debug("Creating MongoDbFactory for tenant: {} → db: {}", id, dbName);
+            return new SimpleMongoClientDatabaseFactory(mongoClient, dbName);
+        });
+    }
+
+    public static String buildTenantDbName(String tenantId) {
+        // Sanitize tenantId to be a valid MongoDB database name
+        return "school_tenant_" + tenantId.replaceAll("[^a-zA-Z0-9_]", "_");
+    }
+
+    /** Called when a tenant is provisioned. Pre-warms the connection. */
+    public void provisionTenant(String tenantId) {
+        getTenantFactory(tenantId);
+        log.info("Provisioned database for tenant: {}", tenantId);
+    }
+
+    /** Called when a tenant is deleted. Removes the cached factory. */
+    public void evictTenant(String tenantId) {
+        tenantFactories.remove(tenantId);
+        log.info("Evicted database factory for tenant: {}", tenantId);
+    }
+
+    @Override
+    public boolean isNoSqlSessionSynchronizationActive() {
+        return false;
+    }
+}
