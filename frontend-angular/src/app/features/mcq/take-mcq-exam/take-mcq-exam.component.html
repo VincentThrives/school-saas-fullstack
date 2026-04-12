@@ -1,0 +1,176 @@
+<!-- Start Screen -->
+<div class="exam-wrapper" *ngIf="state === 'start'">
+  <mat-card class="start-card">
+    <mat-card-content>
+      <div class="start-content">
+        <mat-icon class="start-icon">quiz</mat-icon>
+        <h2>MCQ Examination</h2>
+        <p class="start-subtitle">Read the instructions carefully before starting the exam.</p>
+
+        <mat-card class="instructions-card">
+          <mat-card-content>
+            <h4>Instructions:</h4>
+            <ul>
+              <li>You cannot pause the exam once started</li>
+              <li>Each question has only one correct answer</li>
+              <li>You can navigate between questions</li>
+              <li>Make sure you have a stable internet connection</li>
+            </ul>
+          </mat-card-content>
+        </mat-card>
+
+        <button
+          mat-flat-button
+          class="start-btn"
+          (click)="startExam()"
+          [disabled]="isStarting"
+        >
+          <mat-spinner diameter="20" *ngIf="isStarting"></mat-spinner>
+          <mat-icon *ngIf="!isStarting">play_arrow</mat-icon>
+          {{ isStarting ? 'Starting...' : 'Start Exam' }}
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<!-- Exam Screen -->
+<div class="exam-wrapper" *ngIf="state === 'exam'">
+  <!-- Timer Header -->
+  <mat-card class="timer-card">
+    <mat-card-content>
+      <div class="timer-row">
+        <div class="timer-left">
+          <mat-chip [class]="timeRemaining < 300 ? 'timer-chip-danger' : 'timer-chip'">
+            <mat-icon>timer</mat-icon>
+            {{ formattedTime }}
+          </mat-chip>
+          <span class="question-count">Question {{ currentIndex + 1 }} of {{ questions.length }}</span>
+        </div>
+        <span class="answered-count">Answered: {{ answeredCount }}/{{ questions.length }}</span>
+      </div>
+      <mat-progress-bar mode="determinate" [value]="progress" class="exam-progress"></mat-progress-bar>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Question -->
+  <mat-card class="question-card" *ngIf="currentQuestion">
+    <mat-card-content>
+      <h3 class="question-text">{{ currentIndex + 1 }}. {{ currentQuestion.questionText }}</h3>
+
+      <mat-radio-group
+        [value]="currentAnswer"
+        (change)="selectAnswer($event.value)"
+        class="options-group"
+      >
+        <mat-radio-button
+          *ngFor="let option of currentQuestion.options; let i = index"
+          [value]="i"
+          class="option-item"
+          [class.option-selected]="currentAnswer === i"
+        >
+          {{ getOptionLabel(i) }}. {{ option }}
+        </mat-radio-button>
+      </mat-radio-group>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Navigation -->
+  <div class="nav-row">
+    <button mat-stroked-button (click)="previousQuestion()" [disabled]="currentIndex === 0">
+      <mat-icon>navigate_before</mat-icon>
+      Previous
+    </button>
+
+    <button mat-flat-button class="submit-exam-btn" (click)="openSubmitDialog()">
+      <mat-icon>send</mat-icon>
+      Submit Exam
+    </button>
+
+    <button mat-stroked-button (click)="nextQuestion()" [disabled]="currentIndex === questions.length - 1">
+      Next
+      <mat-icon>navigate_next</mat-icon>
+    </button>
+  </div>
+
+  <!-- Question Navigator -->
+  <mat-card class="navigator-card">
+    <mat-card-content>
+      <p class="navigator-label">Question Navigator</p>
+      <div class="navigator-grid">
+        <mat-chip
+          *ngFor="let q of questions; let i = index"
+          (click)="goToQuestion(i)"
+          [class.nav-answered]="isAnswered(q.questionId)"
+          [class.nav-current]="currentIndex === i"
+          class="nav-chip"
+        >
+          {{ i + 1 }}
+        </mat-chip>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Submit Dialog -->
+  <div class="dialog-overlay" *ngIf="showSubmitDialog" (click)="closeSubmitDialog()">
+    <mat-card class="dialog-card" (click)="$event.stopPropagation()">
+      <mat-card-header>
+        <mat-card-title>Submit Exam?</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>You have answered {{ answeredCount }} out of {{ questions.length }} questions.</p>
+        <p *ngIf="answeredCount < questions.length" class="warning-text">
+          Are you sure you want to submit?
+        </p>
+      </mat-card-content>
+      <div class="dialog-actions">
+        <button mat-stroked-button (click)="closeSubmitDialog()">Continue Exam</button>
+        <button mat-flat-button color="warn" (click)="submitExam()" [disabled]="isSubmitting">
+          <mat-spinner diameter="18" *ngIf="isSubmitting"></mat-spinner>
+          {{ isSubmitting ? 'Submitting...' : 'Submit' }}
+        </button>
+      </div>
+    </mat-card>
+  </div>
+</div>
+
+<!-- Result Screen -->
+<div class="exam-wrapper" *ngIf="state === 'result'">
+  <mat-card class="result-card">
+    <mat-card-content>
+      <div class="result-content">
+        <h2>Exam Completed!</h2>
+
+        <div class="score-display">
+          <span class="score-value" [class.score-pass]="percentage >= 60" [class.score-fail]="percentage < 60">
+            {{ score }}
+          </span>
+          <span class="score-total">out of {{ totalQuestions }}</span>
+        </div>
+
+        <div class="result-stats">
+          <div class="stat-box stat-correct">
+            <span class="stat-num">{{ correctAnswers }}</span>
+            <span class="stat-label">Correct</span>
+          </div>
+          <div class="stat-box stat-wrong">
+            <span class="stat-num">{{ totalQuestions - correctAnswers }}</span>
+            <span class="stat-label">Wrong</span>
+          </div>
+          <div class="stat-box stat-percent">
+            <span class="stat-num">{{ percentage }}%</span>
+            <span class="stat-label">Score</span>
+          </div>
+        </div>
+
+        <mat-chip [class]="percentage >= 60 ? 'result-pass' : 'result-fail'" class="result-badge">
+          {{ percentage >= 60 ? 'PASSED' : 'FAILED' }}
+        </mat-chip>
+
+        <button mat-flat-button class="back-btn" (click)="goBackToExams()">
+          Back to Exams
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

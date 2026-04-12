@@ -1,0 +1,92 @@
+<div class="super-admin-dashboard">
+  <app-page-header title="Super Admin Dashboard"></app-page-header>
+
+  <!-- Stats Grid -->
+  <div class="super-admin-dashboard__stats">
+    <app-stat-card
+      title="Total Tenants"
+      [value]="stats.totalTenants || 55"
+      icon="business"
+      color="primary"
+      [trend]="{ value: 12, label: 'vs last month' }"
+    ></app-stat-card>
+    <app-stat-card
+      title="Total Users"
+      [value]="(stats.totalUsers || 15420).toLocaleString()"
+      icon="people"
+      color="info"
+      [trend]="{ value: 8 }"
+      subtitle="across all tenants"
+    ></app-stat-card>
+    <app-stat-card
+      title="Total Students"
+      [value]="(stats.totalStudents || 12500).toLocaleString()"
+      icon="school"
+      color="success"
+      [trend]="{ value: 5 }"
+    ></app-stat-card>
+    <app-stat-card
+      title="Storage Used"
+      [value]="(stats.totalStorageUsedGb || 256) + ' GB'"
+      icon="storage"
+      color="warning"
+      subtitle="of 1 TB total"
+    ></app-stat-card>
+  </div>
+
+  <!-- Recent Activity & System Health -->
+  <div class="super-admin-dashboard__panels">
+    <!-- Recent Tenant Activity -->
+    <mat-card class="super-admin-dashboard__panel">
+      <mat-card-header>
+        <mat-card-title>Recent Tenant Activity</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-list>
+          <mat-list-item *ngFor="let tenant of recentTenants; let last = last">
+            <div class="super-admin-dashboard__tenant-item">
+              <div class="super-admin-dashboard__tenant-avatar">
+                {{ getInitial(tenant.schoolName) }}
+              </div>
+              <div class="super-admin-dashboard__tenant-info">
+                <span class="super-admin-dashboard__tenant-name">{{ tenant.schoolName }}</span>
+                <span class="super-admin-dashboard__tenant-meta">Last active: {{ tenant.lastLogin }}</span>
+              </div>
+              <span class="super-admin-dashboard__tenant-badge">{{ tenant.activeUsers }} users</span>
+            </div>
+          </mat-list-item>
+        </mat-list>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- System Health -->
+    <mat-card class="super-admin-dashboard__panel">
+      <mat-card-header>
+        <mat-card-title>System Health</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="super-admin-dashboard__health-items">
+          <div
+            class="super-admin-dashboard__health-item"
+            *ngFor="let item of systemHealth"
+          >
+            <div class="super-admin-dashboard__health-header">
+              <span class="super-admin-dashboard__health-label">{{ item.label }}</span>
+              <span
+                class="super-admin-dashboard__health-value"
+                [ngClass]="'super-admin-dashboard__health-value--' + item.color"
+              >
+                {{ item.value }}
+              </span>
+            </div>
+            <mat-progress-bar
+              mode="determinate"
+              [value]="item.percentage"
+              [color]="item.color === 'success' ? 'primary' : item.color === 'warning' ? 'warn' : 'accent'"
+            ></mat-progress-bar>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

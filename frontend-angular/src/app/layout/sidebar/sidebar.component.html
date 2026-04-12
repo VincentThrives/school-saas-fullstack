@@ -1,0 +1,79 @@
+<div class="sidebar-container">
+  <!-- Logo / School Header -->
+  <div class="sidebar-header">
+    <div class="school-brand">
+      <div class="school-avatar">
+        <img *ngIf="schoolLogoUrl" [src]="schoolLogoUrl" [alt]="schoolName" class="school-logo-img" />
+        <span *ngIf="!schoolLogoUrl">{{ schoolInitial }}</span>
+      </div>
+      <div class="school-info">
+        <span class="school-name">{{ schoolName }}</span>
+        <span class="school-subtitle">{{ schoolSubtitle }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Academic Year Selector -->
+  <div class="academic-year-section" *ngIf="!isSuperAdmin">
+    <div class="ay-label-row">
+      <mat-icon class="ay-icon">calendar_today</mat-icon>
+      <span class="ay-label">Academic Year</span>
+      <span *ngIf="selectedYearIsCurrent" class="ay-current-badge">Current</span>
+    </div>
+
+    <div *ngIf="isLoadingAY" class="ay-loading">
+      <mat-spinner diameter="16"></mat-spinner>
+      <span>Loading...</span>
+    </div>
+
+    <mat-form-field *ngIf="!isLoadingAY" appearance="outline" class="ay-select-field">
+      <mat-select
+        [(value)]="selectedAcademicYearId"
+        (selectionChange)="onAcademicYearChange($event.value)"
+        panelClass="ay-select-panel"
+      >
+        <mat-option *ngFor="let ay of academicYears" [value]="ay.id">
+          <div class="ay-option">
+            <span [class.ay-option-current]="ay.isCurrent">{{ ay.label }}</span>
+            <span *ngIf="ay.isCurrent" class="ay-option-badge">Current</span>
+          </div>
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="sidebar-nav">
+    <a
+      *ngFor="let item of menuItems"
+      [routerLink]="item.path"
+      routerLinkActive="active-link"
+      [routerLinkActiveOptions]="{ exact: item.path === '/dashboard' || item.path === '/superadmin/dashboard' }"
+      class="nav-item"
+      (click)="onNavClick()"
+    >
+      <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+      <span class="nav-title">{{ item.title }}</span>
+    </a>
+  </nav>
+
+  <!-- User Info at Bottom -->
+  <div class="sidebar-footer">
+    <mat-divider class="footer-divider"></mat-divider>
+    <div class="user-section">
+      <div class="user-avatar-small">
+        <img
+          *ngIf="user?.profilePhotoUrl"
+          [src]="user!.profilePhotoUrl"
+          [alt]="userName"
+          class="user-avatar-img"
+        />
+        <span *ngIf="!user?.profilePhotoUrl">{{ userInitial }}</span>
+      </div>
+      <div class="user-details">
+        <span class="user-name">{{ userName }}</span>
+        <span class="user-role">{{ roleDisplay }}</span>
+      </div>
+    </div>
+  </div>
+</div>

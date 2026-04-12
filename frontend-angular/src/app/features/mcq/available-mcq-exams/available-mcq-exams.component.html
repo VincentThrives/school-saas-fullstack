@@ -1,0 +1,73 @@
+<div class="available-exams-container">
+  <app-page-header
+    title="Available MCQ Exams"
+    subtitle="Take online MCQ examinations"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'MCQ Exams' }
+    ]"
+  ></app-page-header>
+
+  <!-- Loading -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- Empty State -->
+  <mat-card class="empty-card" *ngIf="!isLoading && exams.length === 0">
+    <mat-card-content>
+      <div class="empty-content">
+        <mat-icon class="empty-icon">quiz</mat-icon>
+        <h3>No exams available at the moment</h3>
+        <p>Check back later for new examinations</p>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Exam Cards Grid -->
+  <div class="exams-grid" *ngIf="!isLoading && exams.length > 0">
+    <mat-card *ngFor="let exam of exams" class="exam-card">
+      <mat-card-content>
+        <h3 class="exam-title">{{ exam.title }}</h3>
+
+        <mat-chip class="subject-chip">{{ exam.subjectName }}</mat-chip>
+
+        <div class="exam-details">
+          <div class="detail-row">
+            <mat-icon>quiz</mat-icon>
+            <span>{{ exam.totalQuestions }} Questions</span>
+          </div>
+          <div class="detail-row">
+            <mat-icon>timer</mat-icon>
+            <span>{{ exam.duration }} minutes</span>
+          </div>
+          <div class="detail-row" *ngIf="exam.endTime">
+            <mat-icon>event</mat-icon>
+            <span>Available until: {{ exam.endTime | date:'dd MMM yyyy, HH:mm' }}</span>
+          </div>
+        </div>
+
+        <!-- Completed State -->
+        <div class="completed-section" *ngIf="exam.isCompleted">
+          <mat-chip class="score-chip">
+            <mat-icon>check_circle</mat-icon>
+            Score: {{ exam.score }}
+          </mat-chip>
+        </div>
+      </mat-card-content>
+
+      <mat-card-actions>
+        <button
+          mat-flat-button
+          class="start-btn"
+          (click)="startExam(exam.examId)"
+          [disabled]="exam.isCompleted"
+          fullWidth
+        >
+          <mat-icon>{{ exam.isCompleted ? 'check' : 'play_arrow' }}</mat-icon>
+          {{ exam.isCompleted ? 'Completed' : 'Start Exam' }}
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+</div>

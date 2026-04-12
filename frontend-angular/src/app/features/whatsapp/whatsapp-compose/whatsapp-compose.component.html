@@ -1,0 +1,131 @@
+<div class="compose-container">
+  <app-page-header
+    title="Compose WhatsApp Message"
+    subtitle="Send a new WhatsApp message to parents"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'WhatsApp Messages', link: '/whatsapp' },
+      { label: 'Compose' }
+    ]"
+    secondaryActionLabel="Back"
+    secondaryActionIcon="arrow_back"
+    (secondaryActionClick)="goBack()"
+  ></app-page-header>
+
+  <!-- Recipients Card -->
+  <mat-card class="section-card">
+    <mat-card-content>
+      <h3 class="section-title">Recipients</h3>
+
+      <mat-radio-group
+        [(ngModel)]="recipientType"
+        (change)="onRecipientTypeChange()"
+        class="recipient-type-group"
+      >
+        <mat-radio-button value="CLASS">By Class</mat-radio-button>
+        <mat-radio-button value="INDIVIDUAL">Individual</mat-radio-button>
+      </mat-radio-group>
+
+      <mat-form-field
+        appearance="outline"
+        class="class-select"
+        *ngIf="recipientType === 'CLASS'"
+      >
+        <mat-label>Select Class</mat-label>
+        <mat-select [(ngModel)]="classId" (selectionChange)="recipients = []">
+          <mat-option *ngFor="let cls of classes" [value]="cls.id">
+            {{ cls.name }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <button
+        mat-stroked-button
+        class="preview-btn"
+        (click)="previewRecipients()"
+        [disabled]="isResolving || (recipientType === 'CLASS' && !classId)"
+      >
+        <mat-spinner diameter="18" *ngIf="isResolving"></mat-spinner>
+        <mat-icon *ngIf="!isResolving">group</mat-icon>
+        Preview Recipients
+      </button>
+
+      <!-- Recipients Table -->
+      <div class="recipients-section" *ngIf="recipients.length > 0">
+        <p class="recipients-count">{{ recipients.length }} recipient(s) found</p>
+        <table mat-table [dataSource]="recipients" class="recipients-table">
+          <ng-container matColumnDef="parentName">
+            <th mat-header-cell *matHeaderCellDef>Name</th>
+            <td mat-cell *matCellDef="let r">{{ r.parentName }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="phone">
+            <th mat-header-cell *matHeaderCellDef>Phone</th>
+            <td mat-cell *matCellDef="let r">{{ r.phone }}</td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="recipientColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: recipientColumns;"></tr>
+        </table>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Message Card -->
+  <mat-card class="section-card">
+    <mat-card-content>
+      <h3 class="section-title">Message</h3>
+
+      <mat-form-field appearance="outline" class="message-field">
+        <mat-label>Type your message here...</mat-label>
+        <textarea
+          matInput
+          [(ngModel)]="messageBody"
+          rows="6"
+          [maxlength]="maxMessageLength"
+        ></textarea>
+        <mat-hint align="end">{{ messageCharCount }}/{{ maxMessageLength }}</mat-hint>
+      </mat-form-field>
+
+      <div class="file-section">
+        <input
+          type="file"
+          #fileInput
+          (change)="onFileSelect($event)"
+          style="display: none"
+        >
+        <button
+          mat-stroked-button
+          class="attach-btn"
+          (click)="fileInput.click()"
+          [disabled]="isUploading"
+        >
+          <mat-spinner diameter="18" *ngIf="isUploading"></mat-spinner>
+          <mat-icon *ngIf="!isUploading">attach_file</mat-icon>
+          Attach File
+        </button>
+
+        <mat-chip *ngIf="mediaFileName" class="file-chip" (removed)="removeMedia()">
+          {{ mediaFileName }}
+          <button matChipRemove>
+            <mat-icon>cancel</mat-icon>
+          </button>
+        </mat-chip>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Send Button -->
+  <div class="send-section">
+    <button
+      mat-flat-button
+      class="send-btn"
+      (click)="sendMessage()"
+      [disabled]="isSendDisabled"
+    >
+      <mat-spinner diameter="20" *ngIf="isSending"></mat-spinner>
+      <mat-icon *ngIf="!isSending">send</mat-icon>
+      {{ isSending ? 'Sending...' : 'Send Message' }}
+    </button>
+  </div>
+</div>

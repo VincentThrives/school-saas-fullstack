@@ -1,0 +1,65 @@
+<div class="page-header-container">
+  <!-- Breadcrumbs -->
+  <nav class="breadcrumbs" *ngIf="breadcrumbs.length > 0">
+    <ng-container *ngFor="let crumb of breadcrumbs; let i = index; let last = last">
+      <a
+        *ngIf="crumb.link && !last"
+        [routerLink]="crumb.link"
+        class="breadcrumb-link"
+      >
+        {{ crumb.label }}
+      </a>
+      <span *ngIf="!crumb.link || last" class="breadcrumb-text" [class.breadcrumb-current]="last">
+        {{ crumb.label }}
+      </span>
+      <mat-icon *ngIf="!last" class="breadcrumb-separator">navigate_next</mat-icon>
+    </ng-container>
+  </nav>
+
+  <!-- Title and Actions Row -->
+  <div class="title-row">
+    <div class="title-section">
+      <h1 class="page-title">{{ title }}</h1>
+      <p class="page-subtitle" *ngIf="subtitle">{{ subtitle }}</p>
+    </div>
+
+    <div class="actions-section" *ngIf="hasActions">
+      <button
+        *ngIf="secondaryActionLabel"
+        mat-stroked-button
+        class="secondary-action-btn"
+        (click)="onSecondaryActionClick()"
+      >
+        <mat-icon *ngIf="secondaryActionIcon">{{ secondaryActionIcon }}</mat-icon>
+        {{ secondaryActionLabel }}
+      </button>
+
+      <a
+        *ngIf="actionLabel && actionLink"
+        mat-flat-button
+        color="primary"
+        [routerLink]="actionLink"
+        class="primary-action-btn"
+      >
+        <mat-icon *ngIf="actionIcon">{{ actionIcon }}</mat-icon>
+        {{ actionLabel }}
+      </a>
+
+      <button
+        *ngIf="actionLabel && !actionLink"
+        mat-flat-button
+        color="primary"
+        class="primary-action-btn"
+        (click)="onActionClick()"
+      >
+        <mat-icon *ngIf="actionIcon">{{ actionIcon }}</mat-icon>
+        {{ actionLabel }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Optional projected content -->
+  <div class="page-header-content">
+    <ng-content></ng-content>
+  </div>
+</div>

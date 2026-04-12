@@ -1,0 +1,61 @@
+<div class="school-id-page">
+  <div class="school-id-page__card-wrapper">
+    <mat-card class="school-id-page__card">
+      <mat-card-content class="school-id-page__card-content">
+        <!-- Logo -->
+        <div class="school-id-page__header">
+          <div class="school-id-page__logo">
+            <mat-icon class="school-id-page__logo-icon">school</mat-icon>
+          </div>
+          <h1 class="school-id-page__title">School Management</h1>
+          <p class="school-id-page__subtitle">Enter your school ID to continue</p>
+        </div>
+
+        <!-- Error Alert -->
+        <div class="school-id-page__alert" *ngIf="errorMessage">
+          <mat-icon>error_outline</mat-icon>
+          <span>{{ errorMessage }}</span>
+        </div>
+
+        <!-- Form -->
+        <form (ngSubmit)="onSubmit()" class="school-id-page__form">
+          <mat-form-field appearance="outline" class="school-id-page__field">
+            <mat-label>School ID</mat-label>
+            <mat-icon matPrefix class="school-id-page__input-icon">school</mat-icon>
+            <input
+              matInput
+              [(ngModel)]="schoolId"
+              name="schoolId"
+              placeholder="e.g., greenwood or SCH-00123"
+              [disabled]="isLoading"
+              autofocus
+            />
+          </mat-form-field>
+
+          <button
+            mat-flat-button
+            type="submit"
+            class="school-id-page__submit-btn"
+            [disabled]="!schoolId.trim() || isLoading"
+          >
+            <span *ngIf="!isLoading">Continue</span>
+            <span *ngIf="isLoading">Finding School...</span>
+            <mat-spinner *ngIf="isLoading" diameter="20" class="school-id-page__spinner"></mat-spinner>
+            <mat-icon *ngIf="!isLoading">arrow_forward</mat-icon>
+          </button>
+        </form>
+
+        <!-- Super Admin Link -->
+        <div class="school-id-page__footer">
+          <p>
+            Are you a Super Admin?
+            <a routerLink="/superadmin" class="school-id-page__link">Login here</a>
+          </p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Decorative bottom line -->
+  <div class="school-id-page__bottom-line"></div>
+</div>

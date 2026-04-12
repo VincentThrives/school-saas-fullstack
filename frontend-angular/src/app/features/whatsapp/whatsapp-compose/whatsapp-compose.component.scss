@@ -1,0 +1,98 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.compose-container {
+  padding: 0;
+}
+
+.section-card {
+  border-radius: 12px !important;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 16px;
+}
+
+.recipient-type-group {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.class-select {
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 12px;
+}
+
+.preview-btn {
+  border-color: $gold !important;
+  color: $gold-dark !important;
+  border-radius: 10px !important;
+  font-weight: 600;
+
+  mat-icon {
+    margin-right: 4px;
+  }
+}
+
+.recipients-section {
+  margin-top: 20px;
+}
+
+.recipients-count {
+  font-size: 0.875rem;
+  color: rgba(0, 0, 0, 0.6);
+  margin: 0 0 8px;
+}
+
+.recipients-table {
+  width: 100%;
+}
+
+.message-field {
+  width: 100%;
+}
+
+.file-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.attach-btn {
+  border-radius: 10px !important;
+
+  mat-icon {
+    margin-right: 4px;
+  }
+}
+
+.file-chip {
+  background-color: rgba(212, 168, 67, 0.12) !important;
+  color: $gold-dark !important;
+}
+
+.send-section {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.send-btn {
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 8px 32px;
+  height: 48px;
+
+  mat-icon {
+    margin-right: 6px;
+  }
+}

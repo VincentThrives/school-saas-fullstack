@@ -1,0 +1,79 @@
+<div class="super-admin-page">
+  <div class="super-admin-page__card-wrapper">
+    <mat-card class="super-admin-page__card">
+      <mat-card-content class="super-admin-page__card-content">
+        <!-- Header -->
+        <div class="super-admin-page__header">
+          <div class="super-admin-page__logo">
+            <mat-icon class="super-admin-page__logo-icon">admin_panel_settings</mat-icon>
+          </div>
+          <h1 class="super-admin-page__title">Super Admin Portal</h1>
+          <p class="super-admin-page__subtitle">SaaS Administration Access</p>
+        </div>
+
+        <!-- Error Alert -->
+        <div class="super-admin-page__alert" *ngIf="errorMessage">
+          <mat-icon>error_outline</mat-icon>
+          <span>{{ errorMessage }}</span>
+        </div>
+
+        <!-- Form -->
+        <form (ngSubmit)="onSubmit()" class="super-admin-page__form">
+          <mat-form-field appearance="outline" class="super-admin-page__field">
+            <mat-label>Username</mat-label>
+            <mat-icon matPrefix class="super-admin-page__input-icon">email</mat-icon>
+            <input
+              matInput
+              [(ngModel)]="username"
+              name="username"
+              [disabled]="isLoading"
+              autofocus
+            />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="super-admin-page__field">
+            <mat-label>Password</mat-label>
+            <mat-icon matPrefix class="super-admin-page__input-icon">lock</mat-icon>
+            <input
+              matInput
+              [(ngModel)]="password"
+              name="password"
+              [type]="showPassword ? 'text' : 'password'"
+              [disabled]="isLoading"
+            />
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              (click)="togglePassword()"
+              tabindex="-1"
+              class="super-admin-page__visibility-btn"
+            >
+              <mat-icon>{{ showPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+          </mat-form-field>
+
+          <button
+            mat-flat-button
+            type="submit"
+            class="super-admin-page__submit-btn"
+            [disabled]="isLoading"
+          >
+            <mat-spinner *ngIf="isLoading" diameter="24" class="super-admin-page__spinner"></mat-spinner>
+            <span *ngIf="!isLoading">Sign In as Super Admin</span>
+          </button>
+        </form>
+
+        <!-- Back Link -->
+        <div class="super-admin-page__footer">
+          <p>
+            School user?
+            <a routerLink="/login" class="super-admin-page__link">Login here</a>
+          </p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <div class="super-admin-page__bottom-line"></div>
+</div>

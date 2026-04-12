@@ -1,0 +1,170 @@
+<div class="mark-attendance-container">
+  <app-page-header
+    title="Mark Attendance"
+    subtitle="Record daily attendance for students"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Attendance' },
+      { label: 'Mark Attendance' }
+    ]"
+  ></app-page-header>
+
+  <!-- Filters -->
+  <mat-card class="filters-card">
+    <mat-card-content>
+      <div class="filters-row">
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Class</mat-label>
+          <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()">
+            <mat-option *ngFor="let cls of classes" [value]="cls.id">
+              {{ cls.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Section</mat-label>
+          <mat-select [(ngModel)]="selectedSectionId" [disabled]="!selectedClassId">
+            <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">
+              {{ sec.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Date</mat-label>
+          <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate">
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+
+        <button
+          mat-flat-button
+          class="load-btn"
+          (click)="loadStudents()"
+          [disabled]="!selectedClassId || !selectedSectionId"
+        >
+          <mat-icon>group</mat-icon>
+          Load Students
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Quick Actions & Summary -->
+  <mat-card class="actions-card" *ngIf="studentsLoaded && students.length > 0">
+    <mat-card-content>
+      <div class="actions-row">
+        <div class="quick-actions">
+          <span class="section-label">Quick Actions</span>
+          <button mat-stroked-button class="mark-all-btn" (click)="markAllPresent()">
+            <mat-icon>check_circle</mat-icon>
+            Mark All Present
+          </button>
+        </div>
+
+        <div class="summary-chips">
+          <mat-chip-set>
+            <mat-chip class="chip-present">
+              <mat-icon>check_circle</mat-icon>
+              Present: {{ summary.present }}
+            </mat-chip>
+            <mat-chip class="chip-absent">
+              <mat-icon>cancel</mat-icon>
+              Absent: {{ summary.absent }}
+            </mat-chip>
+            <mat-chip class="chip-late">
+              <mat-icon>schedule</mat-icon>
+              Late: {{ summary.late }}
+            </mat-chip>
+            <mat-chip class="chip-halfday">
+              <mat-icon>hourglass_bottom</mat-icon>
+              Half Day: {{ summary.halfDay }}
+            </mat-chip>
+          </mat-chip-set>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Loading Spinner -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- Students Table -->
+  <mat-card class="table-card" *ngIf="studentsLoaded && !isLoading">
+    <table mat-table [dataSource]="students" class="attendance-table">
+      <!-- Roll Number Column -->
+      <ng-container matColumnDef="rollNumber">
+        <th mat-header-cell *matHeaderCellDef>Roll No</th>
+        <td mat-cell *matCellDef="let student">{{ student.rollNumber }}</td>
+      </ng-container>
+
+      <!-- Name Column -->
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Student Name</th>
+        <td mat-cell *matCellDef="let student">
+          <div class="student-name">
+            <div class="student-avatar">{{ student.firstName?.charAt(0) || 'S' }}</div>
+            {{ student.firstName }} {{ student.lastName }}
+          </div>
+        </td>
+      </ng-container>
+
+      <!-- Status Column -->
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let student">
+          <mat-radio-group [(ngModel)]="student.status" class="status-radio-group">
+            <mat-radio-button
+              *ngFor="let opt of statusOptions"
+              [value]="opt.value"
+              class="status-radio"
+              [class]="'status-' + opt.value.toLowerCase()"
+            >
+              {{ opt.label }}
+            </mat-radio-button>
+          </mat-radio-group>
+        </td>
+      </ng-container>
+
+      <!-- Remarks Column -->
+      <ng-container matColumnDef="remarks">
+        <th mat-header-cell *matHeaderCellDef>Remarks</th>
+        <td mat-cell *matCellDef="let student">
+          <mat-form-field appearance="outline" class="remarks-field">
+            <input matInput [(ngModel)]="student.remarks" placeholder="Add remarks...">
+          </mat-form-field>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+
+    <div class="empty-state" *ngIf="students.length === 0">
+      No students found in this class/section
+    </div>
+  </mat-card>
+
+  <!-- Save Button -->
+  <div class="save-section" *ngIf="studentsLoaded && students.length > 0">
+    <button
+      mat-flat-button
+      class="save-btn"
+      (click)="saveAttendance()"
+      [disabled]="isSaving || students.length === 0"
+    >
+      <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
+      <mat-icon *ngIf="!isSaving">save</mat-icon>
+      {{ isSaving ? 'Saving...' : 'Save Attendance' }}
+    </button>
+  </div>
+
+  <!-- Info Alert -->
+  <mat-card class="info-alert" *ngIf="!selectedClassId">
+    <mat-icon>info</mat-icon>
+    <span>Please select a class and section to mark attendance.</span>
+  </mat-card>
+</div>

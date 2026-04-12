@@ -1,0 +1,92 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.mcq-exams-container {
+  padding: 0;
+}
+
+.filters-card {
+  margin-bottom: 20px;
+  border-radius: 12px !important;
+}
+
+.filters-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+
+  .filter-field {
+    min-width: 180px;
+  }
+}
+
+.spacer {
+  flex: 1;
+}
+
+.table-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.mcq-table {
+  width: 100%;
+}
+
+.exam-title {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.subject-chip {
+  background-color: rgba(212, 168, 67, 0.12) !important;
+  color: $gold-dark !important;
+  font-size: 0.8125rem;
+}
+
+.status-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-draft {
+  background-color: rgba(158, 158, 158, 0.12) !important;
+  color: #616161 !important;
+}
+
+.status-published {
+  background-color: rgba(33, 150, 243, 0.12) !important;
+  color: #1565c0 !important;
+}
+
+.status-ongoing {
+  background-color: rgba(255, 152, 0, 0.12) !important;
+  color: #e65100 !important;
+}
+
+.status-completed {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+}
+
+.actions-col {
+  text-align: right !important;
+  width: 60px;
+}
+
+.table-row:hover {
+  background-color: rgba(212, 168, 67, 0.04);
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: rgba(0, 0, 0, 0.5);
+}

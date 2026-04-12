@@ -1,0 +1,24 @@
+<app-header
+  (menuToggle)="toggleSidebar()"
+  [pageTitle]="''"
+></app-header>
+
+<mat-sidenav-container class="sidenav-container">
+  <mat-sidenav
+    #sidenav
+    [mode]="sidenavMode"
+    [opened]="sidebarOpened"
+    (closed)="onSidebarClosed()"
+    class="app-sidenav"
+    [fixedInViewport]="true"
+    [fixedTopGap]="64"
+  >
+    <app-sidebar (navItemClicked)="onNavItemClicked()"></app-sidebar>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="sidenav-content">
+    <div class="content-wrapper">
+      <router-outlet></router-outlet>
+    </div>
+  </mat-sidenav-content>
+</mat-sidenav-container>

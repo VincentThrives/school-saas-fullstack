@@ -1,0 +1,358 @@
+$gold: #D4A843;
+$gold-light: #E8C97A;
+$gold-dark: #B8860B;
+$sidebar-bg: #0D0D0D;
+$white: #FFFFFF;
+
+.sidebar-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: $sidebar-bg;
+  color: $white;
+  overflow: hidden;
+}
+
+// ── Header / Brand ────────────────────────────────────────
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid rgba($gold, 0.15);
+  background: linear-gradient(180deg, rgba($gold, 0.08) 0%, transparent 100%);
+}
+
+.school-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.school-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background-color: $gold;
+  color: $sidebar-bg;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  box-shadow: 0 0 12px rgba($gold, 0.3);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.school-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.school-info {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.school-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: $white;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.school-subtitle {
+  font-size: 0.75rem;
+  color: rgba($gold, 0.8);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// ── Academic Year Selector ────────────────────────────────
+.academic-year-section {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba($gold, 0.1);
+}
+
+.ay-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.ay-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: rgba($gold, 0.7);
+}
+
+.ay-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba($white, 0.5);
+}
+
+.ay-current-badge {
+  margin-left: auto;
+  padding: 1px 8px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  background-color: rgba($gold, 0.15);
+  color: $gold;
+  border-radius: 4px;
+}
+
+.ay-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+
+  span {
+    font-size: 0.75rem;
+    color: rgba($white, 0.4);
+  }
+
+  ::ng-deep .mat-mdc-progress-spinner {
+    --mdc-circular-progress-active-indicator-color: #{$gold};
+  }
+}
+
+.ay-select-field {
+  width: 100%;
+
+  ::ng-deep {
+    .mat-mdc-text-field-wrapper {
+      background-color: rgba($white, 0.04);
+      border-radius: 8px;
+    }
+
+    .mat-mdc-form-field-subscript-wrapper {
+      display: none;
+    }
+
+    .mdc-notched-outline__leading,
+    .mdc-notched-outline__trailing,
+    .mdc-notched-outline__notch {
+      border-color: rgba($gold, 0.2) !important;
+    }
+
+    .mat-mdc-select-trigger {
+      color: $white;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .mat-mdc-select-arrow {
+      color: rgba($gold, 0.6);
+    }
+
+    &:hover .mdc-notched-outline__leading,
+    &:hover .mdc-notched-outline__trailing,
+    &:hover .mdc-notched-outline__notch {
+      border-color: rgba($gold, 0.4) !important;
+    }
+
+    .mat-mdc-form-field-infix {
+      padding-top: 8px;
+      padding-bottom: 8px;
+      min-height: unset;
+    }
+  }
+}
+
+.ay-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.ay-option-current {
+  font-weight: 700;
+}
+
+.ay-option-badge {
+  margin-left: auto;
+  padding: 1px 6px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  background-color: rgba($gold, 0.15);
+  color: $gold;
+  border-radius: 4px;
+}
+
+::ng-deep .ay-select-panel {
+  background-color: #1A1A1A !important;
+  border: 1px solid rgba($gold, 0.2) !important;
+
+  .mat-mdc-option {
+    color: $white;
+    font-size: 0.85rem;
+
+    &:hover {
+      background-color: rgba($gold, 0.1);
+    }
+
+    &.mat-mdc-option-active,
+    &.mdc-list-item--selected {
+      background-color: rgba($gold, 0.15);
+      color: $gold;
+      font-weight: 600;
+    }
+  }
+}
+
+// ── Navigation ────────────────────────────────────────────
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba($gold, 0.3);
+    border-radius: 2px;
+  }
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: rgba($white, 0.7);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 400;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+  position: relative;
+  overflow: hidden;
+
+  &:hover {
+    background-color: rgba($white, 0.06);
+    color: $white;
+  }
+}
+
+.nav-icon {
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+  color: rgba($white, 0.5);
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.nav-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Active link
+.active-link {
+  background-color: rgba($gold, 0.15) !important;
+  color: $gold !important;
+  font-weight: 600;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 20%;
+    bottom: 20%;
+    width: 3px;
+    border-radius: 4px;
+    background-color: $gold;
+  }
+
+  .nav-icon {
+    color: $gold !important;
+  }
+
+  &:hover {
+    background-color: rgba($gold, 0.22) !important;
+    color: $gold-light !important;
+  }
+}
+
+// ── Footer / User Info ────────────────────────────────────
+.sidebar-footer {
+  margin-top: auto;
+}
+
+.footer-divider {
+  border-color: rgba($gold, 0.12) !important;
+}
+
+.user-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.user-avatar-small {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: $gold;
+  color: $sidebar-bg;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.user-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.user-details {
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: $white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-role {
+  font-size: 0.75rem;
+  color: rgba($gold, 0.7);
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

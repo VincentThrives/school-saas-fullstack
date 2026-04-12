@@ -1,0 +1,51 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.placeholder-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 24px;
+}
+
+.placeholder-card {
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08) !important;
+}
+
+.placeholder-content {
+  padding: 48px 32px;
+}
+
+.placeholder-icon {
+  font-size: 72px;
+  width: 72px;
+  height: 72px;
+  color: $gold;
+  margin-bottom: 16px;
+}
+
+.placeholder-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 8px;
+}
+
+.placeholder-subtitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: $gold-dark;
+  margin: 0 0 16px;
+}
+
+.placeholder-description {
+  font-size: 0.95rem;
+  color: rgba(26, 26, 26, 0.6);
+  margin: 0;
+  line-height: 1.6;
+}

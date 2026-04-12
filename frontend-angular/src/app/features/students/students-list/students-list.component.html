@@ -1,0 +1,151 @@
+<div class="students-list-container">
+  <app-page-header
+    title="Students"
+    subtitle="Manage all students in your school"
+    [breadcrumbs]="[{ label: 'Dashboard', link: '/dashboard' }, { label: 'Students' }]"
+    actionLabel="Add Student"
+    actionIcon="add"
+    secondaryActionLabel="Bulk Import"
+    secondaryActionIcon="upload_file"
+    (actionClick)="navigateToAddStudent()"
+    (secondaryActionClick)="navigateToBulkImport()">
+  </app-page-header>
+
+  <!-- Filters -->
+  <div class="filters-card">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search students</mat-label>
+      <input matInput [(ngModel)]="searchQuery" (keyup.enter)="onSearch()" placeholder="Search by name or admission no...">
+      <mat-icon matPrefix>search</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Class</mat-label>
+      <mat-select [(ngModel)]="classFilter" (selectionChange)="onFilterChange()">
+        <mat-option value="">All Classes</mat-option>
+        <mat-option *ngFor="let cls of classes" [value]="cls.id">
+          {{ cls.name }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Section</mat-label>
+      <mat-select [(ngModel)]="sectionFilter" [disabled]="!classFilter" (selectionChange)="onFilterChange()">
+        <mat-option value="">All Sections</mat-option>
+        <mat-option *ngFor="let section of selectedClassSections" [value]="section.sectionId">
+          {{ section.name }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="filter-field-sm">
+      <mat-label>Gender</mat-label>
+      <mat-select [(ngModel)]="genderFilter" (selectionChange)="onFilterChange()">
+        <mat-option value="">All</mat-option>
+        <mat-option value="MALE">Male</mat-option>
+        <mat-option value="FEMALE">Female</mat-option>
+        <mat-option value="OTHER">Other</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <button mat-icon-button matTooltip="Refresh" (click)="loadStudents()">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card" *ngIf="!isLoading">
+    <table mat-table [dataSource]="dataSource" class="students-table">
+
+      <!-- Roll Number Column -->
+      <ng-container matColumnDef="rollNumber">
+        <th mat-header-cell *matHeaderCellDef>Roll No</th>
+        <td mat-cell *matCellDef="let student">{{ student.rollNumber || '-' }}</td>
+      </ng-container>
+
+      <!-- Name Column -->
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Name</th>
+        <td mat-cell *matCellDef="let student">
+          <div class="student-name-cell">
+            <div class="student-avatar">{{ student.firstName?.charAt(0) || 'S' }}</div>
+            <span class="student-name">{{ student.firstName || '' }} {{ student.lastName || '' }}</span>
+          </div>
+        </td>
+      </ng-container>
+
+      <!-- Class/Section Column -->
+      <ng-container matColumnDef="classSection">
+        <th mat-header-cell *matHeaderCellDef>Class</th>
+        <td mat-cell *matCellDef="let student">
+          <span class="class-chip">{{ student.classId || 'N/A' }}</span>
+        </td>
+      </ng-container>
+
+      <!-- Admission Number Column -->
+      <ng-container matColumnDef="admissionNumber">
+        <th mat-header-cell *matHeaderCellDef>Admission No</th>
+        <td mat-cell *matCellDef="let student">{{ student.admissionNumber }}</td>
+      </ng-container>
+
+      <!-- Gender Column -->
+      <ng-container matColumnDef="gender">
+        <th mat-header-cell *matHeaderCellDef>Gender</th>
+        <td mat-cell *matCellDef="let student">
+          <span class="gender-chip" [ngClass]="'gender-' + (student.gender || '').toLowerCase()">
+            {{ student.gender || '-' }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Actions Column -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-header">Actions</th>
+        <td mat-cell *matCellDef="let student" class="actions-cell">
+          <button mat-icon-button matTooltip="Edit" (click)="editStudent(student)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button matTooltip="Delete" color="warn" (click)="confirmDelete(student)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell no-data-cell" [attr.colspan]="displayedColumns.length">
+          No students found
+        </td>
+      </tr>
+    </table>
+
+    <mat-paginator
+      [length]="totalElements"
+      [pageSize]="pageSize"
+      [pageIndex]="pageIndex"
+      [pageSizeOptions]="[5, 10, 25, 50]"
+      (page)="onPageChange($event)"
+      showFirstLastButtons>
+    </mat-paginator>
+  </div>
+
+  <!-- Delete Confirmation Dialog -->
+  <div class="delete-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <h3>Delete Student</h3>
+      <p>Are you sure you want to delete this student? This action cannot be undone.</p>
+      <div class="dialog-actions">
+        <button mat-button (click)="cancelDelete()">Cancel</button>
+        <button mat-raised-button color="warn" (click)="deleteStudent()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>

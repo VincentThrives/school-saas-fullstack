@@ -1,0 +1,137 @@
+<div class="student-dashboard">
+  <app-page-header title="My Dashboard"></app-page-header>
+
+  <!-- Stats Grid -->
+  <div class="student-dashboard__stats">
+    <app-stat-card
+      title="Attendance"
+      [value]="stats.attendancePercentage + '%'"
+      icon="event_note"
+      [color]="isGoodAttendance() ? 'success' : 'warning'"
+    ></app-stat-card>
+    <app-stat-card
+      title="Today's Classes"
+      [value]="todaySchedule.length"
+      icon="schedule"
+      color="primary"
+    ></app-stat-card>
+    <app-stat-card
+      title="Available MCQ"
+      [value]="upcomingMcqExams.length"
+      icon="quiz"
+      color="info"
+    ></app-stat-card>
+    <app-stat-card
+      title="Notifications"
+      [value]="stats.unreadNotifications"
+      icon="notifications"
+      color="warning"
+    ></app-stat-card>
+  </div>
+
+  <!-- Main Content -->
+  <div class="student-dashboard__content">
+    <!-- Today's Timetable -->
+    <mat-card class="student-dashboard__timetable-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="student-dashboard__panel-icon">schedule</mat-icon>
+        <mat-card-title>Today's Timetable</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <table mat-table [dataSource]="todaySchedule" class="student-dashboard__table">
+          <ng-container matColumnDef="period">
+            <th mat-header-cell *matHeaderCellDef>Period</th>
+            <td mat-cell *matCellDef="let el">{{ el.periodNumber }}</td>
+          </ng-container>
+          <ng-container matColumnDef="time">
+            <th mat-header-cell *matHeaderCellDef>Time</th>
+            <td mat-cell *matCellDef="let el">{{ el.startTime }} - {{ el.endTime }}</td>
+          </ng-container>
+          <ng-container matColumnDef="subject">
+            <th mat-header-cell *matHeaderCellDef>Subject</th>
+            <td mat-cell *matCellDef="let el">{{ el.subjectName }}</td>
+          </ng-container>
+          <ng-container matColumnDef="teacher">
+            <th mat-header-cell *matHeaderCellDef>Teacher</th>
+            <td mat-cell *matCellDef="let el">{{ el.teacherName }}</td>
+          </ng-container>
+          <ng-container matColumnDef="room">
+            <th mat-header-cell *matHeaderCellDef>Room</th>
+            <td mat-cell *matCellDef="let el">{{ el.room }}</td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="scheduleColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: scheduleColumns;"></tr>
+        </table>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Attendance Overview -->
+    <mat-card class="student-dashboard__attendance-card">
+      <mat-card-header>
+        <mat-card-title>Attendance Overview</mat-card-title>
+      </mat-card-header>
+      <mat-card-content class="student-dashboard__attendance-content">
+        <div class="student-dashboard__attendance-circle">
+          <span class="student-dashboard__attendance-value">{{ stats.attendancePercentage }}%</span>
+          <span class="student-dashboard__attendance-label">Overall Attendance</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Bottom Row -->
+  <div class="student-dashboard__bottom-row">
+    <!-- Recent Marks -->
+    <mat-card class="student-dashboard__panel">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="student-dashboard__panel-icon">assignment</mat-icon>
+        <mat-card-title>Recent Marks</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-list>
+          <mat-list-item *ngFor="let exam of recentMarks">
+            <div class="student-dashboard__list-item">
+              <div class="student-dashboard__item-avatar">
+                <mat-icon>assignment</mat-icon>
+              </div>
+              <div class="student-dashboard__item-info">
+                <span class="student-dashboard__item-title">{{ exam.exam }}</span>
+                <span class="student-dashboard__item-meta">{{ exam.marks }}/{{ exam.total }}</span>
+              </div>
+              <span
+                class="student-dashboard__chip"
+                [ngClass]="isGradeA(exam.grade) ? 'student-dashboard__chip--success' : 'student-dashboard__chip--primary'"
+              >
+                {{ exam.grade }}
+              </span>
+            </div>
+          </mat-list-item>
+        </mat-list>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Available MCQ Exams -->
+    <mat-card class="student-dashboard__panel">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="student-dashboard__panel-icon--secondary">quiz</mat-icon>
+        <mat-card-title>Available MCQ Exams</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-list>
+          <mat-list-item *ngFor="let exam of upcomingMcqExams">
+            <div class="student-dashboard__list-item">
+              <div class="student-dashboard__item-avatar student-dashboard__item-avatar--secondary">
+                <mat-icon>quiz</mat-icon>
+              </div>
+              <div class="student-dashboard__item-info">
+                <span class="student-dashboard__item-title">{{ exam.title }}</span>
+                <span class="student-dashboard__item-meta">{{ exam.subjectName }} &bull; {{ exam.duration }} mins</span>
+              </div>
+              <span class="student-dashboard__chip student-dashboard__chip--primary">Start</span>
+            </div>
+          </mat-list-item>
+        </mat-list>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

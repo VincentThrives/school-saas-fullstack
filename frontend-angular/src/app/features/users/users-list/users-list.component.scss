@@ -1,0 +1,182 @@
+$gold: #D4A843;
+$gold-light: rgba(212, 168, 67, 0.1);
+$gold-dark: #B8860B;
+
+.users-list-container {
+  padding: 24px;
+}
+
+.filters-card {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: white;
+  padding: 16px 20px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  .search-field {
+    min-width: 260px;
+    flex: 1;
+  }
+
+  .filter-field {
+    min-width: 160px;
+  }
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+.table-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.users-table {
+  width: 100%;
+}
+
+.user-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: $gold-light;
+  color: $gold-dark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.user-name {
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.user-phone {
+  font-size: 12px;
+  color: #888;
+}
+
+.role-chip {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+
+  &.role-super_admin {
+    background: rgba(244, 67, 54, 0.1);
+    color: #d32f2f;
+  }
+  &.role-school_admin {
+    background: $gold-light;
+    color: $gold-dark;
+  }
+  &.role-principal {
+    background: rgba(156, 39, 176, 0.1);
+    color: #7b1fa2;
+  }
+  &.role-teacher {
+    background: rgba(33, 150, 243, 0.1);
+    color: #1565c0;
+  }
+  &.role-student {
+    background: rgba(76, 175, 80, 0.1);
+    color: #2e7d32;
+  }
+  &.role-parent {
+    background: rgba(255, 152, 0, 0.1);
+    color: #e65100;
+  }
+}
+
+.status-chip {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+
+  &.status-active {
+    background: rgba(76, 175, 80, 0.1);
+    color: #2e7d32;
+  }
+  &.status-inactive {
+    background: rgba(158, 158, 158, 0.1);
+    color: #616161;
+  }
+  &.status-locked {
+    background: rgba(244, 67, 54, 0.1);
+    color: #d32f2f;
+  }
+}
+
+.actions-header {
+  text-align: right;
+}
+
+.actions-cell {
+  text-align: right;
+}
+
+.no-data-cell {
+  text-align: center;
+  padding: 48px 0;
+  color: #888;
+}
+
+.delete-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.delete-dialog {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+
+  h3 {
+    margin: 0 0 12px;
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  p {
+    color: #555;
+    margin: 0 0 20px;
+    line-height: 1.5;
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+}

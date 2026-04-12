@@ -1,0 +1,132 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.super-admin-dashboard {
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    margin-bottom: 24px;
+
+    @media (max-width: 1200px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+
+    @media (max-width: 960px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__panel {
+    border-radius: 12px;
+  }
+
+  &__tenant-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: 12px 0;
+  }
+
+  &__tenant-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, $gold, $gold-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  &__tenant-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__tenant-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #1a1a1a;
+  }
+
+  &__tenant-meta {
+    font-size: 0.75rem;
+    color: rgba(0, 0, 0, 0.5);
+  }
+
+  &__tenant-badge {
+    font-size: 0.75rem;
+    padding: 4px 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    color: rgba(0, 0, 0, 0.6);
+    white-space: nowrap;
+  }
+
+  &__health-items {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 8px 0;
+  }
+
+  &__health-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__health-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  &__health-label {
+    font-size: 0.875rem;
+    color: rgba(0, 0, 0, 0.7);
+  }
+
+  &__health-value {
+    font-size: 0.875rem;
+    font-weight: 600;
+
+    &--success {
+      color: #4caf50;
+    }
+
+    &--warning {
+      color: #ff9800;
+    }
+
+    &--primary {
+      color: #1a1a1a;
+    }
+  }
+
+  mat-progress-bar {
+    height: 8px;
+    border-radius: 4px;
+
+    ::ng-deep .mdc-linear-progress__bar-inner {
+      border-radius: 4px;
+    }
+  }
+}

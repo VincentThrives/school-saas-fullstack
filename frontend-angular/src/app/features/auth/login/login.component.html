@@ -1,0 +1,92 @@
+<div class="login-page" *ngIf="schoolInfo">
+  <div class="login-page__card-wrapper">
+    <mat-card class="login-page__card">
+      <mat-card-content class="login-page__card-content">
+        <!-- School Branding -->
+        <div class="login-page__header">
+          <div class="login-page__avatar" *ngIf="!schoolInfo.logoUrl">
+            {{ schoolInitial }}
+          </div>
+          <img
+            *ngIf="schoolInfo.logoUrl"
+            [src]="schoolInfo.logoUrl"
+            [alt]="schoolInfo.schoolName"
+            class="login-page__avatar-img"
+          />
+          <h2 class="login-page__school-name">{{ schoolInfo.schoolName }}</h2>
+          <p class="login-page__subtitle">Sign in to your account</p>
+        </div>
+
+        <!-- Error Alert -->
+        <div class="login-page__alert" *ngIf="errorMessage">
+          <mat-icon>error_outline</mat-icon>
+          <span>{{ errorMessage }}</span>
+        </div>
+
+        <!-- Form -->
+        <form (ngSubmit)="onSubmit()" class="login-page__form">
+          <mat-form-field appearance="outline" class="login-page__field">
+            <mat-label>Email or Username</mat-label>
+            <mat-icon matPrefix class="login-page__input-icon">email</mat-icon>
+            <input
+              matInput
+              [(ngModel)]="username"
+              name="username"
+              [disabled]="isLoading"
+              autofocus
+            />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="login-page__field">
+            <mat-label>Password</mat-label>
+            <mat-icon matPrefix class="login-page__input-icon">lock</mat-icon>
+            <input
+              matInput
+              [(ngModel)]="password"
+              name="password"
+              [type]="showPassword ? 'text' : 'password'"
+              [disabled]="isLoading"
+            />
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              (click)="togglePassword()"
+              tabindex="-1"
+            >
+              <mat-icon>{{ showPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+          </mat-form-field>
+
+          <div class="login-page__forgot-link">
+            <a routerLink="/forgot-password">Forgot password?</a>
+          </div>
+
+          <button
+            mat-flat-button
+            type="submit"
+            class="login-page__submit-btn"
+            [disabled]="isLoading"
+          >
+            <mat-spinner *ngIf="isLoading" diameter="24"></mat-spinner>
+            <span *ngIf="!isLoading">Sign In</span>
+          </button>
+        </form>
+
+        <mat-divider class="login-page__divider"></mat-divider>
+
+        <!-- Back Button -->
+        <button
+          mat-button
+          class="login-page__back-btn"
+          (click)="onBack()"
+        >
+          <mat-icon>arrow_back</mat-icon>
+          Use a different School ID
+        </button>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <div class="login-page__bottom-line"></div>
+</div>

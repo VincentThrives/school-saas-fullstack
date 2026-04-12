@@ -1,0 +1,205 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.super-admin-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #000000 0%, #0d0d0d 30%, #1a1a1a 100%);
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 50% 50%, rgba($gold, 0.08) 0%, transparent 40%);
+    pointer-events: none;
+  }
+
+  &__card-wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 440px;
+  }
+
+  &__card {
+    background-color: #141414;
+    border: 1px solid rgba($gold, 0.2);
+    border-radius: 16px;
+    color: #f5f0e8;
+  }
+
+  &__card-content {
+    padding: 32px !important;
+  }
+
+  &__header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  &__logo {
+    width: 72px;
+    height: 72px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, $gold 0%, $gold-dark 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    box-shadow: 0 8px 32px rgba($gold, 0.4);
+  }
+
+  &__logo-icon {
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
+    color: #0d0d0d;
+  }
+
+  &__title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #f5f0e8;
+    margin: 0 0 8px;
+  }
+
+  &__subtitle {
+    font-size: 0.875rem;
+    color: rgba($gold, 0.7);
+    margin: 0;
+  }
+
+  &__alert {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background-color: rgba(211, 47, 47, 0.1);
+    border: 1px solid rgba(211, 47, 47, 0.3);
+    border-radius: 8px;
+    color: #ef5350;
+    margin-bottom: 24px;
+    font-size: 0.875rem;
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__field {
+    width: 100%;
+    margin-bottom: 8px;
+
+    ::ng-deep {
+      .mat-mdc-text-field-wrapper {
+        background-color: transparent;
+      }
+
+      .mdc-text-field--outlined .mdc-notched-outline__leading,
+      .mdc-text-field--outlined .mdc-notched-outline__notch,
+      .mdc-text-field--outlined .mdc-notched-outline__trailing {
+        border-color: rgba($gold, 0.2);
+      }
+
+      .mdc-text-field--outlined:hover .mdc-notched-outline__leading,
+      .mdc-text-field--outlined:hover .mdc-notched-outline__notch,
+      .mdc-text-field--outlined:hover .mdc-notched-outline__trailing {
+        border-color: rgba($gold, 0.4);
+      }
+
+      .mdc-text-field--outlined.mdc-text-field--focused .mdc-notched-outline__leading,
+      .mdc-text-field--outlined.mdc-text-field--focused .mdc-notched-outline__notch,
+      .mdc-text-field--outlined.mdc-text-field--focused .mdc-notched-outline__trailing {
+        border-color: $gold;
+      }
+
+      .mat-mdc-form-field-input-control {
+        color: #f5f0e8 !important;
+      }
+
+      .mdc-floating-label {
+        color: rgba(#f5f0e8, 0.5);
+      }
+
+      .mdc-floating-label--float-above {
+        color: $gold;
+      }
+    }
+  }
+
+  &__input-icon {
+    color: $gold;
+  }
+
+  &__visibility-btn {
+    color: rgba(#f5f0e8, 0.5);
+  }
+
+  &__submit-btn {
+    width: 100%;
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+    color: #0d0d0d !important;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba($gold, 0.4);
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #e8c97a 0%, $gold 100%) !important;
+      box-shadow: 0 6px 28px rgba($gold, 0.5);
+    }
+  }
+
+  &__spinner {
+    ::ng-deep circle {
+      stroke: #0d0d0d;
+    }
+  }
+
+  &__footer {
+    margin-top: 24px;
+    text-align: center;
+
+    p {
+      font-size: 0.875rem;
+      color: rgba(#f5f0e8, 0.5);
+      margin: 0;
+    }
+  }
+
+  &__link {
+    color: $gold;
+    font-weight: 700;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &__bottom-line {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, $gold, transparent);
+  }
+}

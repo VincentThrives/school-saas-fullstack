@@ -1,0 +1,83 @@
+<div class="school-admin-dashboard">
+  <app-page-header title="School Dashboard"></app-page-header>
+
+  <!-- Stats Grid -->
+  <div class="school-admin-dashboard__stats">
+    <app-stat-card
+      title="Total Students"
+      [value]="(stats.totalStudents || 1250).toLocaleString()"
+      icon="school"
+      color="primary"
+      [trend]="{ value: 5 }"
+      subtitle="vs last year"
+    ></app-stat-card>
+    <app-stat-card
+      title="Total Teachers"
+      [value]="stats.totalTeachers || 65"
+      icon="person"
+      color="info"
+    ></app-stat-card>
+    <app-stat-card
+      title="Today's Attendance"
+      [value]="(stats.attendanceRateToday || 92.5) + '%'"
+      icon="event_note"
+      color="success"
+    ></app-stat-card>
+    <app-stat-card
+      title="Active Classes"
+      [value]="stats.totalClasses || 24"
+      icon="class"
+      color="warning"
+    ></app-stat-card>
+  </div>
+
+  <!-- Quick Actions & Lists -->
+  <div class="school-admin-dashboard__panels">
+    <!-- Upcoming Exams -->
+    <mat-card class="school-admin-dashboard__panel">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="school-admin-dashboard__panel-icon">assignment</mat-icon>
+        <mat-card-title>Upcoming Exams</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-list>
+          <mat-list-item *ngFor="let exam of upcomingExams; let last = last">
+            <div class="school-admin-dashboard__list-item">
+              <div class="school-admin-dashboard__item-avatar">
+                <mat-icon>assignment</mat-icon>
+              </div>
+              <div class="school-admin-dashboard__item-info">
+                <span class="school-admin-dashboard__item-title">{{ exam.name }}</span>
+                <span class="school-admin-dashboard__item-meta">{{ exam.subjectName }} &bull; {{ formatDate(exam.date) }}</span>
+              </div>
+            </div>
+          </mat-list-item>
+        </mat-list>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Upcoming Events -->
+    <mat-card class="school-admin-dashboard__panel">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="school-admin-dashboard__panel-icon">event</mat-icon>
+        <mat-card-title>Upcoming Events</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-list>
+          <mat-list-item *ngFor="let event of upcomingEvents; let last = last">
+            <div class="school-admin-dashboard__list-item">
+              <div class="school-admin-dashboard__item-avatar">
+                <mat-icon>event</mat-icon>
+              </div>
+              <div class="school-admin-dashboard__item-info">
+                <span class="school-admin-dashboard__item-title">{{ event.title }}</span>
+                <span class="school-admin-dashboard__item-meta">{{ formatDate(event.startDate) }}</span>
+              </div>
+              <span class="school-admin-dashboard__item-badge">{{ event.type }}</span>
+            </div>
+          </mat-list-item>
+        </mat-list>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

@@ -1,0 +1,32 @@
+<ng-container [ngSwitch]="true">
+  <app-super-admin-dashboard
+    *ngSwitchCase="isSuperAdmin"
+  ></app-super-admin-dashboard>
+
+  <ng-container *ngSwitchDefault [ngSwitch]="currentRole">
+    <app-school-admin-dashboard
+      *ngSwitchCase="UserRole.SCHOOL_ADMIN"
+    ></app-school-admin-dashboard>
+
+    <app-principal-dashboard
+      *ngSwitchCase="UserRole.PRINCIPAL"
+    ></app-principal-dashboard>
+
+    <app-teacher-dashboard
+      *ngSwitchCase="UserRole.TEACHER"
+    ></app-teacher-dashboard>
+
+    <app-student-dashboard
+      *ngSwitchCase="UserRole.STUDENT"
+    ></app-student-dashboard>
+
+    <app-parent-dashboard
+      *ngSwitchCase="UserRole.PARENT"
+    ></app-parent-dashboard>
+
+    <!-- Default fallback -->
+    <app-school-admin-dashboard
+      *ngSwitchDefault
+    ></app-school-admin-dashboard>
+  </ng-container>
+</ng-container>

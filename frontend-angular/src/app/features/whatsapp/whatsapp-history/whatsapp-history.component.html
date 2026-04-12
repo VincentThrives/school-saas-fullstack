@@ -1,0 +1,106 @@
+<div class="whatsapp-history-container">
+  <app-page-header
+    title="WhatsApp Messages"
+    subtitle="View and manage sent WhatsApp messages"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'WhatsApp Messages' }
+    ]"
+    actionLabel="Compose New"
+    actionIcon="send"
+    (actionClick)="compose()"
+  ></app-page-header>
+
+  <mat-card class="table-card">
+    <table mat-table [dataSource]="messages" class="messages-table">
+      <!-- Date -->
+      <ng-container matColumnDef="date">
+        <th mat-header-cell *matHeaderCellDef>Date</th>
+        <td mat-cell *matCellDef="let msg">{{ msg.createdAt | date:'dd MMM yyyy, HH:mm' }}</td>
+      </ng-container>
+
+      <!-- Type -->
+      <ng-container matColumnDef="type">
+        <th mat-header-cell *matHeaderCellDef>Type</th>
+        <td mat-cell *matCellDef="let msg">
+          <mat-chip class="type-chip">
+            {{ msg.recipientType }}
+          </mat-chip>
+        </td>
+      </ng-container>
+
+      <!-- Class Name -->
+      <ng-container matColumnDef="className">
+        <th mat-header-cell *matHeaderCellDef>Class</th>
+        <td mat-cell *matCellDef="let msg">{{ msg.className || '-' }}</td>
+      </ng-container>
+
+      <!-- Total -->
+      <ng-container matColumnDef="total">
+        <th mat-header-cell *matHeaderCellDef>Total</th>
+        <td mat-cell *matCellDef="let msg">{{ msg.totalRecipients }}</td>
+      </ng-container>
+
+      <!-- Sent -->
+      <ng-container matColumnDef="sent">
+        <th mat-header-cell *matHeaderCellDef>Sent</th>
+        <td mat-cell *matCellDef="let msg">
+          <span class="success-text">{{ msg.successCount }}</span>
+        </td>
+      </ng-container>
+
+      <!-- Failed -->
+      <ng-container matColumnDef="failed">
+        <th mat-header-cell *matHeaderCellDef>Failed</th>
+        <td mat-cell *matCellDef="let msg">
+          <span [class.error-text]="msg.failureCount > 0">{{ msg.failureCount }}</span>
+        </td>
+      </ng-container>
+
+      <!-- Status -->
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let msg">
+          <mat-chip [class]="getStatusClass(msg.status)" class="status-chip">
+            {{ msg.status }}
+          </mat-chip>
+        </td>
+      </ng-container>
+
+      <!-- Actions -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
+        <td mat-cell *matCellDef="let msg" class="actions-col">
+          <button mat-icon-button (click)="viewDetail(msg.messageId); $event.stopPropagation()">
+            <mat-icon>visibility</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr
+        mat-row
+        *matRowDef="let row; columns: displayedColumns;"
+        class="table-row clickable-row"
+        (click)="onRowClick(row)"
+      ></tr>
+    </table>
+
+    <div class="loading-row" *ngIf="isLoading">
+      <mat-spinner diameter="36"></mat-spinner>
+    </div>
+
+    <div class="empty-state" *ngIf="!isLoading && messages.length === 0">
+      <mat-icon class="empty-icon">chat</mat-icon>
+      <p>No messages sent yet</p>
+    </div>
+
+    <mat-paginator
+      [length]="totalElements"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="[5, 10, 25, 50]"
+      (page)="onPageChange($event)"
+      showFirstLastButtons
+    ></mat-paginator>
+  </mat-card>
+</div>

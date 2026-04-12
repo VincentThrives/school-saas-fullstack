@@ -1,0 +1,54 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.exam-form-container {
+  padding: 0;
+}
+
+.form-card {
+  border-radius: 12px !important;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 24px;
+
+  @media (max-width: 599px) {
+    grid-template-columns: 1fr;
+  }
+
+  .full-width {
+    grid-column: 1 / -1;
+  }
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.cancel-btn {
+  border-color: rgba(0, 0, 0, 0.2) !important;
+  border-radius: 10px !important;
+
+  mat-icon {
+    margin-right: 4px;
+  }
+}
+
+.save-btn {
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  font-weight: 600;
+  padding: 0 24px;
+
+  mat-icon {
+    margin-right: 6px;
+  }
+}

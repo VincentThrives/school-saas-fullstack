@@ -1,0 +1,131 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.attendance-report-container {
+  padding: 0;
+}
+
+.filters-card {
+  margin-bottom: 20px;
+  border-radius: 12px !important;
+}
+
+.filters-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+
+  .filter-field {
+    flex: 1;
+    min-width: 160px;
+  }
+}
+
+.load-btn {
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  height: 56px;
+  font-weight: 600;
+  padding: 0 24px;
+
+  mat-icon {
+    margin-right: 6px;
+  }
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+
+  @media (max-width: 959px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 599px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+}
+
+.table-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.table-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.report-table {
+  width: 100%;
+}
+
+.center-col {
+  text-align: center !important;
+}
+
+.chip-present {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+  font-size: 0.8125rem;
+}
+
+.chip-absent {
+  background-color: rgba(244, 67, 54, 0.12) !important;
+  color: #c62828 !important;
+  font-size: 0.8125rem;
+}
+
+.chip-late {
+  background-color: rgba(255, 152, 0, 0.12) !important;
+  color: #e65100 !important;
+  font-size: 0.8125rem;
+}
+
+.chip-halfday {
+  background-color: rgba(33, 150, 243, 0.12) !important;
+  color: #1565c0 !important;
+  font-size: 0.8125rem;
+}
+
+.percentage-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 140px;
+}
+
+.percentage-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+
+  ::ng-deep .mdc-linear-progress__bar-inner {
+    border-color: var(--bar-color, $gold);
+  }
+}
+
+.percentage-text {
+  font-weight: 600;
+  font-size: 0.875rem;
+  min-width: 40px;
+  text-align: right;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: rgba(0, 0, 0, 0.5);
+}

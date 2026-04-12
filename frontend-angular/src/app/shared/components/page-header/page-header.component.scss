@@ -1,0 +1,131 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+$black: #1A1A1A;
+
+.page-header-container {
+  margin-bottom: 24px;
+}
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.breadcrumb-link {
+  font-size: 0.875rem;
+  color: rgba(26, 26, 26, 0.65);
+  text-decoration: none;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: $gold;
+    text-decoration: underline;
+  }
+}
+
+.breadcrumb-text {
+  font-size: 0.875rem;
+  color: rgba(26, 26, 26, 0.65);
+}
+
+.breadcrumb-current {
+  color: $black;
+  font-weight: 500;
+}
+
+.breadcrumb-separator {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: rgba(26, 26, 26, 0.38);
+}
+
+.title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+
+  @media (max-width: 599px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.title-section {
+  flex: 1;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: $black;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.page-subtitle {
+  font-size: 1rem;
+  color: rgba(26, 26, 26, 0.65);
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+.actions-section {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.primary-action-btn {
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  font-weight: 600;
+  padding: 8px 20px;
+  box-shadow: 0px 2px 8px rgba(212, 168, 67, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    box-shadow: 0px 4px 16px rgba(212, 168, 67, 0.4);
+    transform: translateY(-1px);
+  }
+
+  mat-icon {
+    margin-right: 6px;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.secondary-action-btn {
+  border-color: $gold !important;
+  color: $gold-dark !important;
+  border-radius: 10px !important;
+  border-width: 2px !important;
+  font-weight: 600;
+
+  &:hover {
+    background-color: rgba(212, 168, 67, 0.06) !important;
+    border-color: $gold-dark !important;
+  }
+
+  mat-icon {
+    margin-right: 6px;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.page-header-content:empty {
+  display: none;
+}
+
+.page-header-content {
+  margin-top: 16px;
+}

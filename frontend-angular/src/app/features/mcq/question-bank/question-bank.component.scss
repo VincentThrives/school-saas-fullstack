@@ -1,0 +1,170 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.question-bank-container {
+  padding: 0;
+}
+
+.filters-card {
+  margin-bottom: 20px;
+  border-radius: 12px !important;
+}
+
+.filters-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+
+  .filter-field {
+    min-width: 160px;
+  }
+}
+
+.spacer {
+  flex: 1;
+}
+
+.table-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.questions-table {
+  width: 100%;
+}
+
+.question-cell {
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subject-chip {
+  background-color: rgba(212, 168, 67, 0.12) !important;
+  color: $gold-dark !important;
+  font-size: 0.8125rem;
+}
+
+.difficulty-easy {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+}
+
+.difficulty-medium {
+  background-color: rgba(255, 152, 0, 0.12) !important;
+  color: #e65100 !important;
+}
+
+.difficulty-hard {
+  background-color: rgba(244, 67, 54, 0.12) !important;
+  color: #c62828 !important;
+}
+
+.actions-col {
+  text-align: right !important;
+  width: 60px;
+}
+
+.delete-item {
+  color: #f44336;
+}
+
+.table-row:hover {
+  background-color: rgba(212, 168, 67, 0.04);
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+// Dialog overlay
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.dialog-card {
+  width: 720px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 16px !important;
+  padding: 8px;
+}
+
+.delete-dialog {
+  width: 420px;
+}
+
+.dialog-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+  margin-top: 16px;
+
+  .full-width {
+    grid-column: 1 / -1;
+  }
+}
+
+.options-section {
+  .options-label {
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-bottom: 8px;
+  }
+}
+
+.options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.option-field {
+  flex: 1;
+
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 0 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  margin-top: 16px;
+}
+
+.save-btn {
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  font-weight: 600;
+}

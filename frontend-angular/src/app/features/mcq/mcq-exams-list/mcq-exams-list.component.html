@@ -1,0 +1,120 @@
+<div class="mcq-exams-container">
+  <app-page-header
+    title="MCQ Exams"
+    subtitle="Create and manage online MCQ examinations"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'MCQ Exams' }
+    ]"
+    actionLabel="Create Exam"
+    actionIcon="add"
+    (actionClick)="createExam()"
+    secondaryActionLabel="Question Bank"
+    secondaryActionIcon="quiz"
+    (secondaryActionClick)="goToQuestionBank()"
+  ></app-page-header>
+
+  <!-- Filters -->
+  <mat-card class="filters-card">
+    <mat-card-content>
+      <div class="filters-row">
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="statusFilter">
+            <mat-option value="">All Status</mat-option>
+            <mat-option value="DRAFT">Draft</mat-option>
+            <mat-option value="PUBLISHED">Published</mat-option>
+            <mat-option value="ONGOING">Ongoing</mat-option>
+            <mat-option value="COMPLETED">Completed</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <span class="spacer"></span>
+
+        <button mat-icon-button matTooltip="Refresh" (click)="loadExams()">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Table -->
+  <mat-card class="table-card">
+    <table mat-table [dataSource]="exams" class="mcq-table">
+      <ng-container matColumnDef="title">
+        <th mat-header-cell *matHeaderCellDef>Title</th>
+        <td mat-cell *matCellDef="let exam">
+          <span class="exam-title">{{ exam.title || exam.name }}</span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="subject">
+        <th mat-header-cell *matHeaderCellDef>Subject</th>
+        <td mat-cell *matCellDef="let exam">
+          <mat-chip class="subject-chip">{{ exam.subjectName || '-' }}</mat-chip>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="totalQuestions">
+        <th mat-header-cell *matHeaderCellDef>Questions</th>
+        <td mat-cell *matCellDef="let exam">{{ exam.questionIds?.length || exam.totalQuestions || 0 }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="duration">
+        <th mat-header-cell *matHeaderCellDef>Duration</th>
+        <td mat-cell *matCellDef="let exam">{{ exam.duration || '-' }} mins</td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let exam">
+          <mat-chip [class]="'status-chip status-' + (exam.status || 'draft').toLowerCase()">
+            {{ exam.status || 'DRAFT' }}
+          </mat-chip>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
+        <td mat-cell *matCellDef="let exam" class="actions-col">
+          <button mat-icon-button [matMenuTriggerFor]="examMenu">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #examMenu="matMenu">
+            <button mat-menu-item (click)="editExam(exam)" [disabled]="exam.status !== 'DRAFT'">
+              <mat-icon>edit</mat-icon>
+              <span>Edit</span>
+            </button>
+            <button mat-menu-item (click)="publishExam(exam)" *ngIf="exam.status === 'DRAFT'">
+              <mat-icon>publish</mat-icon>
+              <span>Publish</span>
+            </button>
+            <button mat-menu-item (click)="viewResults(exam)" *ngIf="exam.status === 'COMPLETED' || exam.status === 'ONGOING'">
+              <mat-icon>assessment</mat-icon>
+              <span>View Results</span>
+            </button>
+          </mat-menu>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="table-row"></tr>
+    </table>
+
+    <div class="loading-row" *ngIf="isLoading">
+      <mat-spinner diameter="36"></mat-spinner>
+    </div>
+
+    <div class="empty-state" *ngIf="!isLoading && exams.length === 0">
+      No MCQ exams found
+    </div>
+
+    <mat-paginator
+      [length]="totalElements"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="[5, 10, 25, 50]"
+      (page)="onPageChange($event)"
+      showFirstLastButtons
+    ></mat-paginator>
+  </mat-card>
+</div>

@@ -1,0 +1,194 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.detail-container {
+  padding: 0;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 60px;
+}
+
+.error-card {
+  border-radius: 12px !important;
+
+  .error-text {
+    text-align: center;
+    color: #c62828;
+    margin: 0;
+  }
+}
+
+// Info Grid
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+
+  @media (max-width: 959px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 599px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.info-card {
+  border-radius: 12px !important;
+
+  .info-label {
+    display: block;
+    font-size: 0.8125rem;
+    color: rgba(0, 0, 0, 0.5);
+    margin-bottom: 4px;
+  }
+
+  .info-value {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+
+  .success-value {
+    color: #2e7d32;
+  }
+
+  .error-value {
+    color: #c62828;
+  }
+}
+
+.status-chip {
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.status-completed {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+}
+
+.status-processing {
+  background-color: rgba(33, 150, 243, 0.12) !important;
+  color: #1565c0 !important;
+}
+
+.status-queued {
+  background-color: rgba(158, 158, 158, 0.12) !important;
+  color: #616161 !important;
+}
+
+.status-partial {
+  background-color: rgba(255, 152, 0, 0.12) !important;
+  color: #e65100 !important;
+}
+
+.status-failed {
+  background-color: rgba(244, 67, 54, 0.12) !important;
+  color: #c62828 !important;
+}
+
+// Body Card
+.body-card {
+  border-radius: 12px !important;
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 12px;
+}
+
+.message-body {
+  background-color: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  padding: 16px;
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.media-section {
+  margin-top: 16px;
+
+  .media-label {
+    display: block;
+    font-size: 0.8125rem;
+    color: rgba(0, 0, 0, 0.5);
+    margin-bottom: 8px;
+  }
+}
+
+.media-chip {
+  background-color: rgba(212, 168, 67, 0.12) !important;
+
+  a {
+    color: $gold-dark !important;
+    text-decoration: none;
+    font-weight: 600;
+  }
+}
+
+// Recipients Table
+.recipients-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.recipients-table {
+  width: 100%;
+}
+
+.delivery-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.delivery-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+}
+
+.delivery-success {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+}
+
+.delivery-pending {
+  background-color: rgba(33, 150, 243, 0.12) !important;
+  color: #1565c0 !important;
+}
+
+.delivery-failed {
+  background-color: rgba(244, 67, 54, 0.12) !important;
+  color: #c62828 !important;
+}
+
+.error-msg {
+  color: #c62828;
+  font-size: 0.8125rem;
+}
+
+.no-error {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+.table-row:hover {
+  background-color: rgba(212, 168, 67, 0.04);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: rgba(0, 0, 0, 0.5);
+}

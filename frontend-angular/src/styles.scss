@@ -1,12 +1,6 @@
-
 // Custom Theming for Angular Material
-// For more information: https://material.angular.io/guide/theming
 @use '@angular/material' as mat;
-// Plus imports for other components in your app.
 
-// Include the common styles for Angular Material. We include this here so that you only
-// have to load a single css file for Angular Material in your app.
-// Be sure that you only ever include this mixin once!
 @include mat.core();
 
 // Define the theme object.
@@ -21,95 +15,345 @@ $frontend-angular-theme: mat.define-theme((
   )
 ));
 
-// Include theme styles for core and each component used in your app.
-// Alternatively, you can import and @include the theme mixins for each component
-// that you are using.
 :root {
   @include mat.all-component-themes($frontend-angular-theme);
 }
 
-// Comment out the line below if you want to use the pre-defined typography utility classes.
-// For more information: https://material.angular.io/guide/typography#using-typography-styles-in-your-application.
-// @include mat.typography-hierarchy($frontend-angular-theme);
-
-// Comment out the line below if you want to use the deprecated `color` inputs.
-// @include mat.color-variants-backwards-compatibility($frontend-angular-theme);
-/* You can add global styles to this file, and also import other style files */
-
-// ── Gold Theme Variables ──────────────────────────────────────────────
+// ── Gold Theme Variables (matching React theme/index.ts) ─────────────
 :root {
-  --gold-primary: #D4A843;
-  --gold-primary-light: #E4C373;
-  --gold-primary-dark: #B08A2E;
-  --sidebar-bg: #1e1e2f;
-  --header-bg: #1a1a2e;
-  --content-bg: #f5f5f5;
-  --text-primary: #333333;
-  --text-secondary: #666666;
+  // Gold palette
+  --gold: #D4A843;
+  --gold-light: #E8C97A;
+  --gold-dark: #B8860B;
+
+  // Black palette
+  --black: #1A1A1A;
+  --black-light: #2D2D2D;
+  --black-dark: #0D0D0D;
+
+  // Whites / backgrounds
+  --white: #FFFFFF;
+  --off-white: #FAF8F5;
+  --warm-gray: #F5F0E8;
+
+  // Semantic colors
+  --success: #2E7D32;
+  --warning: #ED6C02;
+  --error: #D32F2F;
+  --info: #0288D1;
+
+  // Text
+  --text-primary: #1A1A1A;
+  --text-secondary: rgba(26, 26, 26, 0.65);
+  --text-disabled: rgba(26, 26, 26, 0.38);
+
+  // Borders / dividers
+  --divider: rgba(212, 168, 67, 0.15);
+  --border: rgba(212, 168, 67, 0.1);
+
+  // Shadows
+  --shadow-sm: 0px 1px 3px rgba(26, 26, 26, 0.08), 0px 1px 2px rgba(212, 168, 67, 0.04);
+  --shadow-md: 0px 4px 12px rgba(26, 26, 26, 0.08), 0px 3px 8px rgba(212, 168, 67, 0.06);
+  --shadow-lg: 0px 8px 24px rgba(26, 26, 26, 0.08), 0px 4px 12px rgba(212, 168, 67, 0.1);
+
+  // Layout
+  --sidebar-bg: #0D0D0D;
+  --header-bg: #FFFFFF;
+  --content-bg: #FAF8F5;
+
+  // Typography
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  font-family: var(--font-sans);
 }
 
-html, body { height: 100%; }
-body {
+// ── Base Styles ──────────────────────────────────────────────────────
+
+html, body {
+  height: 100%;
   margin: 0;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
   background-color: var(--content-bg);
   color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
-// ── Global Material Overrides ─────────────────────────────────────────
+// Custom selection color
+::selection {
+  background-color: rgba(212, 168, 67, 0.25);
+  color: #1A1A1A;
+}
 
-// Toolbar gold accent
+// Smooth transitions for interactive elements
+a, button, input, select, textarea {
+  transition: all 0.2s ease;
+}
+
+// ── Scrollbar Styling ────────────────────────────────────────────────
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--warm-gray);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(212, 168, 67, 0.4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 168, 67, 0.6);
+}
+
+// ── Angular Material Component Overrides ─────────────────────────────
+
+// AppBar / Toolbar
 .mat-toolbar {
-  &.mat-primary {
-    background-color: var(--header-bg);
-    color: #ffffff;
+  background-color: var(--white) !important;
+  color: var(--black) !important;
+}
+
+// Buttons
+.mat-mdc-unelevated-button.mat-primary,
+.mat-mdc-raised-button.mat-primary,
+.mat-mdc-flat-button.mat-primary {
+  --mdc-filled-button-container-color: #D4A843;
+  --mdc-filled-button-label-text-color: #FFFFFF;
+  background: linear-gradient(135deg, #D4A843 0%, #B8860B 100%) !important;
+  color: #FFFFFF !important;
+  border-radius: 10px !important;
+  font-weight: 600;
+  box-shadow: 0px 2px 8px rgba(212, 168, 67, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    background: linear-gradient(135deg, #E8C97A 0%, #D4A843 100%) !important;
+    box-shadow: 0px 4px 16px rgba(212, 168, 67, 0.4);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 }
 
-// Active sidebar link gold highlight
+.mat-mdc-outlined-button.mat-primary {
+  border-color: #D4A843 !important;
+  color: #B8860B !important;
+  border-width: 2px !important;
+  border-radius: 10px !important;
+  font-weight: 600;
+
+  &:hover {
+    background-color: rgba(212, 168, 67, 0.06) !important;
+    border-color: #B8860B !important;
+  }
+}
+
+.mat-mdc-fab.mat-primary,
+.mat-mdc-mini-fab.mat-primary {
+  --mdc-fab-container-color: #D4A843;
+  background: linear-gradient(135deg, #D4A843 0%, #B8860B 100%) !important;
+  color: #FFFFFF !important;
+
+  &:hover {
+    background: linear-gradient(135deg, #E8C97A 0%, #D4A843 100%) !important;
+  }
+}
+
+// Cards
+.mat-mdc-card {
+  border-radius: 14px !important;
+  border: 1px solid rgba(212, 168, 67, 0.1);
+  box-shadow: 0px 2px 8px rgba(26, 26, 26, 0.04), 0px 1px 4px rgba(212, 168, 67, 0.06) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    box-shadow: 0px 8px 24px rgba(26, 26, 26, 0.08), 0px 4px 12px rgba(212, 168, 67, 0.1) !important;
+    border-color: rgba(212, 168, 67, 0.25);
+  }
+}
+
+.mat-mdc-card-content {
+  padding: 16px 20px;
+
+  &:last-child {
+    padding-bottom: 20px;
+  }
+}
+
+// Paper / surfaces
+.mat-mdc-dialog-container .mdc-dialog__surface {
+  border-radius: 18px !important;
+  border: 1px solid rgba(212, 168, 67, 0.15);
+}
+
+// Form fields
+.mat-mdc-form-field {
+  .mdc-notched-outline__leading,
+  .mdc-notched-outline__trailing,
+  .mdc-notched-outline__notch {
+    border-radius: 10px;
+    transition: border-color 0.2s ease;
+  }
+
+  &:hover .mdc-notched-outline__leading,
+  &:hover .mdc-notched-outline__trailing,
+  &:hover .mdc-notched-outline__notch {
+    border-color: #D4A843 !important;
+  }
+
+  &.mat-focused {
+    .mdc-notched-outline__leading,
+    .mdc-notched-outline__trailing,
+    .mdc-notched-outline__notch {
+      border-color: #D4A843 !important;
+      border-width: 2px !important;
+    }
+  }
+}
+
+.mat-mdc-form-field.mat-focused .mat-mdc-floating-label {
+  color: #B8860B !important;
+}
+
+// Tables
+.mat-mdc-header-row {
+  .mat-mdc-header-cell {
+    font-weight: 600;
+    background-color: rgba(212, 168, 67, 0.06);
+    border-bottom: 2px solid rgba(212, 168, 67, 0.2);
+    color: var(--black);
+  }
+}
+
+.mat-mdc-cell {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(212, 168, 67, 0.08);
+}
+
+.mat-mdc-row {
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background-color: rgba(212, 168, 67, 0.04);
+  }
+}
+
+// Chips
+.mat-mdc-chip.mat-primary {
+  --mdc-chip-elevated-container-color: rgba(212, 168, 67, 0.12);
+  --mdc-chip-label-text-color: #B8860B;
+  font-weight: 500;
+  border-radius: 8px !important;
+}
+
+// Tabs
+.mat-mdc-tab-group {
+  .mat-mdc-tab-header {
+    .mdc-tab-indicator__content--underline {
+      border-color: #D4A843 !important;
+      border-width: 3px;
+      border-top-left-radius: 3px;
+      border-top-right-radius: 3px;
+    }
+  }
+
+  .mat-mdc-tab.mdc-tab--active {
+    .mdc-tab__text-label {
+      color: #B8860B !important;
+      font-weight: 600;
+    }
+  }
+
+  .mdc-tab__text-label {
+    text-transform: none;
+    font-weight: 600;
+  }
+}
+
+// Badge
+.mat-badge-content {
+  font-weight: 600;
+}
+
+// Progress bars
+.mat-mdc-progress-bar {
+  --mdc-linear-progress-active-indicator-color: #D4A843;
+  border-radius: 4px;
+  height: 6px;
+
+  .mdc-linear-progress__bar-inner {
+    background: linear-gradient(90deg, #B8860B, #D4A843, #E8C97A) !important;
+    border-radius: 4px;
+  }
+}
+
+.mat-mdc-progress-spinner {
+  --mdc-circular-progress-active-indicator-color: #D4A843;
+}
+
+// Tooltips
+.mat-mdc-tooltip {
+  --mdc-plain-tooltip-container-color: #1A1A1A;
+  border-radius: 8px !important;
+  border: 1px solid rgba(212, 168, 67, 0.2);
+  font-size: 0.75rem;
+}
+
+// Drawer / Sidenav
+.mat-drawer {
+  border-right: none !important;
+  background-color: var(--sidebar-bg) !important;
+  color: #FFFFFF;
+}
+
+.mat-drawer-container {
+  background-color: var(--content-bg) !important;
+}
+
+// ListItemButton
+.mat-mdc-list-item-interactive:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+// Avatars
+.mat-mdc-avatar,
+.mat-icon.avatar-icon {
+  font-weight: 600;
+}
+
+// Alerts / Snackbar
+.mat-mdc-snack-bar-container {
+  border-radius: 10px !important;
+}
+
+// ── Active Sidebar Link ──────────────────────────────────────────────
 .active-link {
   background-color: rgba(212, 168, 67, 0.15) !important;
-  color: var(--gold-primary) !important;
+  color: #D4A843 !important;
 
   .mat-icon {
-    color: var(--gold-primary) !important;
+    color: #D4A843 !important;
   }
 
   .mdc-list-item__primary-text {
-    color: var(--gold-primary) !important;
+    color: #D4A843 !important;
   }
 }
 
-// Sidenav styling
-.mat-drawer {
-  border-right: none !important;
-}
-
-// FAB and raised buttons with gold
-.mat-mdc-fab.mat-primary,
-.mat-mdc-mini-fab.mat-primary {
-  --mdc-fab-container-color: var(--gold-primary);
-}
-
-.mat-mdc-raised-button.mat-primary {
-  --mdc-protected-button-container-color: var(--gold-primary);
-}
-
-// ── Utility Classes ───────────────────────────────────────────────────
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-
-  h1 {
-    font-size: 24px;
-    font-weight: 500;
-    color: var(--text-primary);
-    margin: 0;
-  }
-}
+// ── Utility Classes ──────────────────────────────────────────────────
 
 .card-grid {
   display: grid;
@@ -117,27 +361,68 @@ body {
   gap: 24px;
 }
 
-.stat-card {
-  padding: 24px;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+.gold-gradient-text {
+  background: linear-gradient(135deg, #D4A843, #B8860B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-// Scrollbar styling
-::-webkit-scrollbar {
-  width: 6px;
+.gold-gradient-btn {
+  background: linear-gradient(135deg, #D4A843 0%, #B8860B 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0px 2px 8px rgba(212, 168, 67, 0.3);
+
+  &:hover {
+    background: linear-gradient(135deg, #E8C97A 0%, #D4A843 100%);
+    box-shadow: 0px 4px 16px rgba(212, 168, 67, 0.4);
+    transform: translateY(-1px);
+  }
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+// ── Animations ───────────────────────────────────────────────────────
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.15);
-  border-radius: 3px;
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(0, 0, 0, 0.25);
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes goldGlow {
+  0%, 100% { box-shadow: 0 0 5px rgba(212, 168, 67, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(212, 168, 67, 0.5), 0 0 40px rgba(212, 168, 67, 0.2); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.fade-in { animation: fadeIn 0.5s ease-out; }
+.slide-up { animation: slideUp 0.5s ease-out; }
+.scale-in { animation: scaleIn 0.3s ease-out; }

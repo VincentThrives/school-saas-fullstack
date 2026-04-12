@@ -1,0 +1,89 @@
+<div class="class-form-container">
+  <app-page-header
+    [title]="pageTitle"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Classes', link: '/classes' },
+      { label: isEditing ? 'Edit' : 'Add' }
+    ]">
+  </app-page-header>
+
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <mat-card *ngIf="!isLoading" class="form-card">
+    <mat-card-content>
+      <form [formGroup]="classForm" (ngSubmit)="onSubmit()">
+
+        <!-- Class Information -->
+        <h3 class="section-title">Class Information</h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Class Name</mat-label>
+            <input matInput formControlName="name" placeholder="e.g., Class 10, Grade 5">
+            <mat-error>Class name is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Academic Year</mat-label>
+            <mat-select formControlName="academicYearId">
+              <mat-option *ngFor="let year of academicYears" [value]="year.id">
+                {{ year.label }} {{ year.isCurrent ? '(Current)' : '' }}
+              </mat-option>
+            </mat-select>
+            <mat-error>Academic year is required</mat-error>
+          </mat-form-field>
+        </div>
+
+        <mat-divider class="section-divider"></mat-divider>
+
+        <!-- Sections -->
+        <div class="sections-header">
+          <h3 class="section-title">Sections</h3>
+          <button mat-stroked-button type="button" class="add-section-btn" (click)="addSection()">
+            <mat-icon>add</mat-icon>
+            Add Section
+          </button>
+        </div>
+
+        <div formArrayName="sections">
+          <div *ngFor="let section of sections.controls; let i = index" [formGroupName]="i" class="section-row">
+            <mat-form-field appearance="outline" class="section-name-field">
+              <mat-label>Section Name</mat-label>
+              <input matInput formControlName="name" placeholder="e.g., A, B, C">
+              <mat-error>Section name is required</mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="section-capacity-field">
+              <mat-label>Capacity</mat-label>
+              <input matInput formControlName="capacity" type="number" min="1">
+              <mat-error>Capacity must be at least 1</mat-error>
+            </mat-form-field>
+
+            <button mat-icon-button color="warn" type="button" (click)="removeSection(i)"
+                    [disabled]="sections.length <= 1" matTooltip="Remove section">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="no-sections" *ngIf="sections.length === 0">
+          <p>No sections added. Click "Add Section" to create one.</p>
+        </div>
+
+        <div class="form-actions">
+          <button mat-button type="button" (click)="cancel()">
+            <mat-icon>arrow_back</mat-icon>
+            Cancel
+          </button>
+          <button mat-raised-button class="save-button" type="submit" [disabled]="isSaving">
+            <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
+            <mat-icon *ngIf="!isSaving">save</mat-icon>
+            {{ isEditing ? 'Update Class' : 'Create Class' }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

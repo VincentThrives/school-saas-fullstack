@@ -1,0 +1,107 @@
+<div class="classes-list-container">
+  <app-page-header
+    title="Classes"
+    subtitle="Manage classes and their sections"
+    [breadcrumbs]="[{ label: 'Dashboard', link: '/dashboard' }, { label: 'Classes' }]"
+    actionLabel="Add Class"
+    actionIcon="add"
+    (actionClick)="navigateToAddClass()">
+  </app-page-header>
+
+  <!-- Loading -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card" *ngIf="!isLoading">
+    <div class="table-toolbar">
+      <button mat-icon-button matTooltip="Refresh" (click)="loadClasses()">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+
+    <table mat-table [dataSource]="dataSource" class="classes-table">
+
+      <!-- Name Column -->
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Name</th>
+        <td mat-cell *matCellDef="let cls">
+          <div class="class-name-cell">
+            <div class="class-icon">
+              <mat-icon>school</mat-icon>
+            </div>
+            <span class="class-name">{{ cls.name }}</span>
+          </div>
+        </td>
+      </ng-container>
+
+      <!-- Sections Column -->
+      <ng-container matColumnDef="sections">
+        <th mat-header-cell *matHeaderCellDef>Sections</th>
+        <td mat-cell *matCellDef="let cls">
+          <div class="sections-chips">
+            <span class="section-chip" *ngFor="let name of getSectionNames(cls).slice(0, 3)">
+              {{ name }}
+            </span>
+            <span class="section-chip more" *ngIf="getSectionNames(cls).length > 3">
+              +{{ getSectionNames(cls).length - 3 }}
+            </span>
+            <span class="section-count" *ngIf="!cls.sections?.length">No sections</span>
+          </div>
+        </td>
+      </ng-container>
+
+      <!-- Academic Year Column -->
+      <ng-container matColumnDef="academicYear">
+        <th mat-header-cell *matHeaderCellDef>Academic Year</th>
+        <td mat-cell *matCellDef="let cls">{{ cls.academicYearId || '-' }}</td>
+      </ng-container>
+
+      <!-- Students Column -->
+      <ng-container matColumnDef="students">
+        <th mat-header-cell *matHeaderCellDef>Students (capacity)</th>
+        <td mat-cell *matCellDef="let cls">
+          <span class="student-count-chip">
+            <mat-icon class="small-icon">group</mat-icon>
+            {{ getTotalStudents(cls) }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Actions Column -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-header">Actions</th>
+        <td mat-cell *matCellDef="let cls" class="actions-cell">
+          <button mat-icon-button matTooltip="Edit" (click)="editClass(cls)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button matTooltip="Delete" color="warn" (click)="confirmDelete(cls)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell no-data-cell" [attr.colspan]="displayedColumns.length">
+          No classes found
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Delete Confirmation Dialog -->
+  <div class="delete-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <h3>Delete Class</h3>
+      <p>Are you sure you want to delete <strong>{{ selectedClass?.name }}</strong>? This will also delete all sections and affect student assignments. This action cannot be undone.</p>
+      <div class="dialog-actions">
+        <button mat-button (click)="cancelDelete()">Cancel</button>
+        <button mat-raised-button color="warn" (click)="deleteClass()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>

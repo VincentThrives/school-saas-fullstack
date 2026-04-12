@@ -1,0 +1,156 @@
+<div class="student-form-container">
+  <app-page-header
+    [title]="pageTitle"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Students', link: '/students' },
+      { label: isEditing ? 'Edit' : 'Add' }
+    ]">
+  </app-page-header>
+
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <mat-card *ngIf="!isLoading" class="form-card">
+    <mat-card-content>
+      <form [formGroup]="studentForm" (ngSubmit)="onSubmit()">
+
+        <!-- Personal Information -->
+        <h3 class="section-title">Personal Information</h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Admission Number</mat-label>
+            <input matInput formControlName="admissionNumber">
+            <mat-error>Admission number is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Roll Number</mat-label>
+            <input matInput formControlName="rollNumber">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>First Name</mat-label>
+            <input matInput formControlName="firstName">
+            <mat-error>First name is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Last Name</mat-label>
+            <input matInput formControlName="lastName">
+            <mat-error>Last name is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Date of Birth</mat-label>
+            <input matInput formControlName="dateOfBirth" type="date">
+            <mat-error>Date of birth is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Gender</mat-label>
+            <mat-select formControlName="gender">
+              <mat-option *ngFor="let g of genders" [value]="g.value">{{ g.label }}</mat-option>
+            </mat-select>
+            <mat-error>Gender is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Blood Group</mat-label>
+            <mat-select formControlName="bloodGroup">
+              <mat-option value="">Not Specified</mat-option>
+              <mat-option *ngFor="let bg of bloodGroups" [value]="bg">{{ bg }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <mat-divider class="section-divider"></mat-divider>
+
+        <!-- Class Information -->
+        <h3 class="section-title">Class Information</h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Class</mat-label>
+            <mat-select formControlName="classId">
+              <mat-option *ngFor="let cls of classes" [value]="cls.id">{{ cls.name }}</mat-option>
+            </mat-select>
+            <mat-error>Class is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Section</mat-label>
+            <mat-select formControlName="sectionId">
+              <mat-option value="">No Section</mat-option>
+              <mat-option *ngFor="let section of selectedClassSections" [value]="section.sectionId">
+                {{ section.name }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Academic Year</mat-label>
+            <mat-select formControlName="academicYearId">
+              <mat-option *ngFor="let year of academicYears" [value]="year.id">
+                {{ year.label }} {{ year.isCurrent ? '(Current)' : '' }}
+              </mat-option>
+            </mat-select>
+            <mat-error>Academic year is required</mat-error>
+          </mat-form-field>
+        </div>
+
+        <mat-divider class="section-divider"></mat-divider>
+
+        <!-- Parent Information -->
+        <h3 class="section-title">Parent Information</h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Parent IDs</mat-label>
+            <mat-select formControlName="parentIds" multiple>
+              <mat-option value="">No parents linked yet</mat-option>
+            </mat-select>
+            <mat-hint>Select parent accounts to link</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <mat-divider class="section-divider"></mat-divider>
+
+        <!-- Address -->
+        <h3 class="section-title">Address</h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Street</mat-label>
+            <input matInput formControlName="street">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>City</mat-label>
+            <input matInput formControlName="city">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>State</mat-label>
+            <input matInput formControlName="state">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>ZIP / Postal Code</mat-label>
+            <input matInput formControlName="zip">
+          </mat-form-field>
+        </div>
+
+        <div class="form-actions">
+          <button mat-button type="button" (click)="cancel()">
+            <mat-icon>arrow_back</mat-icon>
+            Cancel
+          </button>
+          <button mat-raised-button class="save-button" type="submit" [disabled]="isSaving">
+            <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
+            <mat-icon *ngIf="!isSaving">save</mat-icon>
+            {{ isEditing ? 'Update Student' : 'Create Student' }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

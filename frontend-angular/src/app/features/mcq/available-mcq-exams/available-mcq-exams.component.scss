@@ -1,0 +1,139 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.available-exams-container {
+  padding: 0;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 60px;
+}
+
+.empty-card {
+  border-radius: 16px !important;
+}
+
+.empty-content {
+  text-align: center;
+  padding: 48px 16px;
+
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.6);
+    margin: 16px 0 8px;
+  }
+
+  p {
+    color: rgba(0, 0, 0, 0.45);
+    margin: 0;
+  }
+}
+
+.empty-icon {
+  font-size: 56px;
+  width: 56px;
+  height: 56px;
+  color: rgba(0, 0, 0, 0.2);
+}
+
+.exams-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+
+  @media (max-width: 959px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 599px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.exam-card {
+  border-radius: 12px !important;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  mat-card-content {
+    flex: 1;
+  }
+}
+
+.exam-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 12px;
+}
+
+.subject-chip {
+  background-color: rgba(33, 150, 243, 0.1) !important;
+  color: #1565c0 !important;
+  font-size: 0.8125rem;
+  margin-bottom: 16px !important;
+}
+
+.exam-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: rgba(0, 0, 0, 0.4);
+  }
+
+  span {
+    font-size: 0.875rem;
+    color: rgba(0, 0, 0, 0.6);
+  }
+}
+
+.completed-section {
+  margin-top: 16px;
+}
+
+.score-chip {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+  font-weight: 600;
+
+  mat-icon {
+    font-size: 16px;
+    margin-right: 4px;
+  }
+}
+
+.start-btn {
+  width: 100%;
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  font-weight: 600;
+
+  mat-icon {
+    margin-right: 4px;
+  }
+
+  &:disabled {
+    background: rgba(0, 0, 0, 0.12) !important;
+    color: rgba(0, 0, 0, 0.38) !important;
+  }
+}

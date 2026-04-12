@@ -1,0 +1,143 @@
+<div class="detail-container">
+  <app-page-header
+    title="Message Details"
+    [subtitle]="message ? 'Sent on ' + (message.createdAt | date:'dd MMM yyyy, HH:mm') : ''"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'WhatsApp Messages', link: '/whatsapp' },
+      { label: 'Details' }
+    ]"
+    secondaryActionLabel="Back"
+    secondaryActionIcon="arrow_back"
+    (secondaryActionClick)="goBack()"
+  ></app-page-header>
+
+  <!-- Loading -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- Error -->
+  <mat-card class="error-card" *ngIf="isError && !isLoading">
+    <mat-card-content>
+      <p class="error-text">Message not found or failed to load.</p>
+    </mat-card-content>
+  </mat-card>
+
+  <ng-container *ngIf="message && !isLoading">
+    <!-- Info Cards -->
+    <div class="info-grid">
+      <mat-card class="info-card">
+        <mat-card-content>
+          <span class="info-label">Sent By</span>
+          <span class="info-value">{{ message.sentByName }}</span>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="info-card">
+        <mat-card-content>
+          <span class="info-label">Date</span>
+          <span class="info-value">{{ message.createdAt | date:'dd MMM yyyy, HH:mm' }}</span>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="info-card">
+        <mat-card-content>
+          <span class="info-label">Status</span>
+          <mat-chip [class]="getStatusClass(message.status)" class="status-chip">
+            {{ message.status }}
+          </mat-chip>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="info-card">
+        <mat-card-content>
+          <span class="info-label">Content Type</span>
+          <span class="info-value">{{ message.contentType }}</span>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="info-card">
+        <mat-card-content>
+          <span class="info-label">Total Recipients</span>
+          <span class="info-value">{{ message.totalRecipients }}</span>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="info-card">
+        <mat-card-content>
+          <span class="info-label">Sent Successfully</span>
+          <span class="info-value success-value">{{ message.successCount }}</span>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="info-card">
+        <mat-card-content>
+          <span class="info-label">Failed</span>
+          <span class="info-value error-value">{{ message.failureCount }}</span>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Message Body -->
+    <mat-card class="body-card">
+      <mat-card-content>
+        <h3 class="section-title">Message Body</h3>
+        <div class="message-body">{{ message.messageBody }}</div>
+
+        <div class="media-section" *ngIf="message.mediaUrl">
+          <span class="media-label">Attached File</span>
+          <mat-chip class="media-chip">
+            <a [href]="message.mediaUrl" target="_blank" rel="noopener noreferrer">
+              {{ message.mediaFileName || 'Download File' }}
+            </a>
+          </mat-chip>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Recipients Table -->
+    <mat-card class="recipients-card">
+      <mat-card-content>
+        <h3 class="section-title">Recipients</h3>
+      </mat-card-content>
+
+      <table mat-table [dataSource]="message.recipients || []" class="recipients-table">
+        <ng-container matColumnDef="parentName">
+          <th mat-header-cell *matHeaderCellDef>Name</th>
+          <td mat-cell *matCellDef="let r">{{ r.parentName }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="phone">
+          <th mat-header-cell *matHeaderCellDef>Phone</th>
+          <td mat-cell *matCellDef="let r">{{ r.phone }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="deliveryStatus">
+          <th mat-header-cell *matHeaderCellDef>Delivery Status</th>
+          <td mat-cell *matCellDef="let r">
+            <mat-chip [class]="getDeliveryStatusClass(r.deliveryStatus)" class="delivery-chip">
+              <mat-icon class="delivery-icon">{{ getDeliveryIcon(r.deliveryStatus) }}</mat-icon>
+              {{ r.deliveryStatus }}
+            </mat-chip>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="errorMessage">
+          <th mat-header-cell *matHeaderCellDef>Error Message</th>
+          <td mat-cell *matCellDef="let r">
+            <span *ngIf="r.errorMessage" class="error-msg">{{ r.errorMessage }}</span>
+            <span *ngIf="!r.errorMessage" class="no-error">-</span>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="recipientColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: recipientColumns;" class="table-row"></tr>
+      </table>
+
+      <div class="empty-state" *ngIf="!message.recipients || message.recipients.length === 0">
+        No recipient details available
+      </div>
+    </mat-card>
+  </ng-container>
+</div>

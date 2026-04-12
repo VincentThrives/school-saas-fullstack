@@ -1,0 +1,137 @@
+<div class="exams-list-container">
+  <app-page-header
+    title="Exams"
+    subtitle="Manage examinations and schedules"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Exams' }
+    ]"
+    actionLabel="Create Exam"
+    actionIcon="add"
+    actionLink="/exams/new"
+  ></app-page-header>
+
+  <!-- Filters -->
+  <mat-card class="filters-card">
+    <mat-card-content>
+      <div class="filters-row">
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Class</mat-label>
+          <mat-select [(ngModel)]="classFilter">
+            <mat-option value="">All Classes</mat-option>
+            <mat-option *ngFor="let cls of classes" [value]="cls.id">
+              {{ cls.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Academic Year</mat-label>
+          <mat-select [(ngModel)]="academicYearFilter">
+            <mat-option value="">All Years</mat-option>
+            <mat-option *ngFor="let yr of academicYears" [value]="yr.id">
+              {{ yr.label }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <span class="spacer"></span>
+
+        <button mat-icon-button matTooltip="Refresh" (click)="loadExams()">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Exams Table -->
+  <mat-card class="table-card">
+    <table mat-table [dataSource]="exams" class="exams-table">
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Exam Name</th>
+        <td mat-cell *matCellDef="let exam">
+          <span class="exam-name">{{ exam.name }}</span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="class">
+        <th mat-header-cell *matHeaderCellDef>Class</th>
+        <td mat-cell *matCellDef="let exam">{{ exam.className || '-' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="subject">
+        <th mat-header-cell *matHeaderCellDef>Subject</th>
+        <td mat-cell *matCellDef="let exam">
+          <mat-chip class="subject-chip">{{ exam.subjectName || exam.subject || '-' }}</mat-chip>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="date">
+        <th mat-header-cell *matHeaderCellDef>Date</th>
+        <td mat-cell *matCellDef="let exam">{{ exam.date | date:'dd MMM yyyy' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="maxMarks">
+        <th mat-header-cell *matHeaderCellDef>Max Marks</th>
+        <td mat-cell *matCellDef="let exam">
+          <strong>{{ exam.maxMarks }}</strong>
+          <span class="passing-marks">(Pass: {{ exam.passingMarks }})</span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let exam">
+          <mat-chip [class]="'status-chip status-' + (exam.status || 'SCHEDULED').toLowerCase()">
+            {{ exam.status || 'SCHEDULED' }}
+          </mat-chip>
+          <mat-chip class="locked-chip" *ngIf="exam.marksLocked">
+            <mat-icon>lock</mat-icon> Locked
+          </mat-chip>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
+        <td mat-cell *matCellDef="let exam" class="actions-col">
+          <button mat-icon-button [matMenuTriggerFor]="examMenu">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #examMenu="matMenu">
+            <button mat-menu-item (click)="enterMarks(exam)">
+              <mat-icon>grade</mat-icon>
+              <span>Enter Marks</span>
+            </button>
+            <button mat-menu-item (click)="editExam(exam)" [disabled]="exam.status === 'COMPLETED'">
+              <mat-icon>edit</mat-icon>
+              <span>Edit</span>
+            </button>
+            <button mat-menu-item (click)="lockMarks(exam)" [disabled]="exam.marksLocked">
+              <mat-icon>lock</mat-icon>
+              <span>Lock Marks</span>
+            </button>
+          </mat-menu>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="table-row"></tr>
+    </table>
+
+    <div class="loading-row" *ngIf="isLoading">
+      <mat-spinner diameter="36"></mat-spinner>
+    </div>
+
+    <div class="empty-state" *ngIf="!isLoading && exams.length === 0">
+      No exams found
+    </div>
+
+    <mat-paginator
+      [length]="totalElements"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="[5, 10, 25, 50]"
+      (page)="onPageChange($event)"
+      showFirstLastButtons
+    ></mat-paginator>
+  </mat-card>
+</div>

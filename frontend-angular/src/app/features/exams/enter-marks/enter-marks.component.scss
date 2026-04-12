@@ -1,0 +1,139 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.enter-marks-container {
+  padding: 0;
+}
+
+.exam-info-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+
+  @media (max-width: 959px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 599px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.info-card {
+  border-radius: 12px !important;
+  text-align: center;
+
+  .info-label {
+    display: block;
+    font-size: 0.8125rem;
+    color: rgba(0, 0, 0, 0.5);
+    margin-bottom: 4px;
+  }
+
+  .info-value {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+}
+
+.table-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.marks-table {
+  width: 100%;
+}
+
+.student-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.student-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.marks-field {
+  width: 100px;
+
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+  }
+}
+
+.remarks-field {
+  width: 100%;
+
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+  }
+}
+
+.chip-pass {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+  font-weight: 600;
+}
+
+.chip-fail {
+  background-color: rgba(244, 67, 54, 0.12) !important;
+  color: #c62828 !important;
+  font-weight: 600;
+}
+
+.no-marks {
+  color: rgba(0, 0, 0, 0.3);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.back-btn {
+  border-radius: 10px !important;
+
+  mat-icon {
+    margin-right: 4px;
+  }
+}
+
+.save-btn {
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  font-weight: 600;
+  padding: 0 24px;
+
+  mat-icon {
+    margin-right: 6px;
+  }
+}

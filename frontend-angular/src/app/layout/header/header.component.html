@@ -1,0 +1,98 @@
+<mat-toolbar class="app-header">
+  <!-- Left side -->
+  <div class="header-left">
+    <button mat-icon-button class="menu-toggle" (click)="onMenuToggle()" aria-label="Toggle sidebar">
+      <mat-icon>menu</mat-icon>
+    </button>
+
+    <span class="page-title" *ngIf="pageTitle">{{ pageTitle }}</span>
+    <span class="school-name" *ngIf="!pageTitle && schoolName">{{ schoolName }}</span>
+  </div>
+
+  <!-- Right side -->
+  <div class="header-right">
+    <!-- Dark mode toggle -->
+    <button
+      mat-icon-button
+      class="header-icon-btn"
+      (click)="toggleDarkMode()"
+      [matTooltip]="isDarkMode ? 'Light mode' : 'Dark mode'"
+    >
+      <mat-icon>{{ isDarkMode ? 'light_mode' : 'dark_mode' }}</mat-icon>
+    </button>
+
+    <!-- Notifications -->
+    <button
+      *ngIf="!isSuperAdmin"
+      mat-icon-button
+      class="header-icon-btn"
+      [matMenuTriggerFor]="notifMenu"
+      matTooltip="Notifications"
+    >
+      <mat-icon
+        [matBadge]="unreadCount > 0 ? unreadCount : null"
+        matBadgeColor="warn"
+        matBadgeSize="small"
+        [matBadgeHidden]="unreadCount === 0"
+      >
+        notifications
+      </mat-icon>
+    </button>
+
+    <mat-menu #notifMenu="matMenu" xPosition="before" class="notification-menu">
+      <div class="notif-header" (click)="$event.stopPropagation()">
+        <strong>Notifications</strong>
+        <span *ngIf="unreadCount > 0" class="notif-count">
+          {{ unreadCount }} unread notification{{ unreadCount > 1 ? 's' : '' }}
+        </span>
+      </div>
+      <div class="notif-empty" (click)="$event.stopPropagation()">
+        <span>No new notifications</span>
+      </div>
+      <mat-divider></mat-divider>
+      <button mat-menu-item class="notif-view-all" (click)="navigateToNotifications()">
+        View All Notifications
+      </button>
+    </mat-menu>
+
+    <!-- User avatar and menu -->
+    <button
+      mat-icon-button
+      [matMenuTriggerFor]="userMenu"
+      class="avatar-btn"
+      matTooltip="Account"
+    >
+      <div class="user-avatar">
+        <img
+          *ngIf="user?.profilePhotoUrl"
+          [src]="user!.profilePhotoUrl"
+          [alt]="userName"
+          class="avatar-img"
+        />
+        <span *ngIf="!user?.profilePhotoUrl" class="avatar-text">{{ userInitial }}</span>
+      </div>
+    </button>
+
+    <mat-menu #userMenu="matMenu" xPosition="before" class="user-menu">
+      <div class="user-info" (click)="$event.stopPropagation()">
+        <strong class="user-name">{{ userName }}</strong>
+        <span class="user-email">{{ userEmail }}</span>
+        <span class="user-role-badge">{{ roleDisplay }}</span>
+      </div>
+      <mat-divider></mat-divider>
+      <button mat-menu-item (click)="navigateToProfile()">
+        <mat-icon>person</mat-icon>
+        <span>My Profile</span>
+      </button>
+      <button mat-menu-item (click)="navigateToSettings()">
+        <mat-icon>settings</mat-icon>
+        <span>Settings</span>
+      </button>
+      <mat-divider></mat-divider>
+      <button mat-menu-item class="logout-item" (click)="logout()">
+        <mat-icon color="warn">logout</mat-icon>
+        <span>Logout</span>
+      </button>
+    </mat-menu>
+  </div>
+</mat-toolbar>

@@ -1,0 +1,104 @@
+<div class="exam-form-container">
+  <app-page-header
+    [title]="pageTitle"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Exams', link: '/exams' },
+      { label: isEditing ? 'Edit' : 'Create' }
+    ]"
+  ></app-page-header>
+
+  <mat-card class="form-card">
+    <mat-card-content>
+      <form [formGroup]="examForm" (ngSubmit)="onSubmit()">
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Exam Name</mat-label>
+            <input matInput formControlName="name" placeholder="e.g., Mid-Term Mathematics">
+            <mat-error *ngIf="examForm.get('name')?.hasError('required')">
+              Exam name is required
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Class</mat-label>
+            <mat-select formControlName="classId" (selectionChange)="onClassChange()">
+              <mat-option *ngFor="let cls of classes" [value]="cls.id">
+                {{ cls.name }}
+              </mat-option>
+            </mat-select>
+            <mat-error>Class is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Section</mat-label>
+            <mat-select formControlName="sectionId">
+              <mat-option value="">All Sections</mat-option>
+              <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">
+                {{ sec.name }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Academic Year</mat-label>
+            <mat-select formControlName="academicYearId">
+              <mat-option *ngFor="let yr of academicYears" [value]="yr.id">
+                {{ yr.label }} {{ yr.isCurrent ? '(Current)' : '' }}
+              </mat-option>
+            </mat-select>
+            <mat-error>Academic year is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Subject</mat-label>
+            <input matInput formControlName="subjectId" placeholder="Subject ID">
+            <mat-error>Subject is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Exam Date</mat-label>
+            <input matInput [matDatepicker]="datePicker" formControlName="examDate">
+            <mat-datepicker-toggle matIconSuffix [for]="datePicker"></mat-datepicker-toggle>
+            <mat-datepicker #datePicker></mat-datepicker>
+            <mat-error>Date is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Maximum Marks</mat-label>
+            <input matInput type="number" formControlName="maxMarks" min="1">
+            <mat-error>Max marks must be at least 1</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Passing Marks</mat-label>
+            <input matInput type="number" formControlName="passingMarks" min="0">
+            <mat-error>Passing marks must be at least 0</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description</mat-label>
+            <textarea matInput formControlName="description" rows="3" placeholder="Optional description..."></textarea>
+          </mat-form-field>
+        </div>
+
+        <div class="form-actions">
+          <button mat-stroked-button type="button" (click)="cancel()" class="cancel-btn">
+            <mat-icon>arrow_back</mat-icon>
+            Cancel
+          </button>
+          <button
+            mat-flat-button
+            type="submit"
+            class="save-btn"
+            [disabled]="examForm.invalid || isSaving"
+          >
+            <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
+            <mat-icon *ngIf="!isSaving">save</mat-icon>
+            {{ isSaving ? 'Saving...' : (isEditing ? 'Update Exam' : 'Create Exam') }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

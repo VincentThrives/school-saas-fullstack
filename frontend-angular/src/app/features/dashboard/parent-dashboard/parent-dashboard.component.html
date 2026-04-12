@@ -1,0 +1,172 @@
+<div class="parent-dashboard">
+  <!-- Header with Child Selector -->
+  <div class="parent-dashboard__header">
+    <app-page-header title="Parent Dashboard"></app-page-header>
+    <mat-form-field appearance="outline" class="parent-dashboard__child-select" *ngIf="children.length > 1">
+      <mat-label>Select Child</mat-label>
+      <mat-select [(ngModel)]="selectedChild">
+        <mat-option *ngFor="let child of children" [value]="child.id">
+          {{ child.name }} ({{ child.class }})
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <!-- Fee Alert -->
+  <div class="parent-dashboard__alert" *ngIf="hasPendingFees">
+    <mat-icon>warning</mat-icon>
+    <span>You have pending fee dues of {{ stats.feeStatus.outstanding | number }}. Please clear them to avoid late fees.</span>
+    <a mat-button routerLink="/fee-status" class="parent-dashboard__alert-action">View Details</a>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="parent-dashboard__stats">
+    <app-stat-card
+      title="Child's Attendance"
+      [value]="stats.childAttendance.percentage + '%'"
+      icon="event_note"
+      [color]="stats.childAttendance.percentage >= 75 ? 'success' : 'warning'"
+      [subtitle]="stats.childAttendance.presentDays + '/' + stats.childAttendance.totalDays + ' days'"
+    ></app-stat-card>
+    <app-stat-card
+      title="Fee Paid"
+      [value]="'$' + (stats.feeStatus.totalPaid / 1000).toFixed(0) + 'K'"
+      icon="check_circle"
+      color="success"
+    ></app-stat-card>
+    <app-stat-card
+      title="Fee Due"
+      [value]="'$' + (stats.feeStatus.outstanding / 1000).toFixed(0) + 'K'"
+      icon="payment"
+      [color]="hasPendingFees ? 'warning' : 'success'"
+    ></app-stat-card>
+    <app-stat-card
+      title="Notifications"
+      [value]="5"
+      icon="notifications"
+      color="info"
+    ></app-stat-card>
+  </div>
+
+  <!-- Main Content -->
+  <div class="parent-dashboard__content">
+    <!-- Attendance Overview -->
+    <mat-card class="parent-dashboard__panel">
+      <mat-card-header>
+        <mat-card-title>Attendance Overview</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="parent-dashboard__attendance-summary">
+          <div class="parent-dashboard__attendance-row">
+            <span>Present Days</span>
+            <span class="parent-dashboard__value--success">{{ stats.childAttendance.presentDays }}</span>
+          </div>
+          <div class="parent-dashboard__attendance-row">
+            <span>Absent Days</span>
+            <span class="parent-dashboard__value--error">{{ stats.childAttendance.absentDays }}</span>
+          </div>
+          <div class="parent-dashboard__attendance-row">
+            <span>Total School Days</span>
+            <span class="parent-dashboard__value">{{ stats.childAttendance.totalDays }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Recent Marks -->
+    <mat-card class="parent-dashboard__panel parent-dashboard__panel--wide">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="parent-dashboard__panel-icon">assignment</mat-icon>
+        <mat-card-title>Recent Exam Marks</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <table mat-table [dataSource]="recentMarks" class="parent-dashboard__table">
+          <ng-container matColumnDef="exam">
+            <th mat-header-cell *matHeaderCellDef>Exam</th>
+            <td mat-cell *matCellDef="let el">{{ el.exam }}</td>
+          </ng-container>
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>Date</th>
+            <td mat-cell *matCellDef="let el">{{ el.date }}</td>
+          </ng-container>
+          <ng-container matColumnDef="marks">
+            <th mat-header-cell *matHeaderCellDef>Marks</th>
+            <td mat-cell *matCellDef="let el">{{ el.marks }}/{{ el.total }}</td>
+          </ng-container>
+          <ng-container matColumnDef="grade">
+            <th mat-header-cell *matHeaderCellDef>Grade</th>
+            <td mat-cell *matCellDef="let el">
+              <span
+                class="parent-dashboard__chip"
+                [ngClass]="isGradeA(el.grade) ? 'parent-dashboard__chip--success' : 'parent-dashboard__chip--primary'"
+              >
+                {{ el.grade }}
+              </span>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="marksColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: marksColumns;"></tr>
+        </table>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Bottom Row -->
+  <div class="parent-dashboard__bottom-row">
+    <!-- Upcoming Events -->
+    <mat-card class="parent-dashboard__panel">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="parent-dashboard__panel-icon--secondary">event</mat-icon>
+        <mat-card-title>Upcoming Events</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-list>
+          <mat-list-item *ngFor="let event of upcomingEvents">
+            <div class="parent-dashboard__list-item">
+              <div class="parent-dashboard__item-avatar">
+                <mat-icon>event</mat-icon>
+              </div>
+              <div class="parent-dashboard__item-info">
+                <span class="parent-dashboard__item-title">{{ event.title }}</span>
+                <span class="parent-dashboard__item-meta">{{ event.date }}</span>
+              </div>
+              <span class="parent-dashboard__item-badge">{{ event.type }}</span>
+            </div>
+          </mat-list-item>
+        </mat-list>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Fee Summary -->
+    <mat-card class="parent-dashboard__panel">
+      <mat-card-header>
+        <mat-icon mat-card-avatar class="parent-dashboard__panel-icon--warning">payment</mat-icon>
+        <mat-card-title>Fee Summary</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="parent-dashboard__fee-summary">
+          <div class="parent-dashboard__fee-row">
+            <span>Total Due</span>
+            <span class="parent-dashboard__value">{{ stats.feeStatus.totalDue | number }}</span>
+          </div>
+          <div class="parent-dashboard__fee-row">
+            <span class="parent-dashboard__value--success">Paid</span>
+            <span class="parent-dashboard__value--success">{{ stats.feeStatus.totalPaid | number }}</span>
+          </div>
+          <div class="parent-dashboard__fee-row">
+            <span class="parent-dashboard__value--error">Outstanding</span>
+            <span class="parent-dashboard__value--error">{{ stats.feeStatus.outstanding | number }}</span>
+          </div>
+          <button
+            mat-flat-button
+            *ngIf="hasPendingFees"
+            routerLink="/fee-status"
+            class="parent-dashboard__pay-btn"
+          >
+            Pay Now
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

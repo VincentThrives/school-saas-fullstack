@@ -1,0 +1,92 @@
+<div class="teacher-form-container">
+  <app-page-header
+    [title]="pageTitle"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Teachers', link: '/teachers' },
+      { label: isEditing ? 'Edit' : 'Add' }
+    ]">
+  </app-page-header>
+
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <mat-card *ngIf="!isLoading" class="form-card">
+    <mat-card-content>
+      <form [formGroup]="teacherForm" (ngSubmit)="onSubmit()">
+
+        <!-- Employment Information -->
+        <h3 class="section-title">Employment Information</h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Employee ID</mat-label>
+            <input matInput formControlName="employeeId" placeholder="e.g., EMP001">
+            <mat-error>Employee ID is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Join Date</mat-label>
+            <input matInput formControlName="joinDate" type="date">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Qualification</mat-label>
+            <input matInput formControlName="qualification" placeholder="e.g., M.Sc., B.Ed.">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Specialization</mat-label>
+            <input matInput formControlName="specialization" placeholder="e.g., Mathematics, Physics">
+          </mat-form-field>
+        </div>
+
+        <mat-divider class="section-divider"></mat-divider>
+
+        <!-- Assignment Information -->
+        <h3 class="section-title">Assignment Information</h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Assigned Classes</mat-label>
+            <mat-select formControlName="classIds" multiple>
+              <mat-option *ngFor="let cls of classes" [value]="cls.id">
+                {{ cls.name }}
+              </mat-option>
+            </mat-select>
+            <mat-hint>Select classes this teacher is assigned to</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Subject IDs</mat-label>
+            <mat-select formControlName="subjectIds" multiple>
+              <mat-option value="math">Mathematics</mat-option>
+              <mat-option value="science">Science</mat-option>
+              <mat-option value="english">English</mat-option>
+              <mat-option value="history">History</mat-option>
+              <mat-option value="geography">Geography</mat-option>
+            </mat-select>
+            <mat-hint>Select subjects this teacher teaches</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <div class="checkbox-row">
+          <mat-checkbox formControlName="isClassTeacher" color="primary">
+            Is Class Teacher
+          </mat-checkbox>
+        </div>
+
+        <div class="form-actions">
+          <button mat-button type="button" (click)="cancel()">
+            <mat-icon>arrow_back</mat-icon>
+            Cancel
+          </button>
+          <button mat-raised-button class="save-button" type="submit" [disabled]="isSaving">
+            <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
+            <mat-icon *ngIf="!isSaving">save</mat-icon>
+            {{ isEditing ? 'Update Teacher' : 'Create Teacher' }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

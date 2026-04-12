@@ -1,0 +1,191 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+$black: #1A1A1A;
+$white: #FFFFFF;
+
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 64px;
+  padding: 0 16px;
+  background-color: $white;
+  border-bottom: 2px solid rgba(212, 168, 67, 0.15);
+  backdrop-filter: blur(10px);
+  box-shadow: none;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-toggle {
+  color: $black;
+
+  &:hover {
+    background-color: rgba(212, 168, 67, 0.08);
+  }
+}
+
+.page-title,
+.school-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: $black;
+  margin-left: 8px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-icon-btn {
+  color: rgba(26, 26, 26, 0.7);
+
+  &:hover {
+    background-color: rgba(212, 168, 67, 0.08);
+  }
+}
+
+.avatar-btn {
+  margin-left: 8px;
+}
+
+.user-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background-color: $gold;
+  color: $black;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  border: 2px solid rgba(212, 168, 67, 0.3);
+  transition: all 0.3s ease;
+  overflow: hidden;
+
+  &:hover {
+    box-shadow: 0 0 12px rgba(212, 168, 67, 0.4);
+  }
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.avatar-text {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+// Menu styles
+::ng-deep .notification-menu {
+  .mat-mdc-menu-panel {
+    width: 320px;
+    max-height: 400px;
+    border: 1px solid rgba(212, 168, 67, 0.15) !important;
+    border-radius: 12px !important;
+  }
+}
+
+::ng-deep .user-menu {
+  .mat-mdc-menu-panel {
+    width: 240px;
+    border: 1px solid rgba(212, 168, 67, 0.15) !important;
+    border-radius: 12px !important;
+  }
+
+  .mat-mdc-menu-item:hover {
+    background-color: rgba(212, 168, 67, 0.08);
+  }
+}
+
+.notif-header {
+  padding: 16px;
+  border-bottom: 1px solid rgba(212, 168, 67, 0.1);
+
+  strong {
+    display: block;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .notif-count {
+    font-size: 0.75rem;
+    color: rgba(26, 26, 26, 0.65);
+  }
+}
+
+.notif-empty {
+  padding: 16px;
+  text-align: center;
+
+  span {
+    font-size: 0.875rem;
+    color: rgba(26, 26, 26, 0.65);
+  }
+}
+
+.notif-view-all {
+  justify-content: center !important;
+
+  span {
+    color: $gold;
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+}
+
+.user-info {
+  padding: 12px 16px;
+
+  .user-name {
+    display: block;
+    font-size: 1rem;
+    font-weight: 700;
+    color: $black;
+  }
+
+  .user-email {
+    display: block;
+    font-size: 0.875rem;
+    color: rgba(26, 26, 26, 0.65);
+  }
+
+  .user-role-badge {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    background-color: $gold;
+    color: $black;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+}
+
+.logout-item {
+  color: #D32F2F !important;
+}
+
+// Override material badge for gold theme
+::ng-deep .mat-badge-warn .mat-badge-content {
+  background-color: $gold !important;
+  color: $black !important;
+  font-weight: 700;
+}

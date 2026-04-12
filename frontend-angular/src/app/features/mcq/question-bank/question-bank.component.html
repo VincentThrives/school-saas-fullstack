@@ -1,0 +1,198 @@
+<div class="question-bank-container">
+  <app-page-header
+    title="Question Bank"
+    subtitle="Manage MCQ questions for examinations"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'MCQ', link: '/mcq' },
+      { label: 'Question Bank' }
+    ]"
+    actionLabel="Add Question"
+    actionIcon="add"
+    (actionClick)="openAddDialog()"
+  ></app-page-header>
+
+  <!-- Filters -->
+  <mat-card class="filters-card">
+    <mat-card-content>
+      <div class="filters-row">
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Subject</mat-label>
+          <mat-select [(ngModel)]="subjectFilter">
+            <mat-option value="">All Subjects</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Difficulty</mat-label>
+          <mat-select [(ngModel)]="difficultyFilter">
+            <mat-option value="">All</mat-option>
+            <mat-option value="EASY">Easy</mat-option>
+            <mat-option value="MEDIUM">Medium</mat-option>
+            <mat-option value="HARD">Hard</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <span class="spacer"></span>
+
+        <button mat-icon-button matTooltip="Refresh" (click)="loadQuestions()">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Questions Table -->
+  <mat-card class="table-card">
+    <table mat-table [dataSource]="questions" class="questions-table">
+      <ng-container matColumnDef="questionText">
+        <th mat-header-cell *matHeaderCellDef>Question</th>
+        <td mat-cell *matCellDef="let q" class="question-cell">{{ q.questionText }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="subject">
+        <th mat-header-cell *matHeaderCellDef>Subject</th>
+        <td mat-cell *matCellDef="let q">
+          <mat-chip class="subject-chip">{{ q.subjectName || q.subjectId }}</mat-chip>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="difficulty">
+        <th mat-header-cell *matHeaderCellDef>Difficulty</th>
+        <td mat-cell *matCellDef="let q">
+          <mat-chip [class]="getDifficultyClass(q.difficulty)">{{ q.difficulty }}</mat-chip>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="options">
+        <th mat-header-cell *matHeaderCellDef>Options</th>
+        <td mat-cell *matCellDef="let q">{{ q.options?.length || 0 }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
+        <td mat-cell *matCellDef="let q" class="actions-col">
+          <button mat-icon-button [matMenuTriggerFor]="questionMenu">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #questionMenu="matMenu">
+            <button mat-menu-item (click)="openEditDialog(q)">
+              <mat-icon>edit</mat-icon>
+              <span>Edit</span>
+            </button>
+            <button mat-menu-item (click)="openDeleteDialog(q)" class="delete-item">
+              <mat-icon color="warn">delete</mat-icon>
+              <span>Delete</span>
+            </button>
+          </mat-menu>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="table-row"></tr>
+    </table>
+
+    <div class="loading-row" *ngIf="isLoading">
+      <mat-spinner diameter="36"></mat-spinner>
+    </div>
+
+    <div class="empty-state" *ngIf="!isLoading && questions.length === 0">
+      No questions found. Click "Add Question" to get started.
+    </div>
+
+    <mat-paginator
+      [length]="totalElements"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="[5, 10, 25, 50]"
+      (page)="onPageChange($event)"
+      showFirstLastButtons
+    ></mat-paginator>
+  </mat-card>
+
+  <!-- Add/Edit Question Dialog Overlay -->
+  <div class="dialog-overlay" *ngIf="showDialog" (click)="closeDialog()">
+    <mat-card class="dialog-card" (click)="$event.stopPropagation()">
+      <mat-card-header>
+        <mat-card-title>{{ selectedQuestion ? 'Edit Question' : 'Add New Question' }}</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <form [formGroup]="questionForm" (ngSubmit)="saveQuestion()">
+          <div class="dialog-form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Subject</mat-label>
+              <input matInput formControlName="subjectId" placeholder="Subject ID">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Difficulty</mat-label>
+              <mat-select formControlName="difficulty">
+                <mat-option value="EASY">Easy</mat-option>
+                <mat-option value="MEDIUM">Medium</mat-option>
+                <mat-option value="HARD">Hard</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Question</mat-label>
+              <textarea matInput formControlName="questionText" rows="3"></textarea>
+            </mat-form-field>
+
+            <div class="full-width options-section">
+              <p class="options-label">Options (Select the correct answer)</p>
+              <mat-radio-group formControlName="correctOptionIndex" class="options-list">
+                <div class="option-row">
+                  <mat-radio-button [value]="0"></mat-radio-button>
+                  <mat-form-field appearance="outline" class="option-field">
+                    <input matInput formControlName="option1" placeholder="Option 1">
+                  </mat-form-field>
+                </div>
+                <div class="option-row">
+                  <mat-radio-button [value]="1"></mat-radio-button>
+                  <mat-form-field appearance="outline" class="option-field">
+                    <input matInput formControlName="option2" placeholder="Option 2">
+                  </mat-form-field>
+                </div>
+                <div class="option-row">
+                  <mat-radio-button [value]="2"></mat-radio-button>
+                  <mat-form-field appearance="outline" class="option-field">
+                    <input matInput formControlName="option3" placeholder="Option 3">
+                  </mat-form-field>
+                </div>
+                <div class="option-row">
+                  <mat-radio-button [value]="3"></mat-radio-button>
+                  <mat-form-field appearance="outline" class="option-field">
+                    <input matInput formControlName="option4" placeholder="Option 4">
+                  </mat-form-field>
+                </div>
+              </mat-radio-group>
+            </div>
+          </div>
+
+          <div class="dialog-actions">
+            <button mat-stroked-button type="button" (click)="closeDialog()">Cancel</button>
+            <button mat-flat-button type="submit" class="save-btn" [disabled]="questionForm.invalid || isSaving">
+              <mat-spinner diameter="18" *ngIf="isSaving"></mat-spinner>
+              {{ selectedQuestion ? 'Update' : 'Create' }}
+            </button>
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Delete Confirmation Dialog Overlay -->
+  <div class="dialog-overlay" *ngIf="showDeleteDialog" (click)="cancelDelete()">
+    <mat-card class="dialog-card delete-dialog" (click)="$event.stopPropagation()">
+      <mat-card-header>
+        <mat-card-title>Delete Question</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>Are you sure you want to delete this question? This action cannot be undone.</p>
+      </mat-card-content>
+      <div class="dialog-actions">
+        <button mat-stroked-button (click)="cancelDelete()">Cancel</button>
+        <button mat-flat-button color="warn" (click)="confirmDelete()">Delete</button>
+      </div>
+    </mat-card>
+  </div>
+</div>
