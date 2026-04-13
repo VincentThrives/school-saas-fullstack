@@ -89,6 +89,43 @@ export class StudentFormComponent implements OnInit {
 
     this.loadClasses();
     this.loadAcademicYears();
+
+    if (this.isEditing) {
+      this.loadStudentData();
+    }
+  }
+
+  loadStudentData(): void {
+    if (!this.studentId) return;
+    this.isLoading = true;
+    this.apiService.getStudentById(this.studentId).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          const s = res.data;
+          this.studentForm.patchValue({
+            firstName: s.firstName || '',
+            lastName: s.lastName || '',
+            admissionNumber: s.admissionNumber,
+            rollNumber: s.rollNumber,
+            dateOfBirth: s.dateOfBirth,
+            gender: s.gender,
+            bloodGroup: s.bloodGroup,
+            classId: s.classId,
+            sectionId: s.sectionId,
+            academicYearId: s.academicYearId,
+            street: s.address?.street || '',
+            city: s.address?.city || '',
+            state: s.address?.state || '',
+            zip: s.address?.zip || '',
+          });
+        }
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.snackBar.open('Failed to load student data', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   get pageTitle(): string {
@@ -146,7 +183,11 @@ export class StudentFormComponent implements OnInit {
     delete payload.state;
     delete payload.zip;
 
-    this.apiService.createStudent(payload).subscribe({
+    const request$ = this.isEditing && this.studentId
+      ? this.apiService.updateStudent(this.studentId, payload)
+      : this.apiService.createStudent(payload);
+
+    request$.subscribe({
       next: () => {
         this.snackBar.open(
           this.isEditing ? 'Student updated successfully' : 'Student created successfully',
@@ -155,8 +196,8 @@ export class StudentFormComponent implements OnInit {
         );
         this.router.navigate(['/students']);
       },
-      error: () => {
-        this.snackBar.open('Failed to save student', 'Close', { duration: 3000 });
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to save student', 'Close', { duration: 3000 });
         this.isSaving = false;
       },
     });
