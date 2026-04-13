@@ -77,13 +77,14 @@ export class ExamResultsComponent implements OnInit {
 
     forkJoin({
       results: this.api.getExamResults(this.examId),
-      exams: this.api.getExams(),
-      students: this.api.getStudents(0, 200, {}),
+      exam: this.api.getExamById(this.examId),
+      students: this.api.getStudents(0, 200),
     }).subscribe({
-      next: ({ results, exams, students }) => {
-        // Find exam
-        const examList = exams.data || [];
-        this.exam = examList.find((e: any) => (e.examId || e.id) === this.examId);
+      next: ({ results, exam, students }) => {
+        // Set exam
+        if (exam.success && exam.data) {
+          this.exam = exam.data;
+        }
 
         // Build student map
         const studentList = students.data?.content || [];
@@ -95,11 +96,49 @@ export class ExamResultsComponent implements OnInit {
           };
         });
 
-        // Process marks
-        const resultsData = results.data;
-        this.marks = resultsData?.marks || resultsData || [];
+        // Process results — API returns allMarks, totalStudents, passed, etc.
+        const data = results.data;
+        if (data) {
+          this.marks = data.allMarks || [];
+          this.totalStudents = data.totalStudents || this.marks.length;
+          this.passedCount = data.passed || 0;
+          this.failedCount = data.failed || 0;
+          this.passPercentage = data.passPercentage || 0;
+          this.classAverage = data.classAverage || 0;
 
-        this.computeStats();
+          // Grade distribution from API
+          const gradeDist = data.gradeDistribution || {};
+          const gradeColors: Record<string, string> = {
+            'A+': '#4caf50', A: '#66bb6a', 'B+': '#42a5f5', B: '#64b5f6',
+            C: '#ffa726', D: '#ff7043', F: '#ef5350',
+          };
+          this.gradeDistribution = Object.entries(gradeDist).map(([grade, count]) => ({
+            grade,
+            count: count as number,
+            color: gradeColors[grade] || '#9e9e9e',
+          }));
+
+          // Toppers from API
+          this.toppers = (data.toppers || []).map((t: any, i: number) => ({
+            studentId: t.studentId,
+            name: this.getStudentName(t.studentId),
+            marks: t.marksObtained,
+            rank: i + 1,
+          }));
+
+          // Full ranked list
+          const sortedMarks = [...this.marks].sort((a: any, b: any) => b.marksObtained - a.marksObtained);
+          this.rankedMarks = sortedMarks.map((m: any, i: number) => ({
+            rank: i + 1,
+            studentId: m.studentId,
+            name: this.getStudentName(m.studentId),
+            marks: m.marksObtained,
+            grade: m.grade || this.getGrade(m.marksObtained, this.exam?.maxMarks || 100),
+            passed: m.passed ?? m.marksObtained >= (this.exam?.passingMarks || 35),
+            remarks: m.remarks || '',
+          }));
+        }
+
         this.isLoading = false;
       },
       error: () => {
