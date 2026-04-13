@@ -82,6 +82,17 @@
               <mat-hint>Select subjects for this section</mat-hint>
             </mat-form-field>
 
+            <!-- Custom subject input when "Others" is selected -->
+            <div class="custom-subject-row" *ngIf="sections.controls[i].get('subjectIds')?.value?.includes('others')">
+              <mat-form-field appearance="outline" class="custom-subject-field">
+                <mat-label>Enter custom subject name</mat-label>
+                <input matInput [(ngModel)]="customSubject" [ngModelOptions]="{standalone: true}" placeholder="e.g., Robotics, Yoga">
+              </mat-form-field>
+              <button mat-stroked-button type="button" class="add-subject-btn" (click)="addCustomSubject(i)" [disabled]="!customSubject.trim()">
+                <mat-icon>add</mat-icon> Add
+              </button>
+            </div>
+
             <button mat-icon-button color="warn" type="button" (click)="removeSection(i)"
                     [disabled]="sections.length <= 1" matTooltip="Remove section">
               <mat-icon>delete</mat-icon>

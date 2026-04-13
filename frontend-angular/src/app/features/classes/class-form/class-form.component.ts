@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
-import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -21,6 +21,7 @@ import { AcademicYear, Teacher } from '../../../core/models';
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -169,12 +170,28 @@ export class ClassFormComponent implements OnInit {
 
   customSubject = '';
 
-  addCustomSubject(): void {
+  addCustomSubject(sectionIndex: number): void {
     if (this.customSubject.trim()) {
-      const id = this.customSubject.trim().toLowerCase().replace(/\s+/g, '_');
+      const name = this.customSubject.trim();
+      const id = name.toLowerCase().replace(/\s+/g, '_');
+
+      // Add to subjects list before "Others"
       if (!this.subjectsList.find(s => s.id === id)) {
-        this.subjectsList.push({ id, name: this.customSubject.trim() });
+        const othersIdx = this.subjectsList.findIndex(s => s.id === 'others');
+        if (othersIdx >= 0) {
+          this.subjectsList.splice(othersIdx, 0, { id, name });
+        } else {
+          this.subjectsList.push({ id, name });
+        }
       }
+
+      // Auto-select the new subject and remove "others"
+      const section = this.sections.at(sectionIndex);
+      const currentIds: string[] = section.get('subjectIds')?.value || [];
+      const updated = currentIds.filter(s => s !== 'others');
+      if (!updated.includes(id)) updated.push(id);
+      section.get('subjectIds')?.setValue(updated);
+
       this.customSubject = '';
     }
   }
