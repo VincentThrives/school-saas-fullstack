@@ -1,7 +1,7 @@
 <div class="enter-marks-container">
   <app-page-header
     [title]="'Enter Marks' + (exam ? ' - ' + exam.name : '')"
-    [subtitle]="exam ? exam.subjectName + ' | Max: ' + exam.maxMarks + ' | Pass: ' + exam.passingMarks : ''"
+    [subtitle]="exam ? getSubjectName() + ' | Max: ' + exam.maxMarks + ' | Pass: ' + exam.passingMarks : ''"
     [breadcrumbs]="[
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'Exams', link: '/exams' },
@@ -20,7 +20,7 @@
     <mat-card class="info-card">
       <mat-card-content>
         <span class="info-label">Class</span>
-        <span class="info-value">{{ exam.className || '-' }}</span>
+        <span class="info-value">{{ getClassName() }}</span>
       </mat-card-content>
     </mat-card>
     <mat-card class="info-card">
