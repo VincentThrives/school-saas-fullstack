@@ -51,7 +51,7 @@ public class UserService {
         } else if (role != null) {
             result = userRepository.findByRoleAndDeletedAtIsNull(role, pageable);
         } else {
-            result = userRepository.findAll(pageable);
+            result = userRepository.findByDeletedAtIsNull(pageable);
         }
 
         List<UserDto> dtos = result.getContent().stream().map(this::toDto).toList();
@@ -179,8 +179,10 @@ public class UserService {
     // ── Helpers ───────────────────────────────────────────────────
 
     private User findUser(String userId) {
-        return userRepository.findByUserIdAndDeletedAtIsNull(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+        return userRepository.findById(userId)
+                .filter(u -> u.getDeletedAt() == null)
+                .or(() -> userRepository.findByUserIdAndDeletedAtIsNull(userId))
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
     private String getCellValue(Row row, int col) {
