@@ -226,8 +226,15 @@ public class ReportCardService {
         ReportCard reportCard = reportCardRepository.findById(reportCardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Report card not found with id: " + reportCardId));
 
+        // Lookup tenant in CENTRAL DB (clear tenant context temporarily)
+        String currentTenant = com.saas.school.config.mongodb.TenantContext.getTenantId();
+        com.saas.school.config.mongodb.TenantContext.clear();
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tenant not found with id: " + tenantId));
+        // Restore tenant context
+        if (currentTenant != null) {
+            com.saas.school.config.mongodb.TenantContext.setTenantId(currentTenant);
+        }
 
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
