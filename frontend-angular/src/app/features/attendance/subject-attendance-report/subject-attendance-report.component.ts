@@ -121,11 +121,14 @@ export class SubjectAttendanceReportComponent implements OnInit {
     this.isLoading = true;
     this.reportLoaded = false;
 
-    this.api.getClassAttendanceReport(this.selectedClassId, this.selectedSectionId, this.startDate, this.endDate).subscribe({
+    // Use subject-wise endpoint
+    this.api.getSubjectWiseAttendanceReport(this.selectedClassId, this.selectedSectionId, this.startDate, this.endDate).subscribe({
       next: (res) => {
         if (res.success && res.data) {
-          this.processReport(res.data);
+          this.processSubjectReport(res.data);
           this.reportLoaded = true;
+        } else {
+          this.snackBar.open('No subject-wise attendance data found', 'Close', { duration: 3000 });
         }
         this.isLoading = false;
       },
@@ -136,90 +139,41 @@ export class SubjectAttendanceReportComponent implements OnInit {
     });
   }
 
-  private processReport(data: any): void {
-    const students: any[] = data.students || [];
+  private processSubjectReport(data: any): void {
+    // API returns: { subjectSummaries: [...], studentDetails: [...], totalSubjects, totalStudents }
 
-    // Maps: subjectId -> aggregated counts
-    const subjectMap = new Map<string, { subjectName: string; present: number; absent: number; late: number; totalRecords: number }>();
-    // Maps: studentId+subjectId -> per-student per-subject counts
-    const studentSubjectMap = new Map<string, StudentSubjectReport>();
-    // Student name map (from records)
-    const studentNameMap = new Map<string, { name: string; rollNumber: string }>();
-
-    for (const student of students) {
-      const studentId = student.studentId;
-      const records: any[] = student.records || student.attendance || [];
-
-      // Try to get student name from the student object itself
-      const studentName = student.studentName || student.name || studentId;
-      const rollNumber = student.rollNumber || '-';
-      studentNameMap.set(studentId, { name: studentName, rollNumber });
-
-      for (const record of records) {
-        const subjectId = record.subjectId;
-        if (!subjectId) continue; // skip records without subject
-
-        const subjectName = record.subjectName || this.subjectService.getSubjectName(subjectId);
-        const status = (record.status || '').toUpperCase();
-
-        // Aggregate by subject
-        if (!subjectMap.has(subjectId)) {
-          subjectMap.set(subjectId, { subjectName, present: 0, absent: 0, late: 0, totalRecords: 0 });
-        }
-        const subj = subjectMap.get(subjectId)!;
-        subj.totalRecords++;
-        if (status === 'PRESENT') subj.present++;
-        else if (status === 'ABSENT') subj.absent++;
-        else if (status === 'LATE') subj.late++;
-
-        // Per student per subject
-        const key = `${studentId}_${subjectId}`;
-        if (!studentSubjectMap.has(key)) {
-          studentSubjectMap.set(key, {
-            studentId,
-            studentName,
-            rollNumber,
-            subjectId,
-            subjectName,
-            present: 0,
-            absent: 0,
-            late: 0,
-            total: 0,
-            percentage: 0,
-          });
-        }
-        const ss = studentSubjectMap.get(key)!;
-        ss.total++;
-        if (status === 'PRESENT') ss.present++;
-        else if (status === 'ABSENT') ss.absent++;
-        else if (status === 'LATE') ss.late++;
-      }
-    }
-
-    // Build subject summary
-    this.subjectReports = Array.from(subjectMap.entries()).map(([subjectId, s]) => ({
-      subjectId,
-      subjectName: s.subjectName,
-      totalClasses: s.totalRecords,
-      present: s.present,
-      absent: s.absent,
-      late: s.late,
-      presentPercent: s.totalRecords > 0 ? Math.round((s.present / s.totalRecords) * 100) : 0,
+    // Subject summaries from API
+    this.subjectReports = (data.subjectSummaries || []).map((s: any) => ({
+      subjectId: s.subjectId,
+      subjectName: s.subjectName || this.subjectService.getSubjectName(s.subjectId),
+      totalClasses: s.totalDays || 0,
+      present: s.present || 0,
+      absent: s.absent || 0,
+      late: s.late || 0,
+      presentPercent: s.presentPercent || 0,
     }));
 
-    // Build student-subject detail
-    this.studentSubjectReports = Array.from(studentSubjectMap.values()).map((ss) => ({
-      ...ss,
-      percentage: ss.total > 0 ? Math.round((ss.present / ss.total) * 100) : 0,
+    // Student-subject details from API
+    this.studentSubjectReports = (data.studentDetails || []).map((d: any) => ({
+      studentId: d.studentId,
+      studentName: d.studentId,
+      rollNumber: '-',
+      subjectId: d.subjectId,
+      subjectName: d.subjectName || this.subjectService.getSubjectName(d.subjectId),
+      present: d.present || 0,
+      absent: d.absent || 0,
+      late: d.late || 0,
+      total: d.totalDays || 0,
+      percentage: d.percentage || 0,
     }));
 
     // Build subjects filter list
-    this.subjects = this.subjectReports.map((s) => ({ subjectId: s.subjectId, subjectName: s.subjectName }));
+    this.subjects = this.subjectReports.map((s: any) => ({ subjectId: s.subjectId, subjectName: s.subjectName }));
     this.selectedSubjectFilter = '';
     this.applySubjectFilter();
 
-    // Resolve student names from API
-    this.api.getStudents(0, 100, {}).subscribe({
+    // Resolve student names
+    this.api.getStudents(0, 200).subscribe({
       next: (studentsRes) => {
         const allStudents = studentsRes.data?.content || [];
         const nameMap: Record<string, any> = {};

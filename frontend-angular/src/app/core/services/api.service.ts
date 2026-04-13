@@ -198,6 +198,11 @@ export class ApiService {
     return this.http.get<ApiResponse<any>>(`${this.API}/attendance/report/class/${classId}`, { params });
   }
 
+  getSubjectWiseAttendanceReport(classId: string, sectionId: string, from: string, to: string): Observable<ApiResponse<any>> {
+    const params = new HttpParams().set('sectionId', sectionId).set('from', from).set('to', to);
+    return this.http.get<ApiResponse<any>>(`${this.API}/attendance/report/subject-wise/class/${classId}`, { params });
+  }
+
   // ── Report Cards ───────────────────────────────────────────────────────
 
   getReportCards(classId: string, academicYearId: string): Observable<ApiResponse<any[]>> {

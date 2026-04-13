@@ -112,4 +112,84 @@ public class AttendanceController {
 
         return ResponseEntity.ok(ApiResponse.success(result));
     }
+
+    @GetMapping("/report/subject-wise/class/{classId}")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> subjectWiseReport(
+            @PathVariable String classId,
+            @RequestParam String sectionId,
+            @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate to) {
+
+        List<Attendance> allRecords = attendanceService.getClassAttendanceRange(classId, sectionId, from, to);
+
+        // Filter only records with subjectId
+        List<Attendance> subjectRecords = allRecords.stream()
+                .filter(a -> a.getSubjectId() != null && !a.getSubjectId().isEmpty())
+                .collect(Collectors.toList());
+
+        // Group by subjectId → summary per subject
+        Map<String, List<Attendance>> bySubject = subjectRecords.stream()
+                .collect(Collectors.groupingBy(Attendance::getSubjectId));
+
+        List<Map<String, Object>> subjectSummaries = new ArrayList<>();
+        for (var entry : bySubject.entrySet()) {
+            List<Attendance> records = entry.getValue();
+            long present = records.stream().filter(a -> a.getStatus() == Attendance.Status.PRESENT).count();
+            long absent = records.stream().filter(a -> a.getStatus() == Attendance.Status.ABSENT).count();
+            long late = records.stream().filter(a -> a.getStatus() == Attendance.Status.LATE).count();
+            long total = records.size();
+            String subjectName = records.get(0).getSubjectName() != null ? records.get(0).getSubjectName() : entry.getKey();
+
+            Map<String, Object> summary = new HashMap<>();
+            summary.put("subjectId", entry.getKey());
+            summary.put("subjectName", subjectName);
+            summary.put("present", present);
+            summary.put("absent", absent);
+            summary.put("late", late);
+            summary.put("totalDays", total);
+            summary.put("presentPercent", total > 0 ? Math.round(present * 1000.0 / total) / 10.0 : 0);
+            subjectSummaries.add(summary);
+        }
+
+        // Group by studentId + subjectId → detail per student per subject
+        Map<String, Map<String, List<Attendance>>> byStudentSubject = new HashMap<>();
+        for (Attendance a : subjectRecords) {
+            byStudentSubject
+                .computeIfAbsent(a.getStudentId(), k -> new HashMap<>())
+                .computeIfAbsent(a.getSubjectId(), k -> new ArrayList<>())
+                .add(a);
+        }
+
+        List<Map<String, Object>> studentSubjectDetails = new ArrayList<>();
+        for (var studentEntry : byStudentSubject.entrySet()) {
+            for (var subjectEntry : studentEntry.getValue().entrySet()) {
+                List<Attendance> records = subjectEntry.getValue();
+                long present = records.stream().filter(a -> a.getStatus() == Attendance.Status.PRESENT).count();
+                long absent = records.stream().filter(a -> a.getStatus() == Attendance.Status.ABSENT).count();
+                long late = records.stream().filter(a -> a.getStatus() == Attendance.Status.LATE).count();
+                long total = records.size();
+                String subjectName = records.get(0).getSubjectName() != null ? records.get(0).getSubjectName() : subjectEntry.getKey();
+
+                Map<String, Object> detail = new HashMap<>();
+                detail.put("studentId", studentEntry.getKey());
+                detail.put("subjectId", subjectEntry.getKey());
+                detail.put("subjectName", subjectName);
+                detail.put("present", present);
+                detail.put("absent", absent);
+                detail.put("late", late);
+                detail.put("totalDays", total);
+                detail.put("percentage", total > 0 ? Math.round(present * 1000.0 / total) / 10.0 : 0);
+                studentSubjectDetails.add(detail);
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("subjectSummaries", subjectSummaries);
+        result.put("studentDetails", studentSubjectDetails);
+        result.put("totalSubjects", bySubject.size());
+        result.put("totalStudents", byStudentSubject.size());
+
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
 }
