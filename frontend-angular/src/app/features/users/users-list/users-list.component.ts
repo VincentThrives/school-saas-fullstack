@@ -14,6 +14,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { User, UserRole } from '../../../core/models';
@@ -37,6 +38,7 @@ import { User, UserRole } from '../../../core/models';
     MatTooltipModule,
     MatProgressSpinnerModule,
     PageHeaderComponent,
+    MatSnackBarModule,
   ],
   templateUrl: './users-list.component.html',
   styleUrl: './users-list.component.scss',
@@ -63,7 +65,8 @@ export class UsersListComponent implements OnInit {
   constructor(
     private apiService: ApiService,
     private router: Router,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
@@ -120,9 +123,20 @@ export class UsersListComponent implements OnInit {
 
   deleteUser(): void {
     if (!this.selectedUser) return;
+    const userId = this.selectedUser.userId;
+    const name = `${this.selectedUser.firstName} ${this.selectedUser.lastName}`;
     this.deleteDialogOpen = false;
     this.selectedUser = null;
-    this.loadUsers();
+
+    this.apiService.deleteUser(userId).subscribe({
+      next: () => {
+        this.snackBar.open(`User "${name}" deleted successfully`, 'Close', { duration: 3000 });
+        this.loadUsers();
+      },
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to delete user', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   getRoleColor(role: UserRole): string {

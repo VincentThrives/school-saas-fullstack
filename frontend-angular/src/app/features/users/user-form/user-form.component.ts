@@ -53,7 +53,7 @@ export class UserFormComponent implements OnInit {
     private apiService: ApiService,
     private router: Router,
     private route: ActivatedRoute,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
@@ -70,13 +70,35 @@ export class UserFormComponent implements OnInit {
     });
 
     if (this.isEditing) {
-      this.userForm.get('email')?.disable();
-      this.userForm.get('role')?.disable();
+      this.loadUserData();
     }
   }
 
   get pageTitle(): string {
     return this.isEditing ? 'Edit User' : 'Create User';
+  }
+
+  loadUserData(): void {
+    if (!this.userId) return;
+    this.isLoading = true;
+    this.apiService.getUserById(this.userId).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.userForm.patchValue({
+            email: res.data.email,
+            firstName: res.data.firstName,
+            lastName: res.data.lastName,
+            phone: res.data.phone || '',
+            role: res.data.role,
+          });
+        }
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.snackBar.open('Failed to load user data', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   onSubmit(): void {
@@ -88,29 +110,29 @@ export class UserFormComponent implements OnInit {
     this.isSaving = true;
     const formData = this.userForm.getRawValue();
 
-    if (this.isEditing) {
-      this.apiService.createUser(formData).subscribe({
-        next: () => {
-          this.snackBar.open('User updated successfully', 'Close', { duration: 3000 });
-          this.router.navigate(['/users']);
-        },
-        error: () => {
-          this.snackBar.open('Failed to update user', 'Close', { duration: 3000 });
-          this.isSaving = false;
-        },
-      });
-    } else {
-      this.apiService.createUser(formData).subscribe({
-        next: () => {
-          this.snackBar.open('User created successfully', 'Close', { duration: 3000 });
-          this.router.navigate(['/users']);
-        },
-        error: () => {
-          this.snackBar.open('Failed to create user', 'Close', { duration: 3000 });
-          this.isSaving = false;
-        },
-      });
+    // Remove empty password for update
+    if (this.isEditing && !formData.password) {
+      delete formData.password;
     }
+
+    const request$ = this.isEditing && this.userId
+      ? this.apiService.updateUser(this.userId, formData)
+      : this.apiService.createUser(formData);
+
+    request$.subscribe({
+      next: () => {
+        this.snackBar.open(
+          this.isEditing ? 'User updated successfully' : 'User created successfully',
+          'Close',
+          { duration: 3000 },
+        );
+        this.router.navigate(['/users']);
+      },
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to save user', 'Close', { duration: 3000 });
+        this.isSaving = false;
+      },
+    });
   }
 
   cancel(): void {
@@ -127,11 +149,8 @@ export class UserFormComponent implements OnInit {
 
   private getFieldLabel(field: string): string {
     const labels: Record<string, string> = {
-      email: 'Email',
-      password: 'Password',
-      firstName: 'First name',
-      lastName: 'Last name',
-      role: 'Role',
+      email: 'Email', password: 'Password', firstName: 'First name',
+      lastName: 'Last name', role: 'Role',
     };
     return labels[field] || field;
   }
