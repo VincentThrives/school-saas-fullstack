@@ -63,7 +63,7 @@ export class McqExamsListComponent implements OnInit {
 
   loadExams(): void {
     this.isLoading = true;
-    this.api.getExams().subscribe({
+    this.api.getMcqExams().subscribe({
       next: (res) => {
         this.exams = res.data || [];
         this.totalElements = this.exams.length;

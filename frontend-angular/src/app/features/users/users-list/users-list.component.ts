@@ -75,7 +75,7 @@ export class UsersListComponent implements OnInit {
 
   loadUsers(): void {
     this.isLoading = true;
-    this.apiService.getUsers(this.pageIndex, this.pageSize).subscribe({
+    this.apiService.getUsers(this.pageIndex, this.pageSize, { role: this.roleFilter || undefined, status: this.statusFilter || undefined, search: this.searchQuery || undefined }).subscribe({
       next: (response) => {
         this.dataSource.data = response.data.content;
         this.totalElements = response.data.totalElements;

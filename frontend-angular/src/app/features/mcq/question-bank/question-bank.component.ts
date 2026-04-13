@@ -100,8 +100,7 @@ export class QuestionBankComponent implements OnInit {
 
   loadQuestions(): void {
     this.isLoading = true;
-    // Using getExams as placeholder for question bank API
-    this.api.getExams().subscribe({
+    this.api.getMcqQuestions().subscribe({
       next: () => {
         this.questions = [];
         this.totalElements = 0;
