@@ -33,7 +33,7 @@
       >
         <mat-label>Select Class</mat-label>
         <mat-select [(ngModel)]="classId" (selectionChange)="recipients = []">
-          <mat-option *ngFor="let cls of classes" [value]="cls.id">
+          <mat-option *ngFor="let cls of classes" [value]="cls.classId">
             {{ cls.name }}
           </mat-option>
         </mat-select>

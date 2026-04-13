@@ -13,7 +13,7 @@
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Class</mat-label>
         <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()">
-          <mat-option *ngFor="let cls of classes" [value]="cls.id">{{ cls.name }}</mat-option>
+          <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
         </mat-select>
       </mat-form-field>
 

@@ -97,7 +97,7 @@ export class StudentFormComponent implements OnInit {
 
   get selectedClassSections(): { name: string; capacity: number; sectionId?: string }[] {
     const classId = this.studentForm.get('classId')?.value;
-    const cls = this.classes.find(c => c.id === classId);
+    const cls = this.classes.find(c => c.classId === classId);
     return cls?.sections || [];
   }
 

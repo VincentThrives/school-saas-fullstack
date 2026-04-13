@@ -108,7 +108,7 @@ export class StudentsListComponent implements OnInit {
   }
 
   get selectedClassSections(): { name: string; capacity: number; sectionId?: string }[] {
-    const cls = this.classes.find(c => c.id === this.classFilter);
+    const cls = this.classes.find(c => c.classId === this.classFilter);
     return cls?.sections || [];
   }
 

@@ -49,7 +49,7 @@
           <mat-form-field appearance="outline">
             <mat-label>Assigned Classes</mat-label>
             <mat-select formControlName="classIds" multiple>
-              <mat-option *ngFor="let cls of classes" [value]="cls.id">
+              <mat-option *ngFor="let cls of classes" [value]="cls.classId">
                 {{ cls.name }}
               </mat-option>
             </mat-select>

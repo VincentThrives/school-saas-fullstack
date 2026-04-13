@@ -101,7 +101,7 @@ export class AssignmentFormComponent implements OnInit {
   }
 
   get selectedClass(): SchoolClass | undefined {
-    return this.classes.find((c) => c.id === this.selectedClassId);
+    return this.classes.find((c) => c.classId === this.selectedClassId);
   }
 
   onFileSelected(event: Event): void {

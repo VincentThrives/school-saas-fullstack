@@ -86,7 +86,7 @@ export class ExamFormComponent implements OnInit {
 
   onClassChange(): void {
     const classId = this.examForm.get('classId')?.value;
-    const selectedClass = this.classes.find((c) => c.id === classId);
+    const selectedClass = this.classes.find((c) => c.classId === classId);
     this.sections = selectedClass?.sections || [];
   }
 

@@ -23,7 +23,7 @@
       <mat-label>Class</mat-label>
       <mat-select [(ngModel)]="classFilter" (selectionChange)="onFilterChange()">
         <mat-option value="">All Classes</mat-option>
-        <mat-option *ngFor="let cls of classes" [value]="cls.id">
+        <mat-option *ngFor="let cls of classes" [value]="cls.classId">
           {{ cls.name }}
         </mat-option>
       </mat-select>

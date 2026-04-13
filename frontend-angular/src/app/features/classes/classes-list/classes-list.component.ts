@@ -68,7 +68,7 @@ export class ClassesListComponent implements OnInit {
   }
 
   editClass(schoolClass: SchoolClass): void {
-    this.router.navigate(['/classes', schoolClass.id, 'edit']);
+    this.router.navigate(['/classes', schoolClass.classId, 'edit']);
   }
 
   confirmDelete(schoolClass: SchoolClass): void {

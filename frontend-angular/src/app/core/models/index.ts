@@ -124,10 +124,11 @@ export interface Teacher {
 
 // SchoolClass
 export interface SchoolClass {
-  id: string;
+  classId: string;
   name: string;
   academicYearId: string;
-  sections: { name: string; capacity: number; sectionId?: string }[];
+  sections: { sectionId: string; name: string; capacity: number; classTeacherId?: string }[];
+  createdAt?: string;
 }
 
 // AcademicYear

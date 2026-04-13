@@ -86,7 +86,7 @@ export class AttendanceReportComponent implements OnInit {
   }
 
   onClassChange(): void {
-    const selectedClass = this.classes.find((c) => c.id === this.selectedClassId);
+    const selectedClass = this.classes.find((c) => c.classId === this.selectedClassId);
     this.sections = selectedClass?.sections || [];
     this.selectedSectionId = '';
   }
