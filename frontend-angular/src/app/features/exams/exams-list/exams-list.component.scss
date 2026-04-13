@@ -105,3 +105,40 @@ $gold-dark: #B8860B;
   padding: 40px;
   color: rgba(0, 0, 0, 0.5);
 }
+
+.marks-entered-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  background: rgba(76, 175, 80, 0.1);
+  color: #2e7d32;
+  font-size: 0.82rem;
+  font-weight: 600;
+
+  .chip-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.enter-marks-btn {
+  border-color: $gold !important;
+  color: $gold-dark !important;
+  font-size: 0.8rem;
+  height: 32px;
+  line-height: 32px;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    margin-right: 2px;
+  }
+
+  &:hover {
+    background: rgba(212, 168, 67, 0.08) !important;
+  }
+}

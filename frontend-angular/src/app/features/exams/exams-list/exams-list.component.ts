@@ -48,7 +48,8 @@ export class ExamsListComponent implements OnInit {
   classes: SchoolClass[] = [];
   academicYears: AcademicYear[] = [];
   classMap: Record<string, string> = {};
-  displayedColumns = ['name', 'examType', 'class', 'subject', 'date', 'maxMarks', 'status', 'actions'];
+  displayedColumns = ['name', 'marksStatus', 'class', 'subject', 'date', 'maxMarks', 'status', 'actions'];
+  marksCountMap: Record<string, number> = {};
 
   subjectNames: Record<string, string> = {
     math: 'Mathematics', maths: 'Mathematics', science: 'Science', english: 'English',
@@ -111,6 +112,16 @@ export class ExamsListComponent implements OnInit {
         this.exams = res.data || [];
         this.totalElements = this.exams.length;
         this.isLoading = false;
+        // Load marks count for each exam
+        this.exams.forEach(exam => {
+          const examId = exam.examId || exam.id;
+          this.api.getExamMarks(examId).subscribe({
+            next: (marksRes) => {
+              const marks = marksRes.data || [];
+              this.marksCountMap[examId] = marks.length;
+            },
+          });
+        });
       },
       error: () => {
         this.isLoading = false;
@@ -138,6 +149,14 @@ export class ExamsListComponent implements OnInit {
 
   editExam(exam: any): void {
     this.router.navigate(['/exams', exam.examId || exam.id, 'edit']);
+  }
+
+  getMarksCount(exam: any): number {
+    return this.marksCountMap[exam.examId || exam.id] || 0;
+  }
+
+  hasMarksEntered(exam: any): boolean {
+    return this.getMarksCount(exam) > 0;
   }
 
   enterMarks(exam: any): void {

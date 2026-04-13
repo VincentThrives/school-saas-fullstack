@@ -54,10 +54,17 @@
         </td>
       </ng-container>
 
-      <ng-container matColumnDef="examType">
-        <th mat-header-cell *matHeaderCellDef>Type</th>
+      <ng-container matColumnDef="marksStatus">
+        <th mat-header-cell *matHeaderCellDef>Marks</th>
         <td mat-cell *matCellDef="let exam">
-          <mat-chip class="type-chip">{{ getExamTypeLabel(exam.examType) }}</mat-chip>
+          <span class="marks-entered-chip" *ngIf="hasMarksEntered(exam)">
+            <mat-icon class="chip-icon">check_circle</mat-icon>
+            Entered ({{ getMarksCount(exam) }})
+          </span>
+          <button mat-stroked-button class="enter-marks-btn" *ngIf="!hasMarksEntered(exam)" (click)="enterMarks(exam)">
+            <mat-icon>edit_note</mat-icon>
+            Enter Marks
+          </button>
         </td>
       </ng-container>
 
