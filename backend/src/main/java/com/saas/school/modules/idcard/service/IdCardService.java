@@ -103,7 +103,7 @@ public class IdCardService {
             Document document = new Document(pdfDoc);
             document.setMargins(5, 8, 5, 8);
 
-            addStudentCardContent(document, student, user, tenant, className);
+            addStudentCardContent(document, student, studentName.trim(), tenant, className);
 
             document.close();
             logger.info("Student ID card generated successfully for studentId={}", studentId);
@@ -143,7 +143,7 @@ public class IdCardService {
             Document document = new Document(pdfDoc);
             document.setMargins(5, 8, 5, 8);
 
-            addTeacherCardContent(document, teacher, user, tenant);
+            addTeacherCardContent(document, teacher, teacherName.trim(), tenant);
 
             document.close();
             logger.info("Teacher ID card generated successfully for teacherId={}", teacherId);
@@ -179,17 +179,16 @@ public class IdCardService {
             for (int i = 0; i < studentIds.size(); i++) {
                 String sid = studentIds.get(i);
                 try {
-                    Student student = studentRepository.findByStudentIdAndDeletedAtIsNull(sid).orElse(null);
+                    Student student = studentRepository.findById(sid)
+                            .filter(s -> s.getDeletedAt() == null).orElse(null);
                     if (student == null) {
                         logger.warn("Student not found for bulk ID card: {}", sid);
                         continue;
                     }
 
-                    User user = userRepository.findById(student.getUserId()).orElse(null);
-                    if (user == null) {
-                        logger.warn("User not found for student: {}", sid);
-                        continue;
-                    }
+                    String bulkName = student.getFirstName() != null
+                        ? student.getFirstName() + " " + (student.getLastName() != null ? student.getLastName() : "")
+                        : "Student " + (student.getAdmissionNumber() != null ? student.getAdmissionNumber() : sid);
 
                     String className = "";
                     if (student.getClassId() != null) {
@@ -211,7 +210,7 @@ public class IdCardService {
                             .setFontSize(5).setTextAlignment(TextAlignment.CENTER)
                             .setFontColor(ColorConstants.DARK_GRAY));
 
-                    String fullName = user.getFirstName() + " " + user.getLastName();
+                    String fullName = bulkName.trim();
                     cardCell.add(new Paragraph("Name: " + fullName).setFontSize(5));
                     cardCell.add(new Paragraph("Adm No: " + (student.getAdmissionNumber() != null ? student.getAdmissionNumber() : "N/A")).setFontSize(5));
                     cardCell.add(new Paragraph("Class: " + className).setFontSize(5));
@@ -239,9 +238,8 @@ public class IdCardService {
         }
     }
 
-    private void addStudentCardContent(Document document, Student student, User user, Tenant tenant, String className) throws WriterException, IOException {
+    private void addStudentCardContent(Document document, Student student, String fullName, Tenant tenant, String className) throws WriterException, IOException {
         String schoolName = tenant.getSchoolName();
-        String fullName = user.getFirstName() + " " + user.getLastName();
 
         document.add(new Paragraph(schoolName)
                 .setBold().setFontSize(8).setTextAlignment(TextAlignment.CENTER)
@@ -290,9 +288,8 @@ public class IdCardService {
         document.add(contentTable);
     }
 
-    private void addTeacherCardContent(Document document, Teacher teacher, User user, Tenant tenant) throws WriterException, IOException {
+    private void addTeacherCardContent(Document document, Teacher teacher, String fullName, Tenant tenant) throws WriterException, IOException {
         String schoolName = tenant.getSchoolName();
-        String fullName = user.getFirstName() + " " + user.getLastName();
 
         document.add(new Paragraph(schoolName)
                 .setBold().setFontSize(8).setTextAlignment(TextAlignment.CENTER)
