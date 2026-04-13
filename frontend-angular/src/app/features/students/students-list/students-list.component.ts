@@ -13,9 +13,10 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { Student, SchoolClass } from '../../../core/models';
+import { Student, SchoolClass, User } from '../../../core/models';
 
 @Component({
   selector: 'app-students-list',
@@ -34,6 +35,7 @@ import { Student, SchoolClass } from '../../../core/models';
     MatMenuModule,
     MatTooltipModule,
     MatProgressSpinnerModule,
+    MatSnackBarModule,
     PageHeaderComponent,
   ],
   templateUrl: './students-list.component.html',
@@ -53,6 +55,9 @@ export class StudentsListComponent implements OnInit {
   genderFilter = '';
 
   classes: SchoolClass[] = [];
+  classMap: Record<string, string> = {};
+  sectionMap: Record<string, string> = {};
+  userMap: Record<string, User> = {};
 
   deleteDialogOpen = false;
   selectedStudent: Student | null = null;
@@ -61,7 +66,8 @@ export class StudentsListComponent implements OnInit {
 
   constructor(
     private apiService: ApiService,
-    private router: Router
+    private router: Router,
+    private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
@@ -72,22 +78,91 @@ export class StudentsListComponent implements OnInit {
   loadClasses(): void {
     this.apiService.getClasses().subscribe({
       next: (response) => {
-        this.classes = response.data;
+        if (response.success && response.data) {
+          this.classes = Array.isArray(response.data) ? response.data : [];
+          this.classes.forEach(cls => {
+            this.classMap[cls.classId] = cls.name;
+            (cls.sections || []).forEach(sec => {
+              this.sectionMap[sec.sectionId] = sec.name;
+            });
+          });
+        }
       },
     });
   }
 
+  getClassName(classId: string): string {
+    return this.classMap[classId] || '-';
+  }
+
+  getSectionName(sectionId: string): string {
+    return this.sectionMap[sectionId] || '';
+  }
+
+  getClassSection(student: Student): string {
+    const cls = this.getClassName(student.classId);
+    const sec = student.sectionId ? this.getSectionName(student.sectionId) : '';
+    return sec ? `${cls} - ${sec}` : cls;
+  }
+
+  getStudentName(student: Student): string {
+    // Try user map first
+    if (student.userId && this.userMap[student.userId]) {
+      const user = this.userMap[student.userId];
+      return `${user.firstName} ${user.lastName}`;
+    }
+    // Fallback to admission number
+    return `Student ${student.admissionNumber || student.rollNumber || ''}`;
+  }
+
+  getStudentInitial(student: Student): string {
+    if (student.userId && this.userMap[student.userId]) {
+      return this.userMap[student.userId].firstName?.charAt(0) || 'S';
+    }
+    return student.admissionNumber?.charAt(0) || 'S';
+  }
+
   loadStudents(): void {
     this.isLoading = true;
-    this.apiService.getStudents(this.pageIndex, this.pageSize, this.classFilter ? { classId: this.classFilter } : undefined).subscribe({
+    const params: any = {};
+    if (this.classFilter) params.classId = this.classFilter;
+    if (this.sectionFilter) params.sectionId = this.sectionFilter;
+    if (this.genderFilter) params.gender = this.genderFilter;
+    if (this.searchQuery) params.search = this.searchQuery;
+
+    this.apiService.getStudents(this.pageIndex, this.pageSize, Object.keys(params).length > 0 ? params : undefined).subscribe({
       next: (response) => {
-        this.dataSource.data = response.data.content;
-        this.totalElements = response.data.totalElements;
+        if (response.success && response.data) {
+          this.dataSource.data = response.data.content || [];
+          this.totalElements = response.data.totalElements || 0;
+
+          // Load user data for students that have userId
+          const userIds = this.dataSource.data
+            .filter(s => s.userId && !this.userMap[s.userId])
+            .map(s => s.userId);
+
+          if (userIds.length > 0) {
+            this.loadUsers(userIds);
+          }
+        }
         this.isLoading = false;
       },
       error: () => {
         this.isLoading = false;
       },
+    });
+  }
+
+  loadUsers(userIds: string[]): void {
+    // Load each user individually (could be optimized with a bulk endpoint)
+    userIds.forEach(userId => {
+      this.apiService.getUserById(userId).subscribe({
+        next: (res) => {
+          if (res.success && res.data) {
+            this.userMap[userId] = res.data;
+          }
+        },
+      });
     });
   }
 
@@ -107,7 +182,7 @@ export class StudentsListComponent implements OnInit {
     this.loadStudents();
   }
 
-  get selectedClassSections(): { name: string; capacity: number; sectionId?: string }[] {
+  get selectedClassSections(): { name: string; capacity: number; sectionId: string }[] {
     const cls = this.classes.find(c => c.classId === this.classFilter);
     return cls?.sections || [];
   }
@@ -136,8 +211,18 @@ export class StudentsListComponent implements OnInit {
 
   deleteStudent(): void {
     if (!this.selectedStudent) return;
+    const studentId = this.selectedStudent.studentId;
     this.deleteDialogOpen = false;
     this.selectedStudent = null;
-    this.loadStudents();
+
+    this.apiService.deleteStudent(studentId).subscribe({
+      next: () => {
+        this.snackBar.open('Student deleted successfully', 'Close', { duration: 3000 });
+        this.loadStudents();
+      },
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to delete student', 'Close', { duration: 3000 });
+      },
+    });
   }
 }
