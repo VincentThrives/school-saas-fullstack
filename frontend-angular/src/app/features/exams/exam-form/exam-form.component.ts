@@ -76,9 +76,9 @@ export class ExamFormComponent implements OnInit {
     this.api.getAcademicYears().subscribe({
       next: (res) => {
         this.academicYears = res.data || [];
-        const current = this.academicYears.find((y) => y.isCurrent);
+        const current = this.academicYears.find((y) => y.current);
         if (current && !this.isEditing) {
-          this.examForm.patchValue({ academicYearId: current.id });
+          this.examForm.patchValue({ academicYearId: current.academicYearId });
         }
       },
     });

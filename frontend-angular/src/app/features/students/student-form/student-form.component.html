@@ -91,8 +91,8 @@
           <mat-form-field appearance="outline">
             <mat-label>Academic Year</mat-label>
             <mat-select formControlName="academicYearId">
-              <mat-option *ngFor="let year of academicYears" [value]="year.id">
-                {{ year.label }} {{ year.isCurrent ? '(Current)' : '' }}
+              <mat-option *ngFor="let year of academicYears" [value]="year.academicYearId">
+                {{ year.label }} {{ year.current ? '(Current)' : '' }}
               </mat-option>
             </mat-select>
             <mat-error>Academic year is required</mat-error>

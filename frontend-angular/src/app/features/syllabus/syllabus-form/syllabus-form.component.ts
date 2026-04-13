@@ -80,8 +80,8 @@ export class SyllabusFormComponent implements OnInit {
     });
     this.api.getAcademicYears().subscribe((res) => {
       this.academicYears = res.data || [];
-      const current = this.academicYears.find((ay) => ay.isCurrent);
-      if (current) this.selectedAcademicYearId = current.id;
+      const current = this.academicYears.find((ay) => ay.current);
+      if (current) this.selectedAcademicYearId = current.academicYearId;
     });
 
     const id = this.route.snapshot.paramMap.get('syllabusId');

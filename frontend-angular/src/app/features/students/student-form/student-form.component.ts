@@ -114,9 +114,9 @@ export class StudentFormComponent implements OnInit {
       next: (response) => {
         this.academicYears = response.data;
         if (!this.isEditing) {
-          const current = this.academicYears.find(y => y.isCurrent);
+          const current = this.academicYears.find(y => y.current);
           if (current) {
-            this.studentForm.patchValue({ academicYearId: current.id });
+            this.studentForm.patchValue({ academicYearId: current.academicYearId });
           }
         }
       },

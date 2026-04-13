@@ -50,9 +50,9 @@ export class SyllabusListComponent implements OnInit {
     });
     this.api.getAcademicYears().subscribe((res) => {
       this.academicYears = res.data || [];
-      const current = this.academicYears.find((ay) => ay.isCurrent);
+      const current = this.academicYears.find((ay) => ay.current);
       if (current) {
-        this.selectedAcademicYearId = current.id;
+        this.selectedAcademicYearId = current.academicYearId;
         this.loadSyllabus();
       }
     });

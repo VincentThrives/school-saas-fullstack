@@ -58,7 +58,7 @@ export class AcademicYearsListComponent implements OnInit {
   ) {}
 
   get currentYearLabel(): string {
-    const current = this.dataSource.data.find(y => y.isCurrent);
+    const current = this.dataSource.data.find(y => y.current);
     return current ? current.label : '';
   }
 
@@ -170,12 +170,12 @@ export class AcademicYearsListComponent implements OnInit {
   }
 
   getStatusLabel(year: AcademicYear): string {
-    if (year.isCurrent) return 'Current';
+    if (year.current) return 'Current';
     return 'Archived';
   }
 
   getStatusClass(year: AcademicYear): string {
-    if (year.isCurrent) return 'status-current';
+    if (year.current) return 'status-current';
     return 'status-archived';
   }
 }

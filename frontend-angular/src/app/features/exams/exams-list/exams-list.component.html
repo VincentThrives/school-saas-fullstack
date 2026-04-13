@@ -29,7 +29,7 @@
           <mat-label>Academic Year</mat-label>
           <mat-select [(ngModel)]="academicYearFilter">
             <mat-option value="">All Years</mat-option>
-            <mat-option *ngFor="let yr of academicYears" [value]="yr.id">
+            <mat-option *ngFor="let yr of academicYears" [value]="yr.academicYearId">
               {{ yr.label }}
             </mat-option>
           </mat-select>

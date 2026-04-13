@@ -32,10 +32,10 @@
         (selectionChange)="onAcademicYearChange($event.value)"
         panelClass="ay-select-panel"
       >
-        <mat-option *ngFor="let ay of academicYears" [value]="ay.id">
+        <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">
           <div class="ay-option">
-            <span [class.ay-option-current]="ay.isCurrent">{{ ay.label }}</span>
-            <span *ngIf="ay.isCurrent" class="ay-option-badge">Current</span>
+            <span [class.ay-option-current]="ay.current">{{ ay.label }}</span>
+            <span *ngIf="ay.current" class="ay-option-badge">Current</span>
           </div>
         </mat-option>
       </mat-select>

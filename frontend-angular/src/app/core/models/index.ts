@@ -132,11 +132,13 @@ export interface SchoolClass {
 
 // AcademicYear
 export interface AcademicYear {
-  id: string;
+  academicYearId: string;
   label: string;
   startDate: string;
   endDate: string;
-  isCurrent: boolean;
+  status: string;
+  current: boolean;
+  createdAt?: string;
 }
 
 // Notification

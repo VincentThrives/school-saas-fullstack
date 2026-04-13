@@ -41,11 +41,11 @@
         <th mat-header-cell *matHeaderCellDef>Academic Year</th>
         <td mat-cell *matCellDef="let year">
           <div class="year-label-cell">
-            <div class="year-icon" [class.current]="year.isCurrent">
+            <div class="year-icon" [class.current]="year.current">
               <mat-icon>calendar_today</mat-icon>
             </div>
-            <span class="year-label" [class.current]="year.isCurrent">{{ year.label }}</span>
-            <span class="current-badge" *ngIf="year.isCurrent">Current</span>
+            <span class="year-label" [class.current]="year.current">{{ year.label }}</span>
+            <span class="current-badge" *ngIf="year.current">Current</span>
           </div>
         </td>
       </ng-container>
@@ -80,15 +80,15 @@
             <mat-icon>more_vert</mat-icon>
           </button>
           <mat-menu #yearMenu="matMenu">
-            <button mat-menu-item *ngIf="!year.isCurrent" (click)="setAsCurrent(year)">
+            <button mat-menu-item *ngIf="!year.current" (click)="setAsCurrent(year)">
               <mat-icon class="gold-icon">check_circle</mat-icon>
               <span>Set as Current</span>
             </button>
-            <button mat-menu-item *ngIf="!year.isCurrent" (click)="archiveYear(year)">
+            <button mat-menu-item *ngIf="!year.current" (click)="archiveYear(year)">
               <mat-icon>archive</mat-icon>
               <span>Archive</span>
             </button>
-            <button mat-menu-item *ngIf="year.isCurrent" disabled>
+            <button mat-menu-item *ngIf="year.current" disabled>
               <mat-icon class="gold-icon">check_circle</mat-icon>
               <span>This is the current year</span>
             </button>

@@ -82,9 +82,9 @@ export class ClassFormComponent implements OnInit {
       next: (response) => {
         this.academicYears = response.data;
         if (!this.isEditing) {
-          const current = this.academicYears.find(y => y.isCurrent);
+          const current = this.academicYears.find(y => y.current);
           if (current) {
-            this.classForm.patchValue({ academicYearId: current.id });
+            this.classForm.patchValue({ academicYearId: current.academicYearId });
           }
         }
       },

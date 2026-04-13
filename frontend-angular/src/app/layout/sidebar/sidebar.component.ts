@@ -114,8 +114,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   get selectedYearIsCurrent(): boolean {
-    const year = this.academicYears.find((ay) => ay.id === this.selectedAcademicYearId);
-    return year?.isCurrent || false;
+    const year = this.academicYears.find((ay) => ay.academicYearId === this.selectedAcademicYearId);
+    return year?.current || false;
   }
 
   onNavClick(): void {
@@ -135,10 +135,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
           if (res.success && res.data) {
             this.academicYears = res.data;
             if (!this.selectedAcademicYearId && this.academicYears.length > 0) {
-              const current = this.academicYears.find((ay) => ay.isCurrent);
+              const current = this.academicYears.find((ay) => ay.current);
               this.selectedAcademicYearId = current
-                ? current.id
-                : this.academicYears[0].id;
+                ? current.academicYearId
+                : this.academicYears[0].academicYearId;
             }
           }
           this.isLoadingAY = false;

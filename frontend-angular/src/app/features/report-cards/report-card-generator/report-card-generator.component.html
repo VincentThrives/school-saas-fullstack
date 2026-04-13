@@ -20,7 +20,7 @@
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Academic Year</mat-label>
         <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="loadReportCards()">
-          <mat-option *ngFor="let ay of academicYears" [value]="ay.id">{{ ay.label }}</mat-option>
+          <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">{{ ay.label }}</mat-option>
         </mat-select>
       </mat-form-field>
     </div>
