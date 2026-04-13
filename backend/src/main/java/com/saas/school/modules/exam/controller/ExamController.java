@@ -15,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "Exams")
 @RestController
@@ -89,6 +90,12 @@ public class ExamController {
     @GetMapping("/calendar")
     public ResponseEntity<ApiResponse<List<Exam>>> getExamCalendar() {
         return ResponseEntity.ok(ApiResponse.success(examService.getUpcomingExams()));
+    }
+
+    @GetMapping("/{examId}/results")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getExamResults(@PathVariable String examId) {
+        return ResponseEntity.ok(ApiResponse.success(examService.getExamResults(examId)));
     }
 
     @PatchMapping("/{examId}/lock-marks")

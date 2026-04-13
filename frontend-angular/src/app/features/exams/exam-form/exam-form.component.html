@@ -12,6 +12,17 @@
     <mat-card-content>
       <form [formGroup]="examForm" (ngSubmit)="onSubmit()">
         <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Exam Type</mat-label>
+            <mat-select formControlName="examType" required>
+              <mat-option value="UNIT_TEST">Unit Test</mat-option>
+              <mat-option value="MID_TERM">Mid-Term</mat-option>
+              <mat-option value="FINAL">Final</mat-option>
+              <mat-option value="PRACTICAL">Practical</mat-option>
+            </mat-select>
+            <mat-error>Exam type is required</mat-error>
+          </mat-form-field>
+
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Exam Name</mat-label>
             <input matInput formControlName="name" placeholder="e.g., Mid-Term Mathematics">
@@ -52,7 +63,23 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Subject</mat-label>
-            <input matInput formControlName="subjectId" placeholder="Subject ID">
+            <mat-select formControlName="subjectId" required>
+              <mat-option value="math">Mathematics</mat-option>
+              <mat-option value="science">Science</mat-option>
+              <mat-option value="english">English</mat-option>
+              <mat-option value="hindi">Hindi</mat-option>
+              <mat-option value="kannada">Kannada</mat-option>
+              <mat-option value="sanskrit">Sanskrit</mat-option>
+              <mat-option value="social">Social Studies</mat-option>
+              <mat-option value="history">History</mat-option>
+              <mat-option value="geography">Geography</mat-option>
+              <mat-option value="physics">Physics</mat-option>
+              <mat-option value="chemistry">Chemistry</mat-option>
+              <mat-option value="biology">Biology</mat-option>
+              <mat-option value="computer">Computer Science</mat-option>
+              <mat-option value="evs">EVS</mat-option>
+              <mat-option value="pe">Physical Education</mat-option>
+            </mat-select>
             <mat-error>Subject is required</mat-error>
           </mat-form-field>
 
@@ -62,6 +89,16 @@
             <mat-datepicker-toggle matIconSuffix [for]="datePicker"></mat-datepicker-toggle>
             <mat-datepicker #datePicker></mat-datepicker>
             <mat-error>Date is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Start Time</mat-label>
+            <input matInput type="time" formControlName="startTime">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>End Time</mat-label>
+            <input matInput type="time" formControlName="endTime">
           </mat-form-field>
 
           <mat-form-field appearance="outline">

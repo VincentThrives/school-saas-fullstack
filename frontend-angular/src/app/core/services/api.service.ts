@@ -244,6 +244,14 @@ export class ApiService {
     return this.http.get<ApiResponse<any[]>>(`${this.API}/exams/calendar`);
   }
 
+  getExamResults(examId: string): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.API}/exams/${examId}/results`);
+  }
+
+  deleteExam(examId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/exams/${examId}`);
+  }
+
   // ── MCQ ────────────────────────────────────────────────────────────────
 
   getMcqExams(): Observable<ApiResponse<any[]>> {

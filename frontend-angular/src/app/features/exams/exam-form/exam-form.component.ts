@@ -61,15 +61,30 @@ export class ExamFormComponent implements OnInit {
     this.isEditing = !!this.examId && this.examId !== 'new';
 
     this.examForm = this.fb.group({
+      examType: ['UNIT_TEST', Validators.required],
       name: ['', Validators.required],
       classId: ['', Validators.required],
       sectionId: [''],
       academicYearId: ['', Validators.required],
       subjectId: ['', Validators.required],
+      subjectName: [''],
       examDate: [null, Validators.required],
+      startTime: [''],
+      endTime: [''],
       maxMarks: [100, [Validators.required, Validators.min(1)]],
       passingMarks: [35, [Validators.required, Validators.min(0)]],
       description: [''],
+    });
+
+    // Auto-set subjectName when subjectId changes
+    this.examForm.get('subjectId')?.valueChanges.subscribe((value) => {
+      const subjectMap: Record<string, string> = {
+        math: 'Mathematics', science: 'Science', english: 'English', hindi: 'Hindi',
+        kannada: 'Kannada', sanskrit: 'Sanskrit', social: 'Social Studies', history: 'History',
+        geography: 'Geography', physics: 'Physics', chemistry: 'Chemistry', biology: 'Biology',
+        computer: 'Computer Science', evs: 'EVS', pe: 'Physical Education',
+      };
+      this.examForm.get('subjectName')?.setValue(subjectMap[value] || value);
     });
 
     this.api.getClasses().subscribe({ next: (res) => (this.classes = res.data || []) });

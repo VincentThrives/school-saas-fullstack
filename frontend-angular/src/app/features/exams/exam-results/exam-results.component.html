@@ -1,0 +1,203 @@
+<div class="exam-results-container">
+  <app-page-header
+    title="Exam Results"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Exams', link: '/exams' },
+      { label: 'Results' }
+    ]"
+  ></app-page-header>
+
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="48"></mat-spinner>
+  </div>
+
+  <div *ngIf="!isLoading && exam">
+    <!-- Exam Info Card -->
+    <mat-card class="exam-info-card">
+      <mat-card-content>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Exam Name</span>
+            <span class="info-value">{{ exam.name }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Class</span>
+            <span class="info-value">{{ exam.className || exam.classId }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Subject</span>
+            <span class="info-value">{{ exam.subjectName || exam.subjectId }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Date</span>
+            <span class="info-value">{{ exam.date | date:'dd MMM yyyy' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Max Marks</span>
+            <span class="info-value">{{ exam.maxMarks }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Passing Marks</span>
+            <span class="info-value">{{ exam.passingMarks }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Summary Stats -->
+    <div class="stats-grid">
+      <mat-card class="stat-card">
+        <div class="stat-icon total">
+          <mat-icon>people</mat-icon>
+        </div>
+        <div class="stat-content">
+          <span class="stat-value">{{ totalStudents }}</span>
+          <span class="stat-label">Total Students</span>
+        </div>
+      </mat-card>
+
+      <mat-card class="stat-card">
+        <div class="stat-icon passed">
+          <mat-icon>check_circle</mat-icon>
+        </div>
+        <div class="stat-content">
+          <span class="stat-value passed-text">{{ passedCount }}</span>
+          <span class="stat-label">Passed</span>
+        </div>
+      </mat-card>
+
+      <mat-card class="stat-card">
+        <div class="stat-icon failed">
+          <mat-icon>cancel</mat-icon>
+        </div>
+        <div class="stat-content">
+          <span class="stat-value failed-text">{{ failedCount }}</span>
+          <span class="stat-label">Failed</span>
+        </div>
+      </mat-card>
+
+      <mat-card class="stat-card">
+        <div class="stat-icon percentage">
+          <mat-icon>percent</mat-icon>
+        </div>
+        <div class="stat-content">
+          <span class="stat-value">{{ passPercentage }}%</span>
+          <span class="stat-label">Pass %</span>
+        </div>
+      </mat-card>
+
+      <mat-card class="stat-card">
+        <div class="stat-icon average">
+          <mat-icon>analytics</mat-icon>
+        </div>
+        <div class="stat-content">
+          <span class="stat-value">{{ classAverage }}</span>
+          <span class="stat-label">Class Average</span>
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- Grade Distribution -->
+    <mat-card class="grade-card" *ngIf="gradeDistribution.length > 0">
+      <mat-card-header>
+        <mat-card-title>Grade Distribution</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="grade-bars">
+          <div class="grade-bar-row" *ngFor="let g of gradeDistribution">
+            <span class="grade-label">{{ g.grade }}</span>
+            <div class="grade-bar-track">
+              <div class="grade-bar-fill" [style.width]="getGradeBarWidth(g.count)" [style.background-color]="g.color"></div>
+            </div>
+            <span class="grade-count">{{ g.count }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Toppers -->
+    <mat-card class="toppers-card" *ngIf="toppers.length > 0">
+      <mat-card-header>
+        <mat-card-title>Top Performers</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="toppers-list">
+          <div class="topper-item" *ngFor="let t of toppers" [class.gold]="t.rank === 1" [class.silver]="t.rank === 2" [class.bronze]="t.rank === 3">
+            <span class="topper-medal">{{ getMedalIcon(t.rank) }}</span>
+            <span class="topper-rank" *ngIf="t.rank > 3">#{{ t.rank }}</span>
+            <span class="topper-name">{{ t.name }}</span>
+            <span class="topper-marks">{{ t.marks }} / {{ exam.maxMarks }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Full Marks Table -->
+    <mat-card class="table-card">
+      <mat-card-header>
+        <mat-card-title>Detailed Marks</mat-card-title>
+      </mat-card-header>
+      <table mat-table [dataSource]="rankedMarks" class="marks-table">
+        <ng-container matColumnDef="rank">
+          <th mat-header-cell *matHeaderCellDef>Rank</th>
+          <td mat-cell *matCellDef="let row">#{{ row.rank }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Student Name</th>
+          <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="marks">
+          <th mat-header-cell *matHeaderCellDef>Marks</th>
+          <td mat-cell *matCellDef="let row">
+            <strong>{{ row.marks }}</strong> / {{ exam.maxMarks }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="grade">
+          <th mat-header-cell *matHeaderCellDef>Grade</th>
+          <td mat-cell *matCellDef="let row">
+            <mat-chip [class]="'grade-chip grade-' + row.grade.replace('+', '-plus')">{{ row.grade }}</mat-chip>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let row">
+            <mat-chip [class]="row.passed ? 'pass-chip' : 'fail-chip'">
+              {{ row.passed ? 'Pass' : 'Fail' }}
+            </mat-chip>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="remarks">
+          <th mat-header-cell *matHeaderCellDef>Remarks</th>
+          <td mat-cell *matCellDef="let row">{{ row.remarks || '-' }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+
+      <div class="empty-state" *ngIf="rankedMarks.length === 0">
+        No marks data available for this exam.
+      </div>
+    </mat-card>
+
+    <!-- Back Button -->
+    <div class="back-actions">
+      <button mat-stroked-button (click)="goBack()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to Exams
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="!isLoading && !exam" class="empty-state">
+    <mat-icon>error_outline</mat-icon>
+    <p>Exam not found.</p>
+    <button mat-stroked-button (click)="goBack()">Back to Exams</button>
+  </div>
+</div>

@@ -1,0 +1,274 @@
+.exam-results-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 64px 0;
+}
+
+// Exam Info Card
+.exam-info-card {
+  margin-bottom: 24px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+// Stats Grid
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  gap: 16px;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  mat-icon {
+    color: white;
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
+
+  &.total { background: #5c6bc0; }
+  &.passed { background: #4caf50; }
+  &.failed { background: #ef5350; }
+  &.percentage { background: #ff9800; }
+  &.average { background: #42a5f5; }
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #333;
+}
+
+.passed-text { color: #2e7d32; }
+.failed-text { color: #c62828; }
+
+.stat-label {
+  font-size: 13px;
+  color: #666;
+}
+
+// Grade Distribution
+.grade-card {
+  margin-bottom: 24px;
+}
+
+.grade-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.grade-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.grade-label {
+  width: 32px;
+  font-weight: 600;
+  text-align: center;
+  font-size: 14px;
+}
+
+.grade-bar-track {
+  flex: 1;
+  height: 24px;
+  background: #f0f0f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.grade-bar-fill {
+  height: 100%;
+  border-radius: 12px;
+  transition: width 0.5s ease;
+  min-width: 4px;
+}
+
+.grade-count {
+  width: 32px;
+  text-align: right;
+  font-weight: 500;
+  color: #555;
+}
+
+// Toppers
+.toppers-card {
+  margin-bottom: 24px;
+}
+
+.toppers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.topper-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #fafafa;
+  transition: background 0.2s;
+
+  &.gold {
+    background: linear-gradient(135deg, #fff8e1, #ffecb3);
+    border: 1px solid #ffd54f;
+  }
+
+  &.silver {
+    background: linear-gradient(135deg, #f5f5f5, #e0e0e0);
+    border: 1px solid #bdbdbd;
+  }
+
+  &.bronze {
+    background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+    border: 1px solid #ffb74d;
+  }
+}
+
+.topper-medal {
+  font-size: 24px;
+  width: 32px;
+  text-align: center;
+}
+
+.topper-rank {
+  width: 32px;
+  text-align: center;
+  font-weight: 600;
+  color: #888;
+}
+
+.topper-name {
+  flex: 1;
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.topper-marks {
+  font-weight: 600;
+  color: #333;
+  font-size: 15px;
+}
+
+// Table
+.table-card {
+  margin-bottom: 24px;
+}
+
+.marks-table {
+  width: 100%;
+}
+
+.pass-chip {
+  background-color: #e8f5e9 !important;
+  color: #2e7d32 !important;
+}
+
+.fail-chip {
+  background-color: #ffebee !important;
+  color: #c62828 !important;
+}
+
+.grade-chip {
+  font-weight: 600;
+}
+
+.grade-A-plus, .grade-A {
+  background-color: #e8f5e9 !important;
+  color: #2e7d32 !important;
+}
+
+.grade-B-plus, .grade-B {
+  background-color: #e3f2fd !important;
+  color: #1565c0 !important;
+}
+
+.grade-C {
+  background-color: #fff3e0 !important;
+  color: #e65100 !important;
+}
+
+.grade-D {
+  background-color: #fbe9e7 !important;
+  color: #bf360c !important;
+}
+
+.grade-F {
+  background-color: #ffebee !important;
+  color: #b71c1c !important;
+}
+
+// Empty state and actions
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: #888;
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+  }
+}
+
+.back-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 24px;
+}

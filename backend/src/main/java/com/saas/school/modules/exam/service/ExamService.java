@@ -12,8 +12,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class ExamService {
@@ -115,6 +118,55 @@ public class ExamService {
             .filter(e -> e.getExamDate() != null)
             .sorted((a, b) -> a.getExamDate().compareTo(b.getExamDate()))
             .toList();
+    }
+
+    public Map<String, Object> getExamResults(String examId) {
+        Exam exam = getExamById(examId);
+        List<ExamMark> marks = markRepository.findByExamId(examId);
+
+        int total = marks.size();
+        long passed = marks.stream().filter(ExamMark::isPassed).count();
+        long failed = total - passed;
+        double passPercent = total > 0 ? Math.round(passed * 1000.0 / total) / 10.0 : 0;
+        double avg = total > 0 ? Math.round(marks.stream().mapToDouble(ExamMark::getMarksObtained).average().orElse(0) * 10.0) / 10.0 : 0;
+        double highest = marks.stream().mapToDouble(ExamMark::getMarksObtained).max().orElse(0);
+        double lowest = marks.stream().mapToDouble(ExamMark::getMarksObtained).min().orElse(0);
+
+        // Grade distribution
+        Map<String, Long> gradeDist = marks.stream().collect(Collectors.groupingBy(ExamMark::getGrade, Collectors.counting()));
+
+        // Toppers (top 5)
+        List<Map<String, Object>> toppers = marks.stream()
+            .sorted((a, b) -> Double.compare(b.getMarksObtained(), a.getMarksObtained()))
+            .limit(5)
+            .map(m -> {
+                Map<String, Object> t = new HashMap<>();
+                t.put("studentId", m.getStudentId());
+                t.put("marksObtained", m.getMarksObtained());
+                t.put("grade", m.getGrade());
+                t.put("percentage", Math.round(m.getMarksObtained() / exam.getMaxMarks() * 1000.0) / 10.0);
+                return t;
+            })
+            .toList();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("examId", examId);
+        result.put("examName", exam.getName());
+        result.put("className", exam.getClassName());
+        result.put("subjectName", exam.getSubjectName());
+        result.put("maxMarks", exam.getMaxMarks());
+        result.put("passingMarks", exam.getPassingMarks());
+        result.put("totalStudents", total);
+        result.put("passed", passed);
+        result.put("failed", failed);
+        result.put("passPercentage", passPercent);
+        result.put("classAverage", avg);
+        result.put("highestMarks", highest);
+        result.put("lowestMarks", lowest);
+        result.put("gradeDistribution", gradeDist);
+        result.put("toppers", toppers);
+        result.put("allMarks", marks);
+        return result;
     }
 
     private String computeGrade(double marks, int max) {

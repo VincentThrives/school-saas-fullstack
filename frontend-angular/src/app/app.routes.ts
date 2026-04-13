@@ -196,6 +196,13 @@ export const routes: Routes = [
         data: { feature: 'exams' },
       },
       {
+        path: 'exams/:examId/results',
+        loadComponent: () =>
+          import('./features/exams/exam-results/exam-results.component').then(m => m.ExamResultsComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'exams' },
+      },
+      {
         path: 'exams/:examId/marks',
         loadComponent: () =>
           import('./features/exams/enter-marks/enter-marks.component').then(m => m.EnterMarksComponent),

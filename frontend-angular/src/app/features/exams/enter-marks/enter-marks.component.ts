@@ -92,8 +92,8 @@ export class EnterMarksComponent implements OnInit {
         this.students = studentList.map((s) => ({
           studentId: s.studentId,
           rollNumber: s.rollNumber || '',
-          firstName: s.userId,
-          lastName: '',
+          firstName: s.firstName || `Student ${s.admissionNumber || ''}`,
+          lastName: s.lastName || '',
           marksObtained: null,
           remarks: '',
         }));
