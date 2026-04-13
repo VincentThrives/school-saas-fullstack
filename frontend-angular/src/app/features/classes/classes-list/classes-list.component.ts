@@ -41,6 +41,7 @@ export class ClassesListComponent implements OnInit {
   academicYears: AcademicYear[] = [];
   academicYearMap: Record<string, string> = {};
   teacherMap: Record<string, string> = {};
+  studentCountMap: Record<string, number> = {};
   isLoading = false;
 
   deleteDialogOpen = false;
@@ -103,6 +104,16 @@ export class ClassesListComponent implements OnInit {
       next: (response) => {
         if (response.success && response.data) {
           this.dataSource.data = Array.isArray(response.data) ? response.data : [];
+          // Load student count for each class
+          this.dataSource.data.forEach(cls => {
+            this.apiService.getStudents(0, 1, { classId: cls.classId }).subscribe({
+              next: (res) => {
+                if (res.success && res.data) {
+                  this.studentCountMap[cls.classId] = res.data.totalElements || 0;
+                }
+              },
+            });
+          });
         }
         this.isLoading = false;
       },
@@ -156,7 +167,17 @@ export class ClassesListComponent implements OnInit {
     return schoolClass.sections?.map(s => s.name) || [];
   }
 
-  getTotalStudents(schoolClass: SchoolClass): number {
+  getEnrolledStudents(schoolClass: SchoolClass): number {
+    return this.studentCountMap[schoolClass.classId] || 0;
+  }
+
+  getTotalCapacity(schoolClass: SchoolClass): number {
     return schoolClass.sections?.reduce((sum, s) => sum + (s.capacity || 0), 0) || 0;
+  }
+
+  getCapacityPercent(schoolClass: SchoolClass): number {
+    const capacity = this.getTotalCapacity(schoolClass);
+    if (capacity === 0) return 0;
+    return Math.round((this.getEnrolledStudents(schoolClass) / capacity) * 100);
   }
 }

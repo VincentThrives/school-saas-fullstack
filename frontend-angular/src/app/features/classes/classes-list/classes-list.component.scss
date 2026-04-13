@@ -139,6 +139,64 @@ $gold-dark: #B8860B;
   font-size: 0.85rem;
 }
 
+.student-capacity {
+  min-width: 100px;
+}
+
+.capacity-text {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 4px;
+  font-size: 0.9rem;
+
+  .small-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: $gold;
+    margin-right: 4px;
+  }
+
+  .enrolled {
+    font-weight: 700;
+    color: #333;
+  }
+
+  .separator {
+    color: #999;
+    margin: 0 1px;
+  }
+
+  .capacity {
+    color: #888;
+  }
+}
+
+.capacity-bar {
+  height: 4px;
+  background: #eee;
+  border-radius: 2px;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100px;
+}
+
+.capacity-fill {
+  height: 100%;
+  background: $gold;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+
+  &.warning {
+    background: #ff9800;
+  }
+
+  &.full {
+    background: #f44336;
+  }
+}
+
 .delete-overlay {
   position: fixed;
   top: 0;

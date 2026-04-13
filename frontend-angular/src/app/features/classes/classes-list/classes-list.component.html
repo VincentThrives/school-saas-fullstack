@@ -74,12 +74,23 @@
 
       <!-- Students Column -->
       <ng-container matColumnDef="students">
-        <th mat-header-cell *matHeaderCellDef>Students (capacity)</th>
+        <th mat-header-cell *matHeaderCellDef>Students</th>
         <td mat-cell *matCellDef="let cls">
-          <span class="student-count-chip">
-            <mat-icon class="small-icon">group</mat-icon>
-            {{ getTotalStudents(cls) }}
-          </span>
+          <div class="student-capacity">
+            <div class="capacity-text">
+              <mat-icon class="small-icon">group</mat-icon>
+              <span class="enrolled">{{ getEnrolledStudents(cls) }}</span>
+              <span class="separator">/</span>
+              <span class="capacity">{{ getTotalCapacity(cls) }}</span>
+            </div>
+            <div class="capacity-bar">
+              <div class="capacity-fill"
+                   [style.width.%]="getCapacityPercent(cls)"
+                   [class.full]="getCapacityPercent(cls) >= 90"
+                   [class.warning]="getCapacityPercent(cls) >= 70 && getCapacityPercent(cls) < 90">
+              </div>
+            </div>
+          </div>
         </td>
       </ng-container>
 
