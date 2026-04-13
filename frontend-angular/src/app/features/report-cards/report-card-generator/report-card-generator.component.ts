@@ -157,6 +157,6 @@ export class ReportCardGeneratorComponent implements OnInit {
   }
 
   viewReportCard(rc: any): void {
-    this.router.navigate(['/report-cards', rc.id || rc.reportCardId || rc.studentId]);
+    this.router.navigate(['/report-cards', rc.studentId]);
   }
 }
