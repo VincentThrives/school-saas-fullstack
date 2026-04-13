@@ -277,13 +277,28 @@ public class ReportCardService {
             Table infoTable = new Table(UnitValue.createPercentArray(new float[]{18, 32, 18, 32}));
             infoTable.setWidth(UnitValue.createPercentValue(100)).setMarginBottom(6);
 
+            // Fetch student for extra details
+            Student studentForPdf = studentRepository.findById(reportCard.getStudentId()).orElse(null);
+            String sectionNamePdf = "-";
+            if (studentForPdf != null && studentForPdf.getClassId() != null) {
+                SchoolClass cls = schoolClassRepository.findById(studentForPdf.getClassId()).orElse(null);
+                if (cls != null && studentForPdf.getSectionId() != null && cls.getSections() != null) {
+                    for (var sec : cls.getSections()) {
+                        if (studentForPdf.getSectionId().equals(sec.getSectionId())) {
+                            sectionNamePdf = sec.getName();
+                            break;
+                        }
+                    }
+                }
+            }
+
             addCompactInfoCell(infoTable, "Student Name:", reportCard.getStudentName());
             addCompactInfoCell(infoTable, "Class:", reportCard.getClassName());
-            addCompactInfoCell(infoTable, "Section:", sectionName.isEmpty() ? "-" : sectionName);
-            addCompactInfoCell(infoTable, "Adm. No:", student.getAdmissionNumber() != null ? student.getAdmissionNumber() : "-");
-            addCompactInfoCell(infoTable, "Roll No:", student.getRollNumber() != null ? student.getRollNumber() : "-");
+            addCompactInfoCell(infoTable, "Section:", sectionNamePdf);
+            addCompactInfoCell(infoTable, "Adm. No:", studentForPdf != null && studentForPdf.getAdmissionNumber() != null ? studentForPdf.getAdmissionNumber() : "-");
+            addCompactInfoCell(infoTable, "Roll No:", studentForPdf != null && studentForPdf.getRollNumber() != null ? studentForPdf.getRollNumber() : "-");
             addCompactInfoCell(infoTable, "Academic Year:", reportCard.getAcademicYearLabel() != null ? reportCard.getAcademicYearLabel() : reportCard.getAcademicYearId());
-            addCompactInfoCell(infoTable, "DOB:", student.getDateOfBirth() != null ? student.getDateOfBirth().toString() : "-");
+            addCompactInfoCell(infoTable, "DOB:", studentForPdf != null && studentForPdf.getDateOfBirth() != null ? studentForPdf.getDateOfBirth().toString() : "-");
             addCompactInfoCell(infoTable, "Rank:", String.valueOf(reportCard.getRank()));
             document.add(infoTable);
 
