@@ -1,0 +1,279 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.school-selector {
+  padding: 0;
+}
+
+.search-card {
+  margin-bottom: 24px;
+  padding: 24px;
+  border-radius: 12px;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .search-icon {
+    color: $gold;
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .search-field {
+    flex: 1;
+  }
+}
+
+.search-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: #888;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: $gold;
+  }
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 0;
+  gap: 16px;
+  color: #888;
+}
+
+.schools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 20px;
+}
+
+.school-card {
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(212, 168, 67, 0.2);
+    border-color: rgba(212, 168, 67, 0.3);
+  }
+
+  &:focus {
+    outline: 2px solid $gold;
+    outline-offset: 2px;
+  }
+}
+
+.school-card__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 20px 16px;
+}
+
+.school-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.school-info {
+  min-width: 0;
+}
+
+.school-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.school-subdomain {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: #999;
+}
+
+.school-card__body {
+  padding: 16px 20px;
+}
+
+.school-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #666;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #999;
+    }
+  }
+}
+
+.school-chips {
+  display: flex;
+  gap: 8px;
+}
+
+.chip {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.plan-basic {
+  background: #ECEFF1;
+  color: #546E7A;
+}
+
+.plan-standard {
+  background: rgba(212, 168, 67, 0.15);
+  color: $gold-dark;
+}
+
+.plan-enterprise {
+  background: rgba(123, 31, 162, 0.1);
+  color: #7B1FA2;
+}
+
+.status-active {
+  background: rgba(46, 125, 50, 0.1);
+  color: #2E7D32;
+}
+
+.status-suspended {
+  background: rgba(211, 47, 47, 0.1);
+  color: #D32F2F;
+}
+
+.status-inactive {
+  background: #ECEFF1;
+  color: #78909C;
+}
+
+.school-card__footer {
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feature-progress {
+  .feature-count {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #555;
+    margin-bottom: 8px;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: $gold;
+    }
+  }
+}
+
+.progress-bar {
+  height: 6px;
+  background: #eee;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, $gold, $gold-dark);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.manage-btn {
+  border-color: $gold !important;
+  color: $gold-dark !important;
+  font-weight: 600;
+
+  mat-icon {
+    margin-right: 4px;
+    font-size: 18px;
+  }
+
+  &:hover {
+    background: rgba(212, 168, 67, 0.08) !important;
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 80px 20px;
+
+  .empty-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    color: #ccc;
+    margin-bottom: 16px;
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    color: #555;
+  }
+
+  p {
+    color: #999;
+  }
+}
+
+// Dark mode
+:host-context(body.dark-theme) {
+  .school-name { color: #E0E0E0; }
+  .school-card {
+    border-color: #333;
+    &:hover { border-color: rgba(212, 168, 67, 0.4); }
+  }
+}
+
+@media (max-width: 600px) {
+  .schools-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,101 @@
+<div class="school-selector">
+  <app-page-header
+    title="Feature Management"
+    subtitle="Select a school to manage its features"
+    [breadcrumbs]="[{ label: 'Super Admin', link: '/superadmin/dashboard' }, { label: 'Feature Management' }]">
+  </app-page-header>
+
+  <!-- Search Bar -->
+  <mat-card class="search-card">
+    <div class="search-bar">
+      <mat-icon class="search-icon">search</mat-icon>
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search by School Name, ID, Subdomain, or Email</mat-label>
+        <input matInput [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="e.g. Springfield or springfield">
+        <button *ngIf="searchQuery" mat-icon-button matSuffix (click)="searchQuery = ''; onSearch()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </mat-form-field>
+    </div>
+    <p class="search-hint">
+      <mat-icon>info</mat-icon>
+      Showing {{ filteredTenants.length }} of {{ tenants.length }} schools
+    </p>
+  </mat-card>
+
+  <!-- Loading -->
+  <div class="loading" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Loading schools...</p>
+  </div>
+
+  <!-- School Cards -->
+  <div class="schools-grid" *ngIf="!isLoading">
+    <mat-card
+      *ngFor="let tenant of filteredTenants"
+      class="school-card"
+      (click)="selectSchool(tenant)"
+      tabindex="0"
+      role="button"
+    >
+      <div class="school-card__header">
+        <div class="school-avatar" [style.background-color]="'#D4A843'">
+          {{ getInitial(tenant.schoolName) }}
+        </div>
+        <div class="school-info">
+          <h3 class="school-name">{{ tenant.schoolName }}</h3>
+          <p class="school-subdomain">{{ tenant.subdomain }}.schoolsaas.com</p>
+        </div>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="school-card__body">
+        <div class="school-meta">
+          <div class="meta-item">
+            <mat-icon>email</mat-icon>
+            <span>{{ tenant.contactEmail }}</span>
+          </div>
+          <div class="meta-item" *ngIf="tenant.contactPhone">
+            <mat-icon>phone</mat-icon>
+            <span>{{ tenant.contactPhone }}</span>
+          </div>
+        </div>
+
+        <div class="school-chips">
+          <span class="chip" [ngClass]="getPlanColor(tenant.plan)">{{ tenant.plan }}</span>
+          <span class="chip" [ngClass]="getStatusColor(tenant.status)">{{ tenant.status }}</span>
+        </div>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="school-card__footer">
+        <div class="feature-progress">
+          <div class="feature-count">
+            <mat-icon>toggle_on</mat-icon>
+            <span>{{ getEnabledCount(tenant) }} / {{ getTotalCount(tenant) }} features enabled</span>
+          </div>
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              [style.width.%]="getTotalCount(tenant) > 0 ? (getEnabledCount(tenant) / getTotalCount(tenant)) * 100 : 0"
+            ></div>
+          </div>
+        </div>
+        <button mat-stroked-button class="manage-btn">
+          <mat-icon>settings</mat-icon>
+          Manage Features
+        </button>
+      </div>
+    </mat-card>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-state" *ngIf="!isLoading && filteredTenants.length === 0">
+    <mat-icon class="empty-icon">search_off</mat-icon>
+    <h3 *ngIf="searchQuery">No schools found matching "{{ searchQuery }}"</h3>
+    <h3 *ngIf="!searchQuery">No schools registered yet</h3>
+    <p>{{ searchQuery ? 'Try a different search term' : 'Create a school from the Tenants page first' }}</p>
+  </div>
+</div>

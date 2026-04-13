@@ -510,7 +510,7 @@ export const routes: Routes = [
       {
         path: 'superadmin/features',
         loadComponent: () =>
-          import('./features/feature-management/school-features/school-features.component').then(m => m.SchoolFeaturesComponent),
+          import('./features/feature-management/school-selector/school-selector.component').then(m => m.SchoolSelectorComponent),
         canActivate: [roleGuard],
         data: { roles: [UserRole.SUPER_ADMIN] },
       },
