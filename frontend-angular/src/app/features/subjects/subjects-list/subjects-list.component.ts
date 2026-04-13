@@ -78,7 +78,7 @@ export class SubjectsListComponent implements OnInit {
   openCreateDialog(): void {
     this.newName = '';
     this.newCode = '';
-    this.newType = 'Theory';
+    this.newType = 'THEORY';
     this.createDialogOpen = true;
   }
 
@@ -86,7 +86,7 @@ export class SubjectsListComponent implements OnInit {
     this.createDialogOpen = false;
     this.newName = '';
     this.newCode = '';
-    this.newType = 'Theory';
+    this.newType = 'THEORY';
   }
 
   createSubject(): void {
