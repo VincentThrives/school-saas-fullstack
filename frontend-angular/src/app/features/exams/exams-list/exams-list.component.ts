@@ -47,7 +47,18 @@ export class ExamsListComponent implements OnInit {
   exams: any[] = [];
   classes: SchoolClass[] = [];
   academicYears: AcademicYear[] = [];
+  classMap: Record<string, string> = {};
   displayedColumns = ['name', 'examType', 'class', 'subject', 'date', 'maxMarks', 'status', 'actions'];
+
+  subjectNames: Record<string, string> = {
+    math: 'Mathematics', maths: 'Mathematics', science: 'Science', english: 'English',
+    hindi: 'Hindi', kannada: 'Kannada', sanskrit: 'Sanskrit',
+    social: 'Social Studies', history: 'History', geography: 'Geography',
+    physics: 'Physics', chemistry: 'Chemistry', biology: 'Biology',
+    computer: 'Computer Science', evs: 'EVS', pe: 'Physical Education',
+    art: 'Art & Craft', music: 'Music', moral: 'Moral Science',
+    'math-101': 'Mathematics',
+  };
 
   classFilter = '';
   subjectFilter = '';
@@ -66,9 +77,31 @@ export class ExamsListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadClasses();
     this.loadExams();
-    this.api.getClasses().subscribe({ next: (res) => (this.classes = res.data || []) });
-    this.api.getAcademicYears().subscribe({ next: (res) => (this.academicYears = res.data || []) });
+    this.api.getAcademicYears().subscribe({
+      next: (res) => {
+        const data = res.data;
+        this.academicYears = Array.isArray(data) ? data : (data as any)?.content || [];
+      },
+    });
+  }
+
+  loadClasses(): void {
+    this.api.getClasses().subscribe({
+      next: (res) => {
+        this.classes = Array.isArray(res.data) ? res.data : [];
+        this.classes.forEach(cls => { this.classMap[cls.classId] = cls.name; });
+      },
+    });
+  }
+
+  getClassName(classId: string): string {
+    return this.classMap[classId] || '-';
+  }
+
+  getSubjectName(subjectId: string): string {
+    return this.subjectNames[subjectId?.toLowerCase()] || subjectId || '-';
   }
 
   loadExams(): void {

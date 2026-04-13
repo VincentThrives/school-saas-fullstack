@@ -87,14 +87,53 @@ export class ExamFormComponent implements OnInit {
       this.examForm.get('subjectName')?.setValue(subjectMap[value] || value);
     });
 
-    this.api.getClasses().subscribe({ next: (res) => (this.classes = res.data || []) });
+    this.api.getClasses().subscribe({
+      next: (res) => {
+        this.classes = Array.isArray(res.data) ? res.data : [];
+        if (this.isEditing) this.loadExamData();
+      },
+    });
     this.api.getAcademicYears().subscribe({
       next: (res) => {
-        this.academicYears = res.data || [];
+        const data = res.data;
+        this.academicYears = Array.isArray(data) ? data : (data as any)?.content || [];
         const current = this.academicYears.find((y) => y.current);
         if (current && !this.isEditing) {
           this.examForm.patchValue({ academicYearId: current.academicYearId });
         }
+      },
+    });
+  }
+
+  loadExamData(): void {
+    if (!this.examId) return;
+    this.isLoading = true;
+    this.api.getExamById(this.examId).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          const e = res.data;
+          this.examForm.patchValue({
+            examType: e.examType || 'UNIT_TEST',
+            name: e.name,
+            classId: e.classId,
+            sectionId: e.sectionId,
+            academicYearId: e.academicYearId,
+            subjectId: e.subjectId,
+            subjectName: e.subjectName || '',
+            examDate: e.examDate,
+            startTime: e.startTime || '',
+            endTime: e.endTime || '',
+            maxMarks: e.maxMarks,
+            passingMarks: e.passingMarks,
+            description: e.description || '',
+          });
+          this.onClassChange();
+        }
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.snackBar.open('Failed to load exam data', 'Close', { duration: 3000 });
       },
     });
   }
@@ -120,15 +159,22 @@ export class ExamFormComponent implements OnInit {
       date: this.formatDate(formData.examDate),
     };
 
-    this.api.createExam(payload).subscribe({
+    const request$ = this.isEditing && this.examId
+      ? this.api.updateExam(this.examId, payload)
+      : this.api.createExam(payload);
+
+    request$.subscribe({
       next: () => {
         this.isSaving = false;
-        this.snackBar.open('Exam saved successfully', 'Close', { duration: 3000 });
+        this.snackBar.open(
+          this.isEditing ? 'Exam updated successfully' : 'Exam created successfully',
+          'Close', { duration: 3000 }
+        );
         this.router.navigate(['/exams']);
       },
-      error: () => {
+      error: (err) => {
         this.isSaving = false;
-        this.snackBar.open('Failed to save exam', 'Close', { duration: 3000 });
+        this.snackBar.open(err?.error?.message || 'Failed to save exam', 'Close', { duration: 3000 });
       },
     });
   }
