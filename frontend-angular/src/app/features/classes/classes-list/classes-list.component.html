@@ -55,7 +55,9 @@
       <!-- Academic Year Column -->
       <ng-container matColumnDef="academicYear">
         <th mat-header-cell *matHeaderCellDef>Academic Year</th>
-        <td mat-cell *matCellDef="let cls">{{ cls.academicYearId || '-' }}</td>
+        <td mat-cell *matCellDef="let cls">
+          <span class="academic-year-chip">{{ getAcademicYearLabel(cls.academicYearId) }}</span>
+        </td>
       </ng-container>
 
       <!-- Students Column -->

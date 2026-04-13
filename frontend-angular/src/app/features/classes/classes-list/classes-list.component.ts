@@ -10,9 +10,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { SchoolClass } from '../../../core/models';
+import { SchoolClass, AcademicYear } from '../../../core/models';
 
 @Component({
   selector: 'app-classes-list',
@@ -28,6 +29,7 @@ import { SchoolClass } from '../../../core/models';
     MatChipsModule,
     MatTooltipModule,
     MatProgressSpinnerModule,
+    MatSnackBarModule,
     PageHeaderComponent,
   ],
   templateUrl: './classes-list.component.html',
@@ -36,6 +38,8 @@ import { SchoolClass } from '../../../core/models';
 export class ClassesListComponent implements OnInit {
   displayedColumns: string[] = ['name', 'sections', 'academicYear', 'students', 'actions'];
   dataSource = new MatTableDataSource<SchoolClass>([]);
+  academicYears: AcademicYear[] = [];
+  academicYearMap: Record<string, string> = {};
   isLoading = false;
 
   deleteDialogOpen = false;
@@ -43,18 +47,40 @@ export class ClassesListComponent implements OnInit {
 
   constructor(
     private apiService: ApiService,
-    private router: Router
+    private router: Router,
+    private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
+    this.loadAcademicYears();
     this.loadClasses();
+  }
+
+  loadAcademicYears(): void {
+    this.apiService.getAcademicYears().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          const years = Array.isArray(res.data) ? res.data : (res.data as any).content || [];
+          this.academicYears = years;
+          years.forEach((y: AcademicYear) => {
+            this.academicYearMap[y.academicYearId] = y.label;
+          });
+        }
+      },
+    });
+  }
+
+  getAcademicYearLabel(academicYearId: string): string {
+    return this.academicYearMap[academicYearId] || academicYearId || '-';
   }
 
   loadClasses(): void {
     this.isLoading = true;
     this.apiService.getClasses().subscribe({
       next: (response) => {
-        this.dataSource.data = response.data;
+        if (response.success && response.data) {
+          this.dataSource.data = Array.isArray(response.data) ? response.data : [];
+        }
         this.isLoading = false;
       },
       error: () => {
@@ -83,9 +109,20 @@ export class ClassesListComponent implements OnInit {
 
   deleteClass(): void {
     if (!this.selectedClass) return;
+    const classId = this.selectedClass.classId;
+    const className = this.selectedClass.name;
     this.deleteDialogOpen = false;
     this.selectedClass = null;
-    this.loadClasses();
+
+    this.apiService.deleteClass(classId).subscribe({
+      next: () => {
+        this.snackBar.open(`Class "${className}" deleted successfully`, 'Close', { duration: 3000 });
+        this.loadClasses();
+      },
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to delete class', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   getSectionsCount(schoolClass: SchoolClass): number {

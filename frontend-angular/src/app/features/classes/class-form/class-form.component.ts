@@ -80,13 +80,46 @@ export class ClassFormComponent implements OnInit {
   loadAcademicYears(): void {
     this.apiService.getAcademicYears().subscribe({
       next: (response) => {
-        this.academicYears = response.data;
+        const data = response.data;
+        this.academicYears = Array.isArray(data) ? data : (data as any)?.content || [];
         if (!this.isEditing) {
           const current = this.academicYears.find(y => y.current);
           if (current) {
             this.classForm.patchValue({ academicYearId: current.academicYearId });
           }
         }
+        if (this.isEditing) {
+          this.loadClassData();
+        }
+      },
+    });
+  }
+
+  loadClassData(): void {
+    if (!this.classId) return;
+    this.isLoading = true;
+    this.apiService.getClassById(this.classId).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          const cls = res.data;
+          this.classForm.patchValue({
+            name: cls.name,
+            academicYearId: cls.academicYearId,
+          });
+          // Clear and rebuild sections
+          this.sections.clear();
+          (cls.sections || []).forEach(s => {
+            this.sections.push(this.fb.group({
+              name: [s.name, Validators.required],
+              capacity: [s.capacity, [Validators.required, Validators.min(1)]],
+            }));
+          });
+        }
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.snackBar.open('Failed to load class data', 'Close', { duration: 3000 });
       },
     });
   }
@@ -112,7 +145,11 @@ export class ClassFormComponent implements OnInit {
     this.isSaving = true;
     const formData = this.classForm.value;
 
-    this.apiService.createClass(formData).subscribe({
+    const request$ = this.isEditing && this.classId
+      ? this.apiService.updateClass(this.classId, formData)
+      : this.apiService.createClass(formData);
+
+    request$.subscribe({
       next: () => {
         this.snackBar.open(
           this.isEditing ? 'Class updated successfully' : 'Class created successfully',
@@ -121,8 +158,8 @@ export class ClassFormComponent implements OnInit {
         );
         this.router.navigate(['/classes']);
       },
-      error: () => {
-        this.snackBar.open('Failed to save class', 'Close', { duration: 3000 });
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to save class', 'Close', { duration: 3000 });
         this.isSaving = false;
       },
     });
