@@ -89,7 +89,7 @@
                 </div>
               </td>
               <td
-                *ngFor="let daySchedule of schedule"
+                *ngFor="let daySchedule of schedule" 
                 class="period-cell"
                 [style.background-color]="daySchedule.periods[i].subjectId ? getSubjectColor(daySchedule.periods[i].subjectId) : ''"
               >
