@@ -74,14 +74,23 @@ export class TimetableBuilderComponent implements OnInit {
     { subjectId: 'science', name: 'Science' },
     { subjectId: 'english', name: 'English' },
     { subjectId: 'hindi', name: 'Hindi' },
+    { subjectId: 'kannada', name: 'Kannada' },
+    { subjectId: 'tamil', name: 'Tamil' },
+    { subjectId: 'telugu', name: 'Telugu' },
+    { subjectId: 'marathi', name: 'Marathi' },
+    { subjectId: 'sanskrit', name: 'Sanskrit' },
     { subjectId: 'social', name: 'Social Studies' },
-    { subjectId: 'computer', name: 'Computer Science' },
+    { subjectId: 'history', name: 'History' },
+    { subjectId: 'geography', name: 'Geography' },
     { subjectId: 'physics', name: 'Physics' },
     { subjectId: 'chemistry', name: 'Chemistry' },
     { subjectId: 'biology', name: 'Biology' },
-    { subjectId: 'pe', name: 'Physical Education' },
-    { subjectId: 'art', name: 'Art' },
+    { subjectId: 'computer', name: 'Computer Science' },
+    { subjectId: 'evs', name: 'EVS' },
+    { subjectId: 'art', name: 'Art & Craft' },
     { subjectId: 'music', name: 'Music' },
+    { subjectId: 'pe', name: 'Physical Education' },
+    { subjectId: 'moral', name: 'Moral Science' },
   ];
 
   defaultPeriods: { startTime: string; endTime: string }[] = [
@@ -271,18 +280,13 @@ export class TimetableBuilderComponent implements OnInit {
 
   getSubjectColor(subjectId: string): string {
     const colors: Record<string, string> = {
-      math: '#E3F2FD',
-      science: '#E8F5E9',
-      english: '#FFF3E0',
-      hindi: '#FCE4EC',
-      social: '#F3E5F5',
-      computer: '#E0F7FA',
-      physics: '#E8EAF6',
-      chemistry: '#FFF8E1',
-      biology: '#E0F2F1',
-      pe: '#FBE9E7',
-      art: '#F9FBE7',
-      music: '#EDE7F6',
+      math: '#E3F2FD', science: '#E8F5E9', english: '#FFF3E0',
+      hindi: '#FCE4EC', kannada: '#FFF9C4', tamil: '#E0F7FA',
+      telugu: '#F1F8E9', marathi: '#FCE4EC', sanskrit: '#EDE7F6',
+      social: '#F3E5F5', history: '#EFEBE9', geography: '#E0F2F1',
+      physics: '#E8EAF6', chemistry: '#FFF8E1', biology: '#E0F2F1',
+      computer: '#E0F7FA', evs: '#F1F8E9', art: '#F9FBE7',
+      music: '#EDE7F6', pe: '#FBE9E7', moral: '#FFF3E0',
     };
     return colors[subjectId] || '#F5F5F5';
   }

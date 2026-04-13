@@ -144,36 +144,26 @@ export class TimetableViewComponent implements OnInit {
 
   getSubjectColor(subjectId: string): string {
     const colors: Record<string, string> = {
-      math: '#E3F2FD',
-      science: '#E8F5E9',
-      english: '#FFF3E0',
-      hindi: '#FCE4EC',
-      social: '#F3E5F5',
-      computer: '#E0F7FA',
-      physics: '#E8EAF6',
-      chemistry: '#FFF8E1',
-      biology: '#E0F2F1',
-      pe: '#FBE9E7',
-      art: '#F9FBE7',
-      music: '#EDE7F6',
+      math: '#E3F2FD', science: '#E8F5E9', english: '#FFF3E0',
+      hindi: '#FCE4EC', kannada: '#FFF9C4', tamil: '#E0F7FA',
+      telugu: '#F1F8E9', marathi: '#FCE4EC', sanskrit: '#EDE7F6',
+      social: '#F3E5F5', history: '#EFEBE9', geography: '#E0F2F1',
+      physics: '#E8EAF6', chemistry: '#FFF8E1', biology: '#E0F2F1',
+      computer: '#E0F7FA', evs: '#F1F8E9', art: '#F9FBE7',
+      music: '#EDE7F6', pe: '#FBE9E7', moral: '#FFF3E0',
     };
     return colors[subjectId] || '#F5F5F5';
   }
 
   getSubjectBorderColor(subjectId: string): string {
     const colors: Record<string, string> = {
-      math: '#1565C0',
-      science: '#2E7D32',
-      english: '#E65100',
-      hindi: '#C62828',
-      social: '#6A1B9A',
-      computer: '#00838F',
-      physics: '#283593',
-      chemistry: '#F9A825',
-      biology: '#00695C',
-      pe: '#BF360C',
-      art: '#827717',
-      music: '#4527A0',
+      math: '#1565C0', science: '#2E7D32', english: '#E65100',
+      hindi: '#C62828', kannada: '#F9A825', tamil: '#00838F',
+      telugu: '#33691E', marathi: '#AD1457', sanskrit: '#4527A0',
+      social: '#6A1B9A', history: '#4E342E', geography: '#00695C',
+      physics: '#283593', chemistry: '#F9A825', biology: '#00695C',
+      computer: '#00838F', evs: '#558B2F', art: '#827717',
+      music: '#4527A0', pe: '#BF360C', moral: '#E65100',
     };
     return colors[subjectId] || '#9E9E9E';
   }
