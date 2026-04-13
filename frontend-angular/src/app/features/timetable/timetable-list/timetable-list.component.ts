@@ -11,7 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { AcademicYear, Timetable } from '../../../core/models';
+import { AcademicYear, Timetable, SchoolClass } from '../../../core/models';
 
 @Component({
   selector: 'app-timetable-list',
@@ -36,6 +36,8 @@ export class TimetableListComponent implements OnInit {
   selectedAcademicYearId = '';
   timetables: Timetable[] = [];
   isLoading = false;
+  classMap: Record<string, string> = {};
+  sectionMap: Record<string, string> = {};
 
   constructor(
     private api: ApiService,
@@ -43,14 +45,36 @@ export class TimetableListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadClasses();
     this.api.getAcademicYears().subscribe((res) => {
-      this.academicYears = res.data || [];
+      const data = res.data;
+      this.academicYears = Array.isArray(data) ? data : (data as any)?.content || [];
       const current = this.academicYears.find((ay) => ay.current);
       if (current) {
         this.selectedAcademicYearId = current.academicYearId;
         this.loadTimetables();
       }
     });
+  }
+
+  loadClasses(): void {
+    this.api.getClasses().subscribe((res) => {
+      const classes: SchoolClass[] = Array.isArray(res.data) ? res.data : [];
+      classes.forEach(cls => {
+        this.classMap[cls.classId] = cls.name;
+        (cls.sections || []).forEach(sec => {
+          this.sectionMap[sec.sectionId] = sec.name;
+        });
+      });
+    });
+  }
+
+  getClassName(classId: string): string {
+    return this.classMap[classId] || classId;
+  }
+
+  getSectionName(sectionId: string): string {
+    return this.sectionMap[sectionId] || sectionId;
   }
 
   loadTimetables(): void {

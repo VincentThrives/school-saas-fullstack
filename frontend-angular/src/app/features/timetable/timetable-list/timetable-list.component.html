@@ -32,9 +32,9 @@
     <mat-card class="timetable-card" *ngFor="let tt of timetables">
       <div class="card-header">
         <div class="class-info">
-          <h3 class="class-name">{{ tt.className || tt.classId }}</h3>
-          <span class="section-name" *ngIf="tt.sectionName || tt.sectionId">
-            Section {{ tt.sectionName || tt.sectionId }}
+          <h3 class="class-name">{{ getClassName(tt.classId) }}</h3>
+          <span class="section-name" *ngIf="tt.sectionId">
+            Section: {{ getSectionName(tt.sectionId) }}
           </span>
         </div>
         <mat-icon class="card-icon">calendar_month</mat-icon>
