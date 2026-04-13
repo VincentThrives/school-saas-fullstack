@@ -125,27 +125,50 @@ public class ReportCardService {
             examMap.put(exam.getExamId(), exam);
         }
 
-        // Aggregate marks per subject
+        // Standard subjects list
+        Map<String, String> allSubjects = new java.util.LinkedHashMap<>();
+        allSubjects.put("kannada", "Kannada");
+        allSubjects.put("english", "English");
+        allSubjects.put("hindi", "Hindi");
+        allSubjects.put("math", "Mathematics");
+        allSubjects.put("maths", "Mathematics");
+        allSubjects.put("science", "Science");
+        allSubjects.put("social", "Social Science");
+        allSubjects.put("history", "History");
+        allSubjects.put("geography", "Geography");
+        allSubjects.put("physics", "Physics");
+        allSubjects.put("chemistry", "Chemistry");
+        allSubjects.put("biology", "Biology");
+        allSubjects.put("computer", "Computer Science");
+        allSubjects.put("sanskrit", "Sanskrit");
+        allSubjects.put("evs", "EVS");
+        allSubjects.put("pe", "Physical Education");
+        allSubjects.put("art", "Art & Craft");
+        allSubjects.put("music", "Music");
+        allSubjects.put("moral", "Moral Science");
+
+        // Aggregate marks per subject from exams
         Map<String, Double> subjectMarksObtained = new HashMap<>();
         Map<String, Double> subjectMaxMarks = new HashMap<>();
-        Map<String, String> subjectNames = new HashMap<>();
+        Map<String, String> subjectNamesFromExams = new HashMap<>();
 
         for (ExamMark mark : marks) {
             Exam exam = examMap.get(mark.getExamId());
-            if (exam == null) {
-                continue;
-            }
+            if (exam == null) continue;
             String subjectId = exam.getSubjectId();
-            String subjectName = exam.getName(); // Use exam name as subject identifier
-            subjectNames.putIfAbsent(subjectId, subjectName);
+            String subjectName = allSubjects.getOrDefault(subjectId, exam.getSubjectName() != null ? exam.getSubjectName() : subjectId);
+            subjectNamesFromExams.putIfAbsent(subjectId, subjectName);
             subjectMarksObtained.merge(subjectId, mark.getMarksObtained() != null ? mark.getMarksObtained() : 0.0, Double::sum);
             subjectMaxMarks.merge(subjectId, (double) exam.getMaxMarks(), Double::sum);
         }
 
-        // Build subject grades
+        // Build subject grades — include all subjects that have marks
         List<ReportCard.SubjectGrade> subjectGrades = new ArrayList<>();
         double totalMarks = 0;
         double totalMaxMarks = 0;
+
+        // Use subjects from exams (not all standard subjects — only show subjects with data)
+        Map<String, String> subjectNames = subjectNamesFromExams.isEmpty() ? allSubjects : subjectNamesFromExams;
 
         for (String subjectId : subjectNames.keySet()) {
             double obtained = subjectMarksObtained.getOrDefault(subjectId, 0.0);
@@ -153,8 +176,12 @@ public class ReportCardService {
             double pct = max > 0 ? (obtained / max) * 100 : 0;
             String grade = calculateGrade(pct);
 
+            // Skip subjects with no marks
+            if (max <= 0) continue;
+
             ReportCard.SubjectGrade sg = new ReportCard.SubjectGrade();
-            sg.setSubjectName(subjectNames.get(subjectId));
+            // Use proper name from allSubjects map, fallback to exam name
+            sg.setSubjectName(allSubjects.getOrDefault(subjectId, subjectNames.get(subjectId)));
             sg.setMarksObtained(obtained);
             sg.setMaxMarks(max);
             sg.setGrade(grade);
@@ -296,9 +323,7 @@ public class ReportCardService {
 
             document.add(marksTable);
 
-            // Attendance
-            document.add(new Paragraph("Attendance: " + reportCard.getAttendancePercentage() + "%")
-                    .setFontSize(10).setMarginBottom(5));
+            // (Attendance removed from report card as per requirement)
 
             // Remarks
             if (reportCard.getTeacherRemarks() != null && !reportCard.getTeacherRemarks().isEmpty()) {
