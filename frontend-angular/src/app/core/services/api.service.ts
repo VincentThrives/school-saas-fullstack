@@ -602,4 +602,24 @@ export class ApiService {
   getTeacherPtmSchedule(ptmId: string, teacherId: string): Observable<ApiResponse<PtmSlot[]>> {
     return this.http.get<ApiResponse<PtmSlot[]>>(`${this.API}/ptm/${ptmId}/teachers/${teacherId}/schedule`);
   }
+
+  // ── Audit Logs ────────────────────────────────────────────────────────
+  getAuditLogs(page = 0, size = 20, filters?: { action?: string; entityType?: string; tenantId?: string; from?: string; to?: string; search?: string }): Observable<ApiResponse<any>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (filters?.action) params = params.set('action', filters.action);
+    if (filters?.entityType) params = params.set('entityType', filters.entityType);
+    if (filters?.tenantId) params = params.set('tenantId', filters.tenantId);
+    if (filters?.from) params = params.set('from', filters.from);
+    if (filters?.to) params = params.set('to', filters.to);
+    if (filters?.search) params = params.set('search', filters.search);
+    return this.http.get<ApiResponse<any>>(`${this.API}/super/audit-logs`, { params });
+  }
+
+  getAuditLogActions(): Observable<ApiResponse<string[]>> {
+    return this.http.get<ApiResponse<string[]>>(`${this.API}/super/audit-logs/actions`);
+  }
+
+  getAuditLogEntityTypes(): Observable<ApiResponse<string[]>> {
+    return this.http.get<ApiResponse<string[]>>(`${this.API}/super/audit-logs/entity-types`);
+  }
 }

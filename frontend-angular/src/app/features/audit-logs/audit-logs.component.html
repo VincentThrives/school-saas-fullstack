@@ -1,0 +1,180 @@
+<div class="audit-logs-container">
+  <app-page-header
+    title="System Audit Logs"
+    subtitle="Track all actions across the platform"
+    [breadcrumbs]="breadcrumbs"
+    actionLabel="Export CSV"
+    actionIcon="download"
+    (actionClick)="exportCsv()"
+  ></app-page-header>
+
+  <!-- Filters -->
+  <mat-card class="filter-card">
+    <mat-card-content>
+      <div class="filter-row">
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Search description</mat-label>
+          <input matInput [(ngModel)]="searchQuery" placeholder="Search audit logs..." (keyup.enter)="onSearch()" />
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Action type</mat-label>
+          <mat-select [(ngModel)]="actionFilter">
+            <mat-option value="">All Actions</mat-option>
+            <mat-option *ngFor="let action of actions" [value]="action">{{ action }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Entity type</mat-label>
+          <mat-select [(ngModel)]="entityTypeFilter">
+            <mat-option value="">All Entities</mat-option>
+            <mat-option *ngFor="let et of entityTypes" [value]="et">{{ et }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="filter-row">
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Tenant ID</mat-label>
+          <input matInput [(ngModel)]="tenantIdFilter" placeholder="Filter by tenant..." />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Date from</mat-label>
+          <input matInput type="date" [(ngModel)]="dateFrom" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Date to</mat-label>
+          <input matInput type="date" [(ngModel)]="dateTo" />
+        </mat-form-field>
+
+        <div class="filter-actions">
+          <button mat-flat-button color="primary" class="search-btn" (click)="onSearch()">
+            <mat-icon>search</mat-icon>
+            Search
+          </button>
+          <button mat-stroked-button class="clear-btn" (click)="clearFilters()">
+            <mat-icon>clear</mat-icon>
+            Clear
+          </button>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar" *ngIf="!isLoading">
+    <div class="stat-item">
+      <mat-icon>list_alt</mat-icon>
+      <span><strong>{{ totalElements }}</strong> total logs</span>
+    </div>
+    <div class="stat-item" *ngIf="dateFrom || dateTo">
+      <mat-icon>date_range</mat-icon>
+      <span>
+        {{ dateFrom || 'Beginning' }} &mdash; {{ dateTo || 'Now' }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Loading audit logs...</p>
+  </div>
+
+  <!-- Table -->
+  <mat-card class="table-card" *ngIf="!isLoading">
+    <div class="table-responsive">
+      <table mat-table [dataSource]="logs" class="audit-table" *ngIf="logs.length > 0">
+
+        <!-- Timestamp -->
+        <ng-container matColumnDef="timestamp">
+          <th mat-header-cell *matHeaderCellDef>Timestamp</th>
+          <td mat-cell *matCellDef="let log">
+            <div class="timestamp-cell">
+              <span class="date">{{ log.timestamp | date:'mediumDate' }}</span>
+              <span class="time">{{ log.timestamp | date:'mediumTime' }}</span>
+            </div>
+          </td>
+        </ng-container>
+
+        <!-- Action -->
+        <ng-container matColumnDef="action">
+          <th mat-header-cell *matHeaderCellDef>Action</th>
+          <td mat-cell *matCellDef="let log">
+            <span class="action-chip" [ngClass]="getActionColor(log.action)">
+              {{ log.action }}
+            </span>
+          </td>
+        </ng-container>
+
+        <!-- Entity -->
+        <ng-container matColumnDef="entity">
+          <th mat-header-cell *matHeaderCellDef>Entity</th>
+          <td mat-cell *matCellDef="let log">
+            <span class="entity-type">{{ log.entityType }}</span>
+            <span class="entity-id" *ngIf="log.entityId" [matTooltip]="log.entityId">{{ shortenId(log.entityId) }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Description -->
+        <ng-container matColumnDef="description">
+          <th mat-header-cell *matHeaderCellDef>Description</th>
+          <td mat-cell *matCellDef="let log">
+            <span class="description-text">{{ log.description || '-' }}</span>
+          </td>
+        </ng-container>
+
+        <!-- User -->
+        <ng-container matColumnDef="user">
+          <th mat-header-cell *matHeaderCellDef>User</th>
+          <td mat-cell *matCellDef="let log">
+            <div class="user-cell">
+              <span class="user-id" [matTooltip]="log.userId">{{ shortenId(log.userId) }}</span>
+              <span class="role-chip" *ngIf="log.userRole">{{ log.userRole }}</span>
+            </div>
+          </td>
+        </ng-container>
+
+        <!-- Tenant ID -->
+        <ng-container matColumnDef="tenantId">
+          <th mat-header-cell *matHeaderCellDef>Tenant ID</th>
+          <td mat-cell *matCellDef="let log">
+            <span [matTooltip]="log.tenantId || ''">{{ shortenId(log.tenantId) }}</span>
+          </td>
+        </ng-container>
+
+        <!-- IP Address -->
+        <ng-container matColumnDef="ipAddress">
+          <th mat-header-cell *matHeaderCellDef>IP Address</th>
+          <td mat-cell *matCellDef="let log">
+            <span class="ip-text">{{ log.ipAddress || '-' }}</span>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+
+      <!-- Empty State -->
+      <div class="empty-state" *ngIf="logs.length === 0">
+        <mat-icon>receipt_long</mat-icon>
+        <p>No audit logs found</p>
+        <span class="empty-hint">Try adjusting your filters or date range</span>
+      </div>
+    </div>
+
+    <mat-paginator
+      *ngIf="logs.length > 0"
+      [length]="totalElements"
+      [pageIndex]="page"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="[10, 20, 50, 100]"
+      (page)="onPageChange($event)"
+      showFirstLastButtons
+    ></mat-paginator>
+  </mat-card>
+</div>

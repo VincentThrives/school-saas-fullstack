@@ -1,0 +1,355 @@
+$gold: #D4A843;
+$gold-light: #f5ecd7;
+$gold-dark: #b8922e;
+
+.audit-logs-container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+// Filter Card
+.filter-card {
+  margin-bottom: 16px;
+
+  .filter-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+
+    &:not(:last-child) {
+      margin-bottom: 4px;
+    }
+  }
+
+  .filter-field {
+    flex: 1;
+    min-width: 180px;
+  }
+
+  .filter-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding-top: 4px;
+  }
+
+  .search-btn {
+    background: $gold;
+    color: #fff;
+
+    &:hover {
+      background: $gold-dark;
+    }
+  }
+
+  .clear-btn {
+    border-color: #ccc;
+    color: #666;
+  }
+}
+
+// Stats Bar
+.stats-bar {
+  display: flex;
+  gap: 24px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: $gold-light;
+  border-radius: 8px;
+  border-left: 4px solid $gold;
+
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #555;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: $gold-dark;
+    }
+
+    strong {
+      color: #333;
+    }
+  }
+}
+
+// Loading
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  gap: 16px;
+  color: #666;
+}
+
+// Table Card
+.table-card {
+  overflow: hidden;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.audit-table {
+  width: 100%;
+  min-width: 900px;
+
+  th.mat-mdc-header-cell {
+    font-weight: 600;
+    color: #555;
+    font-size: 13px;
+    background: #fafafa;
+  }
+
+  td.mat-mdc-cell {
+    padding: 12px 16px;
+    vertical-align: middle;
+  }
+}
+
+// Timestamp Cell
+.timestamp-cell {
+  display: flex;
+  flex-direction: column;
+
+  .date {
+    font-weight: 500;
+    color: #333;
+    font-size: 13px;
+  }
+
+  .time {
+    font-size: 12px;
+    color: #999;
+  }
+}
+
+// Action Chips
+.action-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+
+  &.action-blue {
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+
+  &.action-green {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  &.action-orange {
+    background: #fff3e0;
+    color: #e65100;
+  }
+
+  &.action-red {
+    background: #ffebee;
+    color: #c62828;
+  }
+
+  &.action-purple {
+    background: #f3e5f5;
+    color: #6a1b9a;
+  }
+
+  &.action-grey {
+    background: #f5f5f5;
+    color: #616161;
+  }
+}
+
+// Entity Cell
+.entity-type {
+  display: block;
+  font-weight: 500;
+  color: #333;
+  font-size: 13px;
+}
+
+.entity-id {
+  display: block;
+  font-size: 11px;
+  color: #999;
+  font-family: monospace;
+}
+
+// Description
+.description-text {
+  font-size: 13px;
+  color: #555;
+  max-width: 250px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// User Cell
+.user-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-id {
+  font-size: 13px;
+  color: #333;
+  font-family: monospace;
+}
+
+.role-chip {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: $gold-light;
+  color: $gold-dark;
+  width: fit-content;
+}
+
+// IP
+.ip-text {
+  font-size: 13px;
+  color: #777;
+  font-family: monospace;
+}
+
+// Empty State
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 24px;
+  color: #999;
+
+  mat-icon {
+    font-size: 56px;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 16px;
+    color: #ddd;
+  }
+
+  p {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 500;
+    color: #888;
+  }
+
+  .empty-hint {
+    font-size: 13px;
+    color: #bbb;
+  }
+}
+
+// Dark mode support
+:host-context(body.dark-theme) {
+  .filter-card {
+    .clear-btn {
+      border-color: #555;
+      color: #aaa;
+    }
+  }
+
+  .stats-bar {
+    background: rgba($gold, 0.12);
+    border-left-color: $gold;
+
+    .stat-item {
+      color: #bbb;
+
+      strong {
+        color: #eee;
+      }
+    }
+  }
+
+  .audit-table {
+    th.mat-mdc-header-cell {
+      background: #2a2a2a;
+      color: #ccc;
+    }
+
+    td.mat-mdc-cell {
+      border-bottom-color: #333;
+    }
+  }
+
+  .timestamp-cell .date {
+    color: #eee;
+  }
+
+  .timestamp-cell .time {
+    color: #888;
+  }
+
+  .entity-type {
+    color: #eee;
+  }
+
+  .entity-id {
+    color: #888;
+  }
+
+  .description-text {
+    color: #bbb;
+  }
+
+  .user-id {
+    color: #eee;
+  }
+
+  .ip-text {
+    color: #999;
+  }
+
+  .empty-state {
+    mat-icon {
+      color: #555;
+    }
+
+    p {
+      color: #999;
+    }
+  }
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .audit-logs-container {
+    padding: 16px;
+  }
+
+  .filter-card .filter-row {
+    flex-direction: column;
+
+    .filter-field {
+      min-width: 100%;
+    }
+  }
+
+  .stats-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
