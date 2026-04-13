@@ -11,6 +11,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { Teacher } from '../../../core/models';
@@ -30,6 +31,7 @@ import { Teacher } from '../../../core/models';
     MatChipsModule,
     MatTooltipModule,
     MatProgressSpinnerModule,
+    MatSnackBarModule,
     PageHeaderComponent,
   ],
   templateUrl: './teachers-list.component.html',
@@ -52,7 +54,8 @@ export class TeachersListComponent implements OnInit {
 
   constructor(
     private apiService: ApiService,
-    private router: Router
+    private router: Router,
+    private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
@@ -63,8 +66,10 @@ export class TeachersListComponent implements OnInit {
     this.isLoading = true;
     this.apiService.getTeachers(this.pageIndex, this.pageSize).subscribe({
       next: (response) => {
-        this.dataSource.data = response.data.content;
-        this.totalElements = response.data.totalElements;
+        if (response.success && response.data) {
+          this.dataSource.data = response.data.content || [];
+          this.totalElements = response.data.totalElements || 0;
+        }
         this.isLoading = false;
       },
       error: () => {
@@ -104,9 +109,22 @@ export class TeachersListComponent implements OnInit {
 
   deleteTeacher(): void {
     if (!this.selectedTeacher) return;
+    const teacherId = this.selectedTeacher.teacherId;
+    const name = this.selectedTeacher.firstName
+      ? `${this.selectedTeacher.firstName} ${this.selectedTeacher.lastName || ''}`
+      : this.selectedTeacher.employeeId;
     this.deleteDialogOpen = false;
     this.selectedTeacher = null;
-    this.loadTeachers();
+
+    this.apiService.deleteTeacher(teacherId).subscribe({
+      next: () => {
+        this.snackBar.open(`Teacher "${name}" deleted successfully`, 'Close', { duration: 3000 });
+        this.loadTeachers();
+      },
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to delete teacher', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   getSubjectNames(teacher: Teacher): string {

@@ -37,8 +37,8 @@
         <th mat-header-cell *matHeaderCellDef>Name</th>
         <td mat-cell *matCellDef="let teacher">
           <div class="teacher-name-cell">
-            <div class="teacher-avatar">{{ teacher.firstName?.charAt(0) || 'T' }}</div>
-            <span class="teacher-name">{{ teacher.firstName || '' }} {{ teacher.lastName || '' }}</span>
+            <div class="teacher-avatar">{{ teacher.firstName ? teacher.firstName.charAt(0) : 'T' }}</div>
+            <span class="teacher-name" *ngIf="teacher.firstName">{{ teacher.firstName }} {{ teacher.lastName || '' }}</span>
             <span class="teacher-name" *ngIf="!teacher.firstName">Teacher {{ teacher.employeeId || '' }}</span>
           </div>
         </td>
