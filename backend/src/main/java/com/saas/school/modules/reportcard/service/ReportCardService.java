@@ -75,18 +75,40 @@ public class ReportCardService {
     public ReportCard generateReportCard(String studentId, String academicYearId) {
         logger.info("Generating report card for studentId={}, academicYearId={}", studentId, academicYearId);
 
-        Student student = studentRepository.findByStudentIdAndDeletedAtIsNull(studentId)
+        Student student = studentRepository.findById(studentId)
+                .filter(s -> s.getDeletedAt() == null)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
 
-        User user = userRepository.findById(student.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found for student: " + studentId));
+        // Get student name - from student directly or from linked user
+        String studentName;
+        if (student.getFirstName() != null && !student.getFirstName().isEmpty()) {
+            studentName = student.getFirstName() + " " + (student.getLastName() != null ? student.getLastName() : "");
+        } else if (student.getUserId() != null) {
+            User user = userRepository.findById(student.getUserId()).orElse(null);
+            studentName = user != null ? user.getFirstName() + " " + user.getLastName() : "Student " + student.getAdmissionNumber();
+        } else {
+            studentName = "Student " + (student.getAdmissionNumber() != null ? student.getAdmissionNumber() : studentId);
+        }
 
         String className = "";
+        String sectionName = "";
         String classId = student.getClassId();
         if (classId != null) {
             SchoolClass schoolClass = schoolClassRepository.findById(classId).orElse(null);
             if (schoolClass != null) {
                 className = schoolClass.getName();
+                if (student.getSectionId() != null && schoolClass.getSections() != null) {
+                    schoolClass.getSections().stream()
+                        .filter(s -> student.getSectionId().equals(s.getSectionId()))
+                        .findFirst()
+                        .ifPresent(s -> { });
+                    for (var sec : schoolClass.getSections()) {
+                        if (student.getSectionId().equals(sec.getSectionId())) {
+                            sectionName = sec.getName();
+                            break;
+                        }
+                    }
+                }
             }
         }
 
@@ -154,7 +176,7 @@ public class ReportCardService {
         // Build and save report card
         ReportCard reportCard = new ReportCard();
         reportCard.setStudentId(studentId);
-        reportCard.setStudentName(user.getFirstName() + " " + user.getLastName());
+        reportCard.setStudentName(studentName.trim());
         reportCard.setClassId(classId);
         reportCard.setClassName(className);
         reportCard.setAcademicYearId(academicYearId);
@@ -188,38 +210,56 @@ public class ReportCardService {
             Document document = new Document(pdfDoc);
             document.setMargins(30, 30, 30, 30);
 
-            // School header
+            // ── School Logo Space ──
+            document.add(new Paragraph("[School Logo]")
+                    .setFontSize(10).setTextAlignment(TextAlignment.CENTER)
+                    .setFontColor(ColorConstants.LIGHT_GRAY)
+                    .setMarginBottom(5));
+
+            // ── School Header ──
             document.add(new Paragraph(tenant.getSchoolName())
-                    .setBold().setFontSize(18).setTextAlignment(TextAlignment.CENTER)
+                    .setBold().setFontSize(20).setTextAlignment(TextAlignment.CENTER)
                     .setMarginBottom(2));
 
             if (tenant.getAddress() != null) {
-                String addressStr = "";
-                if (tenant.getAddress().getCity() != null) {
-                    addressStr += tenant.getAddress().getCity();
-                }
-                if (tenant.getAddress().getState() != null) {
-                    addressStr += ", " + tenant.getAddress().getState();
-                }
-                if (!addressStr.isEmpty()) {
-                    document.add(new Paragraph(addressStr)
-                            .setFontSize(10).setTextAlignment(TextAlignment.CENTER)
-                            .setFontColor(ColorConstants.GRAY).setMarginBottom(5));
+                StringBuilder addressStr = new StringBuilder();
+                if (tenant.getAddress().getStreet() != null) addressStr.append(tenant.getAddress().getStreet()).append(", ");
+                if (tenant.getAddress().getCity() != null) addressStr.append(tenant.getAddress().getCity()).append(", ");
+                if (tenant.getAddress().getState() != null) addressStr.append(tenant.getAddress().getState());
+                if (tenant.getAddress().getZip() != null) addressStr.append(" - ").append(tenant.getAddress().getZip());
+                if (addressStr.length() > 0) {
+                    document.add(new Paragraph(addressStr.toString())
+                            .setFontSize(9).setTextAlignment(TextAlignment.CENTER)
+                            .setFontColor(ColorConstants.GRAY).setMarginBottom(3));
                 }
             }
 
+            if (tenant.getContactPhone() != null) {
+                document.add(new Paragraph("Phone: " + tenant.getContactPhone() + "  |  Email: " + tenant.getContactEmail())
+                        .setFontSize(8).setTextAlignment(TextAlignment.CENTER)
+                        .setFontColor(ColorConstants.GRAY).setMarginBottom(5));
+            }
+
+            // ── Separator line ──
+            document.add(new Paragraph("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                    .setTextAlignment(TextAlignment.CENTER).setFontSize(8).setMarginBottom(5));
+
             document.add(new Paragraph("REPORT CARD")
-                    .setBold().setFontSize(14).setTextAlignment(TextAlignment.CENTER)
+                    .setBold().setFontSize(16).setTextAlignment(TextAlignment.CENTER)
                     .setMarginBottom(15));
 
-            // Student info table
-            Table infoTable = new Table(UnitValue.createPercentArray(new float[]{25, 35, 20, 20}));
+            // ── Student Info Table ──
+            Table infoTable = new Table(UnitValue.createPercentArray(new float[]{20, 30, 20, 30}));
             infoTable.setWidth(UnitValue.createPercentValue(100));
             infoTable.setMarginBottom(15);
 
             addInfoCell(infoTable, "Student Name:", reportCard.getStudentName());
             addInfoCell(infoTable, "Class:", reportCard.getClassName());
+            addInfoCell(infoTable, "Section:", sectionName.isEmpty() ? "-" : sectionName);
+            addInfoCell(infoTable, "Admission No:", student.getAdmissionNumber() != null ? student.getAdmissionNumber() : "-");
+            addInfoCell(infoTable, "Roll No:", student.getRollNumber() != null ? student.getRollNumber() : "-");
             addInfoCell(infoTable, "Academic Year:", reportCard.getAcademicYearLabel() != null ? reportCard.getAcademicYearLabel() : reportCard.getAcademicYearId());
+            addInfoCell(infoTable, "DOB:", student.getDateOfBirth() != null ? student.getDateOfBirth().toString() : "-");
             addInfoCell(infoTable, "Rank:", String.valueOf(reportCard.getRank()));
 
             document.add(infoTable);
@@ -256,15 +296,9 @@ public class ReportCardService {
 
             document.add(marksTable);
 
-            // Summary
-            Table summaryTable = new Table(UnitValue.createPercentArray(new float[]{50, 50}));
-            summaryTable.setWidth(UnitValue.createPercentValue(100));
-            summaryTable.setMarginBottom(15);
-
-            addInfoCell(summaryTable, "Overall Percentage:", reportCard.getPercentage() + "%");
-            addInfoCell(summaryTable, "Attendance:", reportCard.getAttendancePercentage() + "%");
-
-            document.add(summaryTable);
+            // Attendance
+            document.add(new Paragraph("Attendance: " + reportCard.getAttendancePercentage() + "%")
+                    .setFontSize(10).setMarginBottom(5));
 
             // Remarks
             if (reportCard.getTeacherRemarks() != null && !reportCard.getTeacherRemarks().isEmpty()) {
@@ -276,17 +310,64 @@ public class ReportCardService {
                         .setFontSize(10).setMarginBottom(10));
             }
 
-            // School stamp area
+            // ── Percentage and Grade Summary ──
             document.add(new Paragraph("\n"));
-            Table stampTable = new Table(UnitValue.createPercentArray(new float[]{33, 34, 33}));
+            Table resultTable = new Table(UnitValue.createPercentArray(new float[]{25, 25, 25, 25}));
+            resultTable.setWidth(UnitValue.createPercentValue(100));
+            resultTable.setMarginBottom(20);
+
+            Cell pctLabelCell = new Cell().setBackgroundColor(ColorConstants.LIGHT_GRAY);
+            pctLabelCell.add(new Paragraph("Overall Percentage").setBold().setFontSize(10).setTextAlignment(TextAlignment.CENTER));
+            resultTable.addCell(pctLabelCell);
+            resultTable.addCell(new Cell().add(new Paragraph(reportCard.getPercentage() + "%").setBold().setFontSize(12).setTextAlignment(TextAlignment.CENTER)));
+
+            Cell gradeLabelCell = new Cell().setBackgroundColor(ColorConstants.LIGHT_GRAY);
+            gradeLabelCell.add(new Paragraph("Overall Grade").setBold().setFontSize(10).setTextAlignment(TextAlignment.CENTER));
+            resultTable.addCell(gradeLabelCell);
+            resultTable.addCell(new Cell().add(new Paragraph(reportCard.getGrade()).setBold().setFontSize(14).setTextAlignment(TextAlignment.CENTER)));
+
+            document.add(resultTable);
+
+            // ── Result: PASS / FAIL ──
+            String result = reportCard.getPercentage() >= 35 ? "PASS" : "FAIL";
+            document.add(new Paragraph("Result: " + result)
+                    .setBold().setFontSize(14).setTextAlignment(TextAlignment.CENTER)
+                    .setMarginBottom(20));
+
+            // ── Signature Area ──
+            document.add(new Paragraph("\n\n"));
+            Table stampTable = new Table(UnitValue.createPercentArray(new float[]{30, 40, 30}));
             stampTable.setWidth(UnitValue.createPercentValue(100));
-            stampTable.addCell(new Cell().setBorder(Border.NO_BORDER)
-                    .add(new Paragraph("Class Teacher").setFontSize(9).setTextAlignment(TextAlignment.CENTER).setMarginTop(30)));
-            stampTable.addCell(new Cell().setBorder(Border.NO_BORDER)
-                    .add(new Paragraph("School Stamp").setFontSize(9).setTextAlignment(TextAlignment.CENTER).setMarginTop(30)));
-            stampTable.addCell(new Cell().setBorder(Border.NO_BORDER)
-                    .add(new Paragraph("Principal").setFontSize(9).setTextAlignment(TextAlignment.CENTER).setMarginTop(30)));
+
+            // Class Teacher signature
+            Cell teacherCell = new Cell().setBorder(Border.NO_BORDER);
+            teacherCell.add(new Paragraph("\n\n\n").setFontSize(6));
+            teacherCell.add(new Paragraph("____________________").setFontSize(10).setTextAlignment(TextAlignment.CENTER));
+            teacherCell.add(new Paragraph("Class Teacher").setFontSize(9).setTextAlignment(TextAlignment.CENTER).setBold());
+            teacherCell.add(new Paragraph("Date: ___/___/______").setFontSize(8).setTextAlignment(TextAlignment.CENTER).setFontColor(ColorConstants.GRAY));
+            stampTable.addCell(teacherCell);
+
+            // School Seal / Logo space
+            Cell sealCell = new Cell().setBorder(Border.NO_BORDER);
+            sealCell.add(new Paragraph("\n").setFontSize(6));
+            sealCell.add(new Paragraph("[School Seal / Logo]").setFontSize(9).setTextAlignment(TextAlignment.CENTER).setFontColor(ColorConstants.LIGHT_GRAY));
+            sealCell.add(new Paragraph("\n\n").setFontSize(6));
+            stampTable.addCell(sealCell);
+
+            // Principal signature
+            Cell principalCell = new Cell().setBorder(Border.NO_BORDER);
+            principalCell.add(new Paragraph("\n\n\n").setFontSize(6));
+            principalCell.add(new Paragraph("____________________").setFontSize(10).setTextAlignment(TextAlignment.CENTER));
+            principalCell.add(new Paragraph("Principal").setFontSize(9).setTextAlignment(TextAlignment.CENTER).setBold());
+            principalCell.add(new Paragraph("Date: ___/___/______").setFontSize(8).setTextAlignment(TextAlignment.CENTER).setFontColor(ColorConstants.GRAY));
+            stampTable.addCell(principalCell);
+
             document.add(stampTable);
+
+            // ── Footer ──
+            document.add(new Paragraph("\n"));
+            document.add(new Paragraph("This is a computer-generated report card. Please verify with the school office for any discrepancies.")
+                    .setFontSize(7).setTextAlignment(TextAlignment.CENTER).setFontColor(ColorConstants.GRAY));
 
             document.close();
             logger.info("Report card PDF generated successfully for reportCardId={}", reportCardId);
