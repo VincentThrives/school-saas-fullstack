@@ -142,6 +142,18 @@ export class TimetableViewComponent implements OnInit {
     return currentTime >= period.startTime && currentTime <= period.endTime;
   }
 
+  getSubjectName(subjectId: string): string {
+    const names: Record<string, string> = {
+      math: 'Mathematics', science: 'Science', english: 'English',
+      hindi: 'Hindi', kannada: 'Kannada', sanskrit: 'Sanskrit',
+      social: 'Social Studies', history: 'History', geography: 'Geography',
+      physics: 'Physics', chemistry: 'Chemistry', biology: 'Biology',
+      computer: 'Computer Science', evs: 'EVS', art: 'Art & Craft',
+      music: 'Music', pe: 'Physical Education', moral: 'Moral Science',
+    };
+    return names[subjectId] || subjectId;
+  }
+
   getSubjectColor(subjectId: string): string {
     const colors: Record<string, string> = {
       math: '#E3F2FD', science: '#E8F5E9', english: '#FFF3E0',
@@ -170,5 +182,78 @@ export class TimetableViewComponent implements OnInit {
 
   printTimetable(): void {
     window.print();
+  }
+
+  downloadTimetable(): void {
+    // Create a printable version and trigger download as PDF via browser print
+    const printContent = document.querySelector('.timetable-grid');
+    if (!printContent) {
+      window.print();
+      return;
+    }
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+
+    const className = this.classes.find(c => c.classId === this.selectedClassId)?.name || '';
+    const sectionName = this.sections.find(s => s.sectionId === this.selectedSectionId)?.name || '';
+
+    win.document.write(`
+      <html>
+      <head>
+        <title>Timetable - ${className} ${sectionName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { text-align: center; color: #D4A843; margin-bottom: 5px; }
+          h3 { text-align: center; color: #666; margin-top: 0; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background: #D4A843; color: white; padding: 10px; text-align: center; }
+          td { border: 1px solid #ddd; padding: 8px; text-align: center; vertical-align: top; font-size: 12px; }
+          .subject { font-weight: bold; }
+          .teacher { color: #666; font-size: 11px; }
+          .room { color: #999; font-size: 10px; }
+          .time { font-size: 10px; color: #888; }
+        </style>
+      </head>
+      <body>
+        <h1>Timetable</h1>
+        <h3>${className} - ${sectionName}</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Time</th>
+    `);
+
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    days.forEach(d => win.document.write(`<th>${d}</th>`));
+    win.document.write('</tr></thead><tbody>');
+
+    if (this.timetable?.schedule) {
+      const maxPeriods = Math.max(...this.timetable.schedule.map(d => d.periods?.length || 0));
+      for (let p = 0; p < maxPeriods; p++) {
+        win.document.write('<tr>');
+        win.document.write(`<td><strong>${p + 1}</strong></td>`);
+
+        const firstDay = this.timetable.schedule[0]?.periods?.[p];
+        win.document.write(`<td class="time">${firstDay?.startTime || ''} - ${firstDay?.endTime || ''}</td>`);
+
+        days.forEach(day => {
+          const daySchedule = this.timetable?.schedule?.find(d => d.dayOfWeek === day);
+          const period = daySchedule?.periods?.[p];
+          if (period?.subjectId) {
+            const subName = this.getSubjectName(period.subjectId);
+            win.document.write(`<td><div class="subject">${subName}</div><div class="teacher">${period.teacherName || period.teacherId || ''}</div><div class="room">${period.roomNumber || ''}</div></td>`);
+          } else {
+            win.document.write('<td>-</td>');
+          }
+        });
+        win.document.write('</tr>');
+      }
+    }
+
+    win.document.write('</tbody></table></body></html>');
+    win.document.close();
+    win.print();
   }
 }

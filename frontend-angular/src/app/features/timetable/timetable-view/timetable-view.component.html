@@ -7,6 +7,9 @@
       { label: 'Timetables', link: '/timetable' },
       { label: isTeacherView ? 'My Schedule' : 'View Timetable' }
     ]"
+    actionLabel="Download PDF"
+    actionIcon="download"
+    (actionClick)="downloadTimetable()"
     secondaryActionLabel="Print"
     secondaryActionIcon="print"
     (secondaryActionClick)="printTimetable()"
