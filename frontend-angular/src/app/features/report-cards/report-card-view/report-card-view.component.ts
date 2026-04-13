@@ -48,8 +48,9 @@ export class ReportCardViewComponent implements OnInit {
 
   loadReportCard(id: string): void {
     this.isLoading = true;
-    this.api.getReportCardById(id).subscribe({
-      next: (res) => {
+    // id could be a studentId — generate report card on the fly
+    this.api.getStudentReportCard(id, '').subscribe({
+      next: (res: any) => {
         this.reportCard = res.data;
         this.isLoading = false;
       },
@@ -61,13 +62,7 @@ export class ReportCardViewComponent implements OnInit {
 
   downloadPdf(): void {
     if (!this.reportCard) return;
-    this.api.downloadReportCardPdf(this.reportCard.reportCardId).subscribe((blob) => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `report-card-${this.reportCard!.studentName}.pdf`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    });
+    // For now, print the page as PDF
+    window.print();
   }
 }

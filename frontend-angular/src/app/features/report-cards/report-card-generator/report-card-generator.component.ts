@@ -13,7 +13,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { SelectionModel } from '@angular/cdk/collections';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { SchoolClass, AcademicYear, ReportCard } from '../../../core/models';
 
 @Component({
@@ -31,6 +33,7 @@ import { SchoolClass, AcademicYear, ReportCard } from '../../../core/models';
     MatIconModule,
     MatProgressSpinnerModule,
     MatChipsModule,
+    MatSnackBarModule,
     PageHeaderComponent,
   ],
   templateUrl: './report-card-generator.component.html',
@@ -50,7 +53,9 @@ export class ReportCardGeneratorComponent implements OnInit {
 
   constructor(
     private api: ApiService,
+    private authService: AuthService,
     private router: Router,
+    private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
@@ -68,13 +73,22 @@ export class ReportCardGeneratorComponent implements OnInit {
     if (!this.selectedClassId || !this.selectedAcademicYearId) return;
     this.isLoading = true;
     this.selection.clear();
-    this.api.getReportCards(this.selectedClassId, this.selectedAcademicYearId).subscribe({
+    // Generate report cards for the class (creates if not exists)
+    this.api.generateReportCards({
+      classId: this.selectedClassId,
+      academicYearId: this.selectedAcademicYearId,
+      studentIds: [],
+    }).subscribe({
       next: (res) => {
         this.reportCards = res.data || [];
         this.isLoading = false;
+        if (this.reportCards.length === 0) {
+          this.snackBar.open('No students found with exam marks in this class', 'Close', { duration: 3000 });
+        }
       },
-      error: () => {
+      error: (err) => {
         this.isLoading = false;
+        this.snackBar.open(err?.error?.message || 'Failed to generate report cards', 'Close', { duration: 3000 });
       },
     });
   }
@@ -110,14 +124,20 @@ export class ReportCardGeneratorComponent implements OnInit {
     });
   }
 
-  downloadPdf(reportCardId: string): void {
-    this.api.downloadReportCardPdf(reportCardId).subscribe((blob) => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `report-card-${reportCardId}.pdf`;
-      a.click();
-      window.URL.revokeObjectURL(url);
+  downloadPdf(rc: ReportCard): void {
+    const tenantId = this.authService.currentSchoolInfo?.tenantId || '';
+    this.api.downloadReportCardPdf(rc.studentId, this.selectedAcademicYearId, tenantId).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `report-card-${rc.studentName || rc.studentId}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.snackBar.open('Failed to download PDF', 'Close', { duration: 3000 });
+      },
     });
   }
 

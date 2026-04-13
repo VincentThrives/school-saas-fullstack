@@ -198,6 +198,26 @@ export class ApiService {
     return this.http.get<ApiResponse<any>>(`${this.API}/attendance/report/class/${classId}`, { params });
   }
 
+  // ── Report Cards ───────────────────────────────────────────────────────
+
+  getReportCards(classId: string, academicYearId: string): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/report-cards/class/${classId}/generate?academicYearId=${academicYearId}`);
+  }
+
+  generateReportCards(params: { classId: string; academicYearId: string; studentIds: string[] }): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.API}/report-cards/class/${params.classId}/generate?academicYearId=${params.academicYearId}`, null);
+  }
+
+  getStudentReportCard(studentId: string, academicYearId: string): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.API}/report-cards/student/${studentId}?academicYearId=${academicYearId}`);
+  }
+
+  downloadReportCardPdf(studentId: string, academicYearId: string, tenantId: string): Observable<Blob> {
+    return this.http.get(`${this.API}/report-cards/student/${studentId}/pdf?academicYearId=${academicYearId}&tenantId=${tenantId}`, {
+      responseType: 'blob',
+    });
+  }
+
   // ── Exams ──────────────────────────────────────────────────────────────
 
   getExams(params?: { classId?: string; academicYearId?: string }): Observable<ApiResponse<any[]>> {
@@ -479,24 +499,6 @@ export class ApiService {
   // ── ID Card ───────────────────────────────────────────────────────────
   generateIdCards(req: IdCardRequest): Observable<Blob> {
     return this.http.post(`${this.API}/id-cards/generate`, req, { responseType: 'blob' });
-  }
-
-  // ── Report Cards ──────────────────────────────────────────────────────
-  getReportCards(classId: string, academicYearId: string): Observable<ApiResponse<ReportCard[]>> {
-    const params = new HttpParams().set('classId', classId).set('academicYearId', academicYearId);
-    return this.http.get<ApiResponse<ReportCard[]>>(`${this.API}/report-cards`, { params });
-  }
-
-  getReportCardById(reportCardId: string): Observable<ApiResponse<ReportCard>> {
-    return this.http.get<ApiResponse<ReportCard>>(`${this.API}/report-cards/${reportCardId}`);
-  }
-
-  generateReportCards(req: GenerateReportCardRequest): Observable<ApiResponse<ReportCard[]>> {
-    return this.http.post<ApiResponse<ReportCard[]>>(`${this.API}/report-cards/generate`, req);
-  }
-
-  downloadReportCardPdf(reportCardId: string): Observable<Blob> {
-    return this.http.get(`${this.API}/report-cards/${reportCardId}/download`, { responseType: 'blob' });
   }
 
   // ── Syllabus ──────────────────────────────────────────────────────────
