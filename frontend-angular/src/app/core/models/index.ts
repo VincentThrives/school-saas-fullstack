@@ -95,6 +95,10 @@ export interface User {
 export interface Student {
   studentId: string;
   userId: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
   admissionNumber: string;
   rollNumber?: string;
   classId: string;

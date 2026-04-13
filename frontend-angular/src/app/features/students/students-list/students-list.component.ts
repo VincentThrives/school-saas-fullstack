@@ -106,20 +106,27 @@ export class StudentsListComponent implements OnInit {
   }
 
   getStudentName(student: Student): string {
-    // Try user map first
+    // Use firstName/lastName from student directly
+    if (student.firstName) {
+      return `${student.firstName} ${student.lastName || ''}`.trim();
+    }
+    // Try user map
     if (student.userId && this.userMap[student.userId]) {
       const user = this.userMap[student.userId];
-      return `${user.firstName} ${user.lastName}`;
+      return `${user.firstName} ${user.lastName}`.trim();
     }
-    // Fallback to admission number
+    // Fallback
     return `Student ${student.admissionNumber || student.rollNumber || ''}`;
   }
 
   getStudentInitial(student: Student): string {
-    if (student.userId && this.userMap[student.userId]) {
-      return this.userMap[student.userId].firstName?.charAt(0) || 'S';
+    if (student.firstName) {
+      return student.firstName.charAt(0).toUpperCase();
     }
-    return student.admissionNumber?.charAt(0) || 'S';
+    if (student.userId && this.userMap[student.userId]) {
+      return this.userMap[student.userId].firstName?.charAt(0)?.toUpperCase() || 'S';
+    }
+    return 'S';
   }
 
   loadStudents(): void {
