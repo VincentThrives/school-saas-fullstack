@@ -70,6 +70,27 @@ public class ExamController {
         return ResponseEntity.ok(ApiResponse.success(markRepository.findByExamId(examId)));
     }
 
+    // Student views own marks
+    @GetMapping("/my-marks")
+    public ResponseEntity<ApiResponse<List<ExamMark>>> getMyMarks(
+            @AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(ApiResponse.success(examService.getStudentMarks(userId)));
+    }
+
+    // Get marks for a specific student (for parents/admin)
+    @GetMapping("/student/{studentId}/marks")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER','PARENT')")
+    public ResponseEntity<ApiResponse<List<ExamMark>>> getStudentMarks(
+            @PathVariable String studentId) {
+        return ResponseEntity.ok(ApiResponse.success(examService.getStudentMarks(studentId)));
+    }
+
+    // Get upcoming/all exams for calendar
+    @GetMapping("/calendar")
+    public ResponseEntity<ApiResponse<List<Exam>>> getExamCalendar() {
+        return ResponseEntity.ok(ApiResponse.success(examService.getUpcomingExams()));
+    }
+
     @PatchMapping("/{examId}/lock-marks")
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> lockMarks(@PathVariable String examId) {

@@ -1,0 +1,98 @@
+<div class="exam-calendar-container">
+  <app-page-header
+    title="Exam Schedule"
+    subtitle="View upcoming exams and examination calendar"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Exam Calendar' }
+    ]"
+  ></app-page-header>
+
+  <!-- Loading -->
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <div class="calendar-layout" *ngIf="!isLoading">
+    <!-- Calendar -->
+    <mat-card class="calendar-card">
+      <!-- Month Navigation -->
+      <div class="month-nav">
+        <button mat-icon-button (click)="previousMonth()">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <h2 class="month-label">{{ monthLabel }}</h2>
+        <button mat-icon-button (click)="nextMonth()">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+
+      <!-- Weekday Headers -->
+      <div class="calendar-grid">
+        <div class="weekday-header" *ngFor="let day of weekDays">{{ day }}</div>
+
+        <!-- Calendar Days -->
+        <div
+          *ngFor="let day of calendarDays"
+          class="calendar-day"
+          [class.other-month]="!day.isCurrentMonth"
+          [class.today]="day.isToday"
+          [class.has-exams]="day.exams.length > 0"
+        >
+          <span class="day-number">{{ day.dayOfMonth }}</span>
+          <div class="day-exams">
+            <mat-chip
+              *ngFor="let exam of day.exams"
+              class="exam-chip"
+              [matTooltip]="exam.name"
+            >
+              {{ exam.name | slice:0:12 }}{{ exam.name?.length > 12 ? '...' : '' }}
+            </mat-chip>
+          </div>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Upcoming Exams List -->
+    <mat-card class="upcoming-card">
+      <h3 class="upcoming-title">
+        <mat-icon>upcoming</mat-icon>
+        Upcoming Exams
+      </h3>
+
+      <div class="upcoming-list" *ngIf="upcomingExams.length > 0">
+        <div class="exam-item" *ngFor="let exam of upcomingExams">
+          <div class="exam-item-header">
+            <span class="exam-item-name">{{ exam.name }}</span>
+            <mat-chip [class]="'status-chip ' + getStatusClass(exam.status || 'SCHEDULED')" class="exam-status-chip">
+              {{ exam.status || 'SCHEDULED' }}
+            </mat-chip>
+          </div>
+          <div class="exam-item-details">
+            <div class="detail-row">
+              <mat-icon>calendar_today</mat-icon>
+              <span>{{ getExamDateDisplay(exam) }}</span>
+            </div>
+            <div class="detail-row" *ngIf="exam.className">
+              <mat-icon>class</mat-icon>
+              <span>{{ exam.className }}</span>
+            </div>
+            <div class="detail-row" *ngIf="exam.subjectName || exam.subjectId">
+              <mat-icon>book</mat-icon>
+              <span>{{ exam.subjectName || exam.subjectId }}</span>
+            </div>
+            <div class="detail-row">
+              <mat-icon>grade</mat-icon>
+              <span>Max Marks: {{ exam.maxMarks }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="no-upcoming" *ngIf="upcomingExams.length === 0">
+        <mat-icon>event_busy</mat-icon>
+        <p>No upcoming exams scheduled</p>
+      </div>
+    </mat-card>
+  </div>
+</div>

@@ -222,6 +222,19 @@ export class ApiService {
     return this.http.patch<ApiResponse<any>>(`${this.API}/exams/${examId}/lock-marks`, null);
   }
 
+  // Student marks
+  getMyMarks(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/exams/my-marks`);
+  }
+
+  getStudentExamMarks(studentId: string): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/exams/student/${studentId}/marks`);
+  }
+
+  getExamCalendar(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/exams/calendar`);
+  }
+
   // ── MCQ ────────────────────────────────────────────────────────────────
 
   getMcqExams(): Observable<ApiResponse<any[]>> {

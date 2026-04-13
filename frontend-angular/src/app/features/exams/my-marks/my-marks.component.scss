@@ -1,0 +1,138 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.my-marks-container {
+  padding: 0;
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px !important;
+  border-radius: 12px !important;
+  border-left: 4px solid $gold;
+
+  .stat-icon {
+    color: $gold;
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .stat-content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+
+  .stat-label {
+    font-size: 0.8125rem;
+    color: rgba(0, 0, 0, 0.5);
+  }
+}
+
+.table-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.marks-table {
+  width: 100%;
+}
+
+.exam-name {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.subject-chip {
+  background-color: rgba(212, 168, 67, 0.12) !important;
+  color: $gold-dark !important;
+  font-size: 0.8125rem;
+}
+
+.grade-chip {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.grade-green {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+}
+
+.grade-blue {
+  background-color: rgba(33, 150, 243, 0.12) !important;
+  color: #1565c0 !important;
+}
+
+.grade-orange {
+  background-color: rgba(255, 152, 0, 0.12) !important;
+  color: #e65100 !important;
+}
+
+.grade-red {
+  background-color: rgba(244, 67, 54, 0.12) !important;
+  color: #c62828 !important;
+}
+
+.pass-chip {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.fail-chip {
+  background-color: rgba(244, 67, 54, 0.12) !important;
+  color: #c62828 !important;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.table-row:hover {
+  background-color: rgba(212, 168, 67, 0.04);
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.empty-card {
+  text-align: center;
+  padding: 60px 24px !important;
+  border-radius: 12px !important;
+
+  .empty-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    color: rgba(0, 0, 0, 0.2);
+    margin-bottom: 16px;
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    color: #1a1a1a;
+  }
+
+  p {
+    color: rgba(0, 0, 0, 0.5);
+    margin: 0;
+  }
+}

@@ -104,6 +104,19 @@ public class ExamService {
         auditService.log("LOCK_MARKS", "Exam", examId, "Marks locked for exam: " + exam.getName());
     }
 
+    // Get all marks for a student across all exams
+    public List<ExamMark> getStudentMarks(String studentId) {
+        return markRepository.findByStudentId(studentId);
+    }
+
+    // Get upcoming exams (scheduled, not yet happened)
+    public List<Exam> getUpcomingExams() {
+        return examRepository.findAll().stream()
+            .filter(e -> e.getExamDate() != null)
+            .sorted((a, b) -> a.getExamDate().compareTo(b.getExamDate()))
+            .toList();
+    }
+
     private String computeGrade(double marks, int max) {
         double pct = marks / max * 100;
         if (pct >= 90) return "A+";

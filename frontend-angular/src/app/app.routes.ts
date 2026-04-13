@@ -203,6 +203,29 @@ export const routes: Routes = [
         data: { feature: 'exams' },
       },
 
+      // ── Student Marks ─────────────────────────────────────
+      {
+        path: 'my-marks',
+        loadComponent: () =>
+          import('./features/exams/my-marks/my-marks.component').then(m => m.MyMarksComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'exams' },
+      },
+      {
+        path: 'child-marks',
+        loadComponent: () =>
+          import('./features/exams/child-marks/child-marks.component').then(m => m.ChildMarksComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'exams' },
+      },
+      {
+        path: 'exams/calendar',
+        loadComponent: () =>
+          import('./features/exams/exam-calendar/exam-calendar.component').then(m => m.ExamCalendarComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'exams' },
+      },
+
       // ── MCQ (feature-gated) ──────────────────────────────
       {
         path: 'mcq',

@@ -1,0 +1,121 @@
+<div class="child-marks-container">
+  <app-page-header
+    title="Child's Exam Results"
+    subtitle="View your child's performance across all exams"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Child Marks' }
+    ]"
+  ></app-page-header>
+
+  <!-- Student Selector -->
+  <mat-card class="selector-card">
+    <mat-card-content>
+      <mat-form-field appearance="outline" class="student-selector">
+        <mat-label>Select Student</mat-label>
+        <mat-select [(ngModel)]="selectedStudentId" (selectionChange)="onStudentSelected()">
+          <mat-option *ngFor="let student of students" [value]="student.id">
+            {{ student.name }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+      <p class="hint-text" *ngIf="students.length === 0">
+        Enter a student ID to view their marks, or marks will load automatically if linked.
+      </p>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Summary Cards -->
+  <div class="summary-cards" *ngIf="!isLoading && marks.length > 0">
+    <mat-card class="stat-card">
+      <mat-icon class="stat-icon">assignment</mat-icon>
+      <div class="stat-content">
+        <span class="stat-value">{{ totalExams }}</span>
+        <span class="stat-label">Total Exams</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <mat-icon class="stat-icon">percent</mat-icon>
+      <div class="stat-content">
+        <span class="stat-value">{{ averagePercentage }}%</span>
+        <span class="stat-label">Average</span>
+      </div>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <mat-icon class="stat-icon">star</mat-icon>
+      <div class="stat-content">
+        <span class="stat-value">{{ bestSubject }}</span>
+        <span class="stat-label">Best Subject</span>
+      </div>
+    </mat-card>
+  </div>
+
+  <!-- Marks Table -->
+  <mat-card class="table-card" *ngIf="!isLoading && marks.length > 0">
+    <table mat-table [dataSource]="marks" class="marks-table">
+      <ng-container matColumnDef="examName">
+        <th mat-header-cell *matHeaderCellDef>Exam Name</th>
+        <td mat-cell *matCellDef="let row">
+          <span class="exam-name">{{ row.examName }}</span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="subject">
+        <th mat-header-cell *matHeaderCellDef>Subject</th>
+        <td mat-cell *matCellDef="let row">
+          <mat-chip class="subject-chip">{{ row.subjectId }}</mat-chip>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="date">
+        <th mat-header-cell *matHeaderCellDef>Date</th>
+        <td mat-cell *matCellDef="let row">{{ row.examDate | date:'dd MMM yyyy' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="marks">
+        <th mat-header-cell *matHeaderCellDef>Marks</th>
+        <td mat-cell *matCellDef="let row">
+          <strong>{{ row.marksObtained }}</strong> / {{ row.maxMarks }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="percentage">
+        <th mat-header-cell *matHeaderCellDef>Percentage</th>
+        <td mat-cell *matCellDef="let row">{{ row.percentage }}%</td>
+      </ng-container>
+
+      <ng-container matColumnDef="grade">
+        <th mat-header-cell *matHeaderCellDef>Grade</th>
+        <td mat-cell *matCellDef="let row">
+          <mat-chip [class]="'grade-chip ' + getGradeClass(row.grade)">{{ row.grade }}</mat-chip>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let row">
+          <mat-chip [class]="row.passed ? 'pass-chip' : 'fail-chip'">
+            {{ row.passed ? 'Pass' : 'Fail' }}
+          </mat-chip>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="table-row"></tr>
+    </table>
+  </mat-card>
+
+  <!-- Loading -->
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <!-- Empty State -->
+  <mat-card class="empty-card" *ngIf="!isLoading && marks.length === 0 && selectedStudentId">
+    <mat-icon class="empty-icon">assignment</mat-icon>
+    <h3>No exam results yet</h3>
+    <p>Exam marks for the selected student will appear here once they are published.</p>
+  </mat-card>
+</div>

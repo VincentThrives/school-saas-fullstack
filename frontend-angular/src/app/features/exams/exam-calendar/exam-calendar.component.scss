@@ -1,0 +1,315 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+$gold-light: rgba(212, 168, 67, 0.12);
+
+.exam-calendar-container {
+  padding: 0;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.calendar-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 24px;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// ── Calendar Card ──────────────────────────────────────────────
+
+.calendar-card {
+  border-radius: 12px !important;
+  padding: 24px !important;
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+
+  .month-label {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1a1a1a;
+    min-width: 200px;
+    text-align: center;
+  }
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.weekday-header {
+  padding: 10px 4px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: rgba(0, 0, 0, 0.6);
+  background-color: #fafafa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.calendar-day {
+  min-height: 80px;
+  padding: 4px;
+  border-right: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+  position: relative;
+  background: #fff;
+  transition: background-color 0.2s;
+
+  &:nth-child(7n) {
+    border-right: none;
+  }
+
+  &:hover {
+    background-color: rgba(212, 168, 67, 0.04);
+  }
+
+  &.other-month {
+    background-color: #fafafa;
+
+    .day-number {
+      color: rgba(0, 0, 0, 0.25);
+    }
+  }
+
+  &.today {
+    border: 2px solid $gold;
+    background-color: rgba(212, 168, 67, 0.04);
+
+    .day-number {
+      background-color: $gold;
+      color: #fff;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  &.has-exams {
+    background-color: rgba(212, 168, 67, 0.03);
+  }
+
+  .day-number {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #1a1a1a;
+    padding: 2px;
+  }
+
+  .day-exams {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 2px;
+  }
+}
+
+.exam-chip {
+  background-color: $gold-light !important;
+  color: $gold-dark !important;
+  font-size: 0.6875rem !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  padding: 0 6px !important;
+  cursor: default;
+
+  ::ng-deep .mdc-evolution-chip__text-label {
+    font-size: 0.6875rem !important;
+  }
+}
+
+// ── Upcoming Exams Card ────────────────────────────────────────
+
+.upcoming-card {
+  border-radius: 12px !important;
+  padding: 24px !important;
+  height: fit-content;
+}
+
+.upcoming-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 20px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1a1a1a;
+
+  mat-icon {
+    color: $gold;
+  }
+}
+
+.upcoming-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.exam-item {
+  padding: 16px;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  border-left: 4px solid $gold;
+  transition: box-shadow 0.2s;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.exam-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.exam-item-name {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: #1a1a1a;
+}
+
+.exam-status-chip {
+  font-size: 0.6875rem !important;
+  height: 22px !important;
+  min-height: 22px !important;
+}
+
+.exam-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: rgba(0, 0, 0, 0.6);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: rgba(0, 0, 0, 0.4);
+  }
+}
+
+.status-scheduled {
+  background-color: rgba(33, 150, 243, 0.12) !important;
+  color: #1565c0 !important;
+}
+
+.status-ongoing {
+  background-color: rgba(255, 152, 0, 0.12) !important;
+  color: #e65100 !important;
+}
+
+.status-completed {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+}
+
+.status-cancelled {
+  background-color: rgba(158, 158, 158, 0.12) !important;
+  color: #616161 !important;
+}
+
+.no-upcoming {
+  text-align: center;
+  padding: 32px 16px;
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: rgba(0, 0, 0, 0.15);
+    margin-bottom: 8px;
+  }
+
+  p {
+    margin: 0;
+    color: rgba(0, 0, 0, 0.5);
+    font-size: 0.875rem;
+  }
+}
+
+// ── Dark mode support ──────────────────────────────────────────
+
+@media (prefers-color-scheme: dark) {
+  .calendar-day {
+    background-color: #1e1e1e;
+    border-color: #333;
+
+    &.other-month {
+      background-color: #171717;
+    }
+
+    &.today {
+      border-color: $gold;
+      background-color: rgba(212, 168, 67, 0.08);
+    }
+
+    .day-number {
+      color: #e0e0e0;
+    }
+  }
+
+  .weekday-header {
+    background-color: #252525;
+    border-color: #333;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .calendar-grid {
+    border-color: #333;
+  }
+
+  .month-label {
+    color: #e0e0e0;
+  }
+
+  .exam-item {
+    border-color: #333;
+    background-color: #252525;
+  }
+
+  .exam-item-name {
+    color: #e0e0e0;
+  }
+
+  .upcoming-title {
+    color: #e0e0e0;
+  }
+
+  .detail-row {
+    color: rgba(255, 255, 255, 0.6);
+
+    mat-icon {
+      color: rgba(255, 255, 255, 0.4);
+    }
+  }
+}
