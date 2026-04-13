@@ -188,6 +188,13 @@ export const routes: Routes = [
         canActivate: [featureGuard],
         data: { feature: 'attendance' },
       },
+      {
+        path: 'attendance/subject-report',
+        loadComponent: () =>
+          import('./features/attendance/subject-attendance-report/subject-attendance-report.component').then(m => m.SubjectAttendanceReportComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'attendance' },
+      },
 
       // ── Exams (feature-gated) ────────────────────────────
       {

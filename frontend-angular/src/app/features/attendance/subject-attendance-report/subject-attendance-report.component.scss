@@ -1,0 +1,275 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.subject-attendance-report-container {
+  padding: 0;
+}
+
+.filter-card {
+  margin-bottom: 24px;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+
+  .filter-field {
+    flex: 1;
+    min-width: 150px;
+  }
+}
+
+.generate-btn {
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: white !important;
+  height: 56px;
+  white-space: nowrap;
+
+  mat-icon {
+    margin-right: 4px;
+  }
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 0;
+  gap: 12px;
+  color: #888;
+}
+
+// Subject Summary Section
+.subject-summary-section {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.subject-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+
+  @media (max-width: 600px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.subject-summary-card {
+  border-radius: 12px;
+  padding: 16px;
+  border-left: 4px solid $gold;
+  transition: box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.subject-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+
+  .subject-icon {
+    color: $gold;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .subject-card-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #333;
+  }
+}
+
+.subject-card-stats {
+  text-align: center;
+  margin-bottom: 12px;
+
+  .subject-percent {
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1;
+
+    &.percent-high {
+      color: #4caf50;
+    }
+    &.percent-good {
+      color: #2196f3;
+    }
+    &.percent-mid {
+      color: #ff9800;
+    }
+    &.percent-low {
+      color: #f44336;
+    }
+  }
+
+  .subject-label {
+    font-size: 0.75rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
+}
+
+.subject-card-counts {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.subject-total-classes {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #999;
+}
+
+// No subject message
+.no-subject-card {
+  margin-bottom: 24px;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.no-subject-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #777;
+
+  mat-icon {
+    color: $gold;
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+}
+
+// Table
+.table-card {
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.table-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.subject-filter-field {
+  width: 220px;
+}
+
+.report-table {
+  width: 100%;
+}
+
+.student-name {
+  font-weight: 500;
+}
+
+.subject-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba($gold, 0.12);
+  color: $gold-dark;
+}
+
+.count-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+
+  &.present {
+    background: rgba(76, 175, 80, 0.1);
+    color: #2e7d32;
+  }
+  &.absent {
+    background: rgba(244, 67, 54, 0.1);
+    color: #c62828;
+  }
+  &.late {
+    background: rgba(255, 152, 0, 0.1);
+    color: #e65100;
+  }
+}
+
+.percentage-cell {
+  min-width: 80px;
+
+  .percentage-value {
+    font-weight: 700;
+    font-size: 0.9rem;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  mat-progress-bar {
+    height: 4px !important;
+    border-radius: 2px;
+  }
+}
+
+.no-data {
+  text-align: center;
+  padding: 32px 0;
+  color: #999;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+
+  .empty-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    color: #ccc;
+  }
+
+  h3 {
+    margin: 16px 0 8px;
+    color: #555;
+  }
+
+  p {
+    color: #999;
+  }
+}

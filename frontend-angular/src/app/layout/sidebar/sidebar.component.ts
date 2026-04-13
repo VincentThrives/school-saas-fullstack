@@ -192,6 +192,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'Mark Attendance', path: '/attendance', icon: 'event_note', feature: 'attendance' },
         { title: 'Subject Attendance', path: '/attendance/subject-wise', icon: 'menu_book', feature: 'attendance' },
         { title: 'Attendance Report', path: '/attendance/report', icon: 'assessment', feature: 'attendance' },
+        { title: 'Subject Report', path: '/attendance/subject-report', icon: 'analytics', feature: 'attendance' },
         { title: 'Timetable', path: '/timetable', icon: 'calendar_month', feature: 'timetable' },
         { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams' },
         { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams' },
@@ -219,6 +220,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'Mark Attendance', path: '/attendance', icon: 'event_note', feature: 'attendance' },
         { title: 'Subject Attendance', path: '/attendance/subject-wise', icon: 'menu_book', feature: 'attendance' },
         { title: 'Attendance Report', path: '/attendance/report', icon: 'assessment', feature: 'attendance' },
+        { title: 'Subject Report', path: '/attendance/subject-report', icon: 'analytics', feature: 'attendance' },
         { title: 'Timetable', path: '/timetable', icon: 'calendar_month', feature: 'timetable' },
         { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams' },
         { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams' },
@@ -279,8 +281,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
     if (item.feature && !this.authService.isSuperAdmin && !this.authService.isFeatureEnabled(item.feature)) {
       return false;
     }
-    // Only show "Subject Attendance" when attendance mode is SUBJECT_WISE
+    // Only show subject-wise attendance links when attendance mode is SUBJECT_WISE
     if (item.path === '/attendance/subject-wise' && this.attendanceMode !== 'SUBJECT_WISE') {
+      return false;
+    }
+    if (item.path === '/attendance/subject-report' && this.attendanceMode !== 'SUBJECT_WISE') {
       return false;
     }
     return true;
