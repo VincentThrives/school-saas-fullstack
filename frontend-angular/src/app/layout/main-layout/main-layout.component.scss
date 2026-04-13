@@ -28,10 +28,12 @@ $sidebar-width: 280px;
 
 .content-wrapper {
   padding: 24px;
+  padding-top: 88px;
   max-width: 100%;
   overflow-x: hidden;
 
   @media (max-width: 599px) {
     padding: 16px;
+    padding-top: 80px;
   }
 }
