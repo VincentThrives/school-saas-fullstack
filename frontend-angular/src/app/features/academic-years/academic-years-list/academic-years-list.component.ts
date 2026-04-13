@@ -70,10 +70,20 @@ export class AcademicYearsListComponent implements OnInit {
     this.isLoading = true;
     this.apiService.getAcademicYears().subscribe({
       next: (response) => {
-        this.dataSource.data = response.data;
+        if (response.success && response.data) {
+          // Handle both array and paginated responses
+          if (Array.isArray(response.data)) {
+            this.dataSource.data = response.data;
+          } else if ((response.data as any).content) {
+            this.dataSource.data = (response.data as any).content;
+          } else {
+            this.dataSource.data = [];
+          }
+        }
         this.isLoading = false;
       },
-      error: () => {
+      error: (err) => {
+        console.error('Failed to load academic years:', err);
         this.isLoading = false;
       },
     });
@@ -126,8 +136,10 @@ export class AcademicYearsListComponent implements OnInit {
         this.loadAcademicYears();
         this.isCreating = false;
       },
-      error: () => {
-        this.snackBar.open('Failed to create academic year', 'Close', { duration: 3000 });
+      error: (err) => {
+        console.error('Failed to create academic year:', err);
+        const msg = err?.error?.message || 'Failed to create academic year';
+        this.snackBar.open(msg, 'Close', { duration: 5000 });
         this.isCreating = false;
       },
     });
