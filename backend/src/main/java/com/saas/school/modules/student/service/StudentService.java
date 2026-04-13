@@ -11,7 +11,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -19,8 +25,11 @@ import java.util.UUID;
 @Service
 public class StudentService {
 
+    private static final Logger log = LoggerFactory.getLogger(StudentService.class);
+
     @Autowired private StudentRepository studentRepository;
     @Autowired private AuditService auditService;
+    @Autowired private MongoTemplate mongoTemplate;
 
     public PageResponse<StudentDto> listStudents(int page, int size,
                                                   String classId, String sectionId, String search) {
@@ -34,7 +43,7 @@ public class StudentService {
         } else if (classId != null) {
             result = studentRepository.findByClassIdAndDeletedAtIsNull(classId, pageable);
         } else {
-            result = studentRepository.findAll(pageable);
+            result = studentRepository.findByDeletedAtIsNull(pageable);
         }
 
         return PageResponse.of(result.getContent().stream().map(this::toDto).toList(),

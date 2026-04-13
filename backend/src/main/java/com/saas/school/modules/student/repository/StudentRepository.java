@@ -28,6 +28,8 @@ public interface StudentRepository extends MongoRepository<Student, String> {
     @Query("{'$or':[{'rollNumber':{$regex:?0,$options:'i'}},{'admissionNumber':{$regex:?0,$options:'i'}}],'deletedAt':null}")
     Page<Student> searchStudents(String query, Pageable pageable);
 
+    Page<Student> findByDeletedAtIsNull(Pageable pageable);
+
     long countByClassIdAndDeletedAtIsNull(String classId);
     long countByDeletedAtIsNull();
 }
