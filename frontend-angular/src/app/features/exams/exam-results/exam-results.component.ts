@@ -39,6 +39,15 @@ export class ExamResultsComponent implements OnInit {
   exam: any = null;
   marks: MarkEntry[] = [];
   studentMap: Record<string, { firstName: string; lastName: string; rollNumber?: string }> = {};
+  classMap: Record<string, string> = {};
+  subjectNames: Record<string, string> = {
+    math: 'Mathematics', maths: 'Mathematics', science: 'Science', english: 'English',
+    hindi: 'Hindi', kannada: 'Kannada', sanskrit: 'Sanskrit',
+    social: 'Social Science', history: 'History', geography: 'Geography',
+    physics: 'Physics', chemistry: 'Chemistry', biology: 'Biology',
+    computer: 'Computer Science', evs: 'EVS', pe: 'Physical Education',
+    'math-101': 'Mathematics',
+  };
   isLoading = false;
 
   // Computed stats
@@ -69,7 +78,29 @@ export class ExamResultsComponent implements OnInit {
 
   ngOnInit(): void {
     this.examId = this.route.snapshot.paramMap.get('examId') || '';
+    this.loadClasses();
     this.loadResults();
+  }
+
+  loadClasses(): void {
+    this.api.getClasses().subscribe({
+      next: (res) => {
+        const classes = Array.isArray(res.data) ? res.data : [];
+        classes.forEach((c: any) => { this.classMap[c.classId] = c.name; });
+      },
+    });
+  }
+
+  getClassName(): string {
+    if (this.exam?.className) return this.exam.className;
+    if (this.exam?.classId) return this.classMap[this.exam.classId] || this.exam.classId;
+    return '-';
+  }
+
+  getSubjectName(): string {
+    if (this.exam?.subjectName) return this.exam.subjectName;
+    if (this.exam?.subjectId) return this.subjectNames[this.exam.subjectId] || this.exam.subjectId;
+    return '-';
   }
 
   loadResults(): void {
