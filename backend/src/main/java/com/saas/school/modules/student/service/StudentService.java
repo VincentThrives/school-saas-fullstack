@@ -124,8 +124,9 @@ public class StudentService {
     // ── Helpers ───────────────────────────────────────────────────
 
     private Student findStudent(String studentId) {
-        return studentRepository.findByStudentIdAndDeletedAtIsNull(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Student", studentId));
+        return studentRepository.findById(studentId)
+                .filter(s -> s.getDeletedAt() == null)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
     }
 
     private Student.Address mapAddress(CreateStudentRequest.AddressDto dto) {
