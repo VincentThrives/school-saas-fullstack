@@ -103,6 +103,20 @@
       <span>Saving...</span>
     </div>
 
+    <!-- Attendance Mode Configuration -->
+    <mat-card class="config-card">
+      <h3>Attendance Configuration</h3>
+      <p>Choose how attendance is tracked for this school</p>
+      <mat-radio-group [(ngModel)]="attendanceMode" (change)="setAttendanceMode($event.value)">
+        <mat-radio-button value="DAY_WISE" class="mode-option">
+          <strong>Day-wise</strong> &mdash; One attendance per student per day
+        </mat-radio-button>
+        <mat-radio-button value="SUBJECT_WISE" class="mode-option">
+          <strong>Subject-wise</strong> &mdash; Attendance per subject per period
+        </mat-radio-button>
+      </mat-radio-group>
+    </mat-card>
+
     <!-- Feature Categories -->
     <div class="categories-container">
       <div *ngFor="let category of categories" class="category-section">

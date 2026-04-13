@@ -47,6 +47,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   selectedAcademicYearId = '';
   isLoadingAY = false;
   user: User | null = null;
+  attendanceMode = 'DAY_WISE';
 
   private destroy$ = new Subject<void>();
 
@@ -66,6 +67,17 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     if (!this.authService.isSuperAdmin) {
       this.loadAcademicYears();
+      this.apiService.getAttendanceMode()
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (res) => {
+            this.attendanceMode = res.data?.mode || 'DAY_WISE';
+            this.buildMenu();
+          },
+          error: () => {
+            this.attendanceMode = 'DAY_WISE';
+          },
+        });
     }
 
     this.buildMenu();
@@ -178,6 +190,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'Subjects', path: '/subjects', icon: 'menu_book', roles: [UserRole.SCHOOL_ADMIN] },
         { title: 'Academic Years', path: '/academic-years', icon: 'date_range', roles: [UserRole.SCHOOL_ADMIN] },
         { title: 'Mark Attendance', path: '/attendance', icon: 'event_note', feature: 'attendance' },
+        { title: 'Subject Attendance', path: '/attendance/subject-wise', icon: 'menu_book', feature: 'attendance' },
         { title: 'Attendance Report', path: '/attendance/report', icon: 'assessment', feature: 'attendance' },
         { title: 'Timetable', path: '/timetable', icon: 'calendar_month', feature: 'timetable' },
         { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams' },
@@ -204,6 +217,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'My Classes', path: '/my-classes', icon: 'class' },
         { title: 'My Students', path: '/my-students', icon: 'school' },
         { title: 'Mark Attendance', path: '/attendance', icon: 'event_note', feature: 'attendance' },
+        { title: 'Subject Attendance', path: '/attendance/subject-wise', icon: 'menu_book', feature: 'attendance' },
         { title: 'Attendance Report', path: '/attendance/report', icon: 'assessment', feature: 'attendance' },
         { title: 'Timetable', path: '/timetable', icon: 'calendar_month', feature: 'timetable' },
         { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams' },
@@ -263,6 +277,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
       return false;
     }
     if (item.feature && !this.authService.isSuperAdmin && !this.authService.isFeatureEnabled(item.feature)) {
+      return false;
+    }
+    // Only show "Subject Attendance" when attendance mode is SUBJECT_WISE
+    if (item.path === '/attendance/subject-wise' && this.attendanceMode !== 'SUBJECT_WISE') {
       return false;
     }
     return true;

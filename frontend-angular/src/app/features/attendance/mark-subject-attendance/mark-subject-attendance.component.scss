@@ -1,0 +1,213 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+$gold-light: rgba(212, 168, 67, 0.08);
+
+.mark-attendance-container {
+  padding: 0;
+}
+
+.filters-card {
+  margin-bottom: 20px;
+  border-radius: 12px !important;
+}
+
+.filters-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+
+  .filter-field {
+    flex: 1;
+    min-width: 180px;
+  }
+
+  .period-field {
+    min-width: 120px;
+    max-width: 160px;
+  }
+}
+
+.load-btn {
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  height: 56px;
+  font-weight: 600;
+  padding: 0 24px;
+
+  mat-icon {
+    margin-right: 6px;
+  }
+}
+
+.actions-card {
+  margin-bottom: 20px;
+  border-radius: 12px !important;
+}
+
+.actions-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .section-label {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: rgba(0, 0, 0, 0.6);
+  }
+}
+
+.mark-all-btn {
+  border-color: #4caf50 !important;
+  color: #4caf50 !important;
+
+  mat-icon {
+    margin-right: 4px;
+    font-size: 18px;
+  }
+}
+
+.summary-chips {
+  display: flex;
+  gap: 8px;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+  }
+}
+
+.chip-present {
+  background-color: rgba(76, 175, 80, 0.12) !important;
+  color: #2e7d32 !important;
+}
+
+.chip-absent {
+  background-color: rgba(244, 67, 54, 0.12) !important;
+  color: #c62828 !important;
+}
+
+.chip-late {
+  background-color: rgba(255, 152, 0, 0.12) !important;
+  color: #e65100 !important;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+}
+
+.table-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.attendance-table {
+  width: 100%;
+}
+
+.student-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.student-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.status-radio-group {
+  display: flex;
+  gap: 8px;
+}
+
+.status-radio {
+  font-size: 0.8125rem;
+}
+
+.status-present ::ng-deep .mat-mdc-radio-button.mat-mdc-radio-checked {
+  --mdc-radio-selected-icon-color: #4caf50;
+  --mdc-radio-selected-hover-icon-color: #4caf50;
+  --mdc-radio-selected-pressed-icon-color: #4caf50;
+}
+
+.status-absent ::ng-deep .mat-mdc-radio-button.mat-mdc-radio-checked {
+  --mdc-radio-selected-icon-color: #f44336;
+  --mdc-radio-selected-hover-icon-color: #f44336;
+  --mdc-radio-selected-pressed-icon-color: #f44336;
+}
+
+.status-late ::ng-deep .mat-mdc-radio-button.mat-mdc-radio-checked {
+  --mdc-radio-selected-icon-color: #ff9800;
+  --mdc-radio-selected-hover-icon-color: #ff9800;
+  --mdc-radio-selected-pressed-icon-color: #ff9800;
+}
+
+.remarks-field {
+  width: 100%;
+
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 0.95rem;
+}
+
+.save-section {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.save-btn {
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  font-weight: 600;
+  padding: 8px 32px;
+  height: 48px;
+
+  mat-icon {
+    margin-right: 6px;
+  }
+}
+
+.info-alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px !important;
+  border-radius: 12px !important;
+  background-color: rgba(33, 150, 243, 0.08) !important;
+  color: #1565c0;
+
+  mat-icon {
+    color: #1976d2;
+  }
+}

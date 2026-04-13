@@ -15,8 +15,9 @@ public class AttendanceService {
     public List<Attendance> markAttendance(MarkAttendanceRequest req, String markedBy) {
         List<Attendance> saved = new ArrayList<>();
         for (var entry : req.getEntries()) {
-            var existing = attendanceRepository
-                .findByStudentIdAndDate(entry.getStudentId(), req.getDate());
+            var existing = req.getSubjectId() != null
+                ? attendanceRepository.findByStudentIdAndDateAndSubjectId(entry.getStudentId(), req.getDate(), req.getSubjectId())
+                : attendanceRepository.findByStudentIdAndDate(entry.getStudentId(), req.getDate());
             Attendance att = existing.orElseGet(() -> {
                 Attendance a = new Attendance();
                 a.setAttendanceId(UUID.randomUUID().toString());
@@ -30,6 +31,11 @@ public class AttendanceService {
             att.setStatus(entry.getStatus());
             att.setRemarks(entry.getRemarks());
             att.setMarkedBy(markedBy);
+            if (req.getSubjectId() != null) {
+                att.setSubjectId(req.getSubjectId());
+                att.setSubjectName(req.getSubjectName());
+                att.setPeriodNumber(req.getPeriodNumber());
+            }
             saved.add(attendanceRepository.save(att));
         }
         auditService.log("MARK_ATTENDANCE","Attendance","bulk",

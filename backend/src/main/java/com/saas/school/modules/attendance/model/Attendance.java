@@ -12,7 +12,7 @@ import java.time.LocalDate;
 
 @Document(collection = "attendance")
 @CompoundIndexes({
-    @CompoundIndex(name = "student_date", def = "{'studentId':1,'date':1}", unique = true)
+    @CompoundIndex(name = "student_date_subject", def = "{'studentId':1,'date':1,'subjectId':1}")
 })
 public class Attendance {
     @Id
@@ -25,6 +25,9 @@ public class Attendance {
     private Status status;
     private String markedBy;
     private String remarks;
+    private String subjectId;
+    private String subjectName;
+    private int periodNumber;
 
     @CreatedDate
     private Instant createdAt;
@@ -125,6 +128,30 @@ public class Attendance {
 
     public void setRemarks(String remarks) {
         this.remarks = remarks;
+    }
+
+    public String getSubjectId() {
+        return subjectId;
+    }
+
+    public void setSubjectId(String subjectId) {
+        this.subjectId = subjectId;
+    }
+
+    public String getSubjectName() {
+        return subjectName;
+    }
+
+    public void setSubjectName(String subjectName) {
+        this.subjectName = subjectName;
+    }
+
+    public int getPeriodNumber() {
+        return periodNumber;
+    }
+
+    public void setPeriodNumber(int periodNumber) {
+        this.periodNumber = periodNumber;
     }
 
     public Instant getCreatedAt() {

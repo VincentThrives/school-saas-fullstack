@@ -9,6 +9,7 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
     List<Attendance> findByClassIdAndSectionIdAndDate(String c, String s, LocalDate d);
     List<Attendance> findByClassIdAndSectionIdAndDateBetween(String classId, String sectionId, LocalDate from, LocalDate to);
     Optional<Attendance> findByStudentIdAndDate(String studentId, LocalDate date);
+    Optional<Attendance> findByStudentIdAndDateAndSubjectId(String studentId, LocalDate date, String subjectId);
     List<Attendance> findByStudentIdAndDateBetween(String studentId, LocalDate from, LocalDate to);
     List<Attendance> findByClassIdAndDateBetween(String classId, LocalDate from, LocalDate to);
     @Query("{'studentId':?0,'date':{$gte:?1,$lte:?2},'status':'ABSENT'}")

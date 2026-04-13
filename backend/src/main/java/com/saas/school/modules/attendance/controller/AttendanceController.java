@@ -1,8 +1,11 @@
 package com.saas.school.modules.attendance.controller;
 import com.saas.school.common.response.ApiResponse;
+import com.saas.school.config.mongodb.TenantContext;
 import com.saas.school.modules.attendance.dto.*;
 import com.saas.school.modules.attendance.model.Attendance;
 import com.saas.school.modules.attendance.service.AttendanceService;
+import com.saas.school.modules.tenant.model.Tenant;
+import com.saas.school.modules.tenant.repository.TenantRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +20,18 @@ import java.time.LocalDate; import java.util.*; import java.util.stream.Collecto
 @RequestMapping("/api/v1/attendance")
 public class AttendanceController {
     @Autowired private AttendanceService attendanceService;
+    @Autowired private TenantRepository tenantRepository;
+
+    @GetMapping("/mode")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
+    public ResponseEntity<ApiResponse<Map<String, String>>> getAttendanceMode() {
+        String tenantId = TenantContext.getTenantId();
+        TenantContext.clear();
+        Tenant tenant = tenantRepository.findById(tenantId).orElse(null);
+        if (tenantId != null) TenantContext.setTenantId(tenantId);
+        String mode = tenant != null && tenant.getAttendanceMode() != null ? tenant.getAttendanceMode() : "DAY_WISE";
+        return ResponseEntity.ok(ApiResponse.success(Map.of("mode", mode)));
+    }
 
     @PostMapping("/mark")
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','TEACHER')")

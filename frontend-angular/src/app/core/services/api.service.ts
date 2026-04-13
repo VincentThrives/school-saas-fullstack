@@ -670,6 +670,15 @@ export class ApiService {
     return this.http.get<ApiResponse<Timetable[]>>(`${this.API}/timetable/teacher/${teacherId}`, { params: new HttpParams().set('academicYearId', academicYearId) });
   }
 
+  // ── Attendance Mode ────────────────────────────────────────────────────
+  getAttendanceMode(): Observable<ApiResponse<{ mode: string }>> {
+    return this.http.get<ApiResponse<{ mode: string }>>(`${this.API}/attendance/mode`);
+  }
+
+  setAttendanceMode(tenantId: string, mode: string): Observable<ApiResponse<string>> {
+    return this.http.put<ApiResponse<string>>(`${this.API}/super/features/schools/${tenantId}/attendance-mode`, { mode });
+  }
+
   // ── Audit Logs ────────────────────────────────────────────────────────
   getAuditLogs(page = 0, size = 20, filters?: { action?: string; entityType?: string; tenantId?: string; from?: string; to?: string; search?: string }): Observable<ApiResponse<any>> {
     let params = new HttpParams().set('page', page).set('size', size);

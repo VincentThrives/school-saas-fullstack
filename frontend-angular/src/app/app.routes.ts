@@ -175,6 +175,13 @@ export const routes: Routes = [
         data: { feature: 'attendance' },
       },
       {
+        path: 'attendance/subject-wise',
+        loadComponent: () =>
+          import('./features/attendance/mark-subject-attendance/mark-subject-attendance.component').then(m => m.MarkSubjectAttendanceComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'attendance' },
+      },
+      {
         path: 'attendance/report',
         loadComponent: () =>
           import('./features/attendance/attendance-report/attendance-report.component').then(m => m.AttendanceReportComponent),

@@ -24,6 +24,10 @@ public class MarkAttendanceRequest {
     @NotNull
     private List<AttendanceEntry> entries;
 
+    private String subjectId;
+    private String subjectName;
+    private int periodNumber;
+
     public MarkAttendanceRequest() {
     }
 
@@ -65,6 +69,30 @@ public class MarkAttendanceRequest {
 
     public void setEntries(List<AttendanceEntry> entries) {
         this.entries = entries;
+    }
+
+    public String getSubjectId() {
+        return subjectId;
+    }
+
+    public void setSubjectId(String subjectId) {
+        this.subjectId = subjectId;
+    }
+
+    public String getSubjectName() {
+        return subjectName;
+    }
+
+    public void setSubjectName(String subjectName) {
+        this.subjectName = subjectName;
+    }
+
+    public int getPeriodNumber() {
+        return periodNumber;
+    }
+
+    public void setPeriodNumber(int periodNumber) {
+        this.periodNumber = periodNumber;
     }
 
     public static class AttendanceEntry {

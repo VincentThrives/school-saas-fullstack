@@ -1,11 +1,15 @@
 package com.saas.school.modules.featureflag.controller;
 
+import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.common.response.ApiResponse;
+import com.saas.school.config.mongodb.TenantContext;
 import com.saas.school.modules.featureflag.dto.*;
 import com.saas.school.modules.featureflag.model.FeatureAuditLog;
 import com.saas.school.modules.featureflag.model.FeatureCatalog;
 import com.saas.school.modules.featureflag.model.FeatureTemplate;
 import com.saas.school.modules.featureflag.service.FeatureManagementService;
+import com.saas.school.modules.tenant.model.Tenant;
+import com.saas.school.modules.tenant.repository.TenantRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
@@ -31,6 +35,24 @@ public class FeatureManagementController {
     private static final Logger log = LoggerFactory.getLogger(FeatureManagementController.class);
 
     @Autowired private FeatureManagementService featureManagementService;
+    @Autowired private TenantRepository tenantRepository;
+
+    // ── Attendance Mode ──────────────────────────────────────────
+
+    @Operation(summary = "Set attendance mode for a school")
+    @PutMapping("/schools/{tenantId}/attendance-mode")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<String>> setAttendanceMode(
+            @PathVariable String tenantId, @RequestBody Map<String, String> body) {
+        String mode = body.get("mode");
+        TenantContext.clear();
+        Tenant tenant = tenantRepository.findById(tenantId)
+            .orElseThrow(() -> new ResourceNotFoundException("Tenant not found"));
+        tenant.setAttendanceMode(mode);
+        tenantRepository.save(tenant);
+        TenantContext.setTenantId(tenantId);
+        return ResponseEntity.ok(ApiResponse.success(mode, "Attendance mode updated"));
+    }
 
     // ── Feature Catalog ───────────────────────────────────────────
 

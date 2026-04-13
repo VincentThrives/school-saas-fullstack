@@ -13,6 +13,7 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatRadioModule } from '@angular/material/radio';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { PageHeaderComponent, Breadcrumb } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
@@ -43,6 +44,7 @@ import { ConfirmDisableDialogComponent } from './confirm-disable-dialog.componen
     MatSnackBarModule,
     MatTooltipModule,
     MatDividerModule,
+    MatRadioModule,
     PageHeaderComponent,
   ],
   templateUrl: './school-features.component.html',
@@ -55,6 +57,7 @@ export class SchoolFeaturesComponent implements OnInit, OnDestroy {
   categories: string[] = [];
   isLoading = false;
   isSaving = false;
+  attendanceMode = 'DAY_WISE';
 
   breadcrumbs: Breadcrumb[] = [];
 
@@ -122,12 +125,33 @@ export class SchoolFeaturesComponent implements OnInit, OnDestroy {
             this.templates = res.templates.data;
           }
           this.isLoading = false;
+
+          // Load attendance mode for this tenant
+          this.api.getTenantById(this.tenantId).pipe(takeUntil(this.destroy$)).subscribe({
+            next: (tenantRes) => {
+              if (tenantRes.success && tenantRes.data) {
+                this.attendanceMode = (tenantRes.data as any).attendanceMode || 'DAY_WISE';
+              }
+            },
+          });
         },
         error: () => {
           this.isLoading = false;
           this.snackBar.open('Failed to load feature data', 'Close', { duration: 3000 });
         },
       });
+  }
+
+  setAttendanceMode(mode: string): void {
+    this.api.setAttendanceMode(this.tenantId, mode).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.attendanceMode = mode;
+        this.snackBar.open(`Attendance mode set to ${mode === 'DAY_WISE' ? 'Day-wise' : 'Subject-wise'}`, 'Close', { duration: 2000 });
+      },
+      error: () => {
+        this.snackBar.open('Failed to update attendance mode', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   getCategoryIcon(category: string): string {

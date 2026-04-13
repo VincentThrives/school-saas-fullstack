@@ -32,6 +32,7 @@ public class Tenant {
     private SubscriptionPlan plan;
     private Map<String, Boolean> featureFlags = new HashMap<>();
     private TenantLimits limits;
+    private String attendanceMode = "DAY_WISE";
 
     @CreatedDate
     private Instant createdAt;
@@ -177,6 +178,14 @@ public class Tenant {
 
     public void setLimits(TenantLimits limits) {
         this.limits = limits;
+    }
+
+    public String getAttendanceMode() {
+        return attendanceMode;
+    }
+
+    public void setAttendanceMode(String attendanceMode) {
+        this.attendanceMode = attendanceMode;
     }
 
     public Instant getCreatedAt() {
