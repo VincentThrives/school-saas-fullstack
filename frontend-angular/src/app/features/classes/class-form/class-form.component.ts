@@ -115,6 +115,7 @@ export class ClassFormComponent implements OnInit {
               name: [s.name, Validators.required],
               capacity: [s.capacity, [Validators.required, Validators.min(1)]],
               classTeacherId: [s.classTeacherId || ''],
+              subjectIds: [s.subjectIds || []],
             }));
           });
         }
@@ -144,11 +145,46 @@ export class ClassFormComponent implements OnInit {
     return `Teacher ${teacher.employeeId || ''}`;
   }
 
+  subjectsList = [
+    { id: 'kannada', name: 'Kannada' },
+    { id: 'english', name: 'English' },
+    { id: 'hindi', name: 'Hindi' },
+    { id: 'math', name: 'Mathematics' },
+    { id: 'science', name: 'Science' },
+    { id: 'social', name: 'Social Science' },
+    { id: 'history', name: 'History' },
+    { id: 'geography', name: 'Geography' },
+    { id: 'physics', name: 'Physics' },
+    { id: 'chemistry', name: 'Chemistry' },
+    { id: 'biology', name: 'Biology' },
+    { id: 'computer', name: 'Computer Science' },
+    { id: 'sanskrit', name: 'Sanskrit' },
+    { id: 'evs', name: 'EVS' },
+    { id: 'pe', name: 'Physical Education' },
+    { id: 'art', name: 'Art & Craft' },
+    { id: 'music', name: 'Music' },
+    { id: 'moral', name: 'Moral Science' },
+    { id: 'others', name: 'Others' },
+  ];
+
+  customSubject = '';
+
+  addCustomSubject(): void {
+    if (this.customSubject.trim()) {
+      const id = this.customSubject.trim().toLowerCase().replace(/\s+/g, '_');
+      if (!this.subjectsList.find(s => s.id === id)) {
+        this.subjectsList.push({ id, name: this.customSubject.trim() });
+      }
+      this.customSubject = '';
+    }
+  }
+
   addSection(): void {
     const sectionGroup = this.fb.group({
       name: ['', Validators.required],
       capacity: [40, [Validators.required, Validators.min(1)]],
       classTeacherId: [''],
+      subjectIds: [[]],
     });
     this.sections.push(sectionGroup);
   }

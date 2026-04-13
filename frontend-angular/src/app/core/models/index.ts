@@ -135,7 +135,7 @@ export interface SchoolClass {
   classId: string;
   name: string;
   academicYearId: string;
-  sections: { sectionId: string; name: string; capacity: number; classTeacherId?: string }[];
+  sections: { sectionId: string; name: string; capacity: number; classTeacherId?: string; subjectIds?: string[] }[];
   createdAt?: string;
 }
 

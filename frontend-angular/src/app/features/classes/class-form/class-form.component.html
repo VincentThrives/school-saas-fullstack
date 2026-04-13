@@ -72,6 +72,16 @@
               <mat-hint>Assign a class teacher to this section</mat-hint>
             </mat-form-field>
 
+            <mat-form-field appearance="outline" class="section-subjects-field">
+              <mat-label>Subjects</mat-label>
+              <mat-select formControlName="subjectIds" multiple>
+                <mat-option *ngFor="let sub of subjectsList" [value]="sub.id">
+                  {{ sub.name }}
+                </mat-option>
+              </mat-select>
+              <mat-hint>Select subjects for this section</mat-hint>
+            </mat-form-field>
+
             <button mat-icon-button color="warn" type="button" (click)="removeSection(i)"
                     [disabled]="sections.length <= 1" matTooltip="Remove section">
               <mat-icon>delete</mat-icon>

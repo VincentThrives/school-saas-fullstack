@@ -71,6 +71,10 @@ $gold-dark: #B8860B;
   .section-teacher-field {
     flex: 2;
   }
+
+  .section-subjects-field {
+    flex: 3;
+  }
 }
 
 @media (max-width: 768px) {
@@ -79,7 +83,8 @@ $gold-dark: #B8860B;
 
     .section-name-field,
     .section-capacity-field,
-    .section-teacher-field {
+    .section-teacher-field,
+    .section-subjects-field {
       flex: 1 1 100%;
     }
   }

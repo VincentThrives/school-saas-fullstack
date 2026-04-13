@@ -81,6 +81,7 @@ public class SchoolClass {
         private String name;
         private String classTeacherId;
         private int capacity;
+        private java.util.List<String> subjectIds;
 
         public Section() {
         }
@@ -122,6 +123,14 @@ public class SchoolClass {
 
         public void setCapacity(int capacity) {
             this.capacity = capacity;
+        }
+
+        public java.util.List<String> getSubjectIds() {
+            return subjectIds;
+        }
+
+        public void setSubjectIds(java.util.List<String> subjectIds) {
+            this.subjectIds = subjectIds;
         }
     }
 }
