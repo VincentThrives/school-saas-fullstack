@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.repository.Query;
 import java.time.LocalDate; import java.util.List; import java.util.Optional;
 public interface AttendanceRepository extends MongoRepository<Attendance, String> {
     List<Attendance> findByClassIdAndSectionIdAndDate(String c, String s, LocalDate d);
+    List<Attendance> findByClassIdAndSectionIdAndDateBetween(String classId, String sectionId, LocalDate from, LocalDate to);
     Optional<Attendance> findByStudentIdAndDate(String studentId, LocalDate date);
     List<Attendance> findByStudentIdAndDateBetween(String studentId, LocalDate from, LocalDate to);
     List<Attendance> findByClassIdAndDateBetween(String classId, LocalDate from, LocalDate to);

@@ -59,4 +59,8 @@ public class AttendanceService {
     public List<Attendance> getClassAttendance(String classId, String sectionId, LocalDate date) {
         return attendanceRepository.findByClassIdAndSectionIdAndDate(classId, sectionId, date);
     }
+
+    public List<Attendance> getClassAttendanceRange(String classId, String sectionId, LocalDate from, LocalDate to) {
+        return attendanceRepository.findByClassIdAndSectionIdAndDateBetween(classId, sectionId, from, to);
+    }
 }

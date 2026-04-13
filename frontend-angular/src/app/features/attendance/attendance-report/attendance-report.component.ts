@@ -109,78 +109,55 @@ export class AttendanceReportComponent implements OnInit {
     this.isLoading = true;
     this.reportLoaded = false;
 
-    // Load students for this class/section
-    this.api.getStudents(0, 100, { classId: this.selectedClassId, sectionId: this.selectedSectionId }).subscribe({
-      next: (studentsRes) => {
-        const students = studentsRes.data?.content || [];
+    // Use the class attendance report endpoint which groups by student
+    this.api.getClassAttendanceReport(this.selectedClassId, this.selectedSectionId, this.startDate, this.endDate).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          const data = res.data;
 
-        if (students.length === 0) {
-          this.isLoading = false;
+          this.summaryData = {
+            totalStudents: data.totalStudents || 0,
+            presentPercent: data.presentPercent || 0,
+            absentPercent: data.absentPercent || 0,
+            latePercent: data.latePercent || 0,
+          };
+
+          this.studentReports = (data.students || []).map((s: any) => ({
+            studentId: s.studentId,
+            studentName: s.studentId,
+            rollNumber: '-',
+            present: s.present || 0,
+            absent: s.absent || 0,
+            late: s.late || 0,
+            halfDay: s.halfDay || 0,
+            total: s.totalDays || 0,
+            percentage: s.percentage || 0,
+          }));
+
+          // Load student names separately
+          this.api.getStudents(0, 100, {}).subscribe({
+            next: (studentsRes) => {
+              const allStudents = studentsRes.data?.content || [];
+              const nameMap: Record<string, any> = {};
+              allStudents.forEach((st: any) => { nameMap[st.studentId] = st; });
+
+              this.studentReports.forEach(r => {
+                const st = nameMap[r.studentId];
+                if (st) {
+                  r.studentName = st.firstName ? `${st.firstName} ${st.lastName || ''}`.trim() : `Student ${st.admissionNumber || ''}`;
+                  r.rollNumber = st.rollNumber || st.admissionNumber || '-';
+                }
+              });
+            },
+          });
+
           this.reportLoaded = true;
-          this.studentReports = [];
-          this.summaryData = { totalStudents: 0, presentPercent: 0, absentPercent: 0, latePercent: 0 };
-          this.snackBar.open('No students found in this class/section', 'Close', { duration: 3000 });
-          return;
         }
-
-        // Load attendance summary for each student
-        const requests = students.map((s: any) =>
-          this.api.getStudentAttendanceSummary(s.studentId, this.startDate, this.endDate)
-        );
-
-        forkJoin(requests).subscribe({
-          next: (results: any[]) => {
-            let totalPresent = 0;
-            let totalAbsent = 0;
-            let totalLate = 0;
-            let totalDays = 0;
-
-            this.studentReports = students.map((s: any, i: number) => {
-              const summary = results[i]?.data || {};
-              const present = summary.present || 0;
-              const absent = summary.absent || 0;
-              const late = summary.late || 0;
-              const halfDay = summary.halfDay || 0;
-              const total = summary.totalDays || (present + absent + late + halfDay);
-              const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
-
-              totalPresent += present;
-              totalAbsent += absent;
-              totalLate += late;
-              totalDays += total;
-
-              return {
-                studentId: s.studentId,
-                studentName: s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : `Student ${s.admissionNumber || ''}`,
-                rollNumber: s.rollNumber || s.admissionNumber || '-',
-                present,
-                absent,
-                late,
-                halfDay,
-                total,
-                percentage,
-              };
-            });
-
-            this.summaryData = {
-              totalStudents: students.length,
-              presentPercent: totalDays > 0 ? Math.round((totalPresent / totalDays) * 100) : 0,
-              absentPercent: totalDays > 0 ? Math.round((totalAbsent / totalDays) * 100) : 0,
-              latePercent: totalDays > 0 ? Math.round((totalLate / totalDays) * 100) : 0,
-            };
-
-            this.reportLoaded = true;
-            this.isLoading = false;
-          },
-          error: () => {
-            this.isLoading = false;
-            this.snackBar.open('Failed to load attendance data', 'Close', { duration: 3000 });
-          },
-        });
-      },
-      error: () => {
         this.isLoading = false;
-        this.snackBar.open('Failed to load students', 'Close', { duration: 3000 });
+      },
+      error: (err) => {
+        this.isLoading = false;
+        this.snackBar.open(err?.error?.message || 'Failed to load report', 'Close', { duration: 3000 });
       },
     });
   }
