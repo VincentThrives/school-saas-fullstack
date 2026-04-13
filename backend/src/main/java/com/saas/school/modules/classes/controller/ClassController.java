@@ -94,4 +94,11 @@ public class ClassController {
         req.setSubjectId(UUID.randomUUID().toString());
         return ResponseEntity.ok(ApiResponse.success(subjectRepo.save(req), "Created"));
     }
+
+    @DeleteMapping("/subjects/{subjectId}")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteSubject(@PathVariable String subjectId) {
+        subjectRepo.deleteById(subjectId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Subject deleted"));
+    }
 }
