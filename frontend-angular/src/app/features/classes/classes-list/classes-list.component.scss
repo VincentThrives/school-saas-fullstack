@@ -118,6 +118,27 @@ $gold-dark: #B8860B;
   color: #888;
 }
 
+.teacher-name-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #333;
+  font-weight: 500;
+
+  .small-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: $gold;
+  }
+}
+
+.no-teacher {
+  color: #999;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
 .delete-overlay {
   position: fixed;
   top: 0;

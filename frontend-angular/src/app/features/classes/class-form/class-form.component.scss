@@ -67,6 +67,22 @@ $gold-dark: #B8860B;
   .section-capacity-field {
     flex: 1;
   }
+
+  .section-teacher-field {
+    flex: 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .section-row {
+    flex-wrap: wrap;
+
+    .section-name-field,
+    .section-capacity-field,
+    .section-teacher-field {
+      flex: 1 1 100%;
+    }
+  }
 }
 
 .no-sections {

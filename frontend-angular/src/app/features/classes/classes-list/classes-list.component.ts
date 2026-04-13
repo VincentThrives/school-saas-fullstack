@@ -13,7 +13,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { SchoolClass, AcademicYear } from '../../../core/models';
+import { SchoolClass, AcademicYear, Teacher } from '../../../core/models';
 
 @Component({
   selector: 'app-classes-list',
@@ -36,10 +36,11 @@ import { SchoolClass, AcademicYear } from '../../../core/models';
   styleUrl: './classes-list.component.scss',
 })
 export class ClassesListComponent implements OnInit {
-  displayedColumns: string[] = ['name', 'sections', 'academicYear', 'students', 'actions'];
+  displayedColumns: string[] = ['name', 'sections', 'classTeacher', 'academicYear', 'students', 'actions'];
   dataSource = new MatTableDataSource<SchoolClass>([]);
   academicYears: AcademicYear[] = [];
   academicYearMap: Record<string, string> = {};
+  teacherMap: Record<string, string> = {};
   isLoading = false;
 
   deleteDialogOpen = false;
@@ -53,7 +54,29 @@ export class ClassesListComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadAcademicYears();
+    this.loadTeachers();
     this.loadClasses();
+  }
+
+  loadTeachers(): void {
+    this.apiService.getTeachers(0, 100).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          (res.data.content || []).forEach((t: Teacher) => {
+            const name = t.firstName ? `${t.firstName} ${t.lastName || ''}`.trim() : `Teacher ${t.employeeId || ''}`;
+            this.teacherMap[t.teacherId] = name;
+          });
+        }
+      },
+    });
+  }
+
+  getClassTeacherName(cls: SchoolClass): string {
+    const section = cls.sections?.[0];
+    if (section?.classTeacherId && this.teacherMap[section.classTeacherId]) {
+      return this.teacherMap[section.classTeacherId];
+    }
+    return '-';
   }
 
   loadAcademicYears(): void {

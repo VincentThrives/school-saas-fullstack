@@ -95,41 +95,6 @@
           </mat-form-field>
         </div>
 
-        <mat-divider class="section-divider"></mat-divider>
-
-        <!-- Class Teacher Assignment -->
-        <h3 class="section-title">Class Teacher Assignment</h3>
-
-        <div class="checkbox-row">
-          <mat-checkbox formControlName="isClassTeacher" color="primary">
-            Is Class Teacher
-          </mat-checkbox>
-        </div>
-
-        <div class="form-grid" *ngIf="isClassTeacher">
-          <mat-form-field appearance="outline">
-            <mat-label>Class Teacher of Class</mat-label>
-            <mat-select formControlName="classTeacherOfClassId" (selectionChange)="onClassTeacherClassChange()">
-              <mat-option value="">-- Select Class --</mat-option>
-              <mat-option *ngFor="let cls of classes" [value]="cls.classId">
-                {{ cls.name }}
-              </mat-option>
-            </mat-select>
-            <mat-hint>Select which class this teacher is the class teacher of</mat-hint>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Section</mat-label>
-            <mat-select formControlName="classTeacherOfSectionId" [disabled]="!teacherForm.get('classTeacherOfClassId')?.value">
-              <mat-option value="">-- Select Section --</mat-option>
-              <mat-option *ngFor="let sec of selectedClassSections" [value]="sec.sectionId">
-                {{ sec.name }}
-              </mat-option>
-            </mat-select>
-            <mat-hint>Select the section</mat-hint>
-          </mat-form-field>
-        </div>
-
         <div class="form-actions">
           <button mat-button type="button" (click)="cancel()">
             <mat-icon>arrow_back</mat-icon>

@@ -52,6 +52,18 @@
         </td>
       </ng-container>
 
+      <!-- Class Teacher Column -->
+      <ng-container matColumnDef="classTeacher">
+        <th mat-header-cell *matHeaderCellDef>Class Teacher</th>
+        <td mat-cell *matCellDef="let cls">
+          <span class="teacher-name-chip" *ngIf="getClassTeacherName(cls) !== '-'">
+            <mat-icon class="small-icon">person</mat-icon>
+            {{ getClassTeacherName(cls) }}
+          </span>
+          <span class="no-teacher" *ngIf="getClassTeacherName(cls) === '-'">Not assigned</span>
+        </td>
+      </ng-container>
+
       <!-- Academic Year Column -->
       <ng-container matColumnDef="academicYear">
         <th mat-header-cell *matHeaderCellDef>Academic Year</th>

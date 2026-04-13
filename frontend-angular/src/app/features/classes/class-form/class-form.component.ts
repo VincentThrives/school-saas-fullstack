@@ -13,7 +13,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { AcademicYear } from '../../../core/models';
+import { AcademicYear, Teacher } from '../../../core/models';
 
 @Component({
   selector: 'app-class-form',
@@ -43,6 +43,7 @@ export class ClassFormComponent implements OnInit {
   isSaving = false;
 
   academicYears: AcademicYear[] = [];
+  teachers: Teacher[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -63,6 +64,7 @@ export class ClassFormComponent implements OnInit {
     });
 
     this.loadAcademicYears();
+    this.loadTeachers();
 
     if (!this.isEditing) {
       this.addSection();
@@ -112,6 +114,7 @@ export class ClassFormComponent implements OnInit {
             this.sections.push(this.fb.group({
               name: [s.name, Validators.required],
               capacity: [s.capacity, [Validators.required, Validators.min(1)]],
+              classTeacherId: [s.classTeacherId || ''],
             }));
           });
         }
@@ -124,10 +127,28 @@ export class ClassFormComponent implements OnInit {
     });
   }
 
+  loadTeachers(): void {
+    this.apiService.getTeachers(0, 100).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.teachers = res.data.content || [];
+        }
+      },
+    });
+  }
+
+  getTeacherName(teacher: Teacher): string {
+    if (teacher.firstName) {
+      return `${teacher.firstName} ${teacher.lastName || ''}`.trim();
+    }
+    return `Teacher ${teacher.employeeId || ''}`;
+  }
+
   addSection(): void {
     const sectionGroup = this.fb.group({
       name: ['', Validators.required],
       capacity: [40, [Validators.required, Validators.min(1)]],
+      classTeacherId: [''],
     });
     this.sections.push(sectionGroup);
   }

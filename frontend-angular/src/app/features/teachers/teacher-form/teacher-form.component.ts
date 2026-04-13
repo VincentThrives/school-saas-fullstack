@@ -71,8 +71,6 @@ export class TeacherFormComponent implements OnInit {
       classIds: [[]],
       subjectIds: [[]],
       isClassTeacher: [false],
-      classTeacherOfClassId: [''],
-      classTeacherOfSectionId: [''],
     });
 
     this.loadClasses();

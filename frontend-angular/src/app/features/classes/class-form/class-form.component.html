@@ -61,6 +61,17 @@
               <mat-error>Capacity must be at least 1</mat-error>
             </mat-form-field>
 
+            <mat-form-field appearance="outline" class="section-teacher-field">
+              <mat-label>Class Teacher</mat-label>
+              <mat-select formControlName="classTeacherId">
+                <mat-option value="">-- No Class Teacher --</mat-option>
+                <mat-option *ngFor="let teacher of teachers" [value]="teacher.teacherId">
+                  {{ getTeacherName(teacher) }}
+                </mat-option>
+              </mat-select>
+              <mat-hint>Assign a class teacher to this section</mat-hint>
+            </mat-form-field>
+
             <button mat-icon-button color="warn" type="button" (click)="removeSection(i)"
                     [disabled]="sections.length <= 1" matTooltip="Remove section">
               <mat-icon>delete</mat-icon>
