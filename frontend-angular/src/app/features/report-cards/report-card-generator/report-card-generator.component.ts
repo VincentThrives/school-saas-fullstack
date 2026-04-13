@@ -45,9 +45,10 @@ export class ReportCardGeneratorComponent implements OnInit {
   selectedClassId = '';
   selectedAcademicYearId = '';
 
-  reportCards: ReportCard[] = [];
+  reportCards: any[] = [];
+  studentMap: Record<string, any> = {};
   displayedColumns = ['select', 'studentName', 'rollNumber', 'percentage', 'grade', 'rank', 'actions'];
-  selection = new SelectionModel<ReportCard>(true, []);
+  selection = new SelectionModel<any>(true, []);
   isLoading = false;
   isGenerating = false;
 
@@ -73,7 +74,16 @@ export class ReportCardGeneratorComponent implements OnInit {
     if (!this.selectedClassId || !this.selectedAcademicYearId) return;
     this.isLoading = true;
     this.selection.clear();
-    // Generate report cards for the class (creates if not exists)
+
+    // Load students for roll numbers
+    this.api.getStudents(0, 100).subscribe({
+      next: (res) => {
+        const students = res.data?.content || [];
+        students.forEach((s: any) => { this.studentMap[s.studentId] = s; });
+      },
+    });
+
+    // Generate report cards for the class
     this.api.generateReportCards({
       classId: this.selectedClassId,
       academicYearId: this.selectedAcademicYearId,
@@ -91,6 +101,11 @@ export class ReportCardGeneratorComponent implements OnInit {
         this.snackBar.open(err?.error?.message || 'Failed to generate report cards', 'Close', { duration: 3000 });
       },
     });
+  }
+
+  getRollNumber(rc: any): string {
+    const student = this.studentMap[rc.studentId];
+    return student?.rollNumber || student?.admissionNumber || '-';
   }
 
   isAllSelected(): boolean {
@@ -141,7 +156,7 @@ export class ReportCardGeneratorComponent implements OnInit {
     });
   }
 
-  viewReportCard(reportCardId: string): void {
-    this.router.navigate(['/report-cards', reportCardId]);
+  viewReportCard(rc: any): void {
+    this.router.navigate(['/report-cards', rc.id || rc.reportCardId || rc.studentId]);
   }
 }

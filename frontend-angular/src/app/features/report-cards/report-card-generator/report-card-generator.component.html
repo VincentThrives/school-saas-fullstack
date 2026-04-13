@@ -71,7 +71,7 @@
       <!-- Roll Number -->
       <ng-container matColumnDef="rollNumber">
         <th mat-header-cell *matHeaderCellDef>Roll No</th>
-        <td mat-cell *matCellDef="let rc">{{ rc.rollNumber || '-' }}</td>
+        <td mat-cell *matCellDef="let rc">{{ getRollNumber(rc) }}</td>
       </ng-container>
 
       <!-- Percentage -->
@@ -98,7 +98,7 @@
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
         <td mat-cell *matCellDef="let rc" class="actions-col">
-          <button mat-icon-button (click)="viewReportCard(rc.reportCardId); $event.stopPropagation()" matTooltip="View">
+          <button mat-icon-button (click)="viewReportCard(rc); $event.stopPropagation()" matTooltip="View">
             <mat-icon>visibility</mat-icon>
           </button>
           <button mat-icon-button (click)="downloadPdf(rc); $event.stopPropagation()" matTooltip="Download PDF">
@@ -112,7 +112,6 @@
         mat-row
         *matRowDef="let row; columns: displayedColumns;"
         class="table-row"
-        (click)="viewReportCard(row.reportCardId)"
       ></tr>
     </table>
 
