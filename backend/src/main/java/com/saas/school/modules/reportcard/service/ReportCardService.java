@@ -72,6 +72,9 @@ public class ReportCardService {
     @Autowired
     private TenantRepository tenantRepository;
 
+    @Autowired
+    private com.saas.school.modules.academicyear.repository.AcademicYearRepository academicYearRepository;
+
     public ReportCard generateReportCard(String studentId, String academicYearId) {
         logger.info("Generating report card for studentId={}, academicYearId={}", studentId, academicYearId);
 
@@ -207,6 +210,10 @@ public class ReportCardService {
         reportCard.setClassId(classId);
         reportCard.setClassName(className);
         reportCard.setAcademicYearId(academicYearId);
+        // Fetch academic year label
+        academicYearRepository.findById(academicYearId).ifPresent(ay ->
+            reportCard.setAcademicYearLabel(ay.getLabel())
+        );
         reportCard.setSubjects(subjectGrades);
         reportCard.setTotalMarks(totalMarks);
         reportCard.setTotalMaxMarks(totalMaxMarks);
