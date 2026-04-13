@@ -53,6 +53,10 @@ public class StudentService {
         Student student = new Student();
         student.setStudentId(UUID.randomUUID().toString());
         student.setUserId(req.getUserId());
+        student.setFirstName(req.getFirstName());
+        student.setLastName(req.getLastName());
+        student.setPhone(req.getPhone());
+        student.setEmail(req.getEmail());
         student.setAdmissionNumber(req.getAdmissionNumber());
         student.setRollNumber(req.getRollNumber());
         student.setClassId(req.getClassId());
@@ -72,6 +76,10 @@ public class StudentService {
 
     public StudentDto updateStudent(String studentId, UpdateStudentRequest req) {
         Student s = findStudent(studentId);
+        if (req.getFirstName()     != null) s.setFirstName(req.getFirstName());
+        if (req.getLastName()      != null) s.setLastName(req.getLastName());
+        if (req.getPhone()         != null) s.setPhone(req.getPhone());
+        if (req.getEmail()         != null) s.setEmail(req.getEmail());
         if (req.getRollNumber()    != null) s.setRollNumber(req.getRollNumber());
         if (req.getClassId()       != null) s.setClassId(req.getClassId());
         if (req.getSectionId()     != null) s.setSectionId(req.getSectionId());
@@ -144,6 +152,10 @@ public class StudentService {
         StudentDto dto = new StudentDto();
         dto.setStudentId(s.getStudentId());
         dto.setUserId(s.getUserId());
+        dto.setFirstName(s.getFirstName());
+        dto.setLastName(s.getLastName());
+        dto.setPhone(s.getPhone());
+        dto.setEmail(s.getEmail());
         dto.setAdmissionNumber(s.getAdmissionNumber());
         dto.setRollNumber(s.getRollNumber());
         dto.setClassId(s.getClassId());
