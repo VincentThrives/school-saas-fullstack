@@ -5,19 +5,18 @@ import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { StatCardComponent } from '../../../shared/components/stat-card/stat-card.component';
 import { ApiService } from '../../../core/services/api.service';
 import { SchoolClass } from '../../../core/models';
+import { forkJoin } from 'rxjs';
 
 interface StudentReport {
   studentId: string;
@@ -41,15 +40,13 @@ interface StudentReport {
     MatFormFieldModule,
     MatSelectModule,
     MatInputModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
     MatButtonModule,
     MatIconModule,
     MatTableModule,
     MatChipsModule,
     MatProgressSpinnerModule,
     MatProgressBarModule,
-    MatTooltipModule,
+    MatSnackBarModule,
     PageHeaderComponent,
     StatCardComponent,
   ],
@@ -58,12 +55,13 @@ interface StudentReport {
 })
 export class AttendanceReportComponent implements OnInit {
   classes: SchoolClass[] = [];
-  sections: { name: string; capacity: number; sectionId?: string }[] = [];
+  sections: { name: string; capacity: number; sectionId: string }[] = [];
   selectedClassId = '';
   selectedSectionId = '';
-  startDate: Date = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  endDate: Date = new Date();
+  startDate = '';
+  endDate = '';
   isLoading = false;
+  reportLoaded = false;
 
   summaryData = {
     totalStudents: 0,
@@ -73,14 +71,24 @@ export class AttendanceReportComponent implements OnInit {
   };
 
   studentReports: StudentReport[] = [];
-  displayedColumns = ['rollNumber', 'studentName', 'present', 'absent', 'late', 'halfDay', 'total', 'percentage'];
+  displayedColumns = ['rollNumber', 'studentName', 'present', 'absent', 'late', 'total', 'percentage'];
 
-  constructor(private api: ApiService) {}
+  constructor(
+    private api: ApiService,
+    private snackBar: MatSnackBar,
+  ) {
+    // Default: current month
+    const now = new Date();
+    this.startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    this.endDate = now.toISOString().split('T')[0];
+  }
 
   ngOnInit(): void {
     this.api.getClasses().subscribe({
       next: (res) => {
-        this.classes = res.data || [];
+        if (res.success && res.data) {
+          this.classes = Array.isArray(res.data) ? res.data : [];
+        }
       },
     });
   }
@@ -89,30 +97,90 @@ export class AttendanceReportComponent implements OnInit {
     const selectedClass = this.classes.find((c) => c.classId === this.selectedClassId);
     this.sections = selectedClass?.sections || [];
     this.selectedSectionId = '';
+    this.reportLoaded = false;
   }
 
   loadReport(): void {
-    if (!this.selectedClassId) return;
+    if (!this.selectedClassId || !this.selectedSectionId) {
+      this.snackBar.open('Please select class and section', 'Close', { duration: 3000 });
+      return;
+    }
 
     this.isLoading = true;
-    const month = this.formatMonth(this.startDate);
+    this.reportLoaded = false;
 
-    this.api.getClassAttendance(this.selectedClassId, this.selectedSectionId || '', this.startDate.toISOString().split('T')[0]).subscribe({
-      next: (res) => {
-        const data = res.data;
-        if (data) {
-          this.summaryData = {
-            totalStudents: data.totalStudents || 0,
-            presentPercent: data.presentPercent || 0,
-            absentPercent: data.absentPercent || 0,
-            latePercent: data.latePercent || 0,
-          };
-          this.studentReports = data.students || [];
+    // Load students for this class/section
+    this.api.getStudents(0, 100, { classId: this.selectedClassId, sectionId: this.selectedSectionId }).subscribe({
+      next: (studentsRes) => {
+        const students = studentsRes.data?.content || [];
+
+        if (students.length === 0) {
+          this.isLoading = false;
+          this.reportLoaded = true;
+          this.studentReports = [];
+          this.summaryData = { totalStudents: 0, presentPercent: 0, absentPercent: 0, latePercent: 0 };
+          this.snackBar.open('No students found in this class/section', 'Close', { duration: 3000 });
+          return;
         }
-        this.isLoading = false;
+
+        // Load attendance summary for each student
+        const requests = students.map((s: any) =>
+          this.api.getStudentAttendanceSummary(s.studentId, this.startDate, this.endDate)
+        );
+
+        forkJoin(requests).subscribe({
+          next: (results: any[]) => {
+            let totalPresent = 0;
+            let totalAbsent = 0;
+            let totalLate = 0;
+            let totalDays = 0;
+
+            this.studentReports = students.map((s: any, i: number) => {
+              const summary = results[i]?.data || {};
+              const present = summary.present || 0;
+              const absent = summary.absent || 0;
+              const late = summary.late || 0;
+              const halfDay = summary.halfDay || 0;
+              const total = summary.totalDays || (present + absent + late + halfDay);
+              const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+
+              totalPresent += present;
+              totalAbsent += absent;
+              totalLate += late;
+              totalDays += total;
+
+              return {
+                studentId: s.studentId,
+                studentName: s.firstName ? `${s.firstName} ${s.lastName || ''}`.trim() : `Student ${s.admissionNumber || ''}`,
+                rollNumber: s.rollNumber || s.admissionNumber || '-',
+                present,
+                absent,
+                late,
+                halfDay,
+                total,
+                percentage,
+              };
+            });
+
+            this.summaryData = {
+              totalStudents: students.length,
+              presentPercent: totalDays > 0 ? Math.round((totalPresent / totalDays) * 100) : 0,
+              absentPercent: totalDays > 0 ? Math.round((totalAbsent / totalDays) * 100) : 0,
+              latePercent: totalDays > 0 ? Math.round((totalLate / totalDays) * 100) : 0,
+            };
+
+            this.reportLoaded = true;
+            this.isLoading = false;
+          },
+          error: () => {
+            this.isLoading = false;
+            this.snackBar.open('Failed to load attendance data', 'Close', { duration: 3000 });
+          },
+        });
       },
       error: () => {
         this.isLoading = false;
+        this.snackBar.open('Failed to load students', 'Close', { duration: 3000 });
       },
     });
   }
@@ -122,11 +190,5 @@ export class AttendanceReportComponent implements OnInit {
     if (percentage >= 75) return '#2196f3';
     if (percentage >= 60) return '#ff9800';
     return '#f44336';
-  }
-
-  private formatMonth(date: Date): string {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
   }
 }
