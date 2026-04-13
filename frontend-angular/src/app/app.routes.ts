@@ -419,9 +419,23 @@ export const routes: Routes = [
       {
         path: 'timetable',
         loadComponent: () =>
-          import('./features/placeholder/placeholder.component').then(m => m.PlaceholderComponent),
+          import('./features/timetable/timetable-list/timetable-list.component').then(m => m.TimetableListComponent),
         canActivate: [featureGuard],
-        data: { feature: 'timetable', title: 'Timetable' },
+        data: { feature: 'timetable' },
+      },
+      {
+        path: 'timetable/builder',
+        loadComponent: () =>
+          import('./features/timetable/timetable-builder/timetable-builder.component').then(m => m.TimetableBuilderComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL], feature: 'timetable' },
+      },
+      {
+        path: 'timetable/view',
+        loadComponent: () =>
+          import('./features/timetable/timetable-view/timetable-view.component').then(m => m.TimetableViewComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'timetable' },
       },
 
       // Settings (SCHOOL_ADMIN only)

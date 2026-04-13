@@ -38,6 +38,7 @@ import {
   PtmSlot,
   CreatePtmRequest,
   BookPtmSlotRequest,
+  Timetable,
 } from '../models';
 
 @Injectable({ providedIn: 'root' })
@@ -601,6 +602,32 @@ export class ApiService {
 
   getTeacherPtmSchedule(ptmId: string, teacherId: string): Observable<ApiResponse<PtmSlot[]>> {
     return this.http.get<ApiResponse<PtmSlot[]>>(`${this.API}/ptm/${ptmId}/teachers/${teacherId}/schedule`);
+  }
+
+  // ── Timetable ─────────────────────────────────────────────────────────
+
+  getTimetable(classId: string, sectionId: string, academicYearId: string): Observable<ApiResponse<Timetable>> {
+    const params = new HttpParams().set('classId', classId).set('sectionId', sectionId).set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<Timetable>>(`${this.API}/timetable`, { params });
+  }
+
+  getTimetableList(academicYearId: string): Observable<ApiResponse<Timetable[]>> {
+    return this.http.get<ApiResponse<Timetable[]>>(`${this.API}/timetable/list`, { params: new HttpParams().set('academicYearId', academicYearId) });
+  }
+
+  saveTimetable(timetable: Partial<Timetable>): Observable<ApiResponse<Timetable>> {
+    if (timetable.timetableId) {
+      return this.http.put<ApiResponse<Timetable>>(`${this.API}/timetable/${timetable.timetableId}`, timetable);
+    }
+    return this.http.post<ApiResponse<Timetable>>(`${this.API}/timetable`, timetable);
+  }
+
+  deleteTimetable(timetableId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/timetable/${timetableId}`);
+  }
+
+  getTeacherTimetable(teacherId: string, academicYearId: string): Observable<ApiResponse<Timetable[]>> {
+    return this.http.get<ApiResponse<Timetable[]>>(`${this.API}/timetable/teacher/${teacherId}`, { params: new HttpParams().set('academicYearId', academicYearId) });
   }
 
   // ── Audit Logs ────────────────────────────────────────────────────────

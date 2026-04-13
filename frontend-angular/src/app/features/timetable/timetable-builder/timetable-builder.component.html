@@ -1,0 +1,163 @@
+<div class="timetable-builder-container">
+  <app-page-header
+    title="Timetable Builder"
+    subtitle="Create or edit class timetables"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Timetables', link: '/timetable' },
+      { label: editMode ? 'Edit Timetable' : 'New Timetable' }
+    ]"
+    secondaryActionLabel="Print"
+    secondaryActionIcon="print"
+    (secondaryActionClick)="printTimetable()"
+  ></app-page-header>
+
+  <!-- Filter Bar -->
+  <mat-card class="filter-card">
+    <div class="filter-row">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Class</mat-label>
+        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()">
+          <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Section</mat-label>
+        <mat-select [(ngModel)]="selectedSectionId">
+          <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">{{ sec.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId">
+          <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">{{ ay.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <button mat-flat-button class="gold-btn load-btn" (click)="loadTimetable()">
+        <mat-icon>search</mat-icon>
+        Load
+      </button>
+    </div>
+  </mat-card>
+
+  <!-- Loading -->
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <!-- Timetable Grid -->
+  <div class="timetable-wrapper" *ngIf="!isLoading && schedule.length > 0">
+    <div class="timetable-scroll">
+      <table class="timetable-table">
+        <thead>
+          <tr>
+            <th class="period-header">Period</th>
+            <th class="time-header">Time</th>
+            <th *ngFor="let day of days" class="day-header">{{ day }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let periodIdx of [].constructor(getMaxPeriods()); let i = index">
+            <!-- Lunch break row -->
+            <tr *ngIf="isLunchBreak(i)" class="lunch-break-row">
+              <td [attr.colspan]="days.length + 2" class="lunch-cell">
+                <mat-icon class="lunch-icon">restaurant</mat-icon>
+                Lunch Break (11:00 - 11:30)
+              </td>
+            </tr>
+
+            <tr class="period-row">
+              <td class="period-number">{{ i + 1 }}</td>
+              <td class="period-time">
+                <div class="time-inputs" *ngIf="schedule[0] && schedule[0].periods[i]">
+                  <input
+                    type="time"
+                    [ngModel]="schedule[0].periods[i].startTime"
+                    (ngModelChange)="updateAllDaysTime(i, 'startTime', $event)"
+                    class="time-input"
+                  />
+                  <span class="time-sep">-</span>
+                  <input
+                    type="time"
+                    [ngModel]="schedule[0].periods[i].endTime"
+                    (ngModelChange)="updateAllDaysTime(i, 'endTime', $event)"
+                    class="time-input"
+                  />
+                </div>
+              </td>
+              <td
+                *ngFor="let daySchedule of schedule"
+                class="period-cell"
+                [style.background-color]="daySchedule.periods[i]?.subjectId ? getSubjectColor(daySchedule.periods[i].subjectId) : ''"
+              >
+                <div class="cell-content">
+                  <mat-form-field appearance="outline" class="cell-field subject-field">
+                    <mat-label>Subject</mat-label>
+                    <mat-select [(ngModel)]="daySchedule.periods[i].subjectId">
+                      <mat-option value="">--</mat-option>
+                      <mat-option *ngFor="let sub of subjects" [value]="sub.subjectId">
+                        {{ sub.name }}
+                      </mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="cell-field teacher-field">
+                    <mat-label>Teacher</mat-label>
+                    <mat-select [(ngModel)]="daySchedule.periods[i].teacherId">
+                      <mat-option value="">--</mat-option>
+                      <mat-option *ngFor="let t of teachers" [value]="t.teacherId">
+                        {{ t.teacherId }}
+                      </mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="cell-field room-field">
+                    <mat-label>Room</mat-label>
+                    <input matInput [(ngModel)]="daySchedule.periods[i].roomNumber" placeholder="Room" />
+                  </mat-form-field>
+                </div>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Actions -->
+    <div class="builder-actions">
+      <div class="period-actions">
+        <button mat-stroked-button (click)="addPeriod()" matTooltip="Add a new period row">
+          <mat-icon>add</mat-icon>
+          Add Period
+        </button>
+        <button mat-stroked-button color="warn" (click)="removePeriod()" matTooltip="Remove last period row">
+          <mat-icon>remove</mat-icon>
+          Remove Period
+        </button>
+      </div>
+      <div class="save-actions">
+        <button mat-stroked-button (click)="goBack()">Cancel</button>
+        <button
+          mat-flat-button
+          class="gold-btn save-btn"
+          (click)="saveTimetable()"
+          [disabled]="isSaving"
+        >
+          <mat-spinner *ngIf="isSaving" diameter="20" class="btn-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isSaving">save</mat-icon>
+          {{ isSaving ? 'Saving...' : 'Save Timetable' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state when no schedule loaded -->
+  <div class="empty-state" *ngIf="!isLoading && schedule.length === 0">
+    <mat-icon class="empty-icon">calendar_month</mat-icon>
+    <p class="empty-title">Select a class, section, and academic year</p>
+    <p class="empty-subtitle">Then click "Load" to start building the timetable</p>
+  </div>
+</div>

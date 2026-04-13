@@ -567,3 +567,31 @@ export interface BookPtmSlotRequest {
   slotId: string;
   studentId: string;
 }
+
+// ── Timetable ──────────────────────────────────────────────────────────
+export interface TimetablePeriod {
+  periodNumber: number;
+  startTime: string;
+  endTime: string;
+  subjectId: string;
+  subjectName?: string;
+  teacherId: string;
+  teacherName?: string;
+  roomNumber: string;
+}
+
+export interface TimetableDaySchedule {
+  dayOfWeek: string;
+  periods: TimetablePeriod[];
+}
+
+export interface Timetable {
+  timetableId: string;
+  classId: string;
+  className?: string;
+  sectionId: string;
+  sectionName?: string;
+  academicYearId: string;
+  schedule: TimetableDaySchedule[];
+  createdAt?: string;
+}

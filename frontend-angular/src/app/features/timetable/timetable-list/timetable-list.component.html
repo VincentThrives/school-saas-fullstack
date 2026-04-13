@@ -1,0 +1,76 @@
+<div class="timetable-list-container">
+  <app-page-header
+    title="Timetables"
+    subtitle="Manage class timetables for your school"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Timetables' }
+    ]"
+    actionLabel="Create New"
+    actionIcon="add"
+    (actionClick)="createTimetable()"
+  ></app-page-header>
+
+  <mat-card class="filter-card">
+    <div class="filter-row">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="loadTimetables()">
+          <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">
+            {{ ay.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+  </mat-card>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <div class="timetable-grid" *ngIf="!isLoading && timetables.length > 0">
+    <mat-card class="timetable-card" *ngFor="let tt of timetables">
+      <div class="card-header">
+        <div class="class-info">
+          <h3 class="class-name">{{ tt.className || tt.classId }}</h3>
+          <span class="section-name" *ngIf="tt.sectionName || tt.sectionId">
+            Section {{ tt.sectionName || tt.sectionId }}
+          </span>
+        </div>
+        <mat-icon class="card-icon">calendar_month</mat-icon>
+      </div>
+
+      <div class="card-stats">
+        <div class="stat">
+          <mat-icon class="stat-icon">view_day</mat-icon>
+          <span>{{ getPeriodCount(tt) }} Periods</span>
+        </div>
+        <div class="stat">
+          <mat-icon class="stat-icon">date_range</mat-icon>
+          <span>{{ getDayCount(tt) }} Days</span>
+        </div>
+      </div>
+
+      <div class="card-actions">
+        <button mat-stroked-button color="primary" (click)="viewTimetable(tt)">
+          <mat-icon>visibility</mat-icon>
+          View
+        </button>
+        <button mat-flat-button class="gold-btn" (click)="editTimetable(tt)">
+          <mat-icon>edit</mat-icon>
+          Edit
+        </button>
+      </div>
+    </mat-card>
+  </div>
+
+  <div class="empty-state" *ngIf="!isLoading && timetables.length === 0">
+    <mat-icon class="empty-icon">calendar_month</mat-icon>
+    <p class="empty-title">No timetables created yet</p>
+    <p class="empty-subtitle">Create a timetable to get started with scheduling classes</p>
+    <button mat-flat-button class="gold-btn" (click)="createTimetable()">
+      <mat-icon>add</mat-icon>
+      Create Timetable
+    </button>
+  </div>
+</div>

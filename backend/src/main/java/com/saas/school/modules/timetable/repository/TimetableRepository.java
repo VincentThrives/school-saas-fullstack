@@ -5,4 +5,5 @@ import java.util.List; import java.util.Optional;
 public interface TimetableRepository extends MongoRepository<Timetable, String> {
     Optional<Timetable> findByClassIdAndSectionIdAndAcademicYearId(String c, String s, String ay);
     List<Timetable> findByAcademicYearId(String ay);
+    List<Timetable> findByClassIdAndAcademicYearId(String classId, String academicYearId);
 }

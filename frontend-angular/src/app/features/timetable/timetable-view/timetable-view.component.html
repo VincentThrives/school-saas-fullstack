@@ -1,0 +1,126 @@
+<div class="timetable-view-container">
+  <app-page-header
+    [title]="isTeacherView ? 'My Schedule' : 'Class Timetable'"
+    subtitle="View the weekly class schedule"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Timetables', link: '/timetable' },
+      { label: isTeacherView ? 'My Schedule' : 'View Timetable' }
+    ]"
+    secondaryActionLabel="Print"
+    secondaryActionIcon="print"
+    (secondaryActionClick)="printTimetable()"
+  ></app-page-header>
+
+  <!-- Filter Bar -->
+  <mat-card class="filter-card">
+    <div class="filter-row">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Class</mat-label>
+        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()">
+          <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Section</mat-label>
+        <mat-select [(ngModel)]="selectedSectionId">
+          <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">{{ sec.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId">
+          <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">{{ ay.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <button mat-flat-button class="gold-btn load-btn" (click)="loadTimetable()">
+        <mat-icon>search</mat-icon>
+        Load
+      </button>
+    </div>
+  </mat-card>
+
+  <!-- Loading -->
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <!-- Timetable Display -->
+  <div class="timetable-display" *ngIf="!isLoading && timetable">
+    <div class="timetable-title-bar">
+      <h2 class="timetable-title">
+        {{ timetable.className || timetable.classId }}
+        <span *ngIf="timetable.sectionName || timetable.sectionId"> - Section {{ timetable.sectionName || timetable.sectionId }}</span>
+      </h2>
+    </div>
+
+    <div class="timetable-scroll">
+      <table class="timetable-table">
+        <thead>
+          <tr>
+            <th class="period-col">Period</th>
+            <th *ngFor="let day of days" class="day-col">{{ day }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let periodIdx of [].constructor(getMaxPeriods()); let i = index">
+            <!-- Lunch break row -->
+            <tr *ngIf="isLunchBreak(i)" class="lunch-break-row">
+              <td [attr.colspan]="days.length + 1" class="lunch-cell">
+                <mat-icon class="lunch-icon">restaurant</mat-icon>
+                Lunch Break
+              </td>
+            </tr>
+
+            <tr>
+              <td class="period-label">
+                <div class="period-num">{{ i + 1 }}</div>
+                <div class="period-time" *ngIf="getPeriod(days[0], i) as p">
+                  {{ p.startTime }} - {{ p.endTime }}
+                </div>
+              </td>
+              <td
+                *ngFor="let day of days"
+                class="period-cell"
+                [class.current-period]="isCurrentPeriod(day, i)"
+                [class.empty-cell]="!getPeriod(day, i)?.subjectId"
+              >
+                <ng-container *ngIf="getPeriod(day, i) as period">
+                  <div
+                    class="period-card"
+                    *ngIf="period.subjectId"
+                    [style.background-color]="getSubjectColor(period.subjectId)"
+                    [style.border-left-color]="getSubjectBorderColor(period.subjectId)"
+                  >
+                    <div class="subject-name">{{ period.subjectName || period.subjectId }}</div>
+                    <div class="teacher-name" *ngIf="period.teacherName || period.teacherId">
+                      <mat-icon class="info-icon">person</mat-icon>
+                      {{ period.teacherName || period.teacherId }}
+                    </div>
+                    <div class="room-name" *ngIf="period.roomNumber">
+                      <mat-icon class="info-icon">room</mat-icon>
+                      {{ period.roomNumber }}
+                    </div>
+                  </div>
+                  <div class="free-period" *ngIf="!period.subjectId">
+                    <span class="free-label">Free</span>
+                  </div>
+                </ng-container>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-state" *ngIf="!isLoading && !timetable">
+    <mat-icon class="empty-icon">calendar_month</mat-icon>
+    <p class="empty-title">No timetable found</p>
+    <p class="empty-subtitle">Select a class, section, and academic year to view the timetable</p>
+  </div>
+</div>
