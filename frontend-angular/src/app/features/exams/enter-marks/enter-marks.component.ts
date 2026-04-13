@@ -14,6 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { SubjectService } from '../../../core/services/subject.service';
 
 interface StudentMark {
   studentId: string;
@@ -54,17 +55,10 @@ export class EnterMarksComponent implements OnInit {
   isSaving = false;
   classMap: Record<string, string> = {};
 
-  subjectNames: Record<string, string> = {
-    math: 'Mathematics', maths: 'Mathematics', science: 'Science', english: 'English',
-    hindi: 'Hindi', kannada: 'Kannada', sanskrit: 'Sanskrit',
-    social: 'Social Studies', history: 'History', geography: 'Geography',
-    physics: 'Physics', chemistry: 'Chemistry', biology: 'Biology',
-    computer: 'Computer Science', evs: 'EVS', pe: 'Physical Education',
-    'math-101': 'Mathematics',
-  };
 
   constructor(
     private api: ApiService,
+    private subjectService: SubjectService,
     private route: ActivatedRoute,
     private router: Router,
     private snackBar: MatSnackBar,
@@ -93,7 +87,7 @@ export class EnterMarksComponent implements OnInit {
 
   getSubjectName(): string {
     if (this.exam?.subjectName) return this.exam.subjectName;
-    if (this.exam?.subjectId) return this.subjectNames[this.exam.subjectId] || this.exam.subjectId;
+    if (this.exam?.subjectId) return this.subjectService.getSubjectName(this.exam.subjectId);
     return '-';
   }
 

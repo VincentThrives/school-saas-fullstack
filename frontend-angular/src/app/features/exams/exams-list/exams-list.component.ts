@@ -17,6 +17,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { SubjectService } from '../../../core/services/subject.service';
 import { SchoolClass, AcademicYear } from '../../../core/models';
 
 @Component({
@@ -51,15 +52,6 @@ export class ExamsListComponent implements OnInit {
   displayedColumns = ['name', 'marksStatus', 'class', 'subject', 'date', 'maxMarks', 'status', 'actions'];
   marksCountMap: Record<string, number> = {};
 
-  subjectNames: Record<string, string> = {
-    math: 'Mathematics', maths: 'Mathematics', science: 'Science', english: 'English',
-    hindi: 'Hindi', kannada: 'Kannada', sanskrit: 'Sanskrit',
-    social: 'Social Studies', history: 'History', geography: 'Geography',
-    physics: 'Physics', chemistry: 'Chemistry', biology: 'Biology',
-    computer: 'Computer Science', evs: 'EVS', pe: 'Physical Education',
-    art: 'Art & Craft', music: 'Music', moral: 'Moral Science',
-    'math-101': 'Mathematics',
-  };
 
   classFilter = '';
   subjectFilter = '';
@@ -72,6 +64,7 @@ export class ExamsListComponent implements OnInit {
 
   constructor(
     private api: ApiService,
+    private subjectService: SubjectService,
     private router: Router,
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
@@ -102,7 +95,7 @@ export class ExamsListComponent implements OnInit {
   }
 
   getSubjectName(subjectId: string): string {
-    return this.subjectNames[subjectId?.toLowerCase()] || subjectId || '-';
+    return this.subjectService.getSubjectName(subjectId);
   }
 
   loadExams(): void {

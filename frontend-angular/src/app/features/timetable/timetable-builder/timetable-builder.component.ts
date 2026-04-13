@@ -14,6 +14,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { SubjectService } from '../../../core/services/subject.service';
 import {
   SchoolClass,
   AcademicYear,
@@ -68,27 +69,7 @@ export class TimetableBuilderComponent implements OnInit {
 
   schedule: TimetableDaySchedule[] = [];
 
-  // Subjects are typically fetched from subjects API; using a simple list for now
-  subjects: SubjectOption[] = [
-    { subjectId: 'math', name: 'Mathematics' },
-    { subjectId: 'science', name: 'Science' },
-    { subjectId: 'english', name: 'English' },
-    { subjectId: 'hindi', name: 'Hindi' },
-    { subjectId: 'kannada', name: 'Kannada' },
-    { subjectId: 'sanskrit', name: 'Sanskrit' },
-    { subjectId: 'social', name: 'Social Studies' },
-    { subjectId: 'history', name: 'History' },
-    { subjectId: 'geography', name: 'Geography' },
-    { subjectId: 'physics', name: 'Physics' },
-    { subjectId: 'chemistry', name: 'Chemistry' },
-    { subjectId: 'biology', name: 'Biology' },
-    { subjectId: 'computer', name: 'Computer Science' },
-    { subjectId: 'evs', name: 'EVS' },
-    { subjectId: 'art', name: 'Art & Craft' },
-    { subjectId: 'music', name: 'Music' },
-    { subjectId: 'pe', name: 'Physical Education' },
-    { subjectId: 'moral', name: 'Moral Science' },
-  ];
+  subjects: SubjectOption[] = [];
 
   defaultPeriods: { startTime: string; endTime: string }[] = [
     { startTime: '08:00', endTime: '08:45' },
@@ -104,12 +85,17 @@ export class TimetableBuilderComponent implements OnInit {
 
   constructor(
     private api: ApiService,
+    private subjectService: SubjectService,
     private route: ActivatedRoute,
     private router: Router,
     private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
+    this.subjectService.getSubjects().subscribe(subjects => {
+      this.subjects = subjects.map(s => ({ subjectId: s.subjectId, name: s.name }));
+    });
+
     this.api.getClasses().subscribe((res) => {
       this.classes = res.data || [];
     });

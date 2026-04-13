@@ -1,0 +1,142 @@
+<div class="subjects-container">
+  <app-page-header
+    title="Subjects"
+    subtitle="Manage subjects for your school"
+    [breadcrumbs]="[{ label: 'Dashboard', link: '/dashboard' }, { label: 'Subjects' }]"
+    actionLabel="Add Subject"
+    actionIcon="add"
+    (actionClick)="openCreateDialog()">
+  </app-page-header>
+
+  <!-- Info Banner -->
+  <div class="info-banner">
+    <div class="info-icon">
+      <mat-icon>menu_book</mat-icon>
+    </div>
+    <div class="info-content">
+      <strong>Total Subjects: {{ dataSource.data.length }}</strong>
+      <p>Subjects defined here are used across exams, timetable, assignments, and syllabus modules.</p>
+    </div>
+    <button mat-icon-button matTooltip="Refresh" (click)="loadSubjects()">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card" *ngIf="!isLoading">
+    <table mat-table [dataSource]="dataSource" class="subjects-table">
+
+      <!-- Name Column -->
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Subject Name</th>
+        <td mat-cell *matCellDef="let subject">
+          <div class="subject-name-cell">
+            <div class="subject-icon">
+              <mat-icon>menu_book</mat-icon>
+            </div>
+            <span class="subject-name">{{ subject.name }}</span>
+          </div>
+        </td>
+      </ng-container>
+
+      <!-- Code Column -->
+      <ng-container matColumnDef="code">
+        <th mat-header-cell *matHeaderCellDef>Code</th>
+        <td mat-cell *matCellDef="let subject">
+          <span class="code-chip" *ngIf="subject.code">{{ subject.code }}</span>
+          <span *ngIf="!subject.code" class="muted">-</span>
+        </td>
+      </ng-container>
+
+      <!-- Type Column -->
+      <ng-container matColumnDef="type">
+        <th mat-header-cell *matHeaderCellDef>Type</th>
+        <td mat-cell *matCellDef="let subject">
+          <span class="type-chip" [ngClass]="getTypeClass(subject.type)">
+            {{ getTypeLabel(subject.type) }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Actions Column -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-header">Actions</th>
+        <td mat-cell *matCellDef="let subject" class="actions-cell">
+          <button mat-icon-button [matMenuTriggerFor]="subjectMenu" matTooltip="Actions">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #subjectMenu="matMenu">
+            <button mat-menu-item (click)="confirmDelete(subject)" class="delete-action">
+              <mat-icon color="warn">delete</mat-icon>
+              <span>Delete</span>
+            </button>
+          </mat-menu>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell no-data-cell" [attr.colspan]="displayedColumns.length">
+          No subjects found. Add one to get started.
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Create Subject Dialog -->
+  <div class="dialog-overlay" *ngIf="createDialogOpen" (click)="closeCreateDialog()">
+    <div class="dialog-panel" (click)="$event.stopPropagation()">
+      <h3>Add New Subject</h3>
+      <p class="dialog-description">Create a new subject. It will be available across all modules including exams, timetable, and assignments.</p>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Subject Name</mat-label>
+        <input matInput [(ngModel)]="newName" placeholder="e.g., Mathematics">
+      </mat-form-field>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline">
+          <mat-label>Subject Code (optional)</mat-label>
+          <input matInput [(ngModel)]="newCode" placeholder="e.g., MATH-101">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Type</mat-label>
+          <mat-select [(ngModel)]="newType">
+            <mat-option value="Theory">Theory</mat-option>
+            <mat-option value="Practical">Practical</mat-option>
+            <mat-option value="Elective">Elective</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="dialog-actions">
+        <button mat-button (click)="closeCreateDialog()">Cancel</button>
+        <button mat-raised-button class="create-button"
+                (click)="createSubject()"
+                [disabled]="isCreating || !newName.trim()">
+          {{ isCreating ? 'Creating...' : 'Create Subject' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Dialog -->
+  <div class="dialog-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
+    <div class="dialog-panel" (click)="$event.stopPropagation()">
+      <h3>Delete Subject</h3>
+      <p>Are you sure you want to delete <strong>{{ selectedSubject?.name }}</strong>? This action cannot be undone.</p>
+      <div class="dialog-actions">
+        <button mat-button (click)="cancelDelete()">Cancel</button>
+        <button mat-raised-button color="warn" (click)="deleteSubject()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>

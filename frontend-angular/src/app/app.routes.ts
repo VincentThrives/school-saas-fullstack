@@ -118,6 +118,15 @@ export const routes: Routes = [
         data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
       },
 
+      // Subjects (SCHOOL_ADMIN only)
+      {
+        path: 'subjects',
+        loadComponent: () =>
+          import('./features/subjects/subjects-list/subjects-list.component').then(m => m.SubjectsListComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN] },
+      },
+
       // Classes (SCHOOL_ADMIN only)
       {
         path: 'classes',

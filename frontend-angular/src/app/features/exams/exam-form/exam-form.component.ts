@@ -14,6 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
 import { SchoolClass, AcademicYear } from '../../../core/models';
 
 @Component({
@@ -47,10 +48,12 @@ export class ExamFormComponent implements OnInit {
   classes: SchoolClass[] = [];
   academicYears: AcademicYear[] = [];
   sections: { name: string; capacity: number; sectionId?: string }[] = [];
+  subjectsList: SubjectItem[] = [];
 
   constructor(
     private fb: FormBuilder,
     private api: ApiService,
+    private subjectService: SubjectService,
     private router: Router,
     private route: ActivatedRoute,
     private snackBar: MatSnackBar,
@@ -76,15 +79,14 @@ export class ExamFormComponent implements OnInit {
       description: [''],
     });
 
+    // Load subjects from service
+    this.subjectService.getSubjects().subscribe(subjects => {
+      this.subjectsList = subjects;
+    });
+
     // Auto-set subjectName when subjectId changes
     this.examForm.get('subjectId')?.valueChanges.subscribe((value) => {
-      const subjectMap: Record<string, string> = {
-        math: 'Mathematics', science: 'Science', english: 'English', hindi: 'Hindi',
-        kannada: 'Kannada', sanskrit: 'Sanskrit', social: 'Social Studies', history: 'History',
-        geography: 'Geography', physics: 'Physics', chemistry: 'Chemistry', biology: 'Biology',
-        computer: 'Computer Science', evs: 'EVS', pe: 'Physical Education',
-      };
-      this.examForm.get('subjectName')?.setValue(subjectMap[value] || value);
+      this.examForm.get('subjectName')?.setValue(this.subjectService.getSubjectName(value));
     });
 
     this.api.getClasses().subscribe({

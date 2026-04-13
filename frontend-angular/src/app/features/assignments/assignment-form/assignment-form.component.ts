@@ -13,6 +13,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { SubjectService } from '../../../core/services/subject.service';
 import { SchoolClass, Assignment } from '../../../core/models';
 
 @Component({
@@ -52,22 +53,20 @@ export class AssignmentFormComponent implements OnInit {
   isLoading = false;
   isSaving = false;
 
-  subjects = [
-    { id: 'math', name: 'Mathematics' },
-    { id: 'science', name: 'Science' },
-    { id: 'english', name: 'English' },
-    { id: 'hindi', name: 'Hindi' },
-    { id: 'social', name: 'Social Studies' },
-    { id: 'computer', name: 'Computer Science' },
-  ];
+  subjects: { id: string; name: string }[] = [];
 
   constructor(
     private api: ApiService,
+    private subjectService: SubjectService,
     private router: Router,
     private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    this.subjectService.getSubjects().subscribe(subjects => {
+      this.subjects = subjects.map(s => ({ id: s.subjectId, name: s.name }));
+    });
+
     this.api.getClasses().subscribe((res) => {
       this.classes = res.data || [];
     });

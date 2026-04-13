@@ -175,6 +175,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'Students', path: '/students', icon: 'school', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
         { title: 'Teachers', path: '/teachers', icon: 'person', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
         { title: 'Classes', path: '/classes', icon: 'class', roles: [UserRole.SCHOOL_ADMIN] },
+        { title: 'Subjects', path: '/subjects', icon: 'menu_book', roles: [UserRole.SCHOOL_ADMIN] },
         { title: 'Academic Years', path: '/academic-years', icon: 'date_range', roles: [UserRole.SCHOOL_ADMIN] },
         { title: 'Mark Attendance', path: '/attendance', icon: 'event_note', feature: 'attendance' },
         { title: 'Attendance Report', path: '/attendance/report', icon: 'assessment', feature: 'attendance' },

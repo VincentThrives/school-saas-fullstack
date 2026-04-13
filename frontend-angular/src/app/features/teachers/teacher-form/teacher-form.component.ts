@@ -14,6 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
 import { SchoolClass } from '../../../core/models';
 
 @Component({
@@ -46,10 +47,12 @@ export class TeacherFormComponent implements OnInit {
 
   classes: SchoolClass[] = [];
   selectedClassSections: { sectionId: string; name: string }[] = [];
+  subjectsList: SubjectItem[] = [];
 
   constructor(
     private fb: FormBuilder,
     private apiService: ApiService,
+    private subjectService: SubjectService,
     private router: Router,
     private route: ActivatedRoute,
     private snackBar: MatSnackBar,
@@ -71,6 +74,10 @@ export class TeacherFormComponent implements OnInit {
       classIds: [[]],
       subjectIds: [[]],
       isClassTeacher: [false],
+    });
+
+    this.subjectService.getSubjects().subscribe(subjects => {
+      this.subjectsList = subjects;
     });
 
     this.loadClasses();

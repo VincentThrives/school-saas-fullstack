@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { SubjectService } from '../../../core/services/subject.service';
 import { forkJoin } from 'rxjs';
 
 interface MarkEntry {
@@ -40,14 +41,6 @@ export class ExamResultsComponent implements OnInit {
   marks: MarkEntry[] = [];
   studentMap: Record<string, { firstName: string; lastName: string; rollNumber?: string }> = {};
   classMap: Record<string, string> = {};
-  subjectNames: Record<string, string> = {
-    math: 'Mathematics', maths: 'Mathematics', science: 'Science', english: 'English',
-    hindi: 'Hindi', kannada: 'Kannada', sanskrit: 'Sanskrit',
-    social: 'Social Science', history: 'History', geography: 'Geography',
-    physics: 'Physics', chemistry: 'Chemistry', biology: 'Biology',
-    computer: 'Computer Science', evs: 'EVS', pe: 'Physical Education',
-    'math-101': 'Mathematics',
-  };
   isLoading = false;
 
   // Computed stats
@@ -72,6 +65,7 @@ export class ExamResultsComponent implements OnInit {
 
   constructor(
     private api: ApiService,
+    private subjectService: SubjectService,
     private route: ActivatedRoute,
     private router: Router,
   ) {}
@@ -99,7 +93,7 @@ export class ExamResultsComponent implements OnInit {
 
   getSubjectName(): string {
     if (this.exam?.subjectName) return this.exam.subjectName;
-    if (this.exam?.subjectId) return this.subjectNames[this.exam.subjectId] || this.exam.subjectId;
+    if (this.exam?.subjectId) return this.subjectService.getSubjectName(this.exam.subjectId);
     return '-';
   }
 

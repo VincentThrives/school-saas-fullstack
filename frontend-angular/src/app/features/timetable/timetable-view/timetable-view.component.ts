@@ -12,6 +12,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { SubjectService } from '../../../core/services/subject.service';
 import {
   SchoolClass,
   AcademicYear,
@@ -58,6 +59,7 @@ export class TimetableViewComponent implements OnInit {
   constructor(
     private api: ApiService,
     private auth: AuthService,
+    private subjectService: SubjectService,
     private route: ActivatedRoute,
   ) {}
 
@@ -143,15 +145,7 @@ export class TimetableViewComponent implements OnInit {
   }
 
   getSubjectName(subjectId: string): string {
-    const names: Record<string, string> = {
-      math: 'Mathematics', science: 'Science', english: 'English',
-      hindi: 'Hindi', kannada: 'Kannada', sanskrit: 'Sanskrit',
-      social: 'Social Studies', history: 'History', geography: 'Geography',
-      physics: 'Physics', chemistry: 'Chemistry', biology: 'Biology',
-      computer: 'Computer Science', evs: 'EVS', art: 'Art & Craft',
-      music: 'Music', pe: 'Physical Education', moral: 'Moral Science',
-    };
-    return names[subjectId] || subjectId;
+    return this.subjectService.getSubjectName(subjectId);
   }
 
   getSubjectColor(subjectId: string): string {

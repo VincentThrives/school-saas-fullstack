@@ -13,6 +13,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
 import { AcademicYear, Teacher } from '../../../core/models';
 
 @Component({
@@ -49,6 +50,7 @@ export class ClassFormComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private apiService: ApiService,
+    private subjectService: SubjectService,
     private router: Router,
     private route: ActivatedRoute,
     private snackBar: MatSnackBar
@@ -62,6 +64,11 @@ export class ClassFormComponent implements OnInit {
       name: ['', Validators.required],
       academicYearId: ['', Validators.required],
       sections: this.fb.array([]),
+    });
+
+    this.subjectService.getSubjects().subscribe(subjects => {
+      this.subjectsList = subjects.map(s => ({ id: s.subjectId, name: s.name }));
+      this.subjectsList.push({ id: 'others', name: 'Others' });
     });
 
     this.loadAcademicYears();
@@ -146,27 +153,7 @@ export class ClassFormComponent implements OnInit {
     return `Teacher ${teacher.employeeId || ''}`;
   }
 
-  subjectsList = [
-    { id: 'kannada', name: 'Kannada' },
-    { id: 'english', name: 'English' },
-    { id: 'hindi', name: 'Hindi' },
-    { id: 'math', name: 'Mathematics' },
-    { id: 'science', name: 'Science' },
-    { id: 'social', name: 'Social Science' },
-    { id: 'history', name: 'History' },
-    { id: 'geography', name: 'Geography' },
-    { id: 'physics', name: 'Physics' },
-    { id: 'chemistry', name: 'Chemistry' },
-    { id: 'biology', name: 'Biology' },
-    { id: 'computer', name: 'Computer Science' },
-    { id: 'sanskrit', name: 'Sanskrit' },
-    { id: 'evs', name: 'EVS' },
-    { id: 'pe', name: 'Physical Education' },
-    { id: 'art', name: 'Art & Craft' },
-    { id: 'music', name: 'Music' },
-    { id: 'moral', name: 'Moral Science' },
-    { id: 'others', name: 'Others' },
-  ];
+  subjectsList: { id: string; name: string }[] = [];
 
   customSubject = '';
 
