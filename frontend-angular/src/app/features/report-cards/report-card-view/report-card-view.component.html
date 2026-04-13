@@ -25,20 +25,20 @@
           <span class="info-value">{{ reportCard.studentName }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">Roll Number</span>
-          <span class="info-value">{{ reportCard.rollNumber || '-' }}</span>
-        </div>
-        <div class="info-item">
           <span class="info-label">Class</span>
-          <span class="info-value">{{ reportCard.className }} {{ reportCard.sectionName ? '- ' + reportCard.sectionName : '' }}</span>
+          <span class="info-value">{{ reportCard.className || '-' }}</span>
         </div>
         <div class="info-item">
           <span class="info-label">Academic Year</span>
-          <span class="info-value">{{ reportCard.academicYearLabel }}</span>
+          <span class="info-value">{{ reportCard.academicYearLabel || reportCard.academicYearId }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Rank</span>
+          <span class="info-value highlight">{{ reportCard.rank || '-' }}</span>
         </div>
         <div class="info-item">
           <span class="info-label">Overall Percentage</span>
-          <span class="info-value highlight">{{ reportCard.percentage | number:'1.1-1' }}%</span>
+          <span class="info-value highlight">{{ reportCard.percentage }}%</span>
         </div>
         <div class="info-item">
           <span class="info-label">Grade</span>
@@ -46,13 +46,17 @@
             <mat-chip class="grade-chip">{{ reportCard.grade }}</mat-chip>
           </span>
         </div>
-        <div class="info-item" *ngIf="reportCard.rank">
-          <span class="info-label">Rank</span>
-          <span class="info-value highlight">{{ reportCard.rank }}</span>
+        <div class="info-item">
+          <span class="info-label">Result</span>
+          <span class="info-value">
+            <mat-chip [class]="reportCard.percentage >= 35 ? 'pass-chip' : 'fail-chip'">
+              {{ reportCard.percentage >= 35 ? 'PASS' : 'FAIL' }}
+            </mat-chip>
+          </span>
         </div>
-        <div class="info-item" *ngIf="reportCard.attendancePercentage !== undefined">
+        <div class="info-item" *ngIf="reportCard.attendancePercentage">
           <span class="info-label">Attendance</span>
-          <span class="info-value">{{ reportCard.attendancePercentage | number:'1.1-1' }}%</span>
+          <span class="info-value">{{ reportCard.attendancePercentage }}%</span>
         </div>
       </div>
     </mat-card>
@@ -60,20 +64,20 @@
     <!-- Marks Table -->
     <mat-card class="marks-card">
       <h3 class="section-title">Subject-wise Marks</h3>
-      <table mat-table [dataSource]="reportCard.marks" class="marks-table">
+      <table mat-table [dataSource]="reportCard.subjects || []" class="marks-table">
         <ng-container matColumnDef="subjectName">
           <th mat-header-cell *matHeaderCellDef>Subject</th>
           <td mat-cell *matCellDef="let mark">{{ mark.subjectName }}</td>
         </ng-container>
 
+        <ng-container matColumnDef="marksObtained">
+          <th mat-header-cell *matHeaderCellDef>Marks Obtained</th>
+          <td mat-cell *matCellDef="let mark">{{ mark.marksObtained }}</td>
+        </ng-container>
+
         <ng-container matColumnDef="maxMarks">
           <th mat-header-cell *matHeaderCellDef>Max Marks</th>
           <td mat-cell *matCellDef="let mark">{{ mark.maxMarks }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="obtainedMarks">
-          <th mat-header-cell *matHeaderCellDef>Obtained Marks</th>
-          <td mat-cell *matCellDef="let mark">{{ mark.obtainedMarks }}</td>
         </ng-container>
 
         <ng-container matColumnDef="grade">
@@ -89,15 +93,28 @@
 
       <!-- Totals Row -->
       <div class="totals-row">
-        <span>Total: {{ reportCard.obtainedMarks }} / {{ reportCard.totalMarks }}</span>
-        <span>Percentage: {{ reportCard.percentage | number:'1.1-1' }}%</span>
+        <span><strong>Total:</strong> {{ reportCard.totalMarks }} / {{ reportCard.totalMaxMarks }}</span>
+        <span><strong>Percentage:</strong> {{ reportCard.percentage }}%</span>
+        <span><strong>Grade:</strong> {{ reportCard.grade }}</span>
       </div>
     </mat-card>
 
     <!-- Remarks -->
-    <mat-card class="remarks-card" *ngIf="reportCard.remarks">
+    <mat-card class="remarks-card" *ngIf="reportCard.teacherRemarks || reportCard.principalRemarks">
       <h3 class="section-title">Remarks</h3>
-      <p class="remarks-text">{{ reportCard.remarks }}</p>
+      <p class="remarks-text" *ngIf="reportCard.teacherRemarks">
+        <strong>Teacher:</strong> {{ reportCard.teacherRemarks }}
+      </p>
+      <p class="remarks-text" *ngIf="reportCard.principalRemarks">
+        <strong>Principal:</strong> {{ reportCard.principalRemarks }}
+      </p>
     </mat-card>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" *ngIf="!reportCard && !isLoading">
+    <mat-icon class="empty-icon">description</mat-icon>
+    <h3>Report card not found</h3>
+    <p>No exam marks available for this student</p>
   </div>
 </div>
