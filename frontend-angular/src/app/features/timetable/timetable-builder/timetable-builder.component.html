@@ -91,7 +91,7 @@
               <td
                 *ngFor="let daySchedule of schedule"
                 class="period-cell"
-                [style.background-color]="daySchedule.periods[i]?.subjectId ? getSubjectColor(daySchedule.periods[i].subjectId) : ''"
+                [style.background-color]="daySchedule.periods[i].subjectId ? getSubjectColor(daySchedule.periods[i].subjectId) : ''"
               >
                 <div class="cell-content">
                   <mat-form-field appearance="outline" class="cell-field subject-field">
