@@ -154,9 +154,24 @@ export class ExamFormComponent implements OnInit {
     this.isSaving = true;
     const formData = this.examForm.value;
 
+    // Ensure examDate is a string (YYYY-MM-DD)
+    let examDate = formData.examDate;
+    if (examDate instanceof Date) {
+      const y = examDate.getFullYear();
+      const m = String(examDate.getMonth() + 1).padStart(2, '0');
+      const d = String(examDate.getDate()).padStart(2, '0');
+      examDate = `${y}-${m}-${d}`;
+    }
+
+    // Set className from selected class
+    const selectedClass = this.classes.find(c => c.classId === formData.classId);
+    const selectedSection = this.sections.find(s => s.sectionId === formData.sectionId);
+
     const payload = {
       ...formData,
-      date: this.formatDate(formData.examDate),
+      examDate,
+      className: selectedClass?.name || '',
+      sectionName: selectedSection?.name || '',
     };
 
     const request$ = this.isEditing && this.examId
@@ -181,13 +196,5 @@ export class ExamFormComponent implements OnInit {
 
   cancel(): void {
     this.router.navigate(['/exams']);
-  }
-
-  private formatDate(date: Date): string {
-    if (!date) return '';
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
   }
 }
