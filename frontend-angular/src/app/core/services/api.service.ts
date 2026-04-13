@@ -173,6 +173,10 @@ export class ApiService {
     return this.http.patch<ApiResponse<AcademicYear>>(`${this.API}/academic-years/${id}/archive`, null);
   }
 
+  deleteAcademicYear(id: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/academic-years/${id}`);
+  }
+
   // ── Attendance ─────────────────────────────────────────────────────────
 
   markAttendance(payload: any): Observable<ApiResponse<any>> {

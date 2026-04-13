@@ -35,4 +35,11 @@ public class AcademicYearService {
         year.setStatus(AcademicYear.Status.ARCHIVED);
         return repo.save(year);
     }
+
+    public void delete(String id) {
+        AcademicYear year = repo.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("AcademicYear", id));
+        if (year.isCurrent()) throw new BusinessException("Cannot delete the current academic year.");
+        repo.deleteById(id);
+    }
 }

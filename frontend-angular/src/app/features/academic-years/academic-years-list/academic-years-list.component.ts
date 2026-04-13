@@ -157,19 +157,44 @@ export class AcademicYearsListComponent implements OnInit {
 
   deleteYear(): void {
     if (!this.selectedYear) return;
+    const yearId = this.selectedYear.academicYearId;
+    const label = this.selectedYear.label;
     this.deleteDialogOpen = false;
     this.selectedYear = null;
-    this.loadAcademicYears();
+
+    this.apiService.deleteAcademicYear(yearId).subscribe({
+      next: () => {
+        this.snackBar.open(`"${label}" deleted successfully`, 'Close', { duration: 3000 });
+        this.loadAcademicYears();
+      },
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to delete', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   setAsCurrent(year: AcademicYear): void {
-    this.snackBar.open(`"${year.label}" set as current academic year`, 'Close', { duration: 3000 });
-    this.loadAcademicYears();
+    this.apiService.setCurrentAcademicYear(year.academicYearId).subscribe({
+      next: () => {
+        this.snackBar.open(`"${year.label}" set as current academic year`, 'Close', { duration: 3000 });
+        this.loadAcademicYears();
+      },
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to set as current', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   archiveYear(year: AcademicYear): void {
-    this.snackBar.open(`"${year.label}" archived successfully`, 'Close', { duration: 3000 });
-    this.loadAcademicYears();
+    this.apiService.archiveAcademicYear(year.academicYearId).subscribe({
+      next: () => {
+        this.snackBar.open(`"${year.label}" archived successfully`, 'Close', { duration: 3000 });
+        this.loadAcademicYears();
+      },
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to archive', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   formatDate(dateStr: string): string {

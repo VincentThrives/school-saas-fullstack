@@ -33,4 +33,11 @@ public class AcademicYearController {
     public ResponseEntity<ApiResponse<AcademicYear>> archive(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.success(service.archive(id)));
     }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable String id) {
+        service.delete(id);
+        return ResponseEntity.ok(ApiResponse.success(null, "Academic year deleted"));
+    }
 }
