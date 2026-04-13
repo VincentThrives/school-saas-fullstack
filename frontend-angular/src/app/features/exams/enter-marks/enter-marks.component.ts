@@ -67,12 +67,46 @@ export class EnterMarksComponent implements OnInit {
 
   loadExamAndStudents(): void {
     this.isLoading = true;
-    // Load exam details
-    this.api.getExams().subscribe({
+    // Load exam details by ID
+    this.api.getExamById(this.examId).subscribe({
       next: (res) => {
-        const exams = res.data || [];
-        this.exam = exams.find((e: any) => (e.examId || e.id) === this.examId);
+        if (res.success && res.data) {
+          this.exam = res.data;
+        }
         this.loadStudents();
+      },
+      error: () => {
+        this.isLoading = false;
+        this.snackBar.open('Failed to load exam', 'Close', { duration: 3000 });
+      },
+    });
+  }
+
+  private loadStudents(): void {
+    if (!this.exam) {
+      this.isLoading = false;
+      return;
+    }
+
+    // Load students - try with classId filter first, fallback to all
+    this.api.getStudents(0, 100, this.exam.classId ? { classId: this.exam.classId } : undefined).subscribe({
+      next: (res) => {
+        let studentList = res.data?.content || [];
+
+        // If classId filter returned empty, load all students
+        if (studentList.length === 0 && this.exam.classId) {
+          this.api.getStudents(0, 100).subscribe({
+            next: (allRes) => {
+              studentList = allRes.data?.content || [];
+              this.mapStudents(studentList);
+              this.isLoading = false;
+            },
+            error: () => { this.isLoading = false; },
+          });
+        } else {
+          this.mapStudents(studentList);
+          this.isLoading = false;
+        }
       },
       error: () => {
         this.isLoading = false;
@@ -80,29 +114,15 @@ export class EnterMarksComponent implements OnInit {
     });
   }
 
-  private loadStudents(): void {
-    if (!this.exam?.classId) {
-      this.isLoading = false;
-      return;
-    }
-
-    this.api.getStudents(0, 100, { classId: this.exam.classId }).subscribe({
-      next: (res) => {
-        const studentList = res.data?.content || [];
-        this.students = studentList.map((s) => ({
-          studentId: s.studentId,
-          rollNumber: s.rollNumber || '',
-          firstName: s.firstName || `Student ${s.admissionNumber || ''}`,
-          lastName: s.lastName || '',
-          marksObtained: null,
-          remarks: '',
-        }));
-        this.isLoading = false;
-      },
-      error: () => {
-        this.isLoading = false;
-      },
-    });
+  private mapStudents(studentList: any[]): void {
+    this.students = studentList.map((s: any) => ({
+      studentId: s.studentId,
+      rollNumber: s.rollNumber || '',
+      firstName: s.firstName || `Student ${s.admissionNumber || ''}`,
+      lastName: s.lastName || '',
+      marksObtained: null,
+      remarks: '',
+    }));
   }
 
   get maxMarks(): number {
