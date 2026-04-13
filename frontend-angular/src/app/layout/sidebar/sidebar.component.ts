@@ -281,12 +281,19 @@ export class SidebarComponent implements OnInit, OnDestroy {
     if (item.feature && !this.authService.isSuperAdmin && !this.authService.isFeatureEnabled(item.feature)) {
       return false;
     }
-    // Only show subject-wise attendance links when attendance mode is SUBJECT_WISE
-    if (item.path === '/attendance/subject-wise' && this.attendanceMode !== 'SUBJECT_WISE') {
-      return false;
-    }
-    if (item.path === '/attendance/subject-report' && this.attendanceMode !== 'SUBJECT_WISE') {
-      return false;
+    // Attendance mode visibility:
+    // SUBJECT_WISE → show only Subject Attendance + Subject Report
+    // DAY_WISE → show only Mark Attendance + Attendance Report
+    if (this.attendanceMode === 'SUBJECT_WISE') {
+      // Hide day-wise items
+      if (item.path === '/attendance' || item.path === '/attendance/report') {
+        return false;
+      }
+    } else {
+      // Hide subject-wise items
+      if (item.path === '/attendance/subject-wise' || item.path === '/attendance/subject-report') {
+        return false;
+      }
     }
     return true;
   }
