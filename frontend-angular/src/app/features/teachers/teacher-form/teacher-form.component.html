@@ -16,6 +16,32 @@
     <mat-card-content>
       <form [formGroup]="teacherForm" (ngSubmit)="onSubmit()">
 
+        <!-- Personal Information -->
+        <h3 class="section-title">Personal Information</h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>First Name</mat-label>
+            <input matInput formControlName="firstName" placeholder="e.g., John">
+            <mat-error>First name is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Last Name</mat-label>
+            <input matInput formControlName="lastName" placeholder="e.g., Smith">
+            <mat-error>Last name is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Email</mat-label>
+            <input matInput formControlName="email" type="email" placeholder="e.g., john@school.edu">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Phone</mat-label>
+            <input matInput formControlName="phone" placeholder="e.g., +91 98765 43210">
+          </mat-form-field>
+        </div>
+
         <!-- Employment Information -->
         <h3 class="section-title">Employment Information</h3>
         <div class="form-grid">

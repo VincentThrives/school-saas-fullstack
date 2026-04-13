@@ -59,6 +59,10 @@ export class TeacherFormComponent implements OnInit {
     this.isEditing = !!this.teacherId && this.teacherId !== 'new';
 
     this.teacherForm = this.fb.group({
+      firstName: ['', Validators.required],
+      lastName: ['', Validators.required],
+      email: [''],
+      phone: [''],
       employeeId: ['', Validators.required],
       qualification: [''],
       specialization: [''],

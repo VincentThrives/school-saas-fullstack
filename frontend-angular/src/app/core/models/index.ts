@@ -116,6 +116,10 @@ export interface Student {
 export interface Teacher {
   teacherId: string;
   userId: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
   employeeId: string;
   qualification?: string;
   specialization?: string;
