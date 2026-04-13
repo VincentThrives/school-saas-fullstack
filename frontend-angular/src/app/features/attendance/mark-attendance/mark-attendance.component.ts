@@ -107,8 +107,8 @@ export class MarkAttendanceComponent implements OnInit {
           this.students = studentList.map((s) => ({
             studentId: s.studentId,
             rollNumber: s.rollNumber || '',
-            firstName: s.userId,
-            lastName: '',
+            firstName: s.firstName || `Student ${s.admissionNumber || ''}`,
+            lastName: s.lastName || '',
             status: 'PRESENT' as const,
             remarks: '',
           }));
@@ -148,10 +148,13 @@ export class MarkAttendanceComponent implements OnInit {
     this.api
       .markAttendance({
         classId: this.selectedClassId,
+        sectionId: this.selectedSectionId,
+        academicYearId: this.classes.find(c => c.classId === this.selectedClassId)?.academicYearId || '',
         date: dateStr,
-        records: this.students.map((s) => ({
+        entries: this.students.map((s) => ({
           studentId: s.studentId,
           status: s.status,
+          remarks: s.remarks || '',
         })),
       })
       .subscribe({
@@ -159,9 +162,9 @@ export class MarkAttendanceComponent implements OnInit {
           this.isSaving = false;
           this.snackBar.open('Attendance saved successfully', 'Close', { duration: 3000 });
         },
-        error: () => {
+        error: (err) => {
           this.isSaving = false;
-          this.snackBar.open('Failed to save attendance', 'Close', { duration: 3000 });
+          this.snackBar.open(err?.error?.message || 'Failed to save attendance', 'Close', { duration: 3000 });
         },
       });
   }
