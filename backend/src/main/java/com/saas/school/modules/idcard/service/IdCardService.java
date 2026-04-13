@@ -68,14 +68,23 @@ public class IdCardService {
     public byte[] generateStudentIdCard(String studentId, String tenantId) {
         logger.info("Generating student ID card for studentId={}, tenantId={}", studentId, tenantId);
 
-        Student student = studentRepository.findByStudentIdAndDeletedAtIsNull(studentId)
+        Student student = studentRepository.findById(studentId)
+                .filter(s -> s.getDeletedAt() == null)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
 
-        User user = userRepository.findById(student.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found for student: " + studentId));
+        // Get student name from student directly or from user
+        String studentName = student.getFirstName() != null ? student.getFirstName() + " " + (student.getLastName() != null ? student.getLastName() : "") : "Student";
+        if (studentName.equals("Student") && student.getUserId() != null) {
+            User user = userRepository.findById(student.getUserId()).orElse(null);
+            if (user != null) studentName = user.getFirstName() + " " + user.getLastName();
+        }
 
+        // Lookup tenant in central DB
+        String currentTenantCtx = com.saas.school.config.mongodb.TenantContext.getTenantId();
+        com.saas.school.config.mongodb.TenantContext.clear();
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tenant not found with id: " + tenantId));
+        if (currentTenantCtx != null) com.saas.school.config.mongodb.TenantContext.setTenantId(currentTenantCtx);
 
         String className = "";
         if (student.getClassId() != null) {
@@ -108,14 +117,22 @@ public class IdCardService {
     public byte[] generateTeacherIdCard(String teacherId, String tenantId) {
         logger.info("Generating teacher ID card for teacherId={}, tenantId={}", teacherId, tenantId);
 
-        Teacher teacher = teacherRepository.findByTeacherIdAndDeletedAtIsNull(teacherId)
+        Teacher teacher = teacherRepository.findById(teacherId)
+                .filter(t -> t.getDeletedAt() == null)
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + teacherId));
 
-        User user = userRepository.findById(teacher.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found for teacher: " + teacherId));
+        String teacherName = teacher.getFirstName() != null ? teacher.getFirstName() + " " + (teacher.getLastName() != null ? teacher.getLastName() : "") : "Teacher";
+        if (teacherName.equals("Teacher") && teacher.getUserId() != null) {
+            User user = userRepository.findById(teacher.getUserId()).orElse(null);
+            if (user != null) teacherName = user.getFirstName() + " " + user.getLastName();
+        }
 
+        // Lookup tenant in central DB
+        String currentTenantCtx = com.saas.school.config.mongodb.TenantContext.getTenantId();
+        com.saas.school.config.mongodb.TenantContext.clear();
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tenant not found with id: " + tenantId));
+        if (currentTenantCtx != null) com.saas.school.config.mongodb.TenantContext.setTenantId(currentTenantCtx);
 
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -140,8 +157,12 @@ public class IdCardService {
     public byte[] generateBulkStudentIdCards(List<String> studentIds, String tenantId) {
         logger.info("Generating bulk student ID cards for {} students, tenantId={}", studentIds.size(), tenantId);
 
+        // Lookup tenant in central DB
+        String currentTenantCtx = com.saas.school.config.mongodb.TenantContext.getTenantId();
+        com.saas.school.config.mongodb.TenantContext.clear();
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tenant not found with id: " + tenantId));
+        if (currentTenantCtx != null) com.saas.school.config.mongodb.TenantContext.setTenantId(currentTenantCtx);
 
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();

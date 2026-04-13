@@ -497,8 +497,16 @@ export class ApiService {
   }
 
   // ── ID Card ───────────────────────────────────────────────────────────
-  generateIdCards(req: IdCardRequest): Observable<Blob> {
-    return this.http.post(`${this.API}/id-cards/generate`, req, { responseType: 'blob' });
+  generateStudentIdCard(studentId: string, tenantId: string): Observable<Blob> {
+    return this.http.get(`${this.API}/idcards/student/${studentId}?tenantId=${tenantId}`, { responseType: 'blob' });
+  }
+
+  generateTeacherIdCard(teacherId: string, tenantId: string): Observable<Blob> {
+    return this.http.get(`${this.API}/idcards/teacher/${teacherId}?tenantId=${tenantId}`, { responseType: 'blob' });
+  }
+
+  generateBulkIdCards(cardType: string, userIds: string[], tenantId: string): Observable<Blob> {
+    return this.http.post(`${this.API}/idcards/bulk?tenantId=${tenantId}`, { cardType, userIds }, { responseType: 'blob' });
   }
 
   // ── Syllabus ──────────────────────────────────────────────────────────

@@ -12,7 +12,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SelectionModel } from '@angular/cdk/collections';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { User } from '../../../core/models';
 
 @Component({
@@ -30,6 +32,7 @@ import { User } from '../../../core/models';
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    MatSnackBarModule,
     PageHeaderComponent,
   ],
   templateUrl: './id-card-generator.component.html',
@@ -45,7 +48,11 @@ export class IdCardGeneratorComponent implements OnInit {
   isLoading = false;
   isGenerating = false;
 
-  constructor(private api: ApiService) {}
+  constructor(
+    private api: ApiService,
+    private authService: AuthService,
+    private snackBar: MatSnackBar,
+  ) {}
 
   ngOnInit(): void {
     this.loadUsers();
@@ -96,20 +103,47 @@ export class IdCardGeneratorComponent implements OnInit {
   generateIdCards(): void {
     if (this.selection.isEmpty()) return;
     this.isGenerating = true;
+    const tenantId = this.authService.currentSchoolInfo?.tenantId || '';
     const userIds = this.selection.selected.map((u) => u.userId);
-    this.api.generateIdCards({ userType: this.userType, userIds }).subscribe({
-      next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `id-cards-${this.userType.toLowerCase()}.pdf`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-        this.isGenerating = false;
-      },
-      error: () => {
-        this.isGenerating = false;
-      },
-    });
+
+    if (userIds.length === 1) {
+      // Single card
+      const request$ = this.userType === 'STUDENT'
+        ? this.api.generateStudentIdCard(userIds[0], tenantId)
+        : this.api.generateTeacherIdCard(userIds[0], tenantId);
+
+      request$.subscribe({
+        next: (blob) => {
+          this.downloadBlob(blob, `id-card-${this.userType.toLowerCase()}-${userIds[0]}.pdf`);
+          this.isGenerating = false;
+        },
+        error: () => {
+          this.isGenerating = false;
+          this.snackBar.open('Failed to generate ID card', 'Close', { duration: 3000 });
+        },
+      });
+    } else {
+      // Bulk cards
+      this.api.generateBulkIdCards(this.userType, userIds, tenantId).subscribe({
+        next: (blob) => {
+          this.downloadBlob(blob, `id-cards-${this.userType.toLowerCase()}-bulk.pdf`);
+          this.isGenerating = false;
+        },
+        error: () => {
+          this.isGenerating = false;
+          this.snackBar.open('Failed to generate ID cards', 'Close', { duration: 3000 });
+        },
+      });
+    }
+  }
+
+  private downloadBlob(blob: Blob, filename: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    this.snackBar.open('ID card downloaded!', 'Close', { duration: 3000 });
   }
 }
