@@ -483,13 +483,27 @@ export const routes: Routes = [
         data: { title: 'Profile' },
       },
 
-      // Super Admin routes
+      // Super Admin routes - Tenant Management
       {
         path: 'superadmin/tenants',
         loadComponent: () =>
-          import('./features/placeholder/placeholder.component').then(m => m.PlaceholderComponent),
+          import('./features/tenants/tenants-list/tenants-list.component').then(m => m.TenantsListComponent),
         canActivate: [roleGuard],
-        data: { roles: [UserRole.SUPER_ADMIN], title: 'Tenants' },
+        data: { roles: [UserRole.SUPER_ADMIN] },
+      },
+      {
+        path: 'superadmin/tenants/new',
+        loadComponent: () =>
+          import('./features/tenants/tenant-form/tenant-form.component').then(m => m.TenantFormComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SUPER_ADMIN] },
+      },
+      {
+        path: 'superadmin/tenants/:tenantId',
+        loadComponent: () =>
+          import('./features/tenants/tenant-detail/tenant-detail.component').then(m => m.TenantDetailComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SUPER_ADMIN] },
       },
 
       // Feature Management (Super Admin)

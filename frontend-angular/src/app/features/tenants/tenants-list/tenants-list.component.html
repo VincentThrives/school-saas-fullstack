@@ -1,0 +1,164 @@
+<div class="tenants-list-container">
+  <app-page-header
+    title="Tenant Management"
+    subtitle="Manage all schools in the system"
+    [breadcrumbs]="[{ label: 'Super Admin', link: '/superadmin/dashboard' }, { label: 'Tenants' }]"
+    actionLabel="Add New School"
+    actionIcon="add"
+    (actionClick)="navigateToAddTenant()">
+  </app-page-header>
+
+  <!-- Filters -->
+  <div class="filters-card">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search schools</mat-label>
+      <input matInput [(ngModel)]="searchQuery" (keyup.enter)="onSearch()" placeholder="Search by name, email, or subdomain...">
+      <mat-icon matPrefix>search</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Status</mat-label>
+      <mat-select [(ngModel)]="statusFilter" (selectionChange)="onStatusFilter()">
+        <mat-option value="">All Status</mat-option>
+        <mat-option value="ACTIVE">Active</mat-option>
+        <mat-option value="INACTIVE">Inactive</mat-option>
+        <mat-option value="SUSPENDED">Suspended</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <button mat-icon-button matTooltip="Refresh" (click)="loadTenants()">
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card" *ngIf="!isLoading">
+    <table mat-table [dataSource]="dataSource" class="tenants-table">
+
+      <!-- School Name Column -->
+      <ng-container matColumnDef="schoolName">
+        <th mat-header-cell *matHeaderCellDef>School Name</th>
+        <td mat-cell *matCellDef="let tenant">
+          <div class="school-name-cell">
+            <div class="school-avatar">{{ getSchoolInitial(tenant.schoolName) }}</div>
+            <div>
+              <div class="school-name">{{ tenant.schoolName }}</div>
+              <div class="school-subdomain">{{ tenant.subdomain }}.schoolsaas.com</div>
+            </div>
+          </div>
+        </td>
+      </ng-container>
+
+      <!-- Contact Email Column -->
+      <ng-container matColumnDef="contactEmail">
+        <th mat-header-cell *matHeaderCellDef>Contact Email</th>
+        <td mat-cell *matCellDef="let tenant">{{ tenant.contactEmail }}</td>
+      </ng-container>
+
+      <!-- Plan Column -->
+      <ng-container matColumnDef="plan">
+        <th mat-header-cell *matHeaderCellDef>Plan</th>
+        <td mat-cell *matCellDef="let tenant">
+          <span class="plan-chip" [ngClass]="getPlanClass(tenant.plan)">
+            {{ tenant.plan }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Status Column -->
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let tenant">
+          <span class="status-chip" [ngClass]="getStatusClass(tenant.status)">
+            {{ tenant.status }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Features Column -->
+      <ng-container matColumnDef="features">
+        <th mat-header-cell *matHeaderCellDef>Features</th>
+        <td mat-cell *matCellDef="let tenant">
+          <span class="features-count">{{ getFeatureCount(tenant) }}</span>
+        </td>
+      </ng-container>
+
+      <!-- Created Date Column -->
+      <ng-container matColumnDef="createdAt">
+        <th mat-header-cell *matHeaderCellDef>Created</th>
+        <td mat-cell *matCellDef="let tenant">
+          {{ tenant.createdAt | date:'mediumDate' }}
+        </td>
+      </ng-container>
+
+      <!-- Actions Column -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-header">Actions</th>
+        <td mat-cell *matCellDef="let tenant" class="actions-cell">
+          <button mat-icon-button [matMenuTriggerFor]="actionMenu">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #actionMenu="matMenu">
+            <button mat-menu-item (click)="viewTenant(tenant)">
+              <mat-icon>visibility</mat-icon>
+              <span>View Details</span>
+            </button>
+            <button mat-menu-item (click)="manageFeatures(tenant)">
+              <mat-icon>toggle_on</mat-icon>
+              <span>Manage Features</span>
+            </button>
+            <button mat-menu-item (click)="changeTenantStatus(tenant)">
+              <mat-icon>{{ getStatusActionIcon(tenant) }}</mat-icon>
+              <span>{{ getStatusAction(tenant) }}</span>
+            </button>
+            <button mat-menu-item class="delete-action" (click)="confirmDelete(tenant)">
+              <mat-icon color="warn">delete</mat-icon>
+              <span>Delete</span>
+            </button>
+          </mat-menu>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="clickable-row" (click)="viewTenant(row)"></tr>
+
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell no-data-cell" [attr.colspan]="displayedColumns.length">
+          <div class="empty-state">
+            <mat-icon class="empty-icon">apartment</mat-icon>
+            <p>No schools found</p>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <mat-paginator
+      [length]="totalElements"
+      [pageSize]="pageSize"
+      [pageIndex]="pageIndex"
+      [pageSizeOptions]="[5, 10, 25, 50]"
+      (page)="onPageChange($event)"
+      showFirstLastButtons>
+    </mat-paginator>
+  </div>
+
+  <!-- Delete Confirmation Dialog -->
+  <div class="delete-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <div class="dialog-icon">
+        <mat-icon color="warn">warning</mat-icon>
+      </div>
+      <h3>Delete School</h3>
+      <p>Are you sure you want to delete <strong>{{ selectedTenant?.schoolName }}</strong>? This will permanently remove all school data including users, students, and records. This action cannot be undone.</p>
+      <div class="dialog-actions">
+        <button mat-button (click)="cancelDelete()">Cancel</button>
+        <button mat-raised-button color="warn" (click)="deleteTenant()">Delete School</button>
+      </div>
+    </div>
+  </div>
+</div>

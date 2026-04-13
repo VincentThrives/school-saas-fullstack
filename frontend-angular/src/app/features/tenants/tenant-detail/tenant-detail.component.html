@@ -1,0 +1,155 @@
+<div class="tenant-detail-container">
+  <app-page-header
+    [title]="tenant?.schoolName || 'School Details'"
+    [breadcrumbs]="[
+      { label: 'Super Admin', link: '/superadmin/dashboard' },
+      { label: 'Tenants', link: '/superadmin/tenants' },
+      { label: tenant?.schoolName || 'Details' }
+    ]">
+  </app-page-header>
+
+  <!-- Loading -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <div class="detail-content" *ngIf="!isLoading && tenant">
+
+    <!-- Info Cards Row -->
+    <div class="info-cards-row">
+      <mat-card class="info-card">
+        <div class="info-card-header">
+          <mat-icon>business</mat-icon>
+          <span>Plan & Status</span>
+        </div>
+        <div class="info-card-body">
+          <div class="info-item">
+            <span class="info-label">Plan</span>
+            <span class="plan-chip" [ngClass]="getPlanClass(tenant.plan)">{{ tenant.plan }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Status</span>
+            <span class="status-chip" [ngClass]="getStatusClass(tenant.status)">{{ tenant.status }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Created</span>
+            <span class="info-value">{{ tenant.createdAt | date:'mediumDate' }}</span>
+          </div>
+        </div>
+      </mat-card>
+
+      <mat-card class="info-card">
+        <div class="info-card-header">
+          <mat-icon>contact_mail</mat-icon>
+          <span>Contact Information</span>
+        </div>
+        <div class="info-card-body">
+          <div class="info-item">
+            <span class="info-label">Email</span>
+            <span class="info-value">{{ tenant.contactEmail }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Phone</span>
+            <span class="info-value">{{ tenant.contactPhone || 'Not provided' }}</span>
+          </div>
+        </div>
+      </mat-card>
+
+      <mat-card class="info-card">
+        <div class="info-card-header">
+          <mat-icon>toggle_on</mat-icon>
+          <span>Features</span>
+        </div>
+        <div class="info-card-body">
+          <div class="feature-summary">
+            <span class="feature-count">{{ enabledFeatureCount }}</span>
+            <span class="feature-total">/ {{ totalFeatureCount }} enabled</span>
+          </div>
+          <button mat-stroked-button class="manage-features-btn" (click)="navigateToFeatures()">
+            <mat-icon>settings</mat-icon>
+            Manage Features
+          </button>
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- School Details Section -->
+    <mat-card class="details-card">
+      <div class="card-title">
+        <mat-icon>info</mat-icon>
+        <h3>School Details</h3>
+      </div>
+      <div class="details-grid">
+        <div class="detail-item">
+          <span class="detail-label">Subdomain</span>
+          <span class="detail-value">{{ tenant.subdomain }}.schoolsaas.com</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Tenant ID</span>
+          <span class="detail-value tenant-id">{{ tenant.tenantId }}</span>
+        </div>
+        <div class="detail-item full-width">
+          <span class="detail-label">Address</span>
+          <span class="detail-value">{{ getFullAddress() }}</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Feature Flags Section -->
+    <mat-card class="details-card" *ngIf="featureEntries.length > 0">
+      <div class="card-title">
+        <mat-icon>flag</mat-icon>
+        <h3>Feature Flags</h3>
+      </div>
+      <div class="features-grid">
+        <div
+          class="feature-chip"
+          *ngFor="let feature of featureEntries"
+          [ngClass]="feature.enabled ? 'feature-enabled' : 'feature-disabled'">
+          <mat-icon class="feature-icon">{{ feature.enabled ? 'check_circle' : 'cancel' }}</mat-icon>
+          <span>{{ formatFeatureKey(feature.key) }}</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Actions Section -->
+    <mat-card class="details-card actions-card">
+      <div class="card-title">
+        <mat-icon>settings</mat-icon>
+        <h3>Actions</h3>
+      </div>
+      <div class="actions-row">
+        <button mat-raised-button class="gold-button" (click)="navigateToFeatures()">
+          <mat-icon>toggle_on</mat-icon>
+          Manage Features
+        </button>
+        <button
+          mat-raised-button
+          [color]="tenant.status === 'ACTIVE' ? 'warn' : 'primary'"
+          (click)="changeTenantStatus()">
+          <mat-icon>{{ tenant.status === 'ACTIVE' ? 'block' : 'check_circle' }}</mat-icon>
+          {{ tenant.status === 'ACTIVE' ? 'Suspend School' : 'Activate School' }}
+        </button>
+        <button mat-raised-button color="warn" class="delete-button" (click)="confirmDelete()">
+          <mat-icon>delete</mat-icon>
+          Delete School
+        </button>
+      </div>
+    </mat-card>
+  </div>
+
+  <!-- Delete Confirmation Dialog -->
+  <div class="delete-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <div class="dialog-icon">
+        <mat-icon color="warn">warning</mat-icon>
+      </div>
+      <h3>Delete School</h3>
+      <p>Are you sure you want to delete <strong>{{ tenant?.schoolName }}</strong>? This will permanently remove all school data including users, students, and records. This action cannot be undone.</p>
+      <div class="dialog-actions">
+        <button mat-button (click)="cancelDelete()">Cancel</button>
+        <button mat-raised-button color="warn" (click)="deleteTenant()">Delete School</button>
+      </div>
+    </div>
+  </div>
+</div>

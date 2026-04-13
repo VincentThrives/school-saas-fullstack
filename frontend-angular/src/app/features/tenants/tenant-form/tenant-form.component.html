@@ -1,0 +1,152 @@
+<div class="tenant-form-container">
+  <app-page-header
+    title="Register New School"
+    [breadcrumbs]="[
+      { label: 'Super Admin', link: '/superadmin/dashboard' },
+      { label: 'Tenants', link: '/superadmin/tenants' },
+      { label: 'New' }
+    ]">
+  </app-page-header>
+
+  <form [formGroup]="tenantForm" (ngSubmit)="onSubmit()" class="form-content">
+
+    <!-- School Information -->
+    <mat-card class="form-card">
+      <div class="card-title">
+        <mat-icon>school</mat-icon>
+        <h3>School Information</h3>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>School Name</mat-label>
+          <input matInput formControlName="schoolName" placeholder="e.g. Springfield Academy">
+          <mat-error *ngIf="tenantForm.get('schoolName')?.invalid">{{ getErrorMessage('schoolName') }}</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Subdomain</mat-label>
+          <input matInput formControlName="subdomain" placeholder="e.g. springfield">
+          <mat-hint>.schoolsaas.com</mat-hint>
+          <mat-error *ngIf="tenantForm.get('subdomain')?.invalid">{{ getErrorMessage('subdomain') }}</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Contact Email</mat-label>
+          <input matInput formControlName="contactEmail" type="email" placeholder="admin@school.com">
+          <mat-icon matPrefix>email</mat-icon>
+          <mat-error *ngIf="tenantForm.get('contactEmail')?.invalid">{{ getErrorMessage('contactEmail') }}</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Contact Phone</mat-label>
+          <input matInput formControlName="contactPhone" placeholder="+1 555-0123">
+          <mat-icon matPrefix>phone</mat-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Plan</mat-label>
+          <mat-select formControlName="plan">
+            <mat-option *ngFor="let plan of plans" [value]="plan.value">
+              <div class="plan-option">
+                <strong>{{ plan.label }}</strong>
+                <span class="plan-description">{{ plan.description }}</span>
+              </div>
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="tenantForm.get('plan')?.invalid">{{ getErrorMessage('plan') }}</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Logo URL</mat-label>
+          <input matInput formControlName="logoUrl" placeholder="https://...">
+          <mat-icon matPrefix>image</mat-icon>
+        </mat-form-field>
+      </div>
+    </mat-card>
+
+    <!-- School Address -->
+    <mat-card class="form-card" formGroupName="address">
+      <div class="card-title">
+        <mat-icon>location_on</mat-icon>
+        <h3>School Address</h3>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Street Address</mat-label>
+          <input matInput formControlName="street" placeholder="123 Education Lane">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>City</mat-label>
+          <input matInput formControlName="city" placeholder="Springfield">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>State</mat-label>
+          <input matInput formControlName="state" placeholder="Illinois">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Country</mat-label>
+          <input matInput formControlName="country" placeholder="United States">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>ZIP Code</mat-label>
+          <input matInput formControlName="zip" placeholder="62704">
+        </mat-form-field>
+      </div>
+    </mat-card>
+
+    <!-- School Admin Account -->
+    <mat-card class="form-card">
+      <div class="card-title">
+        <mat-icon>admin_panel_settings</mat-icon>
+        <h3>School Admin Account</h3>
+      </div>
+      <p class="card-info">This will be the first admin user for this school. They can manage all school operations.</p>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>First Name</mat-label>
+          <input matInput formControlName="adminFirstName" placeholder="John">
+          <mat-error *ngIf="tenantForm.get('adminFirstName')?.invalid">{{ getErrorMessage('adminFirstName') }}</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Last Name</mat-label>
+          <input matInput formControlName="adminLastName" placeholder="Doe">
+          <mat-error *ngIf="tenantForm.get('adminLastName')?.invalid">{{ getErrorMessage('adminLastName') }}</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Admin Email</mat-label>
+          <input matInput formControlName="adminEmail" type="email" placeholder="john.doe@school.com">
+          <mat-icon matPrefix>email</mat-icon>
+          <mat-error *ngIf="tenantForm.get('adminEmail')?.invalid">{{ getErrorMessage('adminEmail') }}</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Admin Password</mat-label>
+          <input matInput formControlName="adminPassword" type="password" placeholder="Minimum 8 characters">
+          <mat-icon matPrefix>lock</mat-icon>
+          <mat-error *ngIf="tenantForm.get('adminPassword')?.invalid">{{ getErrorMessage('adminPassword') }}</mat-error>
+        </mat-form-field>
+      </div>
+    </mat-card>
+
+    <!-- Actions -->
+    <div class="form-actions">
+      <button mat-button type="button" (click)="cancel()" [disabled]="isSaving">
+        Cancel
+      </button>
+      <button mat-raised-button class="gold-button" type="submit" [disabled]="tenantForm.invalid || isSaving">
+        <mat-spinner *ngIf="isSaving" diameter="20"></mat-spinner>
+        <span *ngIf="!isSaving">Create School</span>
+      </button>
+    </div>
+
+  </form>
+</div>
