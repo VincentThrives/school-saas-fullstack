@@ -443,8 +443,20 @@ export class ApiService {
     return this.http.get<ApiResponse<any[]>>(`${this.API}/events`, { params: httpParams });
   }
 
+  getHolidays(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/events/holidays`);
+  }
+
   createEvent(event: any): Observable<ApiResponse<any>> {
     return this.http.post<ApiResponse<any>>(`${this.API}/events`, event);
+  }
+
+  updateEvent(eventId: string, event: any): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.API}/events/${eventId}`, event);
+  }
+
+  deleteEvent(eventId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/events/${eventId}`);
   }
 
   // ── Fees ───────────────────────────────────────────────────────────────

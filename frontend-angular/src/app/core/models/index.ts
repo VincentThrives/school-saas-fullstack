@@ -526,8 +526,9 @@ export interface ClassRanking {
   studentId: string;
   studentName: string;
   rollNumber?: string;
-  totalMarks: number;
   obtainedMarks: number;
+  totalMarks: number;
+  maxMarks: number;
   percentage: number;
 }
 
@@ -578,6 +579,25 @@ export interface CreatePtmRequest {
 export interface BookPtmSlotRequest {
   slotId: string;
   studentId: string;
+}
+
+// ── Events & Holidays ─────────────────────────────────────────────────
+export type EventType = 'CULTURAL' | 'SPORTS' | 'ACADEMIC' | 'HOLIDAY' | 'MEETING' | 'OTHER';
+export type RecurrencePattern = 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+
+export interface SchoolEvent {
+  eventId: string;
+  title: string;
+  description?: string;
+  createdBy?: string;
+  type: EventType;
+  startDate: string;
+  endDate: string;
+  isHoliday: boolean;
+  isRecurring: boolean;
+  recurrencePattern?: RecurrencePattern;
+  visibleTo?: string[];
+  createdAt?: string;
 }
 
 // ── Timetable ──────────────────────────────────────────────────────────

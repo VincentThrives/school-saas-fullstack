@@ -1,0 +1,136 @@
+.events-list-container {
+  padding: 0 24px 24px;
+}
+
+.filters-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--card-bg, #fff);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 16px 20px 8px;
+  margin-top: 16px;
+}
+
+.filter-field {
+  min-width: 180px;
+  flex: 0 0 auto;
+}
+
+.events-tabs {
+  margin-top: 16px;
+}
+
+.tab-content {
+  padding-top: 16px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.table-card {
+  background: var(--card-bg, #fff);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.events-table {
+  width: 100%;
+}
+
+.event-title-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  .holiday-icon {
+    color: #F44336;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .event-title {
+    font-weight: 500;
+  }
+
+  .event-description {
+    font-size: 0.8rem;
+    color: #888;
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.type-chip {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.actions-header {
+  text-align: center;
+}
+
+.actions-cell {
+  text-align: center;
+}
+
+.no-data-cell {
+  text-align: center;
+  padding: 48px 16px !important;
+  color: #888;
+  font-size: 0.95rem;
+}
+
+// Delete dialog
+.delete-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.delete-dialog {
+  background: var(--card-bg, #fff);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+
+  h3 {
+    margin: 0 0 12px;
+    font-size: 1.2rem;
+  }
+
+  p {
+    margin: 0 0 20px;
+    color: #666;
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+}

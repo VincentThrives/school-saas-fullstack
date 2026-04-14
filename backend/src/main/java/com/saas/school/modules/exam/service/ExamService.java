@@ -26,6 +26,12 @@ public class ExamService {
     @Autowired private AuditService auditService;
 
     public Exam createExam(Exam req) {
+        if (req.getSubjectId() == null || req.getSubjectId().isEmpty()) {
+            throw new IllegalArgumentException("Subject is required");
+        }
+        if (req.getClassId() == null || req.getClassId().isEmpty()) {
+            throw new IllegalArgumentException("Class is required");
+        }
         req.setExamId(UUID.randomUUID().toString());
         req.setStatus(Exam.ExamStatus.SCHEDULED);
         return examRepository.save(req);

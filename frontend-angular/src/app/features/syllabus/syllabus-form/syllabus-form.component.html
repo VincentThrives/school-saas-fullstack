@@ -19,23 +19,24 @@
       <div class="form-row">
         <mat-form-field appearance="outline" class="form-field">
           <mat-label>Class</mat-label>
-          <mat-select [(ngModel)]="selectedClassId" name="classId" required>
+          <mat-select [(ngModel)]="selectedClassId" name="classId" required (selectionChange)="onClassOrYearChange()">
             <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
           </mat-select>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="form-field">
-          <mat-label>Subject</mat-label>
-          <mat-select [(ngModel)]="selectedSubjectId" name="subjectId" required>
-            <mat-option *ngFor="let sub of subjects" [value]="sub.id">{{ sub.name }}</mat-option>
+          <mat-label>Academic Year</mat-label>
+          <mat-select [(ngModel)]="selectedAcademicYearId" name="academicYearId" required (selectionChange)="onClassOrYearChange()">
+            <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">{{ ay.label }}</mat-option>
           </mat-select>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="form-field">
-          <mat-label>Academic Year</mat-label>
-          <mat-select [(ngModel)]="selectedAcademicYearId" name="academicYearId" required>
-            <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">{{ ay.label }}</mat-option>
+          <mat-label>Subject</mat-label>
+          <mat-select [(ngModel)]="selectedSubjectId" name="subjectId" required [disabled]="!selectedClassId || !selectedAcademicYearId">
+            <mat-option *ngFor="let sub of subjects" [value]="sub.id">{{ sub.name }}</mat-option>
           </mat-select>
+          <mat-hint *ngIf="!selectedClassId || !selectedAcademicYearId">Select class and academic year first</mat-hint>
         </mat-form-field>
       </div>
     </mat-card>

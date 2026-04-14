@@ -24,7 +24,7 @@
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Section</mat-label>
-          <mat-select [(ngModel)]="selectedSectionId" [disabled]="!selectedClassId">
+          <mat-select [(ngModel)]="selectedSectionId" [disabled]="!selectedClassId" (selectionChange)="onSectionChange()">
             <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">
               {{ sec.name }}
             </mat-option>

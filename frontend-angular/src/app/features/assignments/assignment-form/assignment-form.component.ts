@@ -63,10 +63,6 @@ export class AssignmentFormComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.subjectService.getSubjects().subscribe(subjects => {
-      this.subjects = subjects.map(s => ({ id: s.subjectId, name: s.name }));
-    });
-
     this.api.getClasses().subscribe((res) => {
       this.classes = res.data || [];
     });
@@ -77,6 +73,41 @@ export class AssignmentFormComponent implements OnInit {
       this.assignmentId = id;
       this.loadAssignment(id);
     }
+  }
+
+  onClassOrSectionChange(): void {
+    this.selectedSubjectId = '';
+    this.loadSubjectsForClass();
+  }
+
+  loadSubjectsForClass(): void {
+    if (!this.selectedClassId) {
+      this.subjects = [];
+      return;
+    }
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
+    const academicYearId = cls?.academicYearId || '';
+    if (!academicYearId) {
+      this.subjects = [];
+      return;
+    }
+    this.subjectService.getSubjectsByClassAndYear(this.selectedClassId, academicYearId).subscribe({
+      next: (subjects) => {
+        if (this.selectedSectionId) {
+          const section = cls?.sections?.find(s => s.sectionId === this.selectedSectionId);
+          if (section?.subjectIds && section.subjectIds.length > 0) {
+            this.subjects = subjects.filter(s => section.subjectIds!.includes(s.subjectId)).map(s => ({ id: s.subjectId, name: s.name }));
+          } else {
+            this.subjects = subjects.map(s => ({ id: s.subjectId, name: s.name }));
+          }
+        } else {
+          this.subjects = subjects.map(s => ({ id: s.subjectId, name: s.name }));
+        }
+      },
+      error: () => {
+        this.subjects = [];
+      },
+    });
   }
 
   loadAssignment(id: string): void {

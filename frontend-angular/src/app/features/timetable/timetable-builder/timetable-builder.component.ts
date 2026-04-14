@@ -92,10 +92,6 @@ export class TimetableBuilderComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.subjectService.getSubjects().subscribe(subjects => {
-      this.subjects = subjects.map(s => ({ subjectId: s.subjectId, name: s.name }));
-    });
-
     this.api.getClasses().subscribe((res) => {
       this.classes = res.data || [];
     });
@@ -128,6 +124,39 @@ export class TimetableBuilderComponent implements OnInit {
     if (this.sections.length === 1) {
       this.selectedSectionId = this.sections[0].sectionId;
     }
+    this.loadSubjectsForClass();
+  }
+
+  onSectionChange(): void {
+    this.loadSubjectsForClass();
+  }
+
+  loadSubjectsForClass(): void {
+    if (!this.selectedClassId || !this.selectedAcademicYearId) {
+      this.subjects = [];
+      return;
+    }
+    this.subjectService.getSubjectsByClassAndYear(this.selectedClassId, this.selectedAcademicYearId).subscribe({
+      next: (subjects) => {
+        // Filter by section's subjectIds if section is selected
+        if (this.selectedSectionId) {
+          const cls = this.classes.find(c => c.classId === this.selectedClassId);
+          const section = cls?.sections?.find(s => s.sectionId === this.selectedSectionId);
+          if (section?.subjectIds && section.subjectIds.length > 0) {
+            this.subjects = subjects
+              .filter(s => section.subjectIds!.includes(s.subjectId))
+              .map(s => ({ subjectId: s.subjectId, name: s.name }));
+          } else {
+            this.subjects = subjects.map(s => ({ subjectId: s.subjectId, name: s.name }));
+          }
+        } else {
+          this.subjects = subjects.map(s => ({ subjectId: s.subjectId, name: s.name }));
+        }
+      },
+      error: () => {
+        this.subjects = [];
+      },
+    });
   }
 
   loadTimetable(): void {
@@ -258,7 +287,7 @@ export class TimetableBuilderComponent implements OnInit {
 
   getTeacherName(teacherId: string): string {
     const t = this.teachers.find((t) => t.teacherId === teacherId);
-    return t ? `${teacherId}` : teacherId;
+    return t ? `${t.firstName || ''} ${t.lastName || ''}`.trim() || t.employeeId || teacherId : teacherId;
   }
 
   getSubjectColor(subjectId: string): string {

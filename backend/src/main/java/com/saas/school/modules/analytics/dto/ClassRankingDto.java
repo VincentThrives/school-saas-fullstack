@@ -7,6 +7,7 @@ public class ClassRankingDto {
     private String studentName;
     private String rollNumber;
     private double totalMarks;
+    private double obtainedMarks;
     private double maxMarks;
     private double percentage;
 
@@ -61,6 +62,14 @@ public class ClassRankingDto {
 
     public void setMaxMarks(double maxMarks) {
         this.maxMarks = maxMarks;
+    }
+
+    public double getObtainedMarks() {
+        return obtainedMarks;
+    }
+
+    public void setObtainedMarks(double obtainedMarks) {
+        this.obtainedMarks = obtainedMarks;
     }
 
     public double getPercentage() {

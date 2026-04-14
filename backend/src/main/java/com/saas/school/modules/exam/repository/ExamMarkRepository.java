@@ -7,4 +7,5 @@ public interface ExamMarkRepository extends MongoRepository<ExamMark, String> {
     List<ExamMark> findByStudentId(String studentId);
     Optional<ExamMark> findByExamIdAndStudentId(String examId, String studentId);
     List<ExamMark> findByStudentIdAndExamIdIn(String studentId, List<String> examIds);
+    List<ExamMark> findByExamIdIn(List<String> examIds);
 }

@@ -44,11 +44,14 @@ export class ExamFormComponent implements OnInit {
   examId: string | null = null;
   isSaving = false;
   isLoading = false;
+  isLoadingSubjects = false;
 
   classes: SchoolClass[] = [];
   academicYears: AcademicYear[] = [];
-  sections: { name: string; capacity: number; sectionId?: string }[] = [];
+  sections: { name: string; capacity: number; sectionId?: string; subjectIds?: string[] }[] = [];
   subjectsList: SubjectItem[] = [];
+
+  private pendingSubjectId: string | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -79,14 +82,20 @@ export class ExamFormComponent implements OnInit {
       description: [''],
     });
 
-    // Load subjects from service
-    this.subjectService.getSubjects().subscribe(subjects => {
-      this.subjectsList = subjects;
-    });
-
     // Auto-set subjectName when subjectId changes
     this.examForm.get('subjectId')?.valueChanges.subscribe((value) => {
-      this.examForm.get('subjectName')?.setValue(this.subjectService.getSubjectName(value));
+      const sub = this.subjectsList.find(s => s.subjectId === value);
+      this.examForm.get('subjectName')?.setValue(sub?.name || value || '');
+    });
+
+    // Listen for academicYearId changes to reload subjects
+    this.examForm.get('academicYearId')?.valueChanges.subscribe(() => {
+      if (!this.isLoading) this.loadSubjectsForSelection();
+    });
+
+    // Listen for sectionId changes to re-filter subjects
+    this.examForm.get('sectionId')?.valueChanges.subscribe(() => {
+      if (!this.isLoading) this.loadSubjectsForSelection();
     });
 
     this.api.getClasses().subscribe({
@@ -114,13 +123,15 @@ export class ExamFormComponent implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           const e = res.data;
+          // Save the subjectId to set after subjects load
+          this.pendingSubjectId = e.subjectId || null;
+
           this.examForm.patchValue({
             examType: e.examType || 'UNIT_TEST',
             name: e.name,
             classId: e.classId,
             sectionId: e.sectionId,
             academicYearId: e.academicYearId,
-            subjectId: e.subjectId,
             subjectName: e.subjectName || '',
             examDate: e.examDate,
             startTime: e.startTime || '',
@@ -129,9 +140,13 @@ export class ExamFormComponent implements OnInit {
             passingMarks: e.passingMarks,
             description: e.description || '',
           });
-          this.onClassChange();
+
+          // Populate sections from class
+          this.onClassChange(false);
+          this.isLoading = false;
+          // Load subjects (will set pendingSubjectId after load)
+          this.loadSubjectsForSelection();
         }
-        this.isLoading = false;
       },
       error: () => {
         this.isLoading = false;
@@ -140,10 +155,62 @@ export class ExamFormComponent implements OnInit {
     });
   }
 
-  onClassChange(): void {
+  onClassChange(clearSubject = true): void {
     const classId = this.examForm.get('classId')?.value;
     const selectedClass = this.classes.find((c) => c.classId === classId);
     this.sections = selectedClass?.sections || [];
+
+    if (clearSubject) {
+      this.examForm.patchValue({ sectionId: '', subjectId: '' });
+      this.subjectsList = [];
+      this.loadSubjectsForSelection();
+    }
+  }
+
+  loadSubjectsForSelection(): void {
+    const classId = this.examForm.get('classId')?.value;
+    const academicYearId = this.examForm.get('academicYearId')?.value;
+    const sectionId = this.examForm.get('sectionId')?.value;
+
+    if (!classId || !academicYearId) {
+      this.subjectsList = [];
+      return;
+    }
+
+    this.isLoadingSubjects = true;
+    this.subjectService.getSubjectsByClassAndYear(classId, academicYearId).subscribe({
+      next: (subjects) => {
+        // If a section is selected, filter by section's subjectIds
+        if (sectionId) {
+          const section = this.sections.find(s => s.sectionId === sectionId);
+          if (section?.subjectIds && section.subjectIds.length > 0) {
+            this.subjectsList = subjects.filter(s => section.subjectIds!.includes(s.subjectId));
+          } else {
+            this.subjectsList = subjects;
+          }
+        } else {
+          this.subjectsList = subjects;
+        }
+
+        // If we have a pending subjectId (edit mode), set it now
+        if (this.pendingSubjectId) {
+          this.examForm.patchValue({ subjectId: this.pendingSubjectId });
+          this.pendingSubjectId = null;
+        }
+
+        this.isLoadingSubjects = false;
+      },
+      error: () => {
+        this.subjectsList = [];
+        this.isLoadingSubjects = false;
+      },
+    });
+  }
+
+  get subjectDisabled(): boolean {
+    return !this.examForm.get('classId')?.value ||
+           !this.examForm.get('sectionId')?.value ||
+           !this.examForm.get('academicYearId')?.value;
   }
 
   get pageTitle(): string {

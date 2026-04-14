@@ -96,11 +96,51 @@ export class StudentFormComponent implements OnInit {
 
     this.loadClasses();
     this.loadAcademicYears();
-    this.subjectService.getSubjects().subscribe(s => this.subjectsList = s);
+
+    // Listen for class/section/academicYear changes to reload subjects
+    this.studentForm.get('classId')?.valueChanges.subscribe(() => {
+      if (!this.isLoading) this.loadSubjectsForStudent();
+    });
+    this.studentForm.get('sectionId')?.valueChanges.subscribe(() => {
+      if (!this.isLoading) this.loadSubjectsForStudent();
+    });
+    this.studentForm.get('academicYearId')?.valueChanges.subscribe(() => {
+      if (!this.isLoading) this.loadSubjectsForStudent();
+    });
 
     if (this.isEditing) {
       this.loadStudentData();
     }
+  }
+
+  loadSubjectsForStudent(): void {
+    const classId = this.studentForm.get('classId')?.value;
+    const academicYearId = this.studentForm.get('academicYearId')?.value;
+    const sectionId = this.studentForm.get('sectionId')?.value;
+
+    if (!classId || !academicYearId) {
+      this.subjectsList = [];
+      return;
+    }
+
+    this.subjectService.getSubjectsByClassAndYear(classId, academicYearId).subscribe({
+      next: (subjects) => {
+        if (sectionId) {
+          const cls = this.classes.find(c => c.classId === classId);
+          const section = cls?.sections?.find(s => s.sectionId === sectionId);
+          if (section?.subjectIds && section.subjectIds.length > 0) {
+            this.subjectsList = subjects.filter(s => section.subjectIds!.includes(s.subjectId));
+          } else {
+            this.subjectsList = subjects;
+          }
+        } else {
+          this.subjectsList = subjects;
+        }
+      },
+      error: () => {
+        this.subjectsList = [];
+      },
+    });
   }
 
   loadStudentData(): void {

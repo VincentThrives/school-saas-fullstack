@@ -123,7 +123,7 @@ export class ClassFormComponent implements OnInit {
               name: [s.name, Validators.required],
               capacity: [s.capacity, [Validators.required, Validators.min(1)]],
               classTeacherId: [s.classTeacherId || ''],
-              subjectIds: [s.subjectIds || []],
+              subjectIds: [s.subjectIds || [], Validators.required],
             }));
           });
         }
@@ -188,7 +188,7 @@ export class ClassFormComponent implements OnInit {
       name: ['', Validators.required],
       capacity: [40, [Validators.required, Validators.min(1)]],
       classTeacherId: [''],
-      subjectIds: [[]],
+      subjectIds: [[], Validators.required],
     });
     this.sections.push(sectionGroup);
   }

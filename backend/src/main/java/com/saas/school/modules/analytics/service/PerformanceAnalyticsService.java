@@ -88,10 +88,6 @@ public class PerformanceAnalyticsService {
     public List<ClassRankingDto> getClassRankings(String classId, String examId) {
         logger.info("Fetching class rankings for class {} exam {}", classId, examId);
 
-        List<ExamMark> marks = examMarkRepository.findByExamId(examId);
-        Exam exam = examRepository.findById(examId).orElse(null);
-        double maxMarks = exam != null ? exam.getMaxMarks() : 100;
-
         // Build student info map
         List<Student> students = studentRepository.findByClassIdAndDeletedAtIsNull(classId,
                 org.springframework.data.domain.PageRequest.of(0, 1000)).getContent();
@@ -106,22 +102,78 @@ public class PerformanceAnalyticsService {
                             u.getFirstName() + " " + u.getLastName()));
         }
 
-        List<ClassRankingDto> rankings = new ArrayList<>();
-        for (ExamMark mark : marks) {
-            Student student = studentMap.get(mark.getStudentId());
-            if (student == null) continue;
+        List<ClassRankingDto> rankings;
 
-            double obtained = mark.getMarksObtained() != null ? mark.getMarksObtained() : 0;
-            double pct = maxMarks > 0 ? (obtained / maxMarks) * 100 : 0;
+        if (examId != null && !examId.isEmpty()) {
+            // Single exam ranking
+            List<ExamMark> marks = examMarkRepository.findByExamId(examId);
+            Exam exam = examRepository.findById(examId).orElse(null);
+            double maxMarks = exam != null ? exam.getMaxMarks() : 100;
 
-            ClassRankingDto dto = new ClassRankingDto();
-            dto.setStudentId(mark.getStudentId());
-            dto.setStudentName(userNameMap.getOrDefault(mark.getStudentId(), ""));
-            dto.setRollNumber(student.getRollNumber());
-            dto.setTotalMarks(obtained);
-            dto.setMaxMarks(maxMarks);
-            dto.setPercentage(Math.round(pct * 100.0) / 100.0);
-            rankings.add(dto);
+            rankings = new ArrayList<>();
+            for (ExamMark mark : marks) {
+                Student student = studentMap.get(mark.getStudentId());
+                if (student == null) continue;
+
+                double obtained = mark.getMarksObtained() != null ? mark.getMarksObtained() : 0;
+                double pct = maxMarks > 0 ? (obtained / maxMarks) * 100 : 0;
+
+                ClassRankingDto dto = new ClassRankingDto();
+                dto.setStudentId(mark.getStudentId());
+                dto.setStudentName(userNameMap.getOrDefault(mark.getStudentId(), ""));
+                dto.setRollNumber(student.getRollNumber());
+                dto.setObtainedMarks(obtained);
+                dto.setTotalMarks(maxMarks);
+                dto.setMaxMarks(maxMarks);
+                dto.setPercentage(Math.round(pct * 100.0) / 100.0);
+                rankings.add(dto);
+            }
+        } else {
+            // All exams - aggregate across all exams for this class
+            List<Exam> classExams = examRepository.findByClassId(classId);
+            if (classExams.isEmpty()) {
+                return new ArrayList<>();
+            }
+
+            List<String> examIds = classExams.stream().map(Exam::getExamId).collect(Collectors.toList());
+            Map<String, Double> examMaxMarksMap = classExams.stream()
+                    .collect(Collectors.toMap(Exam::getExamId, e -> (double) e.getMaxMarks(), (a, b) -> a));
+
+            List<ExamMark> allMarks = examMarkRepository.findByExamIdIn(examIds);
+
+            // Aggregate per student: total obtained and total max
+            Map<String, Double> studentObtained = new HashMap<>();
+            Map<String, Double> studentMaxMarks = new HashMap<>();
+
+            for (ExamMark mark : allMarks) {
+                if (!studentMap.containsKey(mark.getStudentId())) continue;
+                double obtained = mark.getMarksObtained() != null ? mark.getMarksObtained() : 0;
+                double maxM = examMaxMarksMap.getOrDefault(mark.getExamId(), 100.0);
+
+                studentObtained.merge(mark.getStudentId(), obtained, Double::sum);
+                studentMaxMarks.merge(mark.getStudentId(), maxM, Double::sum);
+            }
+
+            rankings = new ArrayList<>();
+            for (Map.Entry<String, Double> entry : studentObtained.entrySet()) {
+                String studentId = entry.getKey();
+                Student student = studentMap.get(studentId);
+                if (student == null) continue;
+
+                double obtained = entry.getValue();
+                double maxM = studentMaxMarks.getOrDefault(studentId, 100.0);
+                double pct = maxM > 0 ? (obtained / maxM) * 100 : 0;
+
+                ClassRankingDto dto = new ClassRankingDto();
+                dto.setStudentId(studentId);
+                dto.setStudentName(userNameMap.getOrDefault(studentId, ""));
+                dto.setRollNumber(student.getRollNumber());
+                dto.setObtainedMarks(obtained);
+                dto.setTotalMarks(maxM);
+                dto.setMaxMarks(maxM);
+                dto.setPercentage(Math.round(pct * 100.0) / 100.0);
+                rankings.add(dto);
+            }
         }
 
         // Sort by percentage descending and assign ranks

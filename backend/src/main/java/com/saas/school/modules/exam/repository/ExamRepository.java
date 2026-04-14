@@ -6,4 +6,5 @@ public interface ExamRepository extends MongoRepository<Exam, String> {
     List<Exam> findByClassIdAndAcademicYearId(String classId, String academicYearId);
     List<Exam> findBySubjectIdAndAcademicYearId(String subjectId, String academicYearId);
     List<Exam> findByAcademicYearIdAndStatus(String academicYearId, Exam.ExamStatus status);
+    List<Exam> findByClassId(String classId);
 }

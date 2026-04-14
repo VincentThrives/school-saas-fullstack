@@ -73,13 +73,13 @@
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="section-subjects-field">
-              <mat-label>Subjects</mat-label>
-              <mat-select formControlName="subjectIds" multiple>
+              <mat-label>Subjects *</mat-label>
+              <mat-select formControlName="subjectIds" multiple required>
                 <mat-option *ngFor="let sub of subjectsList" [value]="sub.id">
                   {{ sub.name }}
                 </mat-option>
               </mat-select>
-              <mat-hint>Select subjects for this section</mat-hint>
+              <mat-error>At least one subject is required</mat-error>
             </mat-form-field>
 
             <!-- Custom subject input when "Others" is selected -->

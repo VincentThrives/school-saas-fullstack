@@ -33,7 +33,7 @@ public class AnalyticsController {
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
     public ResponseEntity<ApiResponse<List<ClassRankingDto>>> classRankings(
             @PathVariable String classId,
-            @RequestParam String examId) {
+            @RequestParam(required = false) String examId) {
         return ResponseEntity.ok(ApiResponse.success(analyticsService.getClassRankings(classId, examId)));
     }
 

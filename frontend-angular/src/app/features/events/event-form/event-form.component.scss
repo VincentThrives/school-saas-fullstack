@@ -1,0 +1,59 @@
+.event-form-container {
+  padding: 0 24px 24px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.form-card {
+  max-width: 800px;
+  margin: 0 auto;
+  border-radius: 12px;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin: 20px 0 12px;
+  color: #333;
+}
+
+.form-row {
+  margin-bottom: 8px;
+
+  &.two-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  &.checkbox-row {
+    display: flex;
+    gap: 24px;
+    margin: 12px 0 16px;
+  }
+}
+
+.full-width {
+  width: 100%;
+}
+
+mat-divider {
+  margin: 16px 0;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.btn-spinner {
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: middle;
+}

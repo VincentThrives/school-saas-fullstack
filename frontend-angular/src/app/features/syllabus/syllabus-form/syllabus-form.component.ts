@@ -69,10 +69,6 @@ export class SyllabusFormComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.subjectService.getSubjects().subscribe(subjects => {
-      this.subjects = subjects.map(s => ({ id: s.subjectId, name: s.name }));
-    });
-
     this.api.getClasses().subscribe((res) => {
       this.classes = res.data || [];
     });
@@ -88,6 +84,26 @@ export class SyllabusFormComponent implements OnInit {
       this.syllabusId = id;
       this.loadSyllabus(id);
     }
+  }
+
+  onClassOrYearChange(): void {
+    this.selectedSubjectId = '';
+    this.loadSubjectsForClass();
+  }
+
+  loadSubjectsForClass(): void {
+    if (!this.selectedClassId || !this.selectedAcademicYearId) {
+      this.subjects = [];
+      return;
+    }
+    this.subjectService.getSubjectsByClassAndYear(this.selectedClassId, this.selectedAcademicYearId).subscribe({
+      next: (subjects) => {
+        this.subjects = subjects.map(s => ({ id: s.subjectId, name: s.name }));
+      },
+      error: () => {
+        this.subjects = [];
+      },
+    });
   }
 
   loadSyllabus(id: string): void {

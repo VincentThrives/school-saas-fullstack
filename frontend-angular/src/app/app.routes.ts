@@ -299,9 +299,23 @@ export const routes: Routes = [
       {
         path: 'events',
         loadComponent: () =>
-          import('./features/placeholder/placeholder.component').then(m => m.PlaceholderComponent),
+          import('./features/events/events-list/events-list.component').then(m => m.EventsListComponent),
         canActivate: [featureGuard],
         data: { feature: 'events', title: 'Events' },
+      },
+      {
+        path: 'events/new',
+        loadComponent: () =>
+          import('./features/events/event-form/event-form.component').then(m => m.EventFormComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN], feature: 'events', title: 'Add Event' },
+      },
+      {
+        path: 'events/:eventId/edit',
+        loadComponent: () =>
+          import('./features/events/event-form/event-form.component').then(m => m.EventFormComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN], feature: 'events', title: 'Edit Event' },
       },
 
       // Notifications (feature-gated)

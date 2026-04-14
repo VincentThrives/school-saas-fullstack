@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { BehaviorSubject, Observable, map, tap } from 'rxjs';
 
 export interface SubjectItem {
   subjectId: string;
@@ -82,6 +82,23 @@ export class SubjectService {
       maths: 'Mathematics', 'math-101': 'Mathematics',
     };
     return fallback[subjectId] || subjectId || '-';
+  }
+
+  getSubjectsByClassAndYear(classId: string, academicYearId: string): Observable<SubjectItem[]> {
+    const params = new HttpParams()
+      .set('classId', classId)
+      .set('academicYearId', academicYearId);
+    return this.http.get<any>(`${this.API}/subjects`, { params }).pipe(
+      map((res: any) => {
+        const apiSubjects = res.data || [];
+        return apiSubjects.map((s: any) => ({
+          subjectId: s.subjectId || s.id,
+          name: s.name,
+          code: s.code,
+          type: s.type,
+        }));
+      })
+    );
   }
 
   refreshSubjects(): void {

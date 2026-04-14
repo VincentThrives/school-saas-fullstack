@@ -83,9 +83,6 @@ export class MarkSubjectAttendanceComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadClasses();
-    this.subjectService.getSubjects().subscribe((subjects) => {
-      this.subjects = subjects;
-    });
   }
 
   loadClasses(): void {
@@ -100,8 +97,42 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     const selectedClass = this.classes.find((c) => c.classId === this.selectedClassId);
     this.sections = selectedClass?.sections || [];
     this.selectedSectionId = '';
+    this.selectedSubjectId = '';
+    this.subjects = [];
     this.students = [];
     this.studentsLoaded = false;
+  }
+
+  onSectionChange(): void {
+    this.selectedSubjectId = '';
+    this.loadSubjectsForClass();
+  }
+
+  loadSubjectsForClass(): void {
+    if (!this.selectedClassId || !this.selectedSectionId) {
+      this.subjects = [];
+      return;
+    }
+    // Get academicYearId from class
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
+    const academicYearId = cls?.academicYearId || '';
+    if (!academicYearId) {
+      this.subjects = [];
+      return;
+    }
+    this.subjectService.getSubjectsByClassAndYear(this.selectedClassId, academicYearId).subscribe({
+      next: (subjects) => {
+        const section = cls?.sections?.find(s => s.sectionId === this.selectedSectionId);
+        if (section?.subjectIds && section.subjectIds.length > 0) {
+          this.subjects = subjects.filter(s => section.subjectIds!.includes(s.subjectId));
+        } else {
+          this.subjects = subjects;
+        }
+      },
+      error: () => {
+        this.subjects = [];
+      },
+    });
   }
 
   loadStudents(): void {

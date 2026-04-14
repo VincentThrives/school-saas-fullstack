@@ -32,6 +32,16 @@
           </mat-form-field>
 
           <mat-form-field appearance="outline">
+            <mat-label>Academic Year</mat-label>
+            <mat-select formControlName="academicYearId">
+              <mat-option *ngFor="let yr of academicYears" [value]="yr.academicYearId">
+                {{ yr.label }} {{ yr.current ? '(Current)' : '' }}
+              </mat-option>
+            </mat-select>
+            <mat-error>Academic year is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
             <mat-label>Class</mat-label>
             <mat-select formControlName="classId" (selectionChange)="onClassChange()">
               <mat-option *ngFor="let cls of classes" [value]="cls.classId">
@@ -52,22 +62,14 @@
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Academic Year</mat-label>
-            <mat-select formControlName="academicYearId">
-              <mat-option *ngFor="let yr of academicYears" [value]="yr.academicYearId">
-                {{ yr.label }} {{ yr.current ? '(Current)' : '' }}
-              </mat-option>
-            </mat-select>
-            <mat-error>Academic year is required</mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Subject</mat-label>
-            <mat-select formControlName="subjectId" required>
+            <mat-label>Subject *</mat-label>
+            <mat-select formControlName="subjectId" required [disabled]="subjectDisabled">
               <mat-option *ngFor="let sub of subjectsList" [value]="sub.subjectId">
                 {{ sub.name }}
               </mat-option>
             </mat-select>
+            <mat-hint *ngIf="subjectDisabled">Select class, section and academic year first</mat-hint>
+            <mat-hint *ngIf="!subjectDisabled && !isLoadingSubjects && subjectsList.length === 0">No subjects found for this class/section</mat-hint>
             <mat-error>Subject is required</mat-error>
           </mat-form-field>
 

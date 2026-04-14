@@ -1,0 +1,106 @@
+<div class="event-form-container">
+  <app-page-header
+    [title]="pageTitle"
+    subtitle="Fill in the event details"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Events', link: '/events' },
+      { label: pageTitle }
+    ]">
+  </app-page-header>
+
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <mat-card *ngIf="!isLoading" class="form-card">
+    <mat-card-content>
+      <form [formGroup]="eventForm" (ngSubmit)="onSubmit()">
+
+        <!-- Event Details Section -->
+        <h3 class="section-title">Event Details</h3>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Title</mat-label>
+            <input matInput formControlName="title" placeholder="Enter event title">
+            <mat-error *ngIf="eventForm.get('title')?.hasError('required')">Title is required</mat-error>
+          </mat-form-field>
+        </div>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description</mat-label>
+            <textarea matInput formControlName="description" placeholder="Enter event description" rows="3"></textarea>
+          </mat-form-field>
+        </div>
+
+        <div class="form-row two-cols">
+          <mat-form-field appearance="outline">
+            <mat-label>Event Type</mat-label>
+            <mat-select formControlName="type">
+              <mat-option *ngFor="let t of eventTypes" [value]="t.value">
+                {{ t.label }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <!-- Dates Section -->
+        <h3 class="section-title">Schedule</h3>
+
+        <div class="form-row two-cols">
+          <mat-form-field appearance="outline">
+            <mat-label>Start Date</mat-label>
+            <input matInput [matDatepicker]="startPicker" formControlName="startDate">
+            <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+            <mat-datepicker #startPicker></mat-datepicker>
+            <mat-error *ngIf="eventForm.get('startDate')?.hasError('required')">Start date is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>End Date</mat-label>
+            <input matInput [matDatepicker]="endPicker" formControlName="endDate">
+            <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+            <mat-datepicker #endPicker></mat-datepicker>
+            <mat-error *ngIf="eventForm.get('endDate')?.hasError('required')">End date is required</mat-error>
+          </mat-form-field>
+        </div>
+
+        <div class="form-row checkbox-row">
+          <mat-checkbox formControlName="isHoliday" color="primary">
+            Mark as Holiday
+          </mat-checkbox>
+
+          <mat-checkbox formControlName="isRecurring" color="primary">
+            Recurring Event
+          </mat-checkbox>
+        </div>
+
+        <div class="form-row" *ngIf="eventForm.get('isRecurring')?.value">
+          <mat-form-field appearance="outline">
+            <mat-label>Recurrence Pattern</mat-label>
+            <mat-select formControlName="recurrencePattern">
+              <mat-option *ngFor="let p of recurrencePatterns" [value]="p.value">
+                {{ p.label }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button mat-button type="button" (click)="cancel()">Cancel</button>
+          <button mat-raised-button color="primary" type="submit" [disabled]="isSaving">
+            <mat-spinner *ngIf="isSaving" diameter="20" class="btn-spinner"></mat-spinner>
+            {{ isEditing ? 'Update Event' : 'Create Event' }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>
