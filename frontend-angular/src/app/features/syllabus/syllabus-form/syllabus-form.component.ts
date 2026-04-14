@@ -92,11 +92,22 @@ export class SyllabusFormComponent implements OnInit {
   }
 
   loadSubjectsForClass(): void {
-    if (!this.selectedClassId || !this.selectedAcademicYearId) {
+    if (!this.selectedClassId) {
       this.subjects = [];
       return;
     }
-    this.subjectService.getSubjectsByClassAndYear(this.selectedClassId, this.selectedAcademicYearId).subscribe({
+    // Collect all subjectIds from all sections of this class
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
+    const allIds = new Set<string>();
+    cls?.sections?.forEach(s => (s.subjectIds || []).forEach(id => allIds.add(id)));
+    const subjectIds = Array.from(allIds);
+
+    if (subjectIds.length === 0) {
+      this.subjects = [];
+      return;
+    }
+
+    this.subjectService.getSubjectsByIds(subjectIds).subscribe({
       next: (subjects) => {
         this.subjects = subjects.map(s => ({ id: s.subjectId, name: s.name }));
       },

@@ -51,6 +51,57 @@ $gold-dark: #B8860B;
   border-top: 1px solid #eee;
 }
 
+// Assignments section
+.assignments-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+
+  .section-title {
+    margin: 0;
+  }
+}
+
+.add-btn {
+  mat-icon {
+    margin-right: 4px;
+  }
+}
+
+.assignment-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+
+  .row-number {
+    font-weight: 600;
+    color: $gold;
+    min-width: 24px;
+    text-align: center;
+  }
+
+  .assignment-field {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.no-assignments {
+  text-align: center;
+  padding: 24px;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+mat-divider {
+  margin: 20px 0;
+}
+
 .save-button {
   background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
   color: white !important;

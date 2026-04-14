@@ -16,8 +16,19 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
 import { SchoolClass } from '../../../core/models';
+
+interface TimetablePeriod {
+  periodNumber: number;
+  subjectId: string;
+  subjectName: string;
+  teacherId: string;
+  teacherName: string;
+  startTime: string;
+  endTime: string;
+  marked: boolean;
+  studentCount: number;
+}
 
 interface StudentAttendance {
   studentId: string;
@@ -55,19 +66,26 @@ interface StudentAttendance {
 export class MarkSubjectAttendanceComponent implements OnInit {
   classes: SchoolClass[] = [];
   sections: { name: string; capacity: number; sectionId?: string }[] = [];
-  subjects: SubjectItem[] = [];
   selectedClassId = '';
   selectedSectionId = '';
   selectedDate: Date = new Date();
-  selectedSubjectId = '';
-  selectedPeriod = 0;
+  today: Date = new Date();
+
+  // Timetable periods for the selected day
+  timetablePeriods: TimetablePeriod[] = [];
+  selectedPeriod: TimetablePeriod | null = null;
+  isLoadingPeriods = false;
+
+  // Holiday check
+  isHoliday = false;
+  holidayTitle = '';
+
+  // Students
   students: StudentAttendance[] = [];
   displayedColumns = ['rollNumber', 'name', 'status', 'remarks'];
   isLoading = false;
   isSaving = false;
   studentsLoaded = false;
-
-  readonly periodOptions = [1, 2, 3, 4, 5, 6, 7, 8];
 
   readonly statusOptions = [
     { value: 'PRESENT', label: 'Present', icon: 'check_circle', color: '#4caf50' },
@@ -77,7 +95,6 @@ export class MarkSubjectAttendanceComponent implements OnInit {
 
   constructor(
     private api: ApiService,
-    private subjectService: SubjectService,
     private snackBar: MatSnackBar,
   ) {}
 
@@ -87,9 +104,7 @@ export class MarkSubjectAttendanceComponent implements OnInit {
 
   loadClasses(): void {
     this.api.getClasses().subscribe({
-      next: (res) => {
-        this.classes = res.data || [];
-      },
+      next: (res) => { this.classes = res.data || []; },
     });
   }
 
@@ -97,69 +112,132 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     const selectedClass = this.classes.find((c) => c.classId === this.selectedClassId);
     this.sections = selectedClass?.sections || [];
     this.selectedSectionId = '';
-    this.selectedSubjectId = '';
-    this.subjects = [];
+    this.timetablePeriods = [];
+    this.selectedPeriod = null;
     this.students = [];
     this.studentsLoaded = false;
   }
 
-  onSectionChange(): void {
-    this.selectedSubjectId = '';
-    this.loadSubjectsForClass();
+  onSectionOrDateChange(): void {
+    this.selectedPeriod = null;
+    this.students = [];
+    this.studentsLoaded = false;
+    this.isHoliday = false;
+    this.holidayTitle = '';
+    if (this.selectedClassId && this.selectedSectionId) {
+      this.checkHolidayAndLoad();
+    }
   }
 
-  loadSubjectsForClass(): void {
-    if (!this.selectedClassId || !this.selectedSectionId) {
-      this.subjects = [];
-      return;
-    }
-    // Get academicYearId from class
-    const cls = this.classes.find(c => c.classId === this.selectedClassId);
-    const academicYearId = cls?.academicYearId || '';
-    if (!academicYearId) {
-      this.subjects = [];
-      return;
-    }
-    this.subjectService.getSubjectsByClassAndYear(this.selectedClassId, academicYearId).subscribe({
-      next: (subjects) => {
-        const section = cls?.sections?.find(s => s.sectionId === this.selectedSectionId);
-        if (section?.subjectIds && section.subjectIds.length > 0) {
-          this.subjects = subjects.filter(s => section.subjectIds!.includes(s.subjectId));
+  private checkHolidayAndLoad(): void {
+    const dateStr = this.getDateStr();
+    this.api.getHolidays().subscribe({
+      next: (res) => {
+        const holidays = res.data || [];
+        const match = holidays.find((h: any) => {
+          const start = h.startDate;
+          const end = h.endDate || h.startDate;
+          return dateStr >= start && dateStr <= end;
+        });
+        if (match) {
+          this.isHoliday = true;
+          this.holidayTitle = match.title || 'Holiday';
+          this.timetablePeriods = [];
         } else {
-          this.subjects = subjects;
+          this.isHoliday = false;
+          this.holidayTitle = '';
+          this.loadTimetablePeriods();
         }
       },
       error: () => {
-        this.subjects = [];
+        this.loadTimetablePeriods();
       },
     });
+  }
+
+  private getDateStr(): string {
+    if (this.selectedDate instanceof Date) {
+      const y = this.selectedDate.getFullYear();
+      const m = String(this.selectedDate.getMonth() + 1).padStart(2, '0');
+      const d = String(this.selectedDate.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    return String(this.selectedDate);
+  }
+
+  loadTimetablePeriods(): void {
+    if (!this.selectedClassId || !this.selectedSectionId) return;
+
+    this.isLoadingPeriods = true;
+    this.timetablePeriods = [];
+
+    const dateStr = this.getDateStr();
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
+    const academicYearId = cls?.academicYearId || '';
+
+    this.api.getTimetablePeriods(this.selectedClassId, this.selectedSectionId, dateStr, academicYearId).subscribe({
+      next: (res) => {
+        this.timetablePeriods = res.data || [];
+        this.isLoadingPeriods = false;
+      },
+      error: () => {
+        this.timetablePeriods = [];
+        this.isLoadingPeriods = false;
+        this.snackBar.open('No timetable found for this class/section', 'Close', { duration: 3000 });
+      },
+    });
+  }
+
+  selectPeriod(period: TimetablePeriod): void {
+    this.selectedPeriod = period;
+    this.loadStudents();
+  }
+
+  isPeriodLocked(index: number): boolean {
+    const period = this.timetablePeriods[index];
+    if (!period) return true;
+
+    const now = new Date();
+    const selDate = this.selectedDate instanceof Date ? this.selectedDate : new Date(this.selectedDate);
+    const isToday = selDate.toDateString() === now.toDateString();
+
+    // Past dates: all periods open
+    if (!isToday) return false;
+
+    // Today: lock only future periods (period hasn't started yet)
+    if (period.startTime) {
+      const [h, m] = period.startTime.split(':').map(Number);
+      const periodStart = h * 60 + m;
+      const currentMin = now.getHours() * 60 + now.getMinutes();
+      if (periodStart > currentMin) return true;
+    }
+
+    return false;
   }
 
   loadStudents(): void {
     if (!this.selectedClassId || !this.selectedSectionId) return;
 
     this.isLoading = true;
-    this.api
-      .getStudents(0, 100, { classId: this.selectedClassId, sectionId: this.selectedSectionId })
-      .subscribe({
-        next: (res) => {
-          const studentList = res.data?.content || [];
-          this.students = studentList.map((s) => ({
-            studentId: s.studentId,
-            rollNumber: s.rollNumber || '',
-            firstName: s.firstName || `Student ${s.admissionNumber || ''}`,
-            lastName: s.lastName || '',
-            status: 'PRESENT' as const,
-            remarks: '',
-          }));
-          this.studentsLoaded = true;
-          this.isLoading = false;
-        },
-        error: () => {
-          this.isLoading = false;
-          this.snackBar.open('Failed to load students', 'Close', { duration: 3000 });
-        },
-      });
+    this.api.getStudents(0, 200, { classId: this.selectedClassId, sectionId: this.selectedSectionId }).subscribe({
+      next: (res) => {
+        const studentList = res.data?.content || [];
+        this.students = studentList.map((s: any) => ({
+          studentId: s.studentId,
+          rollNumber: s.rollNumber || '',
+          firstName: s.firstName || `Student ${s.admissionNumber || ''}`,
+          lastName: s.lastName || '',
+          status: 'PRESENT' as const,
+          remarks: '',
+        }));
+        this.studentsLoaded = true;
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.snackBar.open('Failed to load students', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   markAllPresent(): void {
@@ -178,62 +256,44 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     );
   }
 
-  get selectedSubjectName(): string {
-    const subject = this.subjects.find((s) => s.subjectId === this.selectedSubjectId);
-    return subject?.name || '';
-  }
-
   saveAttendance(): void {
-    if (this.students.length === 0) {
-      this.snackBar.open('No students to save', 'Close', { duration: 3000 });
-      return;
-    }
-    if (!this.selectedSubjectId) {
-      this.snackBar.open('Please select a subject', 'Close', { duration: 3000 });
-      return;
-    }
-    if (!this.selectedPeriod) {
-      this.snackBar.open('Please select a period', 'Close', { duration: 3000 });
+    if (!this.selectedPeriod || this.students.length === 0) {
+      this.snackBar.open('Select a period and load students first', 'Close', { duration: 3000 });
       return;
     }
 
     this.isSaving = true;
+    const dateStr = this.getDateStr();
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
 
-    // Handle date
-    let dateStr: string;
-    if (this.selectedDate instanceof Date) {
-      const y = this.selectedDate.getFullYear();
-      const m = String(this.selectedDate.getMonth() + 1).padStart(2, '0');
-      const d = String(this.selectedDate.getDate()).padStart(2, '0');
-      dateStr = `${y}-${m}-${d}`;
-    } else {
-      dateStr = String(this.selectedDate);
-    }
-
-    this.api
-      .markAttendance({
-        classId: this.selectedClassId,
-        sectionId: this.selectedSectionId,
-        academicYearId: this.classes.find((c: any) => c.classId === this.selectedClassId)?.academicYearId || '',
-        date: dateStr,
-        subjectId: this.selectedSubjectId,
-        subjectName: this.selectedSubjectName,
-        periodNumber: this.selectedPeriod,
-        entries: this.students.map((s) => ({
-          studentId: s.studentId,
-          status: s.status,
-          remarks: s.remarks || '',
-        })),
-      })
-      .subscribe({
-        next: () => {
-          this.isSaving = false;
-          this.snackBar.open('Subject attendance saved successfully!', 'Close', { duration: 3000 });
-        },
-        error: (err) => {
-          this.isSaving = false;
-          this.snackBar.open(err?.error?.message || 'Failed to save attendance', 'Close', { duration: 3000 });
-        },
-      });
+    this.api.markAttendance({
+      classId: this.selectedClassId,
+      sectionId: this.selectedSectionId,
+      academicYearId: cls?.academicYearId || 'default',
+      date: dateStr,
+      subjectId: this.selectedPeriod.subjectId,
+      teacherId: this.selectedPeriod.teacherId,
+      periodNumber: this.selectedPeriod.periodNumber,
+      entries: this.students.map((s) => ({
+        studentId: s.studentId,
+        status: s.status,
+        remarks: s.remarks || '',
+      })),
+    }).subscribe({
+      next: () => {
+        this.isSaving = false;
+        this.snackBar.open('Attendance saved successfully!', 'Close', { duration: 3000 });
+        // Refresh periods to show "marked" status
+        this.loadTimetablePeriods();
+        this.selectedPeriod = null;
+        this.students = [];
+        this.studentsLoaded = false;
+      },
+      error: (err) => {
+        this.isSaving = false;
+        console.error('Save attendance error:', err);
+        this.snackBar.open(err?.error?.message || 'Failed to save attendance', 'Close', { duration: 5000 });
+      },
+    });
   }
 }

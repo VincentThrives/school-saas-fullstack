@@ -57,11 +57,14 @@ export class MarkAttendanceComponent implements OnInit {
   selectedClassId = '';
   selectedSectionId = '';
   selectedDate: Date = new Date();
+  today: Date = new Date();
   students: StudentAttendance[] = [];
   displayedColumns = ['rollNumber', 'name', 'status', 'remarks'];
   isLoading = false;
   isSaving = false;
   studentsLoaded = false;
+  isHoliday = false;
+  holidayTitle = '';
 
   readonly statusOptions = [
     { value: 'PRESENT', label: 'Present', icon: 'check_circle', color: '#4caf50' },
@@ -98,6 +101,36 @@ export class MarkAttendanceComponent implements OnInit {
   loadStudents(): void {
     if (!this.selectedClassId || !this.selectedSectionId) return;
 
+    // Check for holiday first
+    const dateStr = this.formatDate(this.selectedDate);
+    this.api.getHolidays().subscribe({
+      next: (res) => {
+        const holidays = res.data || [];
+        const match = holidays.find((h: any) => {
+          const start = h.startDate;
+          const end = h.endDate || h.startDate;
+          return dateStr >= start && dateStr <= end;
+        });
+        if (match) {
+          this.isHoliday = true;
+          this.holidayTitle = match.title || 'Holiday';
+          this.students = [];
+          this.studentsLoaded = false;
+          this.isLoading = false;
+          return;
+        }
+        this.isHoliday = false;
+        this.holidayTitle = '';
+        this.fetchStudents();
+      },
+      error: () => {
+        this.isHoliday = false;
+        this.fetchStudents();
+      },
+    });
+  }
+
+  private fetchStudents(): void {
     this.isLoading = true;
     this.api
       .getStudents(0, 100, { classId: this.selectedClassId, sectionId: this.selectedSectionId })

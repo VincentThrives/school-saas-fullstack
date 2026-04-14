@@ -8,15 +8,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
-import { StatCardComponent } from '../../../shared/components/stat-card/stat-card.component';
 import { ApiService } from '../../../core/services/api.service';
 import { SchoolClass } from '../../../core/models';
-import { forkJoin } from 'rxjs';
 
 interface StudentReport {
   studentId: string;
@@ -25,7 +24,29 @@ interface StudentReport {
   present: number;
   absent: number;
   late: number;
-  halfDay: number;
+  total: number;
+  percentage: number;
+}
+
+interface SubjectReport {
+  subjectId: string;
+  subjectName: string;
+  present: number;
+  absent: number;
+  late: number;
+  totalDays: number;
+  presentPercent: number;
+}
+
+interface StudentSubjectReport {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  subjectId: string;
+  subjectName: string;
+  present: number;
+  absent: number;
+  late: number;
   total: number;
   percentage: number;
 }
@@ -43,12 +64,12 @@ interface StudentReport {
     MatButtonModule,
     MatIconModule,
     MatTableModule,
+    MatTabsModule,
     MatChipsModule,
     MatProgressSpinnerModule,
     MatProgressBarModule,
     MatSnackBarModule,
     PageHeaderComponent,
-    StatCardComponent,
   ],
   templateUrl: './attendance-report.component.html',
   styleUrl: './attendance-report.component.scss',
@@ -62,22 +83,27 @@ export class AttendanceReportComponent implements OnInit {
   endDate = '';
   isLoading = false;
   reportLoaded = false;
+  attendanceMode = 'DAY_WISE'; // from super admin config
 
-  summaryData = {
-    totalStudents: 0,
-    presentPercent: 0,
-    absentPercent: 0,
-    latePercent: 0,
-  };
+  // Day-wise
+  dayWiseReports: StudentReport[] = [];
+  dayColumns = ['rollNumber', 'studentName', 'present', 'absent', 'late', 'total', 'percentage'];
 
-  studentReports: StudentReport[] = [];
-  displayedColumns = ['rollNumber', 'studentName', 'present', 'absent', 'late', 'total', 'percentage'];
+  // Period/Subject-wise
+  subjectSummaries: SubjectReport[] = [];
+  periodDetails: StudentSubjectReport[] = [];
+  filteredPeriodDetails: StudentSubjectReport[] = [];
+  selectedSubjectFilter = '';
+  periodColumns = ['rollNumber', 'studentName', 'subjectName', 'present', 'absent', 'late', 'total', 'percentage'];
+
+  totalStudents = 0;
+  hasDayWise = false;
+  hasPeriodWise = false;
 
   constructor(
     private api: ApiService,
     private snackBar: MatSnackBar,
   ) {
-    // Default: current month
     const now = new Date();
     this.startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     this.endDate = now.toISOString().split('T')[0];
@@ -86,16 +112,22 @@ export class AttendanceReportComponent implements OnInit {
   ngOnInit(): void {
     this.api.getClasses().subscribe({
       next: (res) => {
-        if (res.success && res.data) {
-          this.classes = Array.isArray(res.data) ? res.data : [];
-        }
+        this.classes = Array.isArray(res.data) ? res.data : [];
+      },
+    });
+    this.api.getAttendanceMode().subscribe({
+      next: (res) => {
+        this.attendanceMode = res.data?.mode || 'DAY_WISE';
       },
     });
   }
 
+  get isDayWiseMode(): boolean { return this.attendanceMode === 'DAY_WISE'; }
+  get isSubjectWiseMode(): boolean { return this.attendanceMode === 'SUBJECT_WISE'; }
+
   onClassChange(): void {
-    const selectedClass = this.classes.find((c) => c.classId === this.selectedClassId);
-    this.sections = selectedClass?.sections || [];
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
+    this.sections = cls?.sections || [];
     this.selectedSectionId = '';
     this.reportLoaded = false;
   }
@@ -105,53 +137,21 @@ export class AttendanceReportComponent implements OnInit {
       this.snackBar.open('Please select class and section', 'Close', { duration: 3000 });
       return;
     }
+    if (!this.startDate || !this.endDate) {
+      this.snackBar.open('Please select date range', 'Close', { duration: 3000 });
+      return;
+    }
 
     this.isLoading = true;
     this.reportLoaded = false;
 
-    // Use the class attendance report endpoint which groups by student
-    this.api.getClassAttendanceReport(this.selectedClassId, this.selectedSectionId, this.startDate, this.endDate).subscribe({
+    this.api.getBatchAttendanceReport(this.selectedClassId, this.selectedSectionId, this.startDate, this.endDate).subscribe({
       next: (res) => {
         if (res.success && res.data) {
-          const data = res.data;
-
-          this.summaryData = {
-            totalStudents: data.totalStudents || 0,
-            presentPercent: data.presentPercent || 0,
-            absentPercent: data.absentPercent || 0,
-            latePercent: data.latePercent || 0,
-          };
-
-          this.studentReports = (data.students || []).map((s: any) => ({
-            studentId: s.studentId,
-            studentName: s.studentId,
-            rollNumber: '-',
-            present: s.present || 0,
-            absent: s.absent || 0,
-            late: s.late || 0,
-            halfDay: s.halfDay || 0,
-            total: s.totalDays || 0,
-            percentage: s.percentage || 0,
-          }));
-
-          // Load student names separately
-          this.api.getStudents(0, 100, {}).subscribe({
-            next: (studentsRes) => {
-              const allStudents = studentsRes.data?.content || [];
-              const nameMap: Record<string, any> = {};
-              allStudents.forEach((st: any) => { nameMap[st.studentId] = st; });
-
-              this.studentReports.forEach(r => {
-                const st = nameMap[r.studentId];
-                if (st) {
-                  r.studentName = st.firstName ? `${st.firstName} ${st.lastName || ''}`.trim() : `Student ${st.admissionNumber || ''}`;
-                  r.rollNumber = st.rollNumber || st.admissionNumber || '-';
-                }
-              });
-            },
-          });
-
+          this.processReport(res.data);
           this.reportLoaded = true;
+        } else {
+          this.snackBar.open('No attendance data found', 'Close', { duration: 3000 });
         }
         this.isLoading = false;
       },
@@ -162,10 +162,88 @@ export class AttendanceReportComponent implements OnInit {
     });
   }
 
-  getPercentageColor(percentage: number): string {
-    if (percentage >= 90) return '#4caf50';
-    if (percentage >= 75) return '#2196f3';
-    if (percentage >= 60) return '#ff9800';
+  private processReport(data: any): void {
+    this.totalStudents = data.totalStudents || 0;
+    this.hasDayWise = (data.totalDayRecords || 0) > 0;
+    this.hasPeriodWise = (data.totalPeriodRecords || 0) > 0;
+
+    // Day-wise
+    this.dayWiseReports = (data.dayWiseStudents || []).map((s: any) => ({
+      studentId: s.studentId,
+      studentName: s.studentId,
+      rollNumber: '-',
+      present: s.present || 0,
+      absent: s.absent || 0,
+      late: s.late || 0,
+      total: s.totalDays || 0,
+      percentage: s.percentage || 0,
+    }));
+
+    // Subject summaries
+    this.subjectSummaries = (data.subjectSummaries || []).map((s: any) => ({
+      subjectId: s.subjectId,
+      subjectName: s.subjectName || s.subjectId,
+      present: s.present || 0,
+      absent: s.absent || 0,
+      late: s.late || 0,
+      totalDays: s.totalDays || 0,
+      presentPercent: s.presentPercent || 0,
+    }));
+
+    // Period details
+    this.periodDetails = (data.periodWiseDetails || []).map((d: any) => ({
+      studentId: d.studentId,
+      studentName: d.studentId,
+      rollNumber: '-',
+      subjectId: d.subjectId,
+      subjectName: d.subjectName || d.subjectId,
+      present: d.present || 0,
+      absent: d.absent || 0,
+      late: d.late || 0,
+      total: d.totalDays || 0,
+      percentage: d.percentage || 0,
+    }));
+    this.selectedSubjectFilter = '';
+    this.applySubjectFilter();
+
+    // Resolve student names
+    this.api.getStudents(0, 200, { classId: this.selectedClassId, sectionId: this.selectedSectionId }).subscribe({
+      next: (studentsRes) => {
+        const allStudents = studentsRes.data?.content || [];
+        const nameMap: Record<string, any> = {};
+        allStudents.forEach((st: any) => { nameMap[st.studentId] = st; });
+
+        const resolve = (r: any) => {
+          const st = nameMap[r.studentId];
+          if (st) {
+            r.studentName = st.firstName ? `${st.firstName} ${st.lastName || ''}`.trim() : `Student ${st.admissionNumber || ''}`;
+            r.rollNumber = st.rollNumber || st.admissionNumber || '-';
+          }
+        };
+
+        this.dayWiseReports.forEach(resolve);
+        this.periodDetails.forEach(resolve);
+        this.applySubjectFilter();
+      },
+    });
+  }
+
+  onSubjectFilterChange(): void {
+    this.applySubjectFilter();
+  }
+
+  private applySubjectFilter(): void {
+    if (this.selectedSubjectFilter) {
+      this.filteredPeriodDetails = this.periodDetails.filter(r => r.subjectId === this.selectedSubjectFilter);
+    } else {
+      this.filteredPeriodDetails = [...this.periodDetails];
+    }
+  }
+
+  getPercentageColor(pct: number): string {
+    if (pct >= 90) return '#4caf50';
+    if (pct >= 75) return '#2196f3';
+    if (pct >= 60) return '#ff9800';
     return '#f44336';
   }
 }

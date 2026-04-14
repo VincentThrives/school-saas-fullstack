@@ -37,132 +37,107 @@
     </button>
   </div>
 
-  <mat-tab-group class="events-tabs">
-    <!-- Events Tab -->
-    <mat-tab label="Events">
+  <mat-tab-group class="events-tabs" animationDuration="300ms">
+
+    <!-- ════════ Events Tab ════════ -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">event</mat-icon>
+        Events ({{ events.length }})
+      </ng-template>
+
       <div class="tab-content">
         <div class="loading-container" *ngIf="isLoading">
           <mat-spinner diameter="40"></mat-spinner>
         </div>
 
-        <div class="table-card" *ngIf="!isLoading">
-          <table mat-table [dataSource]="events" class="events-table">
-
-            <!-- Title Column -->
-            <ng-container matColumnDef="title">
-              <th mat-header-cell *matHeaderCellDef>Title</th>
-              <td mat-cell *matCellDef="let event">
-                <div class="event-title-cell">
-                  <span class="event-title">{{ event.title }}</span>
-                  <span class="event-description" *ngIf="event.description">{{ event.description }}</span>
+        <div class="events-grid" *ngIf="!isLoading && events.length > 0">
+          <div class="event-card" *ngFor="let event of events">
+            <div class="event-card-top" [style.border-left-color]="getTypeColor(event.type)">
+              <div class="event-date-badge">
+                <span class="date-day">{{ getDay(event.startDate) }}</span>
+                <span class="date-month">{{ getMonth(event.startDate) }}</span>
+              </div>
+              <div class="event-info">
+                <h4 class="event-title">{{ event.title }}</h4>
+                <p class="event-description" *ngIf="event.description">{{ event.description }}</p>
+                <div class="event-meta">
+                  <span class="type-chip" [style.background-color]="getTypeColor(event.type)">
+                    {{ event.type }}
+                  </span>
+                  <span class="date-range">
+                    <mat-icon class="meta-icon">date_range</mat-icon>
+                    {{ formatDate(event.startDate) }} - {{ formatDate(event.endDate) }}
+                  </span>
                 </div>
-              </td>
-            </ng-container>
+              </div>
+            </div>
+            <div class="event-card-actions" *ngIf="isAdmin">
+              <button mat-icon-button matTooltip="Edit" (click)="editEvent(event)">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button matTooltip="Delete" color="warn" (click)="confirmDelete(event)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </div>
+        </div>
 
-            <!-- Type Column -->
-            <ng-container matColumnDef="type">
-              <th mat-header-cell *matHeaderCellDef>Type</th>
-              <td mat-cell *matCellDef="let event">
-                <span class="type-chip" [style.background-color]="getTypeColor(event.type)"
-                      [style.color]="'#fff'">
-                  {{ event.type }}
-                </span>
-              </td>
-            </ng-container>
-
-            <!-- Start Date Column -->
-            <ng-container matColumnDef="startDate">
-              <th mat-header-cell *matHeaderCellDef>Start Date</th>
-              <td mat-cell *matCellDef="let event">{{ formatDate(event.startDate) }}</td>
-            </ng-container>
-
-            <!-- End Date Column -->
-            <ng-container matColumnDef="endDate">
-              <th mat-header-cell *matHeaderCellDef>End Date</th>
-              <td mat-cell *matCellDef="let event">{{ formatDate(event.endDate) }}</td>
-            </ng-container>
-
-            <!-- Actions Column -->
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="actions-header">Actions</th>
-              <td mat-cell *matCellDef="let event" class="actions-cell">
-                <button mat-icon-button matTooltip="Edit" (click)="editEvent(event)">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button matTooltip="Delete" color="warn" (click)="confirmDelete(event)">
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-
-            <tr class="mat-row" *matNoDataRow>
-              <td class="mat-cell no-data-cell" [attr.colspan]="displayedColumns.length">
-                No events found
-              </td>
-            </tr>
-          </table>
+        <div class="empty-state" *ngIf="!isLoading && events.length === 0">
+          <mat-icon class="empty-icon">event_busy</mat-icon>
+          <p class="empty-title">No events found</p>
+          <p class="empty-subtitle">Create a new event to get started</p>
         </div>
       </div>
     </mat-tab>
 
-    <!-- Holidays Tab -->
-    <mat-tab label="Holidays">
+    <!-- ════════ Holidays Tab ════════ -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">beach_access</mat-icon>
+        Holidays ({{ holidays.length }})
+      </ng-template>
+
       <div class="tab-content">
         <div class="loading-container" *ngIf="isLoadingHolidays">
           <mat-spinner diameter="40"></mat-spinner>
         </div>
 
-        <div class="table-card" *ngIf="!isLoadingHolidays">
-          <table mat-table [dataSource]="holidays" class="events-table">
+        <div class="holidays-grid" *ngIf="!isLoadingHolidays && holidays.length > 0">
+          <div class="holiday-card" *ngFor="let event of holidays">
+            <div class="holiday-card-left">
+              <div class="holiday-date-badge">
+                <span class="date-day">{{ getDay(event.startDate) }}</span>
+                <span class="date-month">{{ getMonth(event.startDate) }}</span>
+                <span class="date-year">{{ getYear(event.startDate) }}</span>
+              </div>
+            </div>
+            <div class="holiday-card-info">
+              <h4 class="holiday-title">
+                <mat-icon class="holiday-icon">beach_access</mat-icon>
+                {{ event.title }}
+              </h4>
+              <span class="holiday-dates">
+                {{ formatDate(event.startDate) }}
+                <span *ngIf="event.startDate !== event.endDate"> - {{ formatDate(event.endDate) }}</span>
+              </span>
+              <span class="holiday-description" *ngIf="event.description">{{ event.description }}</span>
+            </div>
+            <div class="holiday-card-actions" *ngIf="isAdmin">
+              <button mat-icon-button matTooltip="Edit" (click)="editEvent(event)">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button matTooltip="Delete" color="warn" (click)="confirmDelete(event)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </div>
+        </div>
 
-            <!-- Title Column -->
-            <ng-container matColumnDef="title">
-              <th mat-header-cell *matHeaderCellDef>Holiday</th>
-              <td mat-cell *matCellDef="let event">
-                <div class="event-title-cell">
-                  <mat-icon class="holiday-icon">beach_access</mat-icon>
-                  <span class="event-title">{{ event.title }}</span>
-                </div>
-              </td>
-            </ng-container>
-
-            <!-- Start Date Column -->
-            <ng-container matColumnDef="startDate">
-              <th mat-header-cell *matHeaderCellDef>Start Date</th>
-              <td mat-cell *matCellDef="let event">{{ formatDate(event.startDate) }}</td>
-            </ng-container>
-
-            <!-- End Date Column -->
-            <ng-container matColumnDef="endDate">
-              <th mat-header-cell *matHeaderCellDef>End Date</th>
-              <td mat-cell *matCellDef="let event">{{ formatDate(event.endDate) }}</td>
-            </ng-container>
-
-            <!-- Actions Column -->
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="actions-header">Actions</th>
-              <td mat-cell *matCellDef="let event" class="actions-cell">
-                <button mat-icon-button matTooltip="Edit" (click)="editEvent(event)">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button matTooltip="Delete" color="warn" (click)="confirmDelete(event)">
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="holidayColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: holidayColumns;"></tr>
-
-            <tr class="mat-row" *matNoDataRow>
-              <td class="mat-cell no-data-cell" [attr.colspan]="holidayColumns.length">
-                No holidays found
-              </td>
-            </tr>
-          </table>
+        <div class="empty-state" *ngIf="!isLoadingHolidays && holidays.length === 0">
+          <mat-icon class="empty-icon">beach_access</mat-icon>
+          <p class="empty-title">No holidays found</p>
+          <p class="empty-subtitle">Add holidays to the school calendar</p>
         </div>
       </div>
     </mat-tab>

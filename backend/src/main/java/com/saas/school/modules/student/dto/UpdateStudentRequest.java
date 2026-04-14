@@ -1,5 +1,8 @@
 package com.saas.school.modules.student.dto;
 
+import com.saas.school.modules.student.model.Student.Gender;
+import java.time.LocalDate;
+
 public class UpdateStudentRequest {
 
     private String firstName;
@@ -13,6 +16,8 @@ public class UpdateStudentRequest {
     private String rollNumber;
     private String classId;
     private String sectionId;
+    private Gender gender;
+    private LocalDate dateOfBirth;
     private String bloodGroup;
     private AddressDto address;
 
@@ -66,6 +71,12 @@ public class UpdateStudentRequest {
     public void setSectionId(String sectionId) {
         this.sectionId = sectionId;
     }
+
+    public Gender getGender() { return gender; }
+    public void setGender(Gender gender) { this.gender = gender; }
+
+    public LocalDate getDateOfBirth() { return dateOfBirth; }
+    public void setDateOfBirth(LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
 
     public String getBloodGroup() {
         return bloodGroup;

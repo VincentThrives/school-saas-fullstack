@@ -125,7 +125,8 @@ export class EventsListComponent implements OnInit {
     this.apiService.getEvents().subscribe({
       next: (res) => {
         if (res.success && res.data) {
-          this.allEvents = res.data;
+          // Events tab: only non-holiday events
+          this.allEvents = res.data.filter((e: any) => !e.isHoliday && e.type !== 'HOLIDAY');
           this.applyFilters();
         }
         this.isLoading = false;
@@ -197,6 +198,21 @@ export class EventsListComponent implements OnInit {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  getDay(dateStr: string): string {
+    if (!dateStr) return '';
+    return String(new Date(dateStr).getDate()).padStart(2, '0');
+  }
+
+  getMonth(dateStr: string): string {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('en', { month: 'short' }).toUpperCase();
+  }
+
+  getYear(dateStr: string): string {
+    if (!dateStr) return '';
+    return String(new Date(dateStr).getFullYear());
   }
 
   navigateToAddEvent(): void {

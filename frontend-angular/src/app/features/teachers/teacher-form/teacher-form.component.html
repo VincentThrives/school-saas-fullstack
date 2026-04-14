@@ -3,7 +3,7 @@
     [title]="pageTitle"
     [breadcrumbs]="[
       { label: 'Dashboard', link: '/dashboard' },
-      { label: 'Teachers', link: '/teachers' },
+      { label: 'Employees', link: '/employees' },
       { label: isEditing ? 'Edit' : 'Add' }
     ]">
   </app-page-header>
@@ -14,85 +14,170 @@
 
   <mat-card *ngIf="!isLoading" class="form-card">
     <mat-card-content>
-      <form [formGroup]="teacherForm" (ngSubmit)="onSubmit()">
+      <form [formGroup]="employeeForm" (ngSubmit)="onSubmit()">
 
         <!-- Personal Information -->
         <h3 class="section-title">Personal Information</h3>
         <div class="form-grid">
           <mat-form-field appearance="outline">
-            <mat-label>First Name</mat-label>
-            <input matInput formControlName="firstName" placeholder="e.g., John">
+            <mat-label>First Name *</mat-label>
+            <input matInput formControlName="firstName">
             <mat-error>First name is required</mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Last Name</mat-label>
-            <input matInput formControlName="lastName" placeholder="e.g., Smith">
+            <mat-label>Last Name *</mat-label>
+            <input matInput formControlName="lastName">
             <mat-error>Last name is required</mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>Email</mat-label>
-            <input matInput formControlName="email" type="email" placeholder="e.g., john@school.edu">
+            <input matInput formControlName="email" type="email">
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>Phone</mat-label>
-            <input matInput formControlName="phone" placeholder="e.g., +91 98765 43210">
+            <input matInput formControlName="phone">
           </mat-form-field>
         </div>
+
+        <mat-divider></mat-divider>
 
         <!-- Employment Information -->
         <h3 class="section-title">Employment Information</h3>
         <div class="form-grid">
           <mat-form-field appearance="outline">
-            <mat-label>Employee ID</mat-label>
-            <input matInput formControlName="employeeId" placeholder="e.g., EMP001">
+            <mat-label>Employee ID *</mat-label>
+            <input matInput formControlName="employeeId">
             <mat-error>Employee ID is required</mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Join Date</mat-label>
-            <input matInput formControlName="joinDate" type="date">
+            <mat-label>Role *</mat-label>
+            <mat-select formControlName="employeeRole" required>
+              <mat-option *ngFor="let role of employeeRoles" [value]="role.value">
+                {{ role.label }}
+              </mat-option>
+            </mat-select>
+            <mat-error>Role is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Date of Birth</mat-label>
+            <input matInput type="date" formControlName="dateOfBirth">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Joining Date</mat-label>
+            <input matInput type="date" formControlName="joiningDate">
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>Qualification</mat-label>
-            <input matInput formControlName="qualification" placeholder="e.g., M.Sc., B.Ed.">
+            <input matInput formControlName="qualification">
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>Specialization</mat-label>
-            <input matInput formControlName="specialization" placeholder="e.g., Mathematics, Physics">
+            <input matInput formControlName="specialization">
           </mat-form-field>
         </div>
 
-        <mat-divider class="section-divider"></mat-divider>
+        <!-- Class Teacher Assignment (for Teacher role) -->
+        <div *ngIf="isTeacherRole">
+          <mat-divider></mat-divider>
+          <h3 class="section-title">Class Teacher Assignment</h3>
+          <div class="form-grid">
+            <mat-checkbox formControlName="isClassTeacher" color="primary">
+              Is Class Teacher
+            </mat-checkbox>
+          </div>
 
-        <!-- Assignment Information -->
-        <h3 class="section-title">Assignment Information</h3>
-        <div class="form-grid">
-          <mat-form-field appearance="outline">
-            <mat-label>Assigned Classes</mat-label>
-            <mat-select formControlName="classIds" multiple>
-              <mat-option *ngFor="let cls of classes" [value]="cls.classId">
-                {{ cls.name }}
-              </mat-option>
-            </mat-select>
-            <mat-hint>Select classes this teacher is assigned to</mat-hint>
-          </mat-form-field>
+          <div class="form-grid" *ngIf="isClassTeacherChecked">
+            <mat-form-field appearance="outline">
+              <mat-label>Class Teacher of Class</mat-label>
+              <mat-select formControlName="classTeacherOfClassId">
+                <mat-option value="">-- Select --</mat-option>
+                <mat-option *ngFor="let cls of classes" [value]="cls.classId">
+                  {{ cls.name }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Subject IDs</mat-label>
-            <mat-select formControlName="subjectIds" multiple>
-              <mat-option *ngFor="let sub of subjectsList" [value]="sub.subjectId">
-                {{ sub.name }}
-              </mat-option>
-            </mat-select>
-            <mat-hint>Select subjects this teacher teaches</mat-hint>
-          </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Section</mat-label>
+              <mat-select formControlName="classTeacherOfSectionId">
+                <mat-option value="">-- Select --</mat-option>
+                <mat-option *ngFor="let sec of classTeacherSections" [value]="sec.sectionId">
+                  {{ sec.name }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <!-- Class-Subject Assignments -->
+          <mat-divider></mat-divider>
+          <div class="assignments-header">
+            <h3 class="section-title">Class - Section - Subject Assignments</h3>
+            <button mat-stroked-button type="button" class="add-btn" (click)="addAssignment()">
+              <mat-icon>add</mat-icon>
+              Add Assignment
+            </button>
+          </div>
+
+          <div formArrayName="classSubjectAssignments">
+            <div *ngFor="let assignment of assignments.controls; let i = index"
+                 [formGroupName]="i" class="assignment-row">
+              <span class="row-number">{{ i + 1 }}</span>
+
+              <mat-form-field appearance="outline" class="assignment-field">
+                <mat-label>Class</mat-label>
+                <mat-select formControlName="classId" (selectionChange)="onAssignmentClassChange(i)">
+                  <mat-option *ngFor="let cls of classes" [value]="cls.classId">
+                    {{ cls.name }}
+                  </mat-option>
+                </mat-select>
+                <mat-error>Required</mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="assignment-field">
+                <mat-label>Section</mat-label>
+                <mat-select formControlName="sectionId" (selectionChange)="onAssignmentSectionChange(i)"
+                            [disabled]="!assignments.at(i).get('classId')?.value">
+                  <mat-option *ngFor="let sec of assignmentSections[i] || []" [value]="sec.sectionId">
+                    {{ sec.name }}
+                  </mat-option>
+                </mat-select>
+                <mat-error>Required</mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="assignment-field">
+                <mat-label>Subject</mat-label>
+                <mat-select formControlName="subjectId"
+                            [disabled]="!assignments.at(i).get('sectionId')?.value">
+                  <mat-option *ngFor="let sub of assignmentSubjects[i] || []" [value]="sub.subjectId">
+                    {{ sub.name }}
+                  </mat-option>
+                </mat-select>
+                <mat-error>Required</mat-error>
+              </mat-form-field>
+
+              <button mat-icon-button color="warn" type="button" (click)="removeAssignment(i)"
+                      matTooltip="Remove assignment">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="no-assignments" *ngIf="assignments.length === 0">
+            <p>No assignments added. Click "Add Assignment" to assign classes and subjects.</p>
+          </div>
         </div>
 
+        <mat-divider></mat-divider>
+
+        <!-- Form Actions -->
         <div class="form-actions">
           <button mat-button type="button" (click)="cancel()">
             <mat-icon>arrow_back</mat-icon>
@@ -101,7 +186,7 @@
           <button mat-raised-button class="save-button" type="submit" [disabled]="isSaving">
             <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
             <mat-icon *ngIf="!isSaving">save</mat-icon>
-            {{ isEditing ? 'Update Teacher' : 'Create Teacher' }}
+            {{ isEditing ? 'Update Employee' : 'Create Employee' }}
           </button>
         </div>
       </form>

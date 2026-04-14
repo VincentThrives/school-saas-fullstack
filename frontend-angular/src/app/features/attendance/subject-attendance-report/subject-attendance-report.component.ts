@@ -117,16 +117,37 @@ export class SubjectAttendanceReportComponent implements OnInit {
       this.snackBar.open('Please select class and section', 'Close', { duration: 3000 });
       return;
     }
+    if (!this.startDate || !this.endDate) {
+      this.snackBar.open('Please select date range', 'Close', { duration: 3000 });
+      return;
+    }
 
     this.isLoading = true;
     this.reportLoaded = false;
 
-    // Use subject-wise endpoint
-    this.api.getSubjectWiseAttendanceReport(this.selectedClassId, this.selectedSectionId, this.startDate, this.endDate).subscribe({
+    // Ensure dates are in YYYY-MM-DD format
+    const fromDate = this.formatDateStr(this.startDate);
+    const toDate = this.formatDateStr(this.endDate);
+
+    // Use new batch report endpoint (reads from students_attendance collection)
+    this.api.getBatchAttendanceReport(this.selectedClassId, this.selectedSectionId, fromDate, toDate).subscribe({
       next: (res) => {
         if (res.success && res.data) {
-          this.processSubjectReport(res.data);
-          this.reportLoaded = true;
+          const data = res.data;
+          // Map batch response to subject report format
+          const subjectSummaries = data.subjectSummaries || [];
+          const studentDetails = data.periodWiseDetails || [];
+          if (subjectSummaries.length > 0 || studentDetails.length > 0) {
+            this.processSubjectReport({ subjectSummaries, studentDetails });
+            this.reportLoaded = true;
+          } else {
+            this.reportLoaded = true;
+            this.subjectReports = [];
+            this.studentSubjectReports = [];
+            this.filteredStudentReports = [];
+            this.subjects = [];
+            this.snackBar.open('No subject-wise attendance data found for the selected date range', 'Close', { duration: 3000 });
+          }
         } else {
           this.snackBar.open('No subject-wise attendance data found', 'Close', { duration: 3000 });
         }
@@ -134,9 +155,23 @@ export class SubjectAttendanceReportComponent implements OnInit {
       },
       error: (err) => {
         this.isLoading = false;
-        this.snackBar.open(err?.error?.message || 'Failed to load report', 'Close', { duration: 3000 });
+        console.error('Subject attendance report error:', err);
+        const msg = err?.error?.message || err?.statusText || 'Failed to load report';
+        this.snackBar.open(msg, 'Close', { duration: 5000 });
       },
     });
+  }
+
+  private formatDateStr(date: any): string {
+    if (!date) return '';
+    if (date instanceof Date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    // Already a string like YYYY-MM-DD
+    return String(date);
   }
 
   private processSubjectReport(data: any): void {
@@ -172,8 +207,8 @@ export class SubjectAttendanceReportComponent implements OnInit {
     this.selectedSubjectFilter = '';
     this.applySubjectFilter();
 
-    // Resolve student names
-    this.api.getStudents(0, 200).subscribe({
+    // Resolve student names — fetch students for this class/section
+    this.api.getStudents(0, 200, { classId: this.selectedClassId, sectionId: this.selectedSectionId }).subscribe({
       next: (studentsRes) => {
         const allStudents = studentsRes.data?.content || [];
         const nameMap: Record<string, any> = {};

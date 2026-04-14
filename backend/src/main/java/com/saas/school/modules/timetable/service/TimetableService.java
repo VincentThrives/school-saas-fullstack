@@ -50,8 +50,17 @@ public class TimetableService {
 
     public Timetable save(Timetable timetable) {
         if (timetable.getTimetableId() == null || timetable.getTimetableId().isEmpty()) {
-            timetable.setTimetableId(UUID.randomUUID().toString());
-            logger.info("Saving new timetable with generated id={}", timetable.getTimetableId());
+            // Check for duplicate: same class + section + academic year
+            var existing = timetableRepository.findByClassIdAndSectionIdAndAcademicYearId(
+                    timetable.getClassId(), timetable.getSectionId(), timetable.getAcademicYearId());
+            if (existing.isPresent()) {
+                // Update existing instead of creating duplicate
+                timetable.setTimetableId(existing.get().getTimetableId());
+                logger.info("Found existing timetable, updating id={}", timetable.getTimetableId());
+            } else {
+                timetable.setTimetableId(UUID.randomUUID().toString());
+                logger.info("Saving new timetable with generated id={}", timetable.getTimetableId());
+            }
         } else {
             logger.info("Saving timetable id={}", timetable.getTimetableId());
         }

@@ -1,21 +1,23 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
-import { SchoolClass } from '../../../core/models';
+import { SchoolClass, EmployeeRole } from '../../../core/models';
 
 @Component({
   selector: 'app-teacher-form',
@@ -24,12 +26,14 @@ import { SchoolClass } from '../../../core/models';
     CommonModule,
     ReactiveFormsModule,
     MatCardModule,
-    MatButtonModule,
-    MatIconModule,
-    MatInputModule,
     MatFormFieldModule,
+    MatInputModule,
     MatSelectModule,
     MatCheckboxModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
+    MatButtonModule,
+    MatIconModule,
     MatDividerModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
@@ -39,19 +43,31 @@ import { SchoolClass } from '../../../core/models';
   styleUrl: './teacher-form.component.scss',
 })
 export class TeacherFormComponent implements OnInit {
-  teacherForm!: FormGroup;
+  employeeForm!: FormGroup;
   isEditing = false;
   teacherId: string | null = null;
   isLoading = false;
   isSaving = false;
 
   classes: SchoolClass[] = [];
-  selectedClassSections: { sectionId: string; name: string }[] = [];
-  subjectsList: SubjectItem[] = [];
+
+  // Per-assignment row: sections and subjects
+  assignmentSections: { sectionId: string; name: string; subjectIds?: string[] }[][] = [];
+  assignmentSubjects: SubjectItem[][] = [];
+
+  employeeRoles: { value: EmployeeRole; label: string }[] = [
+    { value: 'TEACHER', label: 'Teacher' },
+    { value: 'ACCOUNTANT', label: 'Accountant' },
+    { value: 'CLERK', label: 'Clerk' },
+    { value: 'PRINCIPAL', label: 'Principal' },
+    { value: 'HEAD_MISTRESS', label: 'Head Mistress' },
+    { value: 'LAB_ASSISTANT', label: 'Lab Assistant' },
+    { value: 'NON_TEACHING', label: 'Non-Teaching Staff' },
+  ];
 
   constructor(
     private fb: FormBuilder,
-    private apiService: ApiService,
+    private api: ApiService,
     private subjectService: SubjectService,
     private router: Router,
     private route: ActivatedRoute,
@@ -62,130 +78,210 @@ export class TeacherFormComponent implements OnInit {
     this.teacherId = this.route.snapshot.paramMap.get('teacherId');
     this.isEditing = !!this.teacherId && this.teacherId !== 'new';
 
-    this.teacherForm = this.fb.group({
+    this.employeeForm = this.fb.group({
       firstName: ['', Validators.required],
       lastName: ['', Validators.required],
       email: [''],
       phone: [''],
       employeeId: ['', Validators.required],
+      employeeRole: ['TEACHER', Validators.required],
       qualification: [''],
       specialization: [''],
-      joinDate: [''],
-      classIds: [[]],
-      subjectIds: [[]],
+      dateOfBirth: [''],
+      joiningDate: [''],
       isClassTeacher: [false],
+      classTeacherOfClassId: [''],
+      classTeacherOfSectionId: [''],
+      classSubjectAssignments: this.fb.array([]),
     });
 
-    this.subjectService.getSubjects().subscribe(subjects => {
-      this.subjectsList = subjects;
-    });
-
-    this.loadClasses();
-
-    if (this.isEditing) {
-      this.teacherForm.get('employeeId')?.disable();
-      this.loadTeacher();
-    }
-  }
-
-  get pageTitle(): string {
-    return this.isEditing ? 'Edit Teacher' : 'Add Teacher';
-  }
-
-  get isClassTeacher(): boolean {
-    return this.teacherForm.get('isClassTeacher')?.value || false;
-  }
-
-  loadClasses(): void {
-    this.apiService.getClasses().subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          this.classes = Array.isArray(response.data) ? response.data : [];
-        }
+    this.api.getClasses().subscribe({
+      next: (res) => {
+        this.classes = Array.isArray(res.data) ? res.data : [];
+        if (this.isEditing) this.loadEmployeeData();
       },
     });
   }
 
-  loadTeacher(): void {
+  get pageTitle(): string {
+    return this.isEditing ? 'Edit Employee' : 'Add Employee';
+  }
+
+  get assignments(): FormArray {
+    return this.employeeForm.get('classSubjectAssignments') as FormArray;
+  }
+
+  get isTeacherRole(): boolean {
+    return this.employeeForm.get('employeeRole')?.value === 'TEACHER';
+  }
+
+  get isClassTeacherChecked(): boolean {
+    return this.employeeForm.get('isClassTeacher')?.value;
+  }
+
+  get classTeacherSections(): { sectionId: string; name: string }[] {
+    const classId = this.employeeForm.get('classTeacherOfClassId')?.value;
+    const cls = this.classes.find(c => c.classId === classId);
+    return cls?.sections || [];
+  }
+
+  loadEmployeeData(): void {
     if (!this.teacherId) return;
     this.isLoading = true;
-    this.apiService.getTeacherById(this.teacherId).subscribe({
+    this.api.getTeacherById(this.teacherId).subscribe({
       next: (res) => {
         if (res.success && res.data) {
           const t = res.data;
-          this.teacherForm.patchValue({
-            firstName: t.firstName,
-            lastName: t.lastName,
-            email: t.email,
-            phone: t.phone,
-            employeeId: t.employeeId,
-            qualification: t.qualification,
-            specialization: t.specialization,
-            joinDate: t.joinDate,
-            classIds: t.classIds || [],
-            subjectIds: t.subjectIds || [],
-            isClassTeacher: t.isClassTeacher,
-            classTeacherOfClassId: (t as any).classTeacherOfClassId || '',
-            classTeacherOfSectionId: (t as any).classTeacherOfSectionId || '',
+          this.employeeForm.patchValue({
+            firstName: t.firstName || '',
+            lastName: t.lastName || '',
+            email: t.email || '',
+            phone: t.phone || '',
+            employeeId: t.employeeId || '',
+            employeeRole: t.employeeRole || 'TEACHER',
+            qualification: t.qualification || '',
+            specialization: t.specialization || '',
+            dateOfBirth: t.dateOfBirth || '',
+            joiningDate: t.joiningDate || t.joinDate || '',
+            isClassTeacher: t.isClassTeacher || t.classTeacher || false,
+            classTeacherOfClassId: t.classTeacherOfClassId || '',
+            classTeacherOfSectionId: t.classTeacherOfSectionId || '',
           });
-          this.onClassTeacherClassChange();
+
+          // Load class-subject assignments
+          this.assignments.clear();
+          this.assignmentSections = [];
+          this.assignmentSubjects = [];
+          if (t.classSubjectAssignments && t.classSubjectAssignments.length > 0) {
+            t.classSubjectAssignments.forEach((a, idx) => {
+              this.assignments.push(this.fb.group({
+                classId: [a.classId, Validators.required],
+                sectionId: [a.sectionId, Validators.required],
+                subjectId: [a.subjectId, Validators.required],
+              }));
+              this.loadSectionsForRow(idx, a.classId);
+              this.loadSubjectsForRow(idx, a.classId, a.sectionId);
+            });
+          }
         }
         this.isLoading = false;
       },
       error: () => {
         this.isLoading = false;
-        this.snackBar.open('Failed to load teacher', 'Close', { duration: 3000 });
+        this.snackBar.open('Failed to load employee data', 'Close', { duration: 3000 });
       },
     });
   }
 
-  onClassTeacherClassChange(): void {
-    const classId = this.teacherForm.get('classTeacherOfClassId')?.value;
-    if (classId) {
-      const cls = this.classes.find(c => c.classId === classId);
-      this.selectedClassSections = cls?.sections || [];
-    } else {
-      this.selectedClassSections = [];
-      this.teacherForm.patchValue({ classTeacherOfSectionId: '' });
+  addAssignment(): void {
+    this.assignments.push(this.fb.group({
+      classId: ['', Validators.required],
+      sectionId: ['', Validators.required],
+      subjectId: ['', Validators.required],
+    }));
+    this.assignmentSections.push([]);
+    this.assignmentSubjects.push([]);
+  }
+
+  removeAssignment(index: number): void {
+    this.assignments.removeAt(index);
+    this.assignmentSections.splice(index, 1);
+    this.assignmentSubjects.splice(index, 1);
+  }
+
+  onAssignmentClassChange(index: number): void {
+    const classId = this.assignments.at(index).get('classId')?.value;
+    this.assignments.at(index).patchValue({ sectionId: '', subjectId: '' });
+    this.assignmentSubjects[index] = [];
+    this.loadSectionsForRow(index, classId);
+  }
+
+  onAssignmentSectionChange(index: number): void {
+    const classId = this.assignments.at(index).get('classId')?.value;
+    const sectionId = this.assignments.at(index).get('sectionId')?.value;
+    this.assignments.at(index).patchValue({ subjectId: '' });
+    this.loadSubjectsForRow(index, classId, sectionId);
+  }
+
+  private loadSectionsForRow(index: number, classId: string): void {
+    const cls = this.classes.find(c => c.classId === classId);
+    while (this.assignmentSections.length <= index) this.assignmentSections.push([]);
+    this.assignmentSections[index] = cls?.sections || [];
+  }
+
+  private loadSubjectsForRow(index: number, classId: string, sectionId: string): void {
+    while (this.assignmentSubjects.length <= index) this.assignmentSubjects.push([]);
+    if (!classId || !sectionId) {
+      this.assignmentSubjects[index] = [];
+      return;
     }
+    const cls = this.classes.find(c => c.classId === classId);
+    const section = cls?.sections?.find(s => s.sectionId === sectionId);
+    const subjectIds = section?.subjectIds || [];
+    if (subjectIds.length === 0) {
+      this.assignmentSubjects[index] = [];
+      return;
+    }
+    this.subjectService.getSubjectsByIds(subjectIds).subscribe({
+      next: (subjects) => { this.assignmentSubjects[index] = subjects; },
+      error: () => { this.assignmentSubjects[index] = []; },
+    });
   }
 
   onSubmit(): void {
-    if (this.teacherForm.invalid) {
-      this.teacherForm.markAllAsTouched();
+    if (this.employeeForm.invalid) {
+      this.employeeForm.markAllAsTouched();
       return;
     }
 
     this.isSaving = true;
-    const formData = this.teacherForm.getRawValue();
+    const formData = this.employeeForm.value;
 
-    // Clean up: if not class teacher, clear the class/section
-    if (!formData.isClassTeacher) {
-      formData.classTeacherOfClassId = null;
-      formData.classTeacherOfSectionId = null;
+    const payload: any = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email || null,
+      phone: formData.phone || null,
+      employeeId: formData.employeeId,
+      employeeRole: formData.employeeRole,
+      qualification: formData.qualification || null,
+      specialization: formData.specialization || null,
+      classTeacher: formData.isClassTeacher || false,
+      classTeacherOfClassId: formData.classTeacherOfClassId || null,
+      classTeacherOfSectionId: formData.classTeacherOfSectionId || null,
+      classSubjectAssignments: this.isTeacherRole ? (formData.classSubjectAssignments || []) : [],
+    };
+    // Only send dates if they have a value (avoid sending empty string to LocalDate)
+    if (formData.dateOfBirth) {
+      payload.dateOfBirth = formData.dateOfBirth;
+    }
+    if (formData.joiningDate) {
+      payload.joiningDate = formData.joiningDate;
     }
 
     const request$ = this.isEditing && this.teacherId
-      ? this.apiService.updateTeacher(this.teacherId, formData)
-      : this.apiService.createTeacher(formData);
+      ? this.api.updateTeacher(this.teacherId, payload)
+      : this.api.createTeacher(payload);
 
     request$.subscribe({
       next: () => {
+        this.isSaving = false;
         this.snackBar.open(
-          this.isEditing ? 'Teacher updated successfully' : 'Teacher created successfully',
-          'Close',
-          { duration: 3000 },
+          this.isEditing ? 'Employee updated successfully' : 'Employee created successfully',
+          'Close', { duration: 3000 }
         );
-        this.router.navigate(['/teachers']);
+        this.router.navigate(['/employees']);
       },
       error: (err) => {
-        this.snackBar.open(err?.error?.message || 'Failed to save teacher', 'Close', { duration: 3000 });
         this.isSaving = false;
+        console.error('Save employee error:', err);
+        const msg = err?.error?.message || err?.statusText || 'Failed to save employee';
+        this.snackBar.open(msg, 'Close', { duration: 5000 });
       },
     });
   }
 
   cancel(): void {
-    this.router.navigate(['/teachers']);
+    this.router.navigate(['/employees']);
   }
 }

@@ -64,6 +64,7 @@ export class TimetableBuilderComponent implements OnInit {
   editMode = false;
   isLoading = false;
   isSaving = false;
+  deleteDialogOpen = false;
 
   days: string[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -92,8 +93,8 @@ export class TimetableBuilderComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.api.getClasses().subscribe((res) => {
-      this.classes = res.data || [];
+    this.api.getTeachers(0, 200).subscribe((res) => {
+      this.teachers = res.data?.content || [];
     });
     this.api.getAcademicYears().subscribe((res) => {
       this.academicYears = res.data || [];
@@ -102,26 +103,32 @@ export class TimetableBuilderComponent implements OnInit {
         this.selectedAcademicYearId = current.academicYearId;
       }
     });
-    this.api.getTeachers(0, 200).subscribe((res) => {
-      this.teachers = res.data?.content || [];
-    });
 
-    // Check for query params (edit mode)
-    this.route.queryParams.subscribe((params) => {
-      if (params['classId'] && params['sectionId'] && params['academicYearId']) {
-        this.selectedClassId = params['classId'];
-        this.selectedSectionId = params['sectionId'];
-        this.selectedAcademicYearId = params['academicYearId'];
-        this.onClassChange();
-        this.loadTimetable();
-      }
+    // Load classes FIRST, then check query params
+    this.api.getClasses().subscribe((res) => {
+      this.classes = res.data || [];
+
+      // Check for query params (edit/view mode) — only after classes are loaded
+      this.route.queryParams.subscribe((params) => {
+        if (params['classId'] && params['sectionId'] && params['academicYearId']) {
+          this.selectedClassId = params['classId'];
+          this.selectedSectionId = params['sectionId'];
+          this.selectedAcademicYearId = params['academicYearId'];
+          this.onClassChange();
+          this.loadTimetable();
+          this.loadSubjectsForClass();
+        }
+      });
     });
   }
 
-  onClassChange(): void {
+  onClassChange(resetSection = false): void {
     const cls = this.classes.find((c) => c.classId === this.selectedClassId);
     this.sections = cls?.sections || [];
-    if (this.sections.length === 1) {
+    if (resetSection) {
+      this.selectedSectionId = '';
+    }
+    if (!this.selectedSectionId && this.sections.length === 1) {
       this.selectedSectionId = this.sections[0].sectionId;
     }
     this.loadSubjectsForClass();
@@ -132,26 +139,30 @@ export class TimetableBuilderComponent implements OnInit {
   }
 
   loadSubjectsForClass(): void {
-    if (!this.selectedClassId || !this.selectedAcademicYearId) {
+    if (!this.selectedClassId) {
       this.subjects = [];
       return;
     }
-    this.subjectService.getSubjectsByClassAndYear(this.selectedClassId, this.selectedAcademicYearId).subscribe({
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
+    let subjectIds: string[] = [];
+
+    if (this.selectedSectionId) {
+      const section = cls?.sections?.find(s => s.sectionId === this.selectedSectionId);
+      subjectIds = section?.subjectIds || [];
+    } else {
+      const allIds = new Set<string>();
+      cls?.sections?.forEach(s => (s.subjectIds || []).forEach(id => allIds.add(id)));
+      subjectIds = Array.from(allIds);
+    }
+
+    if (subjectIds.length === 0) {
+      this.subjects = [];
+      return;
+    }
+
+    this.subjectService.getSubjectsByIds(subjectIds).subscribe({
       next: (subjects) => {
-        // Filter by section's subjectIds if section is selected
-        if (this.selectedSectionId) {
-          const cls = this.classes.find(c => c.classId === this.selectedClassId);
-          const section = cls?.sections?.find(s => s.sectionId === this.selectedSectionId);
-          if (section?.subjectIds && section.subjectIds.length > 0) {
-            this.subjects = subjects
-              .filter(s => section.subjectIds!.includes(s.subjectId))
-              .map(s => ({ subjectId: s.subjectId, name: s.name }));
-          } else {
-            this.subjects = subjects.map(s => ({ subjectId: s.subjectId, name: s.name }));
-          }
-        } else {
-          this.subjects = subjects.map(s => ({ subjectId: s.subjectId, name: s.name }));
-        }
+        this.subjects = subjects.map(s => ({ subjectId: s.subjectId, name: s.name }));
       },
       error: () => {
         this.subjects = [];
@@ -167,9 +178,15 @@ export class TimetableBuilderComponent implements OnInit {
     this.isLoading = true;
     this.api.getTimetable(this.selectedClassId, this.selectedSectionId, this.selectedAcademicYearId).subscribe({
       next: (res) => {
-        if (res.data && res.data.schedule) {
+        if (res.data && res.data.schedule && res.data.schedule.length > 0
+            && res.data.schedule.some((d: any) => d.periods && d.periods.length > 0)) {
           this.timetable = res.data;
           this.schedule = res.data.schedule;
+          this.editMode = true;
+        } else if (res.data && res.data.timetableId) {
+          // Timetable exists but has empty schedule — load it in edit mode with default periods
+          this.timetable = res.data;
+          this.initializeEmptySchedule();
           this.editMode = true;
         } else {
           this.initializeEmptySchedule();
@@ -177,7 +194,8 @@ export class TimetableBuilderComponent implements OnInit {
         }
         this.isLoading = false;
       },
-      error: () => {
+      error: (err) => {
+        console.error('Failed to load timetable:', err);
         this.initializeEmptySchedule();
         this.editMode = false;
         this.isLoading = false;
@@ -249,11 +267,26 @@ export class TimetableBuilderComponent implements OnInit {
     }
 
     this.isSaving = true;
+
+    // Populate names in schedule before saving
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
+    const sec = cls?.sections?.find(s => s.sectionId === this.selectedSectionId);
+    const scheduleWithNames = this.schedule.map(day => ({
+      ...day,
+      periods: day.periods.map(p => ({
+        ...p,
+        subjectName: p.subjectId ? this.getSubjectName(p.subjectId) : '',
+        teacherName: p.teacherId ? this.getTeacherName(p.teacherId) : '',
+      })),
+    }));
+
     const payload: Partial<Timetable> = {
       classId: this.selectedClassId,
+      className: cls?.name || '',
       sectionId: this.selectedSectionId,
+      sectionName: sec?.name || '',
       academicYearId: this.selectedAcademicYearId,
-      schedule: this.schedule,
+      schedule: scheduleWithNames,
     };
     if (this.timetable?.timetableId) {
       payload.timetableId = this.timetable.timetableId;
@@ -290,6 +323,27 @@ export class TimetableBuilderComponent implements OnInit {
     return t ? `${t.firstName || ''} ${t.lastName || ''}`.trim() || t.employeeId || teacherId : teacherId;
   }
 
+  getTeachersForSubject(subjectId: string): any[] {
+    if (!subjectId) return this.teachers;
+    const filtered = this.teachers.filter(t => {
+      if (t.classSubjectAssignments?.length) {
+        return t.classSubjectAssignments.some((a: any) =>
+          a.subjectId === subjectId &&
+          a.classId === this.selectedClassId &&
+          a.sectionId === this.selectedSectionId
+        );
+      }
+      return t.subjectIds?.includes(subjectId);
+    });
+    return filtered.length > 0 ? filtered : this.teachers;
+  }
+
+  onPeriodSubjectChange(daySchedule: any, periodIndex: number): void {
+    if (daySchedule.periods[periodIndex]) {
+      daySchedule.periods[periodIndex].teacherId = '';
+    }
+  }
+
   getSubjectColor(subjectId: string): string {
     const colors: Record<string, string> = {
       math: '#E3F2FD', science: '#E8F5E9', english: '#FFF3E0',
@@ -309,5 +363,33 @@ export class TimetableBuilderComponent implements OnInit {
 
   goBack(): void {
     this.router.navigate(['/timetable']);
+  }
+
+  confirmDeleteTimetable(): void {
+    this.deleteDialogOpen = true;
+  }
+
+  cancelDelete(): void {
+    this.deleteDialogOpen = false;
+  }
+
+  deleteTimetable(): void {
+    if (!this.timetable?.timetableId) return;
+    this.deleteDialogOpen = false;
+    this.isSaving = true;
+
+    this.api.deleteTimetable(this.timetable.timetableId).subscribe({
+      next: () => {
+        this.isSaving = false;
+        this.snackBar.open('Timetable deleted successfully', 'OK', { duration: 3000 });
+        this.timetable = null;
+        this.editMode = false;
+        this.schedule = [];
+      },
+      error: (err) => {
+        this.isSaving = false;
+        this.snackBar.open(err?.error?.message || 'Failed to delete timetable', 'OK', { duration: 4000 });
+      },
+    });
   }
 }

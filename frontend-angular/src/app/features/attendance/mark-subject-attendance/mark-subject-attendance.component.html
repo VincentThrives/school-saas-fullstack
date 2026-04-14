@@ -1,7 +1,7 @@
 <div class="mark-attendance-container">
   <app-page-header
     title="Subject-wise Attendance"
-    subtitle="Record attendance per subject and period"
+    subtitle="Mark attendance by period from timetable"
     [breadcrumbs]="[
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'Attendance' },
@@ -9,176 +9,174 @@
     ]"
   ></app-page-header>
 
-  <!-- Filters -->
+  <!-- Step 1: Select Class, Section, Date -->
   <mat-card class="filters-card">
     <mat-card-content>
       <div class="filters-row">
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Class</mat-label>
           <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()">
-            <mat-option *ngFor="let cls of classes" [value]="cls.classId">
-              {{ cls.name }}
-            </mat-option>
+            <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
           </mat-select>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Section</mat-label>
-          <mat-select [(ngModel)]="selectedSectionId" [disabled]="!selectedClassId" (selectionChange)="onSectionChange()">
-            <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">
-              {{ sec.name }}
-            </mat-option>
+          <mat-select [(ngModel)]="selectedSectionId" [disabled]="!selectedClassId" (selectionChange)="onSectionOrDateChange()">
+            <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">{{ sec.name }}</mat-option>
           </mat-select>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Date</mat-label>
-          <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate">
+          <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [max]="today" (dateChange)="onSectionOrDateChange()">
           <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
           <mat-datepicker #picker></mat-datepicker>
+          <mat-hint>Cannot select future dates</mat-hint>
         </mat-form-field>
-
-        <mat-form-field appearance="outline" class="filter-field">
-          <mat-label>Subject</mat-label>
-          <mat-select [(ngModel)]="selectedSubjectId">
-            <mat-option *ngFor="let subj of subjects" [value]="subj.subjectId">
-              {{ subj.name }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="filter-field period-field">
-          <mat-label>Period</mat-label>
-          <mat-select [(ngModel)]="selectedPeriod">
-            <mat-option *ngFor="let p of periodOptions" [value]="p">
-              Period {{ p }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <button
-          mat-flat-button
-          class="load-btn"
-          (click)="loadStudents()"
-          [disabled]="!selectedClassId || !selectedSectionId"
-        >
-          <mat-icon>group</mat-icon>
-          Load Students
-        </button>
       </div>
     </mat-card-content>
   </mat-card>
 
-  <!-- Quick Actions & Summary -->
-  <mat-card class="actions-card" *ngIf="studentsLoaded && students.length > 0">
-    <mat-card-content>
-      <div class="actions-row">
-        <div class="quick-actions">
-          <span class="section-label">Quick Actions</span>
-          <button mat-stroked-button class="mark-all-btn" (click)="markAllPresent()">
-            <mat-icon>check_circle</mat-icon>
-            Mark All Present
-          </button>
-        </div>
-
-        <div class="summary-chips">
-          <mat-chip-set>
-            <mat-chip class="chip-present">
-              <mat-icon>check_circle</mat-icon>
-              Present: {{ summary.present }}
-            </mat-chip>
-            <mat-chip class="chip-absent">
-              <mat-icon>cancel</mat-icon>
-              Absent: {{ summary.absent }}
-            </mat-chip>
-            <mat-chip class="chip-late">
-              <mat-icon>schedule</mat-icon>
-              Late: {{ summary.late }}
-            </mat-chip>
-          </mat-chip-set>
-        </div>
-      </div>
-    </mat-card-content>
-  </mat-card>
-
-  <!-- Loading Spinner -->
-  <div class="loading-container" *ngIf="isLoading">
-    <mat-spinner diameter="40"></mat-spinner>
+  <!-- Holiday Banner -->
+  <div class="holiday-banner" *ngIf="isHoliday">
+    <mat-icon class="holiday-banner-icon">beach_access</mat-icon>
+    <div class="holiday-banner-text">
+      <h3>Holiday - {{ holidayTitle }}</h3>
+      <p>Attendance cannot be marked on this day</p>
+    </div>
   </div>
 
-  <!-- Students Table -->
-  <mat-card class="table-card" *ngIf="studentsLoaded && !isLoading">
-    <table mat-table [dataSource]="students" class="attendance-table">
-      <!-- Roll Number Column -->
-      <ng-container matColumnDef="rollNumber">
-        <th mat-header-cell *matHeaderCellDef>Roll No</th>
-        <td mat-cell *matCellDef="let student">{{ student.rollNumber }}</td>
-      </ng-container>
+  <!-- Step 2: Period Cards from Timetable -->
+  <div class="periods-section" *ngIf="selectedClassId && selectedSectionId && !isHoliday">
+    <h3 class="section-title">
+      <mat-icon>schedule</mat-icon>
+      Today's Periods (from Timetable)
+    </h3>
 
-      <!-- Name Column -->
-      <ng-container matColumnDef="name">
-        <th mat-header-cell *matHeaderCellDef>Student Name</th>
-        <td mat-cell *matCellDef="let student">
-          <div class="student-name">
-            <div class="student-avatar">{{ student.firstName?.charAt(0) || 'S' }}</div>
-            {{ student.firstName }} {{ student.lastName }}
-          </div>
-        </td>
-      </ng-container>
-
-      <!-- Status Column -->
-      <ng-container matColumnDef="status">
-        <th mat-header-cell *matHeaderCellDef>Status</th>
-        <td mat-cell *matCellDef="let student">
-          <mat-radio-group [(ngModel)]="student.status" class="status-radio-group">
-            <mat-radio-button
-              *ngFor="let opt of statusOptions"
-              [value]="opt.value"
-              class="status-radio"
-              [class]="'status-' + opt.value.toLowerCase()"
-            >
-              {{ opt.label }}
-            </mat-radio-button>
-          </mat-radio-group>
-        </td>
-      </ng-container>
-
-      <!-- Remarks Column -->
-      <ng-container matColumnDef="remarks">
-        <th mat-header-cell *matHeaderCellDef>Remarks</th>
-        <td mat-cell *matCellDef="let student">
-          <mat-form-field appearance="outline" class="remarks-field">
-            <input matInput [(ngModel)]="student.remarks" placeholder="Add remarks...">
-          </mat-form-field>
-        </td>
-      </ng-container>
-
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-    </table>
-
-    <div class="empty-state" *ngIf="students.length === 0">
-      No students found in this class/section
+    <div class="loading-container" *ngIf="isLoadingPeriods">
+      <mat-spinner diameter="36"></mat-spinner>
     </div>
-  </mat-card>
 
-  <!-- Save Button -->
-  <div class="save-section" *ngIf="studentsLoaded && students.length > 0">
-    <button
-      mat-flat-button
-      class="save-btn"
-      (click)="saveAttendance()"
-      [disabled]="isSaving || students.length === 0 || !selectedSubjectId || !selectedPeriod"
-    >
-      <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
-      <mat-icon *ngIf="!isSaving">save</mat-icon>
-      {{ isSaving ? 'Saving...' : 'Save Attendance' }}
-    </button>
+    <div class="period-cards" *ngIf="!isLoadingPeriods && timetablePeriods.length > 0">
+      <div class="period-card" *ngFor="let p of timetablePeriods; let idx = index"
+           [class.selected]="selectedPeriod?.periodNumber === p.periodNumber"
+           [class.marked]="p.marked"
+           [class.locked]="isPeriodLocked(idx)"
+           (click)="!isPeriodLocked(idx) && selectPeriod(p)">
+        <div class="period-number">Period {{ p.periodNumber }}</div>
+        <div class="period-time">{{ p.startTime }} - {{ p.endTime }}</div>
+        <div class="period-subject">{{ p.subjectName }}</div>
+        <div class="period-teacher">
+          <mat-icon class="small-icon">person</mat-icon>
+          {{ p.teacherName || '-' }}
+        </div>
+        <div class="period-status marked-status" *ngIf="p.marked">
+          <mat-icon class="check-icon">check_circle</mat-icon>
+          Marked ({{ p.studentCount }})
+        </div>
+        <div class="period-status locked-status" *ngIf="isPeriodLocked(idx) && !p.marked">
+          <mat-icon class="lock-icon">lock</mat-icon>
+          Period not started yet
+        </div>
+      </div>
+    </div>
+
+    <div class="empty-periods" *ngIf="!isLoadingPeriods && timetablePeriods.length === 0">
+      <mat-icon>event_busy</mat-icon>
+      <p>No timetable periods found for this day. Create a timetable first.</p>
+    </div>
+  </div>
+
+  <!-- Step 3: Students Table (shown when period selected) -->
+  <div *ngIf="selectedPeriod && studentsLoaded">
+    <mat-card class="actions-card">
+      <mat-card-content>
+        <div class="selected-period-info">
+          <strong>Period {{ selectedPeriod.periodNumber }}: {{ selectedPeriod.subjectName }}</strong>
+          <span class="teacher-info">Teacher: {{ selectedPeriod.teacherName || '-' }}</span>
+        </div>
+        <div class="actions-row">
+          <div class="quick-actions">
+            <button mat-stroked-button class="mark-all-btn" (click)="markAllPresent()">
+              <mat-icon>check_circle</mat-icon>
+              Mark All Present
+            </button>
+          </div>
+          <div class="summary-chips">
+            <mat-chip-set>
+              <mat-chip class="chip-present">Present: {{ summary.present }}</mat-chip>
+              <mat-chip class="chip-absent">Absent: {{ summary.absent }}</mat-chip>
+              <mat-chip class="chip-late">Late: {{ summary.late }}</mat-chip>
+            </mat-chip-set>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Loading -->
+    <div class="loading-container" *ngIf="isLoading">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+
+    <mat-card class="table-card" *ngIf="!isLoading">
+      <table mat-table [dataSource]="students" class="attendance-table">
+        <ng-container matColumnDef="rollNumber">
+          <th mat-header-cell *matHeaderCellDef>Roll No</th>
+          <td mat-cell *matCellDef="let student">{{ student.rollNumber }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Student Name</th>
+          <td mat-cell *matCellDef="let student">
+            <div class="student-name">
+              <div class="student-avatar">{{ student.firstName?.charAt(0) || 'S' }}</div>
+              {{ student.firstName }} {{ student.lastName }}
+            </div>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let student">
+            <mat-radio-group [(ngModel)]="student.status" class="status-radio-group">
+              <mat-radio-button *ngFor="let opt of statusOptions" [value]="opt.value"
+                class="status-radio" [class]="'status-' + opt.value.toLowerCase()">
+                {{ opt.label }}
+              </mat-radio-button>
+            </mat-radio-group>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="remarks">
+          <th mat-header-cell *matHeaderCellDef>Remarks</th>
+          <td mat-cell *matCellDef="let student">
+            <mat-form-field appearance="outline" class="remarks-field">
+              <input matInput [(ngModel)]="student.remarks" placeholder="Add remarks...">
+            </mat-form-field>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+
+      <div class="empty-state" *ngIf="students.length === 0">No students found</div>
+    </mat-card>
+
+    <!-- Save Button -->
+    <div class="save-section" *ngIf="students.length > 0">
+      <button mat-flat-button class="save-btn" (click)="saveAttendance()" [disabled]="isSaving">
+        <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
+        <mat-icon *ngIf="!isSaving">save</mat-icon>
+        {{ isSaving ? 'Saving...' : 'Save Attendance' }}
+      </button>
+    </div>
   </div>
 
   <!-- Info Alert -->
   <mat-card class="info-alert" *ngIf="!selectedClassId">
     <mat-icon>info</mat-icon>
-    <span>Please select a class, section, subject and period to mark subject-wise attendance.</span>
+    <span>Select a class and section to view today's periods from the timetable.</span>
   </mat-card>
 </div>

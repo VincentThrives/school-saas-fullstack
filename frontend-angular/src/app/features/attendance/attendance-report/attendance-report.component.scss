@@ -2,137 +2,117 @@ $gold: #D4A843;
 $gold-dark: #B8860B;
 
 .attendance-report-container {
-  padding: 0;
+  padding: 0 24px 24px;
 }
 
 .filter-card {
-  margin-bottom: 24px;
-  padding: 20px;
   border-radius: 12px;
+  margin-top: 16px;
 }
 
 .filter-row {
   display: flex;
-  align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+  align-items: center;
+}
 
-  .filter-field {
-    flex: 1;
-    min-width: 150px;
-  }
+.filter-field {
+  min-width: 160px;
+  flex: 1;
 }
 
 .generate-btn {
-  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  background: linear-gradient(135deg, $gold, $gold-dark) !important;
   color: white !important;
-  height: 56px;
-  white-space: nowrap;
-
-  mat-icon {
-    margin-right: 4px;
-  }
+  height: 48px;
 }
 
 .loading-container {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 48px 0;
-  gap: 12px;
-  color: #888;
+  justify-content: center;
+  padding: 48px;
 }
 
-.summary-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
-
-  @media (max-width: 768px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.summary-bar {
+  margin: 16px 0;
 }
 
-.table-card {
-  border-radius: 12px;
-  padding: 20px;
+.chip-day { background: #E3F2FD !important; color: #1565C0 !important; }
+.chip-period { background: #E8F5E9 !important; color: #2E7D32 !important; }
+
+.report-tabs {
+  margin-top: 8px;
 }
 
-.table-title {
-  margin: 0 0 16px;
-  font-size: 1.1rem;
-  font-weight: 600;
+.tab-content {
+  padding-top: 16px;
 }
 
 .report-table {
   width: 100%;
-}
-
-.student-name {
-  font-weight: 500;
-}
-
-.count-chip {
-  display: inline-block;
-  padding: 2px 10px;
   border-radius: 12px;
-  font-size: 0.85rem;
-  font-weight: 600;
-
-  &.present {
-    background: rgba(76, 175, 80, 0.1);
-    color: #2e7d32;
-  }
-  &.absent {
-    background: rgba(244, 67, 54, 0.1);
-    color: #c62828;
-  }
-  &.late {
-    background: rgba(255, 152, 0, 0.1);
-    color: #e65100;
-  }
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-.percentage-cell {
-  min-width: 80px;
-
-  .percentage-value {
-    font-weight: 700;
-    font-size: 0.9rem;
-    display: block;
-    margin-bottom: 4px;
-  }
-
-  mat-progress-bar {
-    height: 4px !important;
-    border-radius: 2px;
-  }
-}
+.status-present { color: #4caf50; font-weight: 600; }
+.status-absent { color: #f44336; font-weight: 600; }
+.status-late { color: #ff9800; font-weight: 600; }
 
 .no-data {
   text-align: center;
-  padding: 32px 0;
-  color: #999;
+  padding: 32px !important;
+  color: #888;
+}
+
+// Subject summary cards
+.subject-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.subject-card {
+  padding: 16px;
+  border-radius: 10px;
+  text-align: center;
+
+  .subject-card-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+  }
+
+  .subject-card-stats {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+  }
+
+  .subject-card-pct {
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+}
+
+.period-filter {
+  margin-bottom: 12px;
+  max-width: 300px;
 }
 
 .empty-state {
   text-align: center;
-  padding: 60px 20px;
+  padding: 48px;
+  color: #888;
 
-  .empty-icon {
-    font-size: 64px;
-    width: 64px;
-    height: 64px;
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
     color: #ccc;
-  }
-
-  h3 {
-    margin: 16px 0 8px;
-    color: #555;
-  }
-
-  p {
-    color: #999;
   }
 }

@@ -20,21 +20,21 @@
     <div class="filter-row">
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Class</mat-label>
-        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()">
+        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange(true)">
           <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
         </mat-select>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Section</mat-label>
-        <mat-select [(ngModel)]="selectedSectionId">
+        <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSelectionChange()">
           <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">{{ sec.name }}</mat-option>
         </mat-select>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Academic Year</mat-label>
-        <mat-select [(ngModel)]="selectedAcademicYearId">
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onSelectionChange()">
           <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">{{ ay.label }}</mat-option>
         </mat-select>
       </mat-form-field>
@@ -55,8 +55,8 @@
   <div class="timetable-display" *ngIf="!isLoading && timetable">
     <div class="timetable-title-bar">
       <h2 class="timetable-title">
-        {{ timetable.className || timetable.classId }}
-        <span *ngIf="timetable.sectionName || timetable.sectionId"> - Section {{ timetable.sectionName || timetable.sectionId }}</span>
+        {{ timetable.className || selectedClassName }}
+        <span *ngIf="timetable.sectionName || selectedSectionName"> - Section {{ timetable.sectionName || selectedSectionName }}</span>
       </h2>
     </div>
 
@@ -102,10 +102,6 @@
                     <div class="teacher-name" *ngIf="period.teacherName || period.teacherId">
                       <mat-icon class="info-icon">person</mat-icon>
                       {{ period.teacherName || period.teacherId }}
-                    </div>
-                    <div class="room-name" *ngIf="period.roomNumber">
-                      <mat-icon class="info-icon">class</mat-icon>
-                      {{ period.roomNumber }}
                     </div>
                   </div>
                   <div class="free-period" *ngIf="!period.subjectId">

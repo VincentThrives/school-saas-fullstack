@@ -6,6 +6,38 @@ $gold-light: rgba(212, 168, 67, 0.08);
   padding: 0;
 }
 
+.holiday-banner {
+  margin: 16px 0;
+  padding: 24px 32px;
+  background: linear-gradient(135deg, #FFF3E0, #FFE0B2);
+  border: 2px solid #FF9800;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+
+  .holiday-banner-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: #E65100;
+  }
+
+  .holiday-banner-text {
+    h3 {
+      margin: 0 0 4px;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #E65100;
+    }
+    p {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #BF360C;
+    }
+  }
+}
+
 .filters-card {
   margin-bottom: 20px;
   border-radius: 12px !important;

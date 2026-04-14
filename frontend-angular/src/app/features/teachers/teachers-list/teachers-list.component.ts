@@ -38,7 +38,7 @@ import { Teacher } from '../../../core/models';
   styleUrl: './teachers-list.component.scss',
 })
 export class TeachersListComponent implements OnInit {
-  displayedColumns: string[] = ['name', 'employeeId', 'qualification', 'specialization', 'subjects', 'actions'];
+  displayedColumns: string[] = ['name', 'employeeId', 'role', 'qualification', 'subjects', 'actions'];
   dataSource = new MatTableDataSource<Teacher>([]);
   totalElements = 0;
   pageSize = 10;
@@ -90,11 +90,11 @@ export class TeachersListComponent implements OnInit {
   }
 
   navigateToAddTeacher(): void {
-    this.router.navigate(['/teachers/new']);
+    this.router.navigate(['/employees/new']);
   }
 
   editTeacher(teacher: Teacher): void {
-    this.router.navigate(['/teachers', teacher.teacherId, 'edit']);
+    this.router.navigate(['/employees', teacher.teacherId, 'edit']);
   }
 
   confirmDelete(teacher: Teacher): void {

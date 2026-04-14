@@ -33,7 +33,7 @@
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Date</mat-label>
-          <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate">
+          <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [max]="today">
           <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
           <mat-datepicker #picker></mat-datepicker>
         </mat-form-field>
@@ -51,8 +51,17 @@
     </mat-card-content>
   </mat-card>
 
+  <!-- Holiday Banner -->
+  <div class="holiday-banner" *ngIf="isHoliday">
+    <mat-icon class="holiday-banner-icon">beach_access</mat-icon>
+    <div class="holiday-banner-text">
+      <h3>Holiday - {{ holidayTitle }}</h3>
+      <p>Attendance cannot be marked on this day</p>
+    </div>
+  </div>
+
   <!-- Quick Actions & Summary -->
-  <mat-card class="actions-card" *ngIf="studentsLoaded && students.length > 0">
+  <mat-card class="actions-card" *ngIf="studentsLoaded && students.length > 0 && !isHoliday">
     <mat-card-content>
       <div class="actions-row">
         <div class="quick-actions">

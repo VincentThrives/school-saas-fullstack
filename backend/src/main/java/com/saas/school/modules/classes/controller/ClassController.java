@@ -81,10 +81,16 @@ public class ClassController {
     @GetMapping("/subjects")
     public ResponseEntity<ApiResponse<List<Subject>>> listSubjects(
             @RequestParam(required = false) String classId,
-            @RequestParam(required = false) String academicYearId) {
-        List<Subject> subjects = (classId != null && academicYearId != null)
-                ? subjectRepo.findByClassIdAndAcademicYearId(classId, academicYearId)
-                : subjectRepo.findAll();
+            @RequestParam(required = false) String academicYearId,
+            @RequestParam(required = false) List<String> ids) {
+        List<Subject> subjects;
+        if (ids != null && !ids.isEmpty()) {
+            subjects = subjectRepo.findBySubjectIdIn(ids);
+        } else if (classId != null && academicYearId != null) {
+            subjects = subjectRepo.findByClassIdAndAcademicYearId(classId, academicYearId);
+        } else {
+            subjects = subjectRepo.findAll();
+        }
         return ResponseEntity.ok(ApiResponse.success(subjects));
     }
 

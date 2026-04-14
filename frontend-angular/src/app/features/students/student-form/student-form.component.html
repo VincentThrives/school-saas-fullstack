@@ -79,13 +79,13 @@
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Section</mat-label>
-            <mat-select formControlName="sectionId">
-              <mat-option value="">No Section</mat-option>
+            <mat-label>Section *</mat-label>
+            <mat-select formControlName="sectionId" required>
               <mat-option *ngFor="let section of selectedClassSections" [value]="section.sectionId">
                 {{ section.name }}
               </mat-option>
             </mat-select>
+            <mat-error>Section is required</mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline">

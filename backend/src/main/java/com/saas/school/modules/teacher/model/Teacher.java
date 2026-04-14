@@ -5,6 +5,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -23,12 +25,17 @@ public class Teacher {
     private String employeeId;
     private String qualification;
     private String specialization;
+    private String employeeRole;
+    private List<ClassSubjectAssignment> classSubjectAssignments;
     private List<String> subjectIds;
     private List<String> classIds;
     private List<String> sectionIds;
+    @JsonProperty("classTeacher")
+    @JsonAlias({"isClassTeacher", "classTeacher"})
     private boolean isClassTeacher;
     private String classTeacherOfClassId;
     private String classTeacherOfSectionId;
+    private LocalDate dateOfBirth;
     private LocalDate joiningDate;
 
     @CreatedDate
@@ -163,6 +170,9 @@ public class Teacher {
         this.classTeacherOfSectionId = classTeacherOfSectionId;
     }
 
+    public LocalDate getDateOfBirth() { return dateOfBirth; }
+    public void setDateOfBirth(LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
+
     public LocalDate getJoiningDate() {
         return joiningDate;
     }
@@ -185,5 +195,58 @@ public class Teacher {
 
     public void setDeletedAt(Instant deletedAt) {
         this.deletedAt = deletedAt;
+    }
+
+    public String getEmployeeRole() { return employeeRole; }
+    public void setEmployeeRole(String employeeRole) { this.employeeRole = employeeRole; }
+
+    public List<ClassSubjectAssignment> getClassSubjectAssignments() { return classSubjectAssignments; }
+    public void setClassSubjectAssignments(List<ClassSubjectAssignment> classSubjectAssignments) {
+        this.classSubjectAssignments = classSubjectAssignments;
+    }
+
+    /** Sync classIds and subjectIds from classSubjectAssignments for backward compatibility */
+    public void syncFromAssignments() {
+        if (classSubjectAssignments == null || classSubjectAssignments.isEmpty()) return;
+        java.util.Set<String> cIds = new java.util.LinkedHashSet<>();
+        java.util.Set<String> sIds = new java.util.LinkedHashSet<>();
+        java.util.Set<String> secIds = new java.util.LinkedHashSet<>();
+        for (ClassSubjectAssignment a : classSubjectAssignments) {
+            if (a.getClassId() != null) cIds.add(a.getClassId());
+            if (a.getSubjectId() != null) sIds.add(a.getSubjectId());
+            if (a.getSectionId() != null) secIds.add(a.getSectionId());
+        }
+        this.classIds = new java.util.ArrayList<>(cIds);
+        this.subjectIds = new java.util.ArrayList<>(sIds);
+        this.sectionIds = new java.util.ArrayList<>(secIds);
+    }
+
+    // ── Nested types ──────────────────────────────────────────────
+
+    public enum EmployeeRole {
+        TEACHER, ACCOUNTANT, CLERK, PRINCIPAL, HEAD_MISTRESS, LAB_ASSISTANT, NON_TEACHING
+    }
+
+    public static class ClassSubjectAssignment {
+        private String classId;
+        private String sectionId;
+        private String subjectId;
+
+        public ClassSubjectAssignment() {}
+
+        public ClassSubjectAssignment(String classId, String sectionId, String subjectId) {
+            this.classId = classId;
+            this.sectionId = sectionId;
+            this.subjectId = subjectId;
+        }
+
+        public String getClassId() { return classId; }
+        public void setClassId(String classId) { this.classId = classId; }
+
+        public String getSectionId() { return sectionId; }
+        public void setSectionId(String sectionId) { this.sectionId = sectionId; }
+
+        public String getSubjectId() { return subjectId; }
+        public void setSubjectId(String subjectId) { this.subjectId = subjectId; }
     }
 }

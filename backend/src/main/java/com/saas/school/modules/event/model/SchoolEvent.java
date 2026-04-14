@@ -1,5 +1,7 @@
 package com.saas.school.modules.event.model;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.data.annotation.*;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.*;
@@ -14,7 +16,11 @@ public class SchoolEvent {
     private EventType type;
     private LocalDate startDate;
     private LocalDate endDate;
+    @JsonProperty("isHoliday")
+    @JsonAlias({"isHoliday", "holiday"})
     private boolean isHoliday;
+    @JsonProperty("isRecurring")
+    @JsonAlias({"isRecurring", "recurring"})
     private boolean isRecurring;
     private RecurrencePattern recurrencePattern;
     private List<String> visibleTo;

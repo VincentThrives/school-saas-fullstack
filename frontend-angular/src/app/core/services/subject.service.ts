@@ -101,6 +101,23 @@ export class SubjectService {
     );
   }
 
+  getSubjectsByIds(ids: string[]): Observable<SubjectItem[]> {
+    if (!ids || ids.length === 0) return new Observable(sub => { sub.next([]); sub.complete(); });
+    let params = new HttpParams();
+    ids.forEach(id => { params = params.append('ids', id); });
+    return this.http.get<any>(`${this.API}/subjects`, { params }).pipe(
+      map((res: any) => {
+        const apiSubjects = res.data || [];
+        return apiSubjects.map((s: any) => ({
+          subjectId: s.subjectId || s.id,
+          name: s.name,
+          code: s.code,
+          type: s.type,
+        }));
+      })
+    );
+  }
+
   refreshSubjects(): void {
     this.loaded = false;
     this.loadSubjects();

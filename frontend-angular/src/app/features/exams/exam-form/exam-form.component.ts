@@ -169,28 +169,39 @@ export class ExamFormComponent implements OnInit {
 
   loadSubjectsForSelection(): void {
     const classId = this.examForm.get('classId')?.value;
-    const academicYearId = this.examForm.get('academicYearId')?.value;
     const sectionId = this.examForm.get('sectionId')?.value;
 
-    if (!classId || !academicYearId) {
+    if (!classId) {
       this.subjectsList = [];
       return;
     }
 
+    // Get subjectIds from the selected section (or collect from all sections)
+    const selectedClass = this.classes.find(c => c.classId === classId);
+    let subjectIds: string[] = [];
+
+    if (sectionId) {
+      const section = selectedClass?.sections?.find(s => s.sectionId === sectionId);
+      subjectIds = section?.subjectIds || [];
+    } else {
+      // Collect all unique subjectIds from all sections
+      const allIds = new Set<string>();
+      selectedClass?.sections?.forEach(s => {
+        (s.subjectIds || []).forEach(id => allIds.add(id));
+      });
+      subjectIds = Array.from(allIds);
+    }
+
+    if (subjectIds.length === 0) {
+      this.subjectsList = [];
+      this.isLoadingSubjects = false;
+      return;
+    }
+
     this.isLoadingSubjects = true;
-    this.subjectService.getSubjectsByClassAndYear(classId, academicYearId).subscribe({
+    this.subjectService.getSubjectsByIds(subjectIds).subscribe({
       next: (subjects) => {
-        // If a section is selected, filter by section's subjectIds
-        if (sectionId) {
-          const section = this.sections.find(s => s.sectionId === sectionId);
-          if (section?.subjectIds && section.subjectIds.length > 0) {
-            this.subjectsList = subjects.filter(s => section.subjectIds!.includes(s.subjectId));
-          } else {
-            this.subjectsList = subjects;
-          }
-        } else {
-          this.subjectsList = subjects;
-        }
+        this.subjectsList = subjects;
 
         // If we have a pending subjectId (edit mode), set it now
         if (this.pendingSubjectId) {
@@ -208,9 +219,7 @@ export class ExamFormComponent implements OnInit {
   }
 
   get subjectDisabled(): boolean {
-    return !this.examForm.get('classId')?.value ||
-           !this.examForm.get('sectionId')?.value ||
-           !this.examForm.get('academicYearId')?.value;
+    return !this.examForm.get('classId')?.value;
   }
 
   get pageTitle(): string {

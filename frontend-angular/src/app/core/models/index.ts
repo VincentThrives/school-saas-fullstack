@@ -92,6 +92,14 @@ export interface User {
 }
 
 // Student
+export interface AcademicRecord {
+  academicYearId: string;
+  classId: string;
+  sectionId: string;
+  subjectIds?: string[];
+  active: boolean;
+}
+
 export interface Student {
   studentId: string;
   userId: string;
@@ -112,11 +120,20 @@ export interface Student {
   parentPhone?: string;
   parentEmail?: string;
   subjectIds?: string[];
+  academicRecords?: AcademicRecord[];
   address?: { street: string; city: string; state: string; zip: string };
   createdAt?: string;
 }
 
-// Teacher
+// Employee / Teacher
+export type EmployeeRole = 'TEACHER' | 'ACCOUNTANT' | 'CLERK' | 'PRINCIPAL' | 'HEAD_MISTRESS' | 'LAB_ASSISTANT' | 'NON_TEACHING';
+
+export interface ClassSubjectAssignment {
+  classId: string;
+  sectionId: string;
+  subjectId: string;
+}
+
 export interface Teacher {
   teacherId: string;
   userId: string;
@@ -127,10 +144,17 @@ export interface Teacher {
   employeeId: string;
   qualification?: string;
   specialization?: string;
+  employeeRole?: EmployeeRole;
+  classSubjectAssignments?: ClassSubjectAssignment[];
   classIds: string[];
   subjectIds: string[];
-  isClassTeacher: boolean;
+  isClassTeacher?: boolean;
+  classTeacher?: boolean;
+  classTeacherOfClassId?: string;
+  classTeacherOfSectionId?: string;
   assignedClassId?: string;
+  dateOfBirth?: string;
+  joiningDate?: string;
   joinDate?: string;
 }
 

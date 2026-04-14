@@ -86,23 +86,25 @@ export class AssignmentFormComponent implements OnInit {
       return;
     }
     const cls = this.classes.find(c => c.classId === this.selectedClassId);
-    const academicYearId = cls?.academicYearId || '';
-    if (!academicYearId) {
+    let subjectIds: string[] = [];
+
+    if (this.selectedSectionId) {
+      const section = cls?.sections?.find(s => s.sectionId === this.selectedSectionId);
+      subjectIds = section?.subjectIds || [];
+    } else {
+      const allIds = new Set<string>();
+      cls?.sections?.forEach(s => (s.subjectIds || []).forEach(id => allIds.add(id)));
+      subjectIds = Array.from(allIds);
+    }
+
+    if (subjectIds.length === 0) {
       this.subjects = [];
       return;
     }
-    this.subjectService.getSubjectsByClassAndYear(this.selectedClassId, academicYearId).subscribe({
+
+    this.subjectService.getSubjectsByIds(subjectIds).subscribe({
       next: (subjects) => {
-        if (this.selectedSectionId) {
-          const section = cls?.sections?.find(s => s.sectionId === this.selectedSectionId);
-          if (section?.subjectIds && section.subjectIds.length > 0) {
-            this.subjects = subjects.filter(s => section.subjectIds!.includes(s.subjectId)).map(s => ({ id: s.subjectId, name: s.name }));
-          } else {
-            this.subjects = subjects.map(s => ({ id: s.subjectId, name: s.name }));
-          }
-        } else {
-          this.subjects = subjects.map(s => ({ id: s.subjectId, name: s.name }));
-        }
+        this.subjects = subjects.map(s => ({ id: s.subjectId, name: s.name }));
       },
       error: () => {
         this.subjects = [];

@@ -34,6 +34,7 @@ public class Student {
     private Gender gender;
     private String bloodGroup;
     private Address address;
+    private List<AcademicRecord> academicRecords;
     private List<AcademicHistory> academicHistory;
     private List<DocumentRef> documents;
 
@@ -191,6 +192,29 @@ public class Student {
         this.address = address;
     }
 
+    public List<AcademicRecord> getAcademicRecords() {
+        return academicRecords;
+    }
+
+    public void setAcademicRecords(List<AcademicRecord> academicRecords) {
+        this.academicRecords = academicRecords;
+    }
+
+    public AcademicRecord getActiveRecord() {
+        if (academicRecords == null) return null;
+        return academicRecords.stream().filter(AcademicRecord::isActive).findFirst().orElse(null);
+    }
+
+    public void syncTopLevelFields() {
+        AcademicRecord active = getActiveRecord();
+        if (active != null) {
+            this.classId = active.getClassId();
+            this.sectionId = active.getSectionId();
+            this.academicYearId = active.getAcademicYearId();
+            this.subjectIds = active.getSubjectIds();
+        }
+    }
+
     public List<AcademicHistory> getAcademicHistory() {
         return academicHistory;
     }
@@ -274,6 +298,40 @@ public class Student {
         public void setZip(String zip) {
             this.zip = zip;
         }
+    }
+
+    public static class AcademicRecord {
+        private String academicYearId;
+        private String classId;
+        private String sectionId;
+        private List<String> subjectIds;
+        private boolean active;
+
+        public AcademicRecord() {}
+
+        public AcademicRecord(String academicYearId, String classId, String sectionId,
+                              List<String> subjectIds, boolean active) {
+            this.academicYearId = academicYearId;
+            this.classId = classId;
+            this.sectionId = sectionId;
+            this.subjectIds = subjectIds;
+            this.active = active;
+        }
+
+        public String getAcademicYearId() { return academicYearId; }
+        public void setAcademicYearId(String academicYearId) { this.academicYearId = academicYearId; }
+
+        public String getClassId() { return classId; }
+        public void setClassId(String classId) { this.classId = classId; }
+
+        public String getSectionId() { return sectionId; }
+        public void setSectionId(String sectionId) { this.sectionId = sectionId; }
+
+        public List<String> getSubjectIds() { return subjectIds; }
+        public void setSubjectIds(List<String> subjectIds) { this.subjectIds = subjectIds; }
+
+        public boolean isActive() { return active; }
+        public void setActive(boolean active) { this.active = active; }
     }
 
     public static class AcademicHistory {

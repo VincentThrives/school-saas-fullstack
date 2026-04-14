@@ -81,7 +81,7 @@ export class StudentFormComponent implements OnInit {
       gender: ['MALE', Validators.required],
       bloodGroup: [''],
       classId: ['', Validators.required],
-      sectionId: [''],
+      sectionId: ['', Validators.required],
       academicYearId: ['', Validators.required],
       parentIds: [[]],
       parentName: [''],
@@ -115,27 +115,33 @@ export class StudentFormComponent implements OnInit {
 
   loadSubjectsForStudent(): void {
     const classId = this.studentForm.get('classId')?.value;
-    const academicYearId = this.studentForm.get('academicYearId')?.value;
     const sectionId = this.studentForm.get('sectionId')?.value;
 
-    if (!classId || !academicYearId) {
+    if (!classId) {
       this.subjectsList = [];
       return;
     }
 
-    this.subjectService.getSubjectsByClassAndYear(classId, academicYearId).subscribe({
+    const cls = this.classes.find(c => c.classId === classId);
+    let subjectIds: string[] = [];
+
+    if (sectionId) {
+      const section = cls?.sections?.find(s => s.sectionId === sectionId);
+      subjectIds = section?.subjectIds || [];
+    } else {
+      const allIds = new Set<string>();
+      cls?.sections?.forEach(s => (s.subjectIds || []).forEach(id => allIds.add(id)));
+      subjectIds = Array.from(allIds);
+    }
+
+    if (subjectIds.length === 0) {
+      this.subjectsList = [];
+      return;
+    }
+
+    this.subjectService.getSubjectsByIds(subjectIds).subscribe({
       next: (subjects) => {
-        if (sectionId) {
-          const cls = this.classes.find(c => c.classId === classId);
-          const section = cls?.sections?.find(s => s.sectionId === sectionId);
-          if (section?.subjectIds && section.subjectIds.length > 0) {
-            this.subjectsList = subjects.filter(s => section.subjectIds!.includes(s.subjectId));
-          } else {
-            this.subjectsList = subjects;
-          }
-        } else {
-          this.subjectsList = subjects;
-        }
+        this.subjectsList = subjects;
       },
       error: () => {
         this.subjectsList = [];

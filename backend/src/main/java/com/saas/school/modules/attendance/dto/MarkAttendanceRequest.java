@@ -15,7 +15,6 @@ public class MarkAttendanceRequest {
     @NotBlank
     private String sectionId;
 
-    @NotBlank
     private String academicYearId;
 
     @NotNull
@@ -26,6 +25,7 @@ public class MarkAttendanceRequest {
 
     private String subjectId;
     private String subjectName;
+    private String teacherId;
     private int periodNumber;
 
     public MarkAttendanceRequest() {
@@ -86,6 +86,9 @@ public class MarkAttendanceRequest {
     public void setSubjectName(String subjectName) {
         this.subjectName = subjectName;
     }
+
+    public String getTeacherId() { return teacherId; }
+    public void setTeacherId(String teacherId) { this.teacherId = teacherId; }
 
     public int getPeriodNumber() {
         return periodNumber;

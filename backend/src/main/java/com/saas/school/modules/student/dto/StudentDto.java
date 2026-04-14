@@ -1,5 +1,6 @@
 package com.saas.school.modules.student.dto;
 
+import com.saas.school.modules.student.model.Student.AcademicRecord;
 import com.saas.school.modules.student.model.Student.Gender;
 
 import java.time.Instant;
@@ -27,6 +28,7 @@ public class StudentDto {
     private LocalDate dateOfBirth;
     private Gender gender;
     private String bloodGroup;
+    private List<AcademicRecord> academicRecords;
     private Instant createdAt;
 
     public StudentDto() {
@@ -160,6 +162,9 @@ public class StudentDto {
     public void setBloodGroup(String bloodGroup) {
         this.bloodGroup = bloodGroup;
     }
+
+    public List<AcademicRecord> getAcademicRecords() { return academicRecords; }
+    public void setAcademicRecords(List<AcademicRecord> academicRecords) { this.academicRecords = academicRecords; }
 
     public Instant getCreatedAt() {
         return createdAt;

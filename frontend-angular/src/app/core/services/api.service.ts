@@ -110,27 +110,27 @@ export class ApiService {
     return this.http.delete<ApiResponse<void>>(`${this.API}/students/${studentId}`);
   }
 
-  // ── Teachers ───────────────────────────────────────────────────────────
+  // ── Employees (formerly Teachers) ───────────────────────────────────
 
   getTeachers(page = 0, size = 20): Observable<ApiResponse<PaginatedResponse<Teacher>>> {
     const params = new HttpParams().set('page', page).set('size', size);
-    return this.http.get<ApiResponse<PaginatedResponse<Teacher>>>(`${this.API}/teachers`, { params });
+    return this.http.get<ApiResponse<PaginatedResponse<Teacher>>>(`${this.API}/employees`, { params });
   }
 
   getTeacherById(teacherId: string): Observable<ApiResponse<Teacher>> {
-    return this.http.get<ApiResponse<Teacher>>(`${this.API}/teachers/${teacherId}`);
+    return this.http.get<ApiResponse<Teacher>>(`${this.API}/employees/${teacherId}`);
   }
 
   createTeacher(teacher: Partial<Teacher>): Observable<ApiResponse<Teacher>> {
-    return this.http.post<ApiResponse<Teacher>>(`${this.API}/teachers`, teacher);
+    return this.http.post<ApiResponse<Teacher>>(`${this.API}/employees`, teacher);
   }
 
   updateTeacher(teacherId: string, teacher: Partial<Teacher>): Observable<ApiResponse<Teacher>> {
-    return this.http.put<ApiResponse<Teacher>>(`${this.API}/teachers/${teacherId}`, teacher);
+    return this.http.put<ApiResponse<Teacher>>(`${this.API}/employees/${teacherId}`, teacher);
   }
 
   deleteTeacher(teacherId: string): Observable<ApiResponse<void>> {
-    return this.http.delete<ApiResponse<void>>(`${this.API}/teachers/${teacherId}`);
+    return this.http.delete<ApiResponse<void>>(`${this.API}/employees/${teacherId}`);
   }
 
   // ── Classes ────────────────────────────────────────────────────────────
@@ -183,6 +183,12 @@ export class ApiService {
     return this.http.post<ApiResponse<any>>(`${this.API}/attendance/mark`, payload);
   }
 
+  getTimetablePeriods(classId: string, sectionId: string, date: string, academicYearId?: string): Observable<ApiResponse<any[]>> {
+    let params = new HttpParams().set('classId', classId).set('sectionId', sectionId).set('date', date);
+    if (academicYearId) params = params.set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/attendance/timetable-periods`, { params });
+  }
+
   getClassAttendance(classId: string, sectionId: string, date: string): Observable<ApiResponse<any>> {
     const params = new HttpParams().set('sectionId', sectionId).set('date', date);
     return this.http.get<ApiResponse<any>>(`${this.API}/attendance/class/${classId}`, { params });
@@ -196,6 +202,11 @@ export class ApiService {
   getClassAttendanceReport(classId: string, sectionId: string, from: string, to: string): Observable<ApiResponse<any>> {
     const params = new HttpParams().set('sectionId', sectionId).set('from', from).set('to', to);
     return this.http.get<ApiResponse<any>>(`${this.API}/attendance/report/class/${classId}`, { params });
+  }
+
+  getBatchAttendanceReport(classId: string, sectionId: string, from: string, to: string): Observable<ApiResponse<any>> {
+    const params = new HttpParams().set('sectionId', sectionId).set('from', from).set('to', to);
+    return this.http.get<ApiResponse<any>>(`${this.API}/attendance/report/batch/class/${classId}`, { params });
   }
 
   getSubjectWiseAttendanceReport(classId: string, sectionId: string, from: string, to: string): Observable<ApiResponse<any>> {

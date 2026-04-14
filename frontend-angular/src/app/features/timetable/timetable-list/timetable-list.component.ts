@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { AcademicYear, Timetable, SchoolClass } from '../../../core/models';
@@ -26,6 +27,7 @@ import { AcademicYear, Timetable, SchoolClass } from '../../../core/models';
     MatIconModule,
     MatProgressSpinnerModule,
     MatChipsModule,
+    MatSnackBarModule,
     PageHeaderComponent,
   ],
   templateUrl: './timetable-list.component.html',
@@ -38,10 +40,13 @@ export class TimetableListComponent implements OnInit {
   isLoading = false;
   classMap: Record<string, string> = {};
   sectionMap: Record<string, string> = {};
+  deleteDialogOpen = false;
+  selectedTimetable: Timetable | null = null;
 
   constructor(
     private api: ApiService,
     private router: Router,
+    private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
@@ -122,5 +127,32 @@ export class TimetableListComponent implements OnInit {
 
   createTimetable(): void {
     this.router.navigate(['/timetable/builder']);
+  }
+
+  confirmDelete(tt: Timetable): void {
+    this.selectedTimetable = tt;
+    this.deleteDialogOpen = true;
+  }
+
+  cancelDelete(): void {
+    this.deleteDialogOpen = false;
+    this.selectedTimetable = null;
+  }
+
+  deleteTimetable(): void {
+    if (!this.selectedTimetable?.timetableId) return;
+    const id = this.selectedTimetable.timetableId;
+    this.deleteDialogOpen = false;
+    this.selectedTimetable = null;
+
+    this.api.deleteTimetable(id).subscribe({
+      next: () => {
+        this.snackBar.open('Timetable deleted successfully', 'Close', { duration: 3000 });
+        this.loadTimetables();
+      },
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to delete timetable', 'Close', { duration: 3000 });
+      },
+    });
   }
 }

@@ -1,9 +1,9 @@
 <div class="teachers-list-container">
   <app-page-header
-    title="Teachers"
-    subtitle="Manage all teachers in your school"
-    [breadcrumbs]="[{ label: 'Dashboard', link: '/dashboard' }, { label: 'Teachers' }]"
-    actionLabel="Add Teacher"
+    title="Employees"
+    subtitle="Manage all employees in your school"
+    [breadcrumbs]="[{ label: 'Dashboard', link: '/dashboard' }, { label: 'Employees' }]"
+    actionLabel="Add Employee"
     actionIcon="add"
     (actionClick)="navigateToAddTeacher()">
   </app-page-header>
@@ -11,7 +11,7 @@
   <!-- Filters -->
   <div class="filters-card">
     <mat-form-field appearance="outline" class="search-field">
-      <mat-label>Search teachers</mat-label>
+      <mat-label>Search employees</mat-label>
       <input matInput [(ngModel)]="searchQuery" (keyup.enter)="onSearch()" placeholder="Search by name or employee ID...">
       <mat-icon matPrefix>search</mat-icon>
     </mat-form-field>
@@ -37,9 +37,9 @@
         <th mat-header-cell *matHeaderCellDef>Name</th>
         <td mat-cell *matCellDef="let teacher">
           <div class="teacher-name-cell">
-            <div class="teacher-avatar">{{ teacher.firstName ? teacher.firstName.charAt(0) : 'T' }}</div>
+            <div class="teacher-avatar">{{ teacher.firstName ? teacher.firstName.charAt(0) : 'E' }}</div>
             <span class="teacher-name" *ngIf="teacher.firstName">{{ teacher.firstName }} {{ teacher.lastName || '' }}</span>
-            <span class="teacher-name" *ngIf="!teacher.firstName">Teacher {{ teacher.employeeId || '' }}</span>
+            <span class="teacher-name" *ngIf="!teacher.firstName">Employee {{ teacher.employeeId || '' }}</span>
           </div>
         </td>
       </ng-container>
@@ -50,30 +50,32 @@
         <td mat-cell *matCellDef="let teacher">{{ teacher.employeeId }}</td>
       </ng-container>
 
+      <!-- Role Column -->
+      <ng-container matColumnDef="role">
+        <th mat-header-cell *matHeaderCellDef>Role</th>
+        <td mat-cell *matCellDef="let teacher">
+          <span class="role-chip">{{ teacher.employeeRole || 'TEACHER' }}</span>
+        </td>
+      </ng-container>
+
       <!-- Qualification Column -->
       <ng-container matColumnDef="qualification">
         <th mat-header-cell *matHeaderCellDef>Qualification</th>
         <td mat-cell *matCellDef="let teacher">{{ teacher.qualification || '-' }}</td>
       </ng-container>
 
-      <!-- Specialization Column -->
-      <ng-container matColumnDef="specialization">
-        <th mat-header-cell *matHeaderCellDef>Specialization</th>
-        <td mat-cell *matCellDef="let teacher">{{ teacher.specialization || '-' }}</td>
-      </ng-container>
-
       <!-- Subjects Column -->
       <ng-container matColumnDef="subjects">
-        <th mat-header-cell *matHeaderCellDef>Subjects</th>
+        <th mat-header-cell *matHeaderCellDef>Assignments</th>
         <td mat-cell *matCellDef="let teacher">
           <div class="subjects-chips">
-            <span class="subject-chip" *ngFor="let subjectId of teacher.subjectIds?.slice(0, 2)">
-              {{ subjectId }}
+            <span *ngIf="teacher.classSubjectAssignments?.length" class="assignment-count">
+              {{ teacher.classSubjectAssignments.length }} assignment(s)
             </span>
-            <span class="subject-chip more" *ngIf="teacher.subjectIds?.length > 2">
-              +{{ teacher.subjectIds.length - 2 }}
+            <span *ngIf="!teacher.classSubjectAssignments?.length && teacher.subjectIds?.length">
+              {{ teacher.subjectIds.length }} subject(s)
             </span>
-            <span *ngIf="!teacher.subjectIds?.length">-</span>
+            <span *ngIf="!teacher.classSubjectAssignments?.length && !teacher.subjectIds?.length">-</span>
           </div>
         </td>
       </ng-container>
@@ -96,7 +98,7 @@
 
       <tr class="mat-row" *matNoDataRow>
         <td class="mat-cell no-data-cell" [attr.colspan]="displayedColumns.length">
-          No teachers found
+          No employees found
         </td>
       </tr>
     </table>
@@ -114,8 +116,8 @@
   <!-- Delete Confirmation Dialog -->
   <div class="delete-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
     <div class="delete-dialog" (click)="$event.stopPropagation()">
-      <h3>Delete Teacher</h3>
-      <p>Are you sure you want to delete this teacher? This action cannot be undone.</p>
+      <h3>Delete Employee</h3>
+      <p>Are you sure you want to delete this employee? This action cannot be undone.</p>
       <div class="dialog-actions">
         <button mat-button (click)="cancelDelete()">Cancel</button>
         <button mat-raised-button color="warn" (click)="deleteTeacher()">Delete</button>

@@ -98,6 +98,22 @@ $gold-dark: #B8860B;
   text-align: right;
 }
 
+.role-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: #E3F2FD;
+  color: #1565C0;
+  text-transform: capitalize;
+}
+
+.assignment-count {
+  font-size: 0.85rem;
+  color: #555;
+}
+
 .no-data-cell {
   text-align: center;
   padding: 48px 0;

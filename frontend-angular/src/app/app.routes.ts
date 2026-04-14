@@ -95,23 +95,23 @@ export const routes: Routes = [
         data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
       },
 
-      // Teachers
+      // Employees (formerly Teachers)
       {
-        path: 'teachers',
+        path: 'employees',
         loadComponent: () =>
           import('./features/teachers/teachers-list/teachers-list.component').then(m => m.TeachersListComponent),
         canActivate: [roleGuard],
         data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
       },
       {
-        path: 'teachers/new',
+        path: 'employees/new',
         loadComponent: () =>
           import('./features/teachers/teacher-form/teacher-form.component').then(m => m.TeacherFormComponent),
         canActivate: [roleGuard],
         data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
       },
       {
-        path: 'teachers/:teacherId/edit',
+        path: 'employees/:teacherId/edit',
         loadComponent: () =>
           import('./features/teachers/teacher-form/teacher-form.component').then(m => m.TeacherFormComponent),
         canActivate: [roleGuard],

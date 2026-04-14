@@ -69,6 +69,17 @@ export class TimetableViewComponent implements OnInit {
 
     this.api.getClasses().subscribe((res) => {
       this.classes = res.data || [];
+
+      // Check for query params after classes are loaded
+      this.route.queryParams.subscribe((params) => {
+        if (params['classId'] && params['sectionId'] && params['academicYearId']) {
+          this.selectedClassId = params['classId'];
+          this.selectedSectionId = params['sectionId'];
+          this.selectedAcademicYearId = params['academicYearId'];
+          this.onClassChange();
+          this.loadTimetable();
+        }
+      });
     });
     this.api.getAcademicYears().subscribe((res) => {
       this.academicYears = res.data || [];
@@ -77,24 +88,34 @@ export class TimetableViewComponent implements OnInit {
         this.selectedAcademicYearId = current.academicYearId;
       }
     });
-
-    // Check for query params
-    this.route.queryParams.subscribe((params) => {
-      if (params['classId'] && params['sectionId'] && params['academicYearId']) {
-        this.selectedClassId = params['classId'];
-        this.selectedSectionId = params['sectionId'];
-        this.selectedAcademicYearId = params['academicYearId'];
-        this.onClassChange();
-        this.loadTimetable();
-      }
-    });
   }
 
-  onClassChange(): void {
+  get selectedClassName(): string {
+    return this.classes.find(c => c.classId === this.selectedClassId)?.name || '';
+  }
+
+  get selectedSectionName(): string {
+    return this.sections.find(s => s.sectionId === this.selectedSectionId)?.name || '';
+  }
+
+  onClassChange(resetSection = false): void {
     const cls = this.classes.find((c) => c.classId === this.selectedClassId);
     this.sections = cls?.sections || [];
-    if (this.sections.length === 1) {
+    if (resetSection) {
+      this.selectedSectionId = '';
+      this.timetable = null;
+    }
+    if (!this.selectedSectionId && this.sections.length === 1) {
       this.selectedSectionId = this.sections[0].sectionId;
+    }
+    if (this.selectedSectionId && this.selectedAcademicYearId) {
+      this.onSelectionChange();
+    }
+  }
+
+  onSelectionChange(): void {
+    if (this.selectedClassId && this.selectedSectionId && this.selectedAcademicYearId) {
+      this.loadTimetable();
     }
   }
 
@@ -104,6 +125,16 @@ export class TimetableViewComponent implements OnInit {
     this.api.getTimetable(this.selectedClassId, this.selectedSectionId, this.selectedAcademicYearId).subscribe({
       next: (res) => {
         this.timetable = res.data || null;
+        // Resolve names if not stored
+        if (this.timetable) {
+          const cls = this.classes.find(c => c.classId === this.selectedClassId);
+          const sec = cls?.sections?.find(s => s.sectionId === this.selectedSectionId);
+          if (!this.timetable.className) this.timetable.className = cls?.name || '';
+          if (!this.timetable.sectionName) this.timetable.sectionName = sec?.name || '';
+
+          // Resolve subject/teacher names in periods
+          this.resolveNamesInSchedule();
+        }
         this.isLoading = false;
       },
       error: () => {
@@ -111,6 +142,62 @@ export class TimetableViewComponent implements OnInit {
         this.isLoading = false;
       },
     });
+  }
+
+  private resolveNamesInSchedule(): void {
+    if (!this.timetable?.schedule) return;
+
+    // Collect unique subjectIds that need name resolution
+    const subjectIds = new Set<string>();
+    this.timetable.schedule.forEach(day => {
+      day.periods?.forEach(p => {
+        if (p.subjectId && !p.subjectName) subjectIds.add(p.subjectId);
+      });
+    });
+
+    // Fetch subject names
+    if (subjectIds.size > 0) {
+      this.subjectService.getSubjectsByIds(Array.from(subjectIds)).subscribe({
+        next: (subjects) => {
+          const nameMap: Record<string, string> = {};
+          subjects.forEach(s => { nameMap[s.subjectId] = s.name; });
+          this.timetable!.schedule.forEach(day => {
+            day.periods?.forEach(p => {
+              if (p.subjectId && !p.subjectName && nameMap[p.subjectId]) {
+                p.subjectName = nameMap[p.subjectId];
+              }
+            });
+          });
+        },
+      });
+    }
+
+    // Fetch teacher names for periods missing teacherName
+    const teacherIds = new Set<string>();
+    this.timetable.schedule.forEach(day => {
+      day.periods?.forEach(p => {
+        if (p.teacherId && !p.teacherName) teacherIds.add(p.teacherId);
+      });
+    });
+
+    if (teacherIds.size > 0) {
+      this.api.getTeachers(0, 200).subscribe({
+        next: (res) => {
+          const teachers = res.data?.content || [];
+          const tMap: Record<string, string> = {};
+          teachers.forEach((t: any) => {
+            tMap[t.teacherId] = t.firstName ? `${t.firstName} ${t.lastName || ''}`.trim() : t.employeeId || t.teacherId;
+          });
+          this.timetable!.schedule.forEach(day => {
+            day.periods?.forEach(p => {
+              if (p.teacherId && !p.teacherName && tMap[p.teacherId]) {
+                p.teacherName = tMap[p.teacherId];
+              }
+            });
+          });
+        },
+      });
+    }
   }
 
   getMaxPeriods(): number {
