@@ -153,20 +153,37 @@ export class MarkSubjectAttendanceComponent implements OnInit {
   }
 
   saveAttendance(): void {
-    if (this.students.length === 0) return;
-    if (!this.selectedSubjectId || !this.selectedPeriod) {
-      this.snackBar.open('Please select a subject and period', 'Close', { duration: 3000 });
+    if (this.students.length === 0) {
+      this.snackBar.open('No students to save', 'Close', { duration: 3000 });
+      return;
+    }
+    if (!this.selectedSubjectId) {
+      this.snackBar.open('Please select a subject', 'Close', { duration: 3000 });
+      return;
+    }
+    if (!this.selectedPeriod) {
+      this.snackBar.open('Please select a period', 'Close', { duration: 3000 });
       return;
     }
 
     this.isSaving = true;
-    const dateStr = this.formatDate(this.selectedDate);
+
+    // Handle date
+    let dateStr: string;
+    if (this.selectedDate instanceof Date) {
+      const y = this.selectedDate.getFullYear();
+      const m = String(this.selectedDate.getMonth() + 1).padStart(2, '0');
+      const d = String(this.selectedDate.getDate()).padStart(2, '0');
+      dateStr = `${y}-${m}-${d}`;
+    } else {
+      dateStr = String(this.selectedDate);
+    }
 
     this.api
       .markAttendance({
         classId: this.selectedClassId,
         sectionId: this.selectedSectionId,
-        academicYearId: this.classes.find((c) => c.classId === this.selectedClassId)?.academicYearId || '',
+        academicYearId: this.classes.find((c: any) => c.classId === this.selectedClassId)?.academicYearId || '',
         date: dateStr,
         subjectId: this.selectedSubjectId,
         subjectName: this.selectedSubjectName,
@@ -180,19 +197,12 @@ export class MarkSubjectAttendanceComponent implements OnInit {
       .subscribe({
         next: () => {
           this.isSaving = false;
-          this.snackBar.open('Subject attendance saved successfully', 'Close', { duration: 3000 });
+          this.snackBar.open('Subject attendance saved successfully!', 'Close', { duration: 3000 });
         },
         error: (err) => {
           this.isSaving = false;
           this.snackBar.open(err?.error?.message || 'Failed to save attendance', 'Close', { duration: 3000 });
         },
       });
-  }
-
-  private formatDate(date: Date): string {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
   }
 }
