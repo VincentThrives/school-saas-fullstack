@@ -6,6 +6,10 @@ public class UpdateStudentRequest {
     private String lastName;
     private String phone;
     private String email;
+    private String parentName;
+    private String parentPhone;
+    private String parentEmail;
+    private java.util.List<String> subjectIds;
     private String rollNumber;
     private String classId;
     private String sectionId;
@@ -26,6 +30,18 @@ public class UpdateStudentRequest {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getParentName() { return parentName; }
+    public void setParentName(String parentName) { this.parentName = parentName; }
+
+    public String getParentPhone() { return parentPhone; }
+    public void setParentPhone(String parentPhone) { this.parentPhone = parentPhone; }
+
+    public String getParentEmail() { return parentEmail; }
+    public void setParentEmail(String parentEmail) { this.parentEmail = parentEmail; }
+
+    public java.util.List<String> getSubjectIds() { return subjectIds; }
+    public void setSubjectIds(java.util.List<String> subjectIds) { this.subjectIds = subjectIds; }
 
     public String getRollNumber() {
         return rollNumber;

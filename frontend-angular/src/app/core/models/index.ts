@@ -108,6 +108,10 @@ export interface Student {
   dateOfBirth: string;
   gender: string;
   bloodGroup?: string;
+  parentName?: string;
+  parentPhone?: string;
+  parentEmail?: string;
+  subjectIds?: string[];
   address?: { street: string; city: string; state: string; zip: string };
   createdAt?: string;
 }

@@ -80,6 +80,19 @@
         </td>
       </ng-container>
 
+      <!-- Parent Column -->
+      <ng-container matColumnDef="parent">
+        <th mat-header-cell *matHeaderCellDef>Parent (WhatsApp)</th>
+        <td mat-cell *matCellDef="let student">
+          <div *ngIf="student.parentName">
+            <span>{{ student.parentName }}</span>
+            <br>
+            <span style="color: #888; font-size: 0.8rem;">{{ student.parentPhone || '-' }}</span>
+          </div>
+          <span *ngIf="!student.parentName">-</span>
+        </td>
+      </ng-container>
+
       <!-- Class/Section Column -->
       <ng-container matColumnDef="classSection">
         <th mat-header-cell *matHeaderCellDef>Class</th>

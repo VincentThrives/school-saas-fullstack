@@ -76,6 +76,10 @@ public class StudentService {
         student.setGender(req.getGender());
         student.setBloodGroup(req.getBloodGroup());
         student.setAddress(mapAddress(req.getAddress()));
+        student.setParentName(req.getParentName());
+        student.setParentPhone(req.getParentPhone());
+        student.setParentEmail(req.getParentEmail());
+        student.setSubjectIds(req.getSubjectIds());
 
         studentRepository.save(student);
         auditService.log("CREATE_STUDENT", "Student", student.getStudentId(),
@@ -94,6 +98,10 @@ public class StudentService {
         if (req.getSectionId()     != null) s.setSectionId(req.getSectionId());
         if (req.getBloodGroup()    != null) s.setBloodGroup(req.getBloodGroup());
         if (req.getAddress()       != null) s.setAddress(mapAddress(req.getAddress()));
+        if (req.getParentName()    != null) s.setParentName(req.getParentName());
+        if (req.getParentPhone()   != null) s.setParentPhone(req.getParentPhone());
+        if (req.getParentEmail()   != null) s.setParentEmail(req.getParentEmail());
+        if (req.getSubjectIds()    != null) s.setSubjectIds(req.getSubjectIds());
         studentRepository.save(s);
         auditService.log("UPDATE_STUDENT", "Student", studentId, "Student updated");
         return toDto(s);
@@ -175,6 +183,10 @@ public class StudentService {
         dto.setDateOfBirth(s.getDateOfBirth());
         dto.setGender(s.getGender());
         dto.setBloodGroup(s.getBloodGroup());
+        dto.setParentName(s.getParentName());
+        dto.setParentPhone(s.getParentPhone());
+        dto.setParentEmail(s.getParentEmail());
+        dto.setSubjectIds(s.getSubjectIds());
         dto.setCreatedAt(s.getCreatedAt());
         return dto;
     }

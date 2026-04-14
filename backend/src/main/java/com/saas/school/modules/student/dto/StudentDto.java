@@ -14,6 +14,10 @@ public class StudentDto {
     private String lastName;
     private String phone;
     private String email;
+    private String parentName;
+    private String parentPhone;
+    private String parentEmail;
+    private List<String> subjectIds;
     private String admissionNumber;
     private String rollNumber;
     private String classId;
@@ -72,6 +76,18 @@ public class StudentDto {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getParentName() { return parentName; }
+    public void setParentName(String parentName) { this.parentName = parentName; }
+
+    public String getParentPhone() { return parentPhone; }
+    public void setParentPhone(String parentPhone) { this.parentPhone = parentPhone; }
+
+    public String getParentEmail() { return parentEmail; }
+    public void setParentEmail(String parentEmail) { this.parentEmail = parentEmail; }
+
+    public List<String> getSubjectIds() { return subjectIds; }
+    public void setSubjectIds(List<String> subjectIds) { this.subjectIds = subjectIds; }
 
     public String getAdmissionNumber() {
         return admissionNumber;

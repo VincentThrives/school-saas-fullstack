@@ -15,6 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
 import { SchoolClass, AcademicYear } from '../../../core/models';
 
 @Component({
@@ -48,6 +49,7 @@ export class StudentFormComponent implements OnInit {
 
   classes: SchoolClass[] = [];
   academicYears: AcademicYear[] = [];
+  subjectsList: SubjectItem[] = [];
 
   genders = [
     { value: 'MALE', label: 'Male' },
@@ -62,7 +64,8 @@ export class StudentFormComponent implements OnInit {
     private apiService: ApiService,
     private router: Router,
     private route: ActivatedRoute,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private subjectService: SubjectService
   ) {}
 
   ngOnInit(): void {
@@ -81,6 +84,10 @@ export class StudentFormComponent implements OnInit {
       sectionId: [''],
       academicYearId: ['', Validators.required],
       parentIds: [[]],
+      parentName: [''],
+      parentPhone: [''],
+      parentEmail: [''],
+      subjectIds: [[]],
       street: [''],
       city: [''],
       state: [''],
@@ -89,6 +96,7 @@ export class StudentFormComponent implements OnInit {
 
     this.loadClasses();
     this.loadAcademicYears();
+    this.subjectService.getSubjects().subscribe(s => this.subjectsList = s);
 
     if (this.isEditing) {
       this.loadStudentData();
@@ -113,6 +121,10 @@ export class StudentFormComponent implements OnInit {
             classId: s.classId,
             sectionId: s.sectionId,
             academicYearId: s.academicYearId,
+            parentName: s.parentName || '',
+            parentPhone: s.parentPhone || '',
+            parentEmail: s.parentEmail || '',
+            subjectIds: s.subjectIds || [],
             street: s.address?.street || '',
             city: s.address?.city || '',
             state: s.address?.state || '',

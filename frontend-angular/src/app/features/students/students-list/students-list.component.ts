@@ -42,7 +42,7 @@ import { Student, SchoolClass, User } from '../../../core/models';
   styleUrl: './students-list.component.scss',
 })
 export class StudentsListComponent implements OnInit {
-  displayedColumns: string[] = ['rollNumber', 'name', 'classSection', 'admissionNumber', 'gender', 'actions'];
+  displayedColumns: string[] = ['rollNumber', 'name', 'parent', 'classSection', 'admissionNumber', 'gender', 'actions'];
   dataSource = new MatTableDataSource<Student>([]);
   totalElements = 0;
   pageSize = 10;
