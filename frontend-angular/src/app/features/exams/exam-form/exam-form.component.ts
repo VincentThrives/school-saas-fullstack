@@ -10,6 +10,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
@@ -31,6 +32,7 @@ import { SchoolClass, AcademicYear } from '../../../core/models';
     MatNativeDateModule,
     MatButtonModule,
     MatIconModule,
+    MatDividerModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
     PageHeaderComponent,
@@ -52,6 +54,7 @@ export class ExamFormComponent implements OnInit {
   subjectsList: SubjectItem[] = [];
 
   private pendingSubjectId: string | null = null;
+  private pendingClassId: string | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -67,11 +70,11 @@ export class ExamFormComponent implements OnInit {
     this.isEditing = !!this.examId && this.examId !== 'new';
 
     this.examForm = this.fb.group({
-      examType: ['UNIT_TEST', Validators.required],
+      examType: ['', Validators.required],
       name: ['', Validators.required],
+      academicYearId: ['', Validators.required],
       classId: ['', Validators.required],
       sectionId: [''],
-      academicYearId: ['', Validators.required],
       subjectId: ['', Validators.required],
       subjectName: [''],
       examDate: [null, Validators.required],
@@ -88,29 +91,50 @@ export class ExamFormComponent implements OnInit {
       this.examForm.get('subjectName')?.setValue(sub?.name || value || '');
     });
 
-    // Listen for academicYearId changes to reload subjects
-    this.examForm.get('academicYearId')?.valueChanges.subscribe(() => {
-      if (!this.isLoading) this.loadSubjectsForSelection();
-    });
-
     // Listen for sectionId changes to re-filter subjects
     this.examForm.get('sectionId')?.valueChanges.subscribe(() => {
       if (!this.isLoading) this.loadSubjectsForSelection();
     });
 
-    this.api.getClasses().subscribe({
-      next: (res) => {
-        this.classes = Array.isArray(res.data) ? res.data : [];
-        if (this.isEditing) this.loadExamData();
-      },
-    });
+    // Load academic years
     this.api.getAcademicYears().subscribe({
       next: (res) => {
         const data = res.data;
         this.academicYears = Array.isArray(data) ? data : (data as any)?.content || [];
-        const current = this.academicYears.find((y) => y.current);
-        if (current && !this.isEditing) {
-          this.examForm.patchValue({ academicYearId: current.academicYearId });
+        if (!this.isEditing) {
+          const current = this.academicYears.find((y) => y.current);
+          if (current) {
+            this.examForm.patchValue({ academicYearId: current.academicYearId });
+            this.loadClassesForYear(current.academicYearId);
+          }
+        } else {
+          this.loadExamData();
+        }
+      },
+    });
+  }
+
+  onAcademicYearChange(): void {
+    const yearId = this.examForm.get('academicYearId')?.value;
+    this.examForm.patchValue({ classId: '', sectionId: '', subjectId: '' });
+    this.classes = [];
+    this.sections = [];
+    this.subjectsList = [];
+    if (yearId) {
+      this.loadClassesForYear(yearId);
+    }
+  }
+
+  private loadClassesForYear(academicYearId: string): void {
+    this.api.getClasses(academicYearId).subscribe({
+      next: (res) => {
+        this.classes = Array.isArray(res.data) ? res.data : [];
+        // If editing and we have a pending classId, set it now
+        if (this.pendingClassId) {
+          this.examForm.patchValue({ classId: this.pendingClassId });
+          this.pendingClassId = null;
+          this.onClassChange(false);
+          this.loadSubjectsForSelection();
         }
       },
     });
@@ -123,15 +147,14 @@ export class ExamFormComponent implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           const e = res.data;
-          // Save the subjectId to set after subjects load
           this.pendingSubjectId = e.subjectId || null;
+          this.pendingClassId = e.classId || null;
 
           this.examForm.patchValue({
-            examType: e.examType || 'UNIT_TEST',
+            examType: e.examType || '',
             name: e.name,
-            classId: e.classId,
-            sectionId: e.sectionId,
             academicYearId: e.academicYearId,
+            sectionId: e.sectionId,
             subjectName: e.subjectName || '',
             examDate: e.examDate,
             startTime: e.startTime || '',
@@ -141,11 +164,11 @@ export class ExamFormComponent implements OnInit {
             description: e.description || '',
           });
 
-          // Populate sections from class
-          this.onClassChange(false);
           this.isLoading = false;
-          // Load subjects (will set pendingSubjectId after load)
-          this.loadSubjectsForSelection();
+          // Load classes for this academic year (will set pendingClassId after)
+          if (e.academicYearId) {
+            this.loadClassesForYear(e.academicYearId);
+          }
         }
       },
       error: () => {
@@ -176,7 +199,6 @@ export class ExamFormComponent implements OnInit {
       return;
     }
 
-    // Get subjectIds from the selected section (or collect from all sections)
     const selectedClass = this.classes.find(c => c.classId === classId);
     let subjectIds: string[] = [];
 
@@ -184,7 +206,6 @@ export class ExamFormComponent implements OnInit {
       const section = selectedClass?.sections?.find(s => s.sectionId === sectionId);
       subjectIds = section?.subjectIds || [];
     } else {
-      // Collect all unique subjectIds from all sections
       const allIds = new Set<string>();
       selectedClass?.sections?.forEach(s => {
         (s.subjectIds || []).forEach(id => allIds.add(id));
@@ -202,13 +223,10 @@ export class ExamFormComponent implements OnInit {
     this.subjectService.getSubjectsByIds(subjectIds).subscribe({
       next: (subjects) => {
         this.subjectsList = subjects;
-
-        // If we have a pending subjectId (edit mode), set it now
         if (this.pendingSubjectId) {
           this.examForm.patchValue({ subjectId: this.pendingSubjectId });
           this.pendingSubjectId = null;
         }
-
         this.isLoadingSubjects = false;
       },
       error: () => {
@@ -216,6 +234,10 @@ export class ExamFormComponent implements OnInit {
         this.isLoadingSubjects = false;
       },
     });
+  }
+
+  get classDisabled(): boolean {
+    return !this.examForm.get('academicYearId')?.value;
   }
 
   get subjectDisabled(): boolean {
@@ -227,12 +249,14 @@ export class ExamFormComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (this.examForm.invalid) return;
+    if (this.examForm.invalid) {
+      this.examForm.markAllAsTouched();
+      return;
+    }
 
     this.isSaving = true;
     const formData = this.examForm.value;
 
-    // Ensure examDate is a string (YYYY-MM-DD)
     let examDate = formData.examDate;
     if (examDate instanceof Date) {
       const y = examDate.getFullYear();
@@ -241,7 +265,6 @@ export class ExamFormComponent implements OnInit {
       examDate = `${y}-${m}-${d}`;
     }
 
-    // Set className from selected class
     const selectedClass = this.classes.find(c => c.classId === formData.classId);
     const selectedSection = this.sections.find(s => s.sectionId === formData.sectionId);
 

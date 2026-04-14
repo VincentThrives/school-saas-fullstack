@@ -1,0 +1,187 @@
+<div class="bulk-promote-container">
+  <app-page-header
+    title="Bulk Promote Students"
+    subtitle="Promote students from one class to another for the next academic year"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Students', link: '/students' },
+      { label: 'Bulk Promote' }
+    ]">
+  </app-page-header>
+
+  <div class="promote-layout">
+
+    <!-- FROM Section -->
+    <mat-card class="selection-card from-card">
+      <div class="card-header">
+        <mat-icon class="card-icon from-icon">logout</mat-icon>
+        <h3>From (Current Class)</h3>
+      </div>
+      <mat-card-content>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Academic Year</mat-label>
+          <mat-select [(ngModel)]="fromAcademicYearId" (selectionChange)="onFromYearChange()">
+            <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">
+              {{ ay.label }} {{ ay.current ? '(Current)' : '' }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Class</mat-label>
+          <mat-select [(ngModel)]="fromClassId" [disabled]="!fromAcademicYearId" (selectionChange)="onFromClassChange()">
+            <mat-option *ngFor="let cls of fromClasses" [value]="cls.classId">
+              {{ cls.name }}
+            </mat-option>
+          </mat-select>
+          <mat-hint *ngIf="fromAcademicYearId && fromClasses.length === 0">No classes for this year</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Section</mat-label>
+          <mat-select [(ngModel)]="fromSectionId" [disabled]="!fromClassId" (selectionChange)="onFromSectionChange()">
+            <mat-option *ngFor="let sec of fromSections" [value]="sec.sectionId">
+              {{ sec.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Arrow -->
+    <div class="arrow-section">
+      <mat-icon class="arrow-icon">arrow_forward</mat-icon>
+    </div>
+
+    <!-- TO Section -->
+    <mat-card class="selection-card to-card">
+      <div class="card-header">
+        <mat-icon class="card-icon to-icon">login</mat-icon>
+        <h3>To (Next Class)</h3>
+      </div>
+      <mat-card-content>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Academic Year</mat-label>
+          <mat-select [(ngModel)]="toAcademicYearId" (selectionChange)="onToYearChange()">
+            <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">
+              {{ ay.label }} {{ ay.current ? '(Current)' : '' }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Class</mat-label>
+          <mat-select [(ngModel)]="toClassId" [disabled]="!toAcademicYearId" (selectionChange)="onToClassChange()">
+            <mat-option *ngFor="let cls of toClasses" [value]="cls.classId">
+              {{ cls.name }}
+            </mat-option>
+          </mat-select>
+          <mat-hint *ngIf="toAcademicYearId && toClasses.length === 0">No classes for this year</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Section</mat-label>
+          <mat-select [(ngModel)]="toSectionId" [disabled]="!toClassId">
+            <mat-option *ngFor="let sec of toSections" [value]="sec.sectionId">
+              {{ sec.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Load Students Button -->
+  <div class="load-section" *ngIf="fromClassId && fromSectionId && toClassId && toSectionId && toAcademicYearId && !promotionDone">
+    <button mat-flat-button class="load-btn" (click)="loadStudents()" [disabled]="isLoadingStudents">
+      <mat-spinner diameter="20" *ngIf="isLoadingStudents"></mat-spinner>
+      <mat-icon *ngIf="!isLoadingStudents">people</mat-icon>
+      {{ isLoadingStudents ? 'Loading...' : 'Load Students' }}
+    </button>
+  </div>
+
+  <!-- No Students Found -->
+  <div class="empty-state" *ngIf="studentsLoaded && students.length === 0">
+    <mat-icon>person_off</mat-icon>
+    <p>No students found in {{ getFromClassName() }} - {{ getFromSectionName() }}</p>
+  </div>
+
+  <!-- Students List -->
+  <mat-card class="students-card" *ngIf="students.length > 0">
+    <div class="students-header">
+      <h3>
+        <mat-icon>people</mat-icon>
+        Students in {{ getFromClassName() }} - {{ getFromSectionName() }}
+        <span class="student-count">({{ students.length }} students)</span>
+      </h3>
+      <div class="selection-info">
+        <span class="selected-badge">{{ selectedCount }} selected</span>
+        <span class="excluded-badge" *ngIf="excludedCount > 0">{{ excludedCount }} excluded</span>
+      </div>
+    </div>
+
+    <table mat-table [dataSource]="students" class="students-table">
+      <ng-container matColumnDef="select">
+        <th mat-header-cell *matHeaderCellDef>
+          <mat-checkbox [checked]="allSelected" (change)="toggleAll($event.checked)" color="primary"></mat-checkbox>
+        </th>
+        <td mat-cell *matCellDef="let student">
+          <mat-checkbox [(ngModel)]="student.selected" color="primary"></mat-checkbox>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="rollNumber">
+        <th mat-header-cell *matHeaderCellDef>Roll No</th>
+        <td mat-cell *matCellDef="let student">{{ student.rollNumber || '-' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Student Name</th>
+        <td mat-cell *matCellDef="let student">
+          {{ student.firstName || '' }} {{ student.lastName || '' }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="admissionNumber">
+        <th mat-header-cell *matHeaderCellDef>Admission No</th>
+        <td mat-cell *matCellDef="let student">{{ student.admissionNumber }}</td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+          [class.excluded]="!row.selected"></tr>
+    </table>
+  </mat-card>
+
+  <!-- Loading -->
+  <div class="loading-container" *ngIf="isLoadingStudents">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- Promote Button -->
+  <div class="promote-actions" *ngIf="students.length > 0 && !promotionDone">
+    <div class="promote-summary">
+      <mat-icon>info</mat-icon>
+      <span>
+        Promote <strong>{{ selectedCount }}</strong> students from
+        <strong>{{ getFromClassName() }} - {{ getFromSectionName() }}</strong> to
+        <strong>{{ getToClassName() }} - {{ getToSectionName() }}</strong>
+        ({{ getToYearLabel() }})
+      </span>
+    </div>
+    <button mat-flat-button class="promote-btn" (click)="promote()" [disabled]="!canPromote">
+      <mat-spinner diameter="20" *ngIf="isPromoting"></mat-spinner>
+      <mat-icon *ngIf="!isPromoting">arrow_upward</mat-icon>
+      {{ isPromoting ? 'Promoting...' : 'Promote Students' }}
+    </button>
+  </div>
+
+  <!-- Success Banner -->
+  <mat-card class="success-card" *ngIf="promotionDone">
+    <mat-icon class="success-icon">check_circle</mat-icon>
+    <div class="success-text">
+      <h3>Promotion Complete</h3>
+      <p>{{ promotedCount }} students promoted successfully. {{ skippedCount }} students skipped.</p>
+    </div>
+  </mat-card>
+</div>

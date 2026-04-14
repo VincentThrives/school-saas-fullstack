@@ -11,29 +11,42 @@
   <mat-card class="form-card">
     <mat-card-content>
       <form [formGroup]="examForm" (ngSubmit)="onSubmit()">
+
+        <!-- ── Section 1: Exam Details ── -->
+        <h3 class="section-title">
+          <mat-icon class="section-icon">assignment</mat-icon>
+          Exam Details
+        </h3>
         <div class="form-grid">
           <mat-form-field appearance="outline">
-            <mat-label>Exam Type</mat-label>
-            <mat-select formControlName="examType" required>
-              <mat-option value="UNIT_TEST">Unit Test</mat-option>
-              <mat-option value="MID_TERM">Mid-Term</mat-option>
-              <mat-option value="FINAL">Final</mat-option>
-              <mat-option value="PRACTICAL">Practical</mat-option>
-            </mat-select>
+            <mat-label>Exam Type *</mat-label>
+            <input matInput formControlName="examType" placeholder="e.g., Unit Test 1, Mid-Term, Final Exam">
             <mat-error>Exam type is required</mat-error>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Exam Name</mat-label>
-            <input matInput formControlName="name" placeholder="e.g., Mid-Term Mathematics">
-            <mat-error *ngIf="examForm.get('name')?.hasError('required')">
-              Exam name is required
-            </mat-error>
+          <mat-form-field appearance="outline">
+            <mat-label>Exam Name *</mat-label>
+            <input matInput formControlName="name" placeholder="e.g., Mathematics Mid-Term">
+            <mat-error>Exam name is required</mat-error>
           </mat-form-field>
 
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description</mat-label>
+            <textarea matInput formControlName="description" rows="2" placeholder="Optional description..."></textarea>
+          </mat-form-field>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <!-- ── Section 2: Class & Subject ── -->
+        <h3 class="section-title">
+          <mat-icon class="section-icon">school</mat-icon>
+          Class & Subject
+        </h3>
+        <div class="form-grid">
           <mat-form-field appearance="outline">
-            <mat-label>Academic Year</mat-label>
-            <mat-select formControlName="academicYearId">
+            <mat-label>Academic Year *</mat-label>
+            <mat-select formControlName="academicYearId" (selectionChange)="onAcademicYearChange()">
               <mat-option *ngFor="let yr of academicYears" [value]="yr.academicYearId">
                 {{ yr.label }} {{ yr.current ? '(Current)' : '' }}
               </mat-option>
@@ -42,18 +55,20 @@
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Class</mat-label>
-            <mat-select formControlName="classId" (selectionChange)="onClassChange()">
+            <mat-label>Class *</mat-label>
+            <mat-select formControlName="classId" [disabled]="classDisabled" (selectionChange)="onClassChange()">
               <mat-option *ngFor="let cls of classes" [value]="cls.classId">
                 {{ cls.name }}
               </mat-option>
             </mat-select>
+            <mat-hint *ngIf="classDisabled">Select academic year first</mat-hint>
+            <mat-hint *ngIf="!classDisabled && classes.length === 0">No classes for this academic year</mat-hint>
             <mat-error>Class is required</mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>Section</mat-label>
-            <mat-select formControlName="sectionId">
+            <mat-select formControlName="sectionId" [disabled]="!examForm.get('classId')?.value">
               <mat-option value="">All Sections</mat-option>
               <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">
                 {{ sec.name }}
@@ -63,18 +78,26 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Subject *</mat-label>
-            <mat-select formControlName="subjectId" required [disabled]="subjectDisabled">
+            <mat-select formControlName="subjectId" [disabled]="subjectDisabled">
               <mat-option *ngFor="let sub of subjectsList" [value]="sub.subjectId">
                 {{ sub.name }}
               </mat-option>
             </mat-select>
-            <mat-hint *ngIf="subjectDisabled">Select class, section and academic year first</mat-hint>
-            <mat-hint *ngIf="!subjectDisabled && !isLoadingSubjects && subjectsList.length === 0">No subjects found for this class/section</mat-hint>
+            <mat-hint *ngIf="subjectDisabled">Select class first</mat-hint>
             <mat-error>Subject is required</mat-error>
           </mat-form-field>
+        </div>
 
+        <mat-divider></mat-divider>
+
+        <!-- ── Section 3: Schedule ── -->
+        <h3 class="section-title">
+          <mat-icon class="section-icon">event</mat-icon>
+          Schedule
+        </h3>
+        <div class="form-grid">
           <mat-form-field appearance="outline">
-            <mat-label>Exam Date</mat-label>
+            <mat-label>Exam Date *</mat-label>
             <input matInput [matDatepicker]="datePicker" formControlName="examDate">
             <mat-datepicker-toggle matIconSuffix [for]="datePicker"></mat-datepicker-toggle>
             <mat-datepicker #datePicker></mat-datepicker>
@@ -90,36 +113,36 @@
             <mat-label>End Time</mat-label>
             <input matInput type="time" formControlName="endTime">
           </mat-form-field>
+        </div>
 
+        <mat-divider></mat-divider>
+
+        <!-- ── Section 4: Marks Configuration ── -->
+        <h3 class="section-title">
+          <mat-icon class="section-icon">grade</mat-icon>
+          Marks Configuration
+        </h3>
+        <div class="form-grid">
           <mat-form-field appearance="outline">
-            <mat-label>Maximum Marks</mat-label>
+            <mat-label>Maximum Marks *</mat-label>
             <input matInput type="number" formControlName="maxMarks" min="1">
             <mat-error>Max marks must be at least 1</mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Passing Marks</mat-label>
+            <mat-label>Passing Marks *</mat-label>
             <input matInput type="number" formControlName="passingMarks" min="0">
             <mat-error>Passing marks must be at least 0</mat-error>
           </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Description</mat-label>
-            <textarea matInput formControlName="description" rows="3" placeholder="Optional description..."></textarea>
-          </mat-form-field>
         </div>
 
+        <!-- ── Actions ── -->
         <div class="form-actions">
           <button mat-stroked-button type="button" (click)="cancel()" class="cancel-btn">
             <mat-icon>arrow_back</mat-icon>
             Cancel
           </button>
-          <button
-            mat-flat-button
-            type="submit"
-            class="save-btn"
-            [disabled]="examForm.invalid || isSaving"
-          >
+          <button mat-flat-button type="submit" class="save-btn" [disabled]="examForm.invalid || isSaving">
             <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
             <mat-icon *ngIf="!isSaving">save</mat-icon>
             {{ isSaving ? 'Saving...' : (isEditing ? 'Update Exam' : 'Create Exam') }}

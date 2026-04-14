@@ -1,0 +1,256 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+$gold-light: rgba(212, 168, 67, 0.08);
+
+.bulk-promote-container {
+  padding: 0 24px 24px;
+}
+
+// FROM → TO layout
+.promote-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+}
+
+.selection-card {
+  flex: 1;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px 0;
+
+    h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .card-icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+
+    .from-icon { color: #E65100; }
+    .to-icon { color: #2E7D32; }
+  }
+}
+
+.full-width {
+  width: 100%;
+}
+
+.arrow-section {
+  display: flex;
+  align-items: center;
+  padding-top: 80px;
+
+  .arrow-icon {
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
+    color: $gold;
+  }
+
+  @media (max-width: 768px) {
+    padding-top: 0;
+    justify-content: center;
+
+    .arrow-icon {
+      transform: rotate(90deg);
+    }
+  }
+}
+
+// Load button
+.load-section {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.load-btn {
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: white !important;
+  min-width: 200px;
+  height: 48px;
+  font-size: 1rem;
+  font-weight: 600;
+
+  mat-icon { margin-right: 8px; }
+  &:disabled { opacity: 0.5; }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #888;
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: #ddd;
+  }
+
+  p { margin: 8px 0 0; font-size: 0.95rem; }
+}
+
+// Students card
+.students-card {
+  margin-top: 20px;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.students-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    mat-icon {
+      color: $gold;
+    }
+
+    .student-count {
+      font-weight: 400;
+      color: #888;
+      font-size: 0.9rem;
+    }
+  }
+}
+
+.selection-info {
+  display: flex;
+  gap: 8px;
+}
+
+.selected-badge {
+  background: rgba(76, 175, 80, 0.12);
+  color: #2E7D32;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.excluded-badge {
+  background: rgba(244, 67, 54, 0.12);
+  color: #C62828;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.students-table {
+  width: 100%;
+}
+
+tr.excluded {
+  opacity: 0.4;
+  background: #fafafa;
+}
+
+// Loading
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+// Promote actions
+.promote-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 20px;
+  background: $gold-light;
+  border-radius: 14px;
+  border: 1px solid rgba($gold, 0.3);
+}
+
+.promote-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #555;
+
+  mat-icon {
+    color: $gold;
+  }
+}
+
+.promote-btn {
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: white !important;
+  min-width: 180px;
+  height: 44px;
+  font-weight: 600;
+
+  mat-icon {
+    margin-right: 6px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
+// Success
+.success-card {
+  margin-top: 20px;
+  border-radius: 14px;
+  padding: 24px 32px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+  border: 2px solid #4CAF50;
+
+  .success-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: #2E7D32;
+  }
+
+  .success-text {
+    h3 {
+      margin: 0 0 4px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #1B5E20;
+    }
+    p {
+      margin: 0;
+      color: #2E7D32;
+    }
+  }
+}

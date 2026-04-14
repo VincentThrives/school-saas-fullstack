@@ -59,16 +59,17 @@ public class ExamController {
 
     @PostMapping("/marks")
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','TEACHER')")
-    public ResponseEntity<ApiResponse<List<ExamMark>>> enterMarks(
+    public ResponseEntity<ApiResponse<com.saas.school.modules.exam.model.StudentAssessments>> enterMarks(
             @Valid @RequestBody EnterMarksRequest req,
             @AuthenticationPrincipal String userId) {
-        return ResponseEntity.ok(ApiResponse.success(examService.enterMarks(req, userId)));
+        return ResponseEntity.ok(ApiResponse.success(examService.enterBatchMarks(req, userId), "Marks saved"));
     }
 
     @GetMapping("/{examId}/marks")
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
-    public ResponseEntity<ApiResponse<List<ExamMark>>> getMarks(@PathVariable String examId) {
-        return ResponseEntity.ok(ApiResponse.success(markRepository.findByExamId(examId)));
+    public ResponseEntity<ApiResponse<List<com.saas.school.modules.exam.model.StudentAssessments.MarkEntry>>> getMarks(
+            @PathVariable String examId) {
+        return ResponseEntity.ok(ApiResponse.success(examService.getBatchMarks(examId)));
     }
 
     // Student views own marks
@@ -103,5 +104,12 @@ public class ExamController {
     public ResponseEntity<ApiResponse<Void>> lockMarks(@PathVariable String examId) {
         examService.lockMarks(examId);
         return ResponseEntity.ok(ApiResponse.success(null, "Marks locked"));
+    }
+
+    @PatchMapping("/{examId}/unlock-marks")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> unlockMarks(@PathVariable String examId) {
+        examService.unlockMarks(examId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Marks unlocked"));
     }
 }

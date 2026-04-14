@@ -5,6 +5,8 @@ import com.saas.school.common.exception.BusinessException;
 import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.common.response.PageResponse;
 import com.saas.school.config.mongodb.TenantContext;
+import com.saas.school.modules.academicyear.model.AcademicYear;
+import com.saas.school.modules.academicyear.repository.AcademicYearRepository;
 import com.saas.school.modules.student.dto.*;
 import com.saas.school.modules.student.model.Student;
 import com.saas.school.modules.student.repository.StudentRepository;
@@ -36,6 +38,7 @@ public class StudentService {
 
     @Autowired private StudentRepository studentRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private AcademicYearRepository academicYearRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private AuditService auditService;
     @Autowired private MongoTemplate mongoTemplate;
@@ -150,8 +153,21 @@ public class StudentService {
 
     /** Year-end bulk promotion: move all students in classId/sectionId to nextClassId/nextSectionId */
     public BulkPromoteResult bulkPromote(BulkPromoteRequest req) {
+        // Validate: FROM academic year must have ended
         var students = studentRepository.findByClassIdAndSectionIdAndDeletedAtIsNull(
                 req.getFromClassId(), req.getFromSectionId());
+        if (!students.isEmpty()) {
+            String fromAcademicYearId = students.get(0).getAcademicYearId();
+            if (fromAcademicYearId != null) {
+                academicYearRepository.findById(fromAcademicYearId).ifPresent(ay -> {
+                    if (ay.getEndDate() != null && ay.getEndDate().isAfter(java.time.LocalDate.now())) {
+                        throw new BusinessException("Academic year \"" + ay.getLabel()
+                                + "\" has not completed yet (ends on " + ay.getEndDate()
+                                + "). Promotion is allowed only after the academic year ends.");
+                    }
+                });
+            }
+        }
         int promoted = 0, skipped = 0;
 
         for (Student s : students) {

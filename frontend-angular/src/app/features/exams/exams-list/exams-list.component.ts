@@ -12,12 +12,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialogModule, MatDialog, MatDialogActions, MatDialogContent } from '@angular/material/dialog';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { SubjectService } from '../../../core/services/subject.service';
+import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
 import { SchoolClass, AcademicYear } from '../../../core/models';
 
 @Component({
@@ -46,16 +46,19 @@ import { SchoolClass, AcademicYear } from '../../../core/models';
 })
 export class ExamsListComponent implements OnInit {
   exams: any[] = [];
-  classes: SchoolClass[] = [];
   academicYears: AcademicYear[] = [];
+  classes: SchoolClass[] = [];
   classMap: Record<string, string> = {};
-  displayedColumns = ['name', 'marksStatus', 'class', 'subject', 'date', 'maxMarks', 'status', 'actions'];
+  sectionMap: Record<string, string> = {};
+  displayedColumns = ['name', 'class', 'subject', 'date', 'maxMarks', 'status', 'enterMarks', 'viewResults', 'actions'];
   marksCountMap: Record<string, number> = {};
 
-
-  classFilter = '';
-  subjectFilter = '';
   academicYearFilter = '';
+  classFilter = '';
+  sectionFilter = '';
+  subjectFilter = '';
+  sections: { sectionId: string; name: string }[] = [];
+  subjectsList: { subjectId: string; name: string }[] = [];
 
   totalElements = 0;
   pageSize = 10;
@@ -71,27 +74,77 @@ export class ExamsListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadClasses();
-    this.loadExams();
     this.api.getAcademicYears().subscribe({
       next: (res) => {
         const data = res.data;
         this.academicYears = Array.isArray(data) ? data : (data as any)?.content || [];
+        // Auto-select current year
+        const current = this.academicYears.find(y => y.current);
+        if (current) {
+          this.academicYearFilter = current.academicYearId;
+          this.loadClassesForYear(current.academicYearId);
+        }
       },
     });
+    this.loadExams();
   }
 
-  loadClasses(): void {
-    this.api.getClasses().subscribe({
+  onAcademicYearFilterChange(): void {
+    this.classFilter = '';
+    this.sectionFilter = '';
+    this.subjectFilter = '';
+    this.classes = [];
+    this.sections = [];
+    this.subjectsList = [];
+    this.classMap = {};
+    if (this.academicYearFilter) {
+      this.loadClassesForYear(this.academicYearFilter);
+    }
+  }
+
+  onClassFilterChange(): void {
+    this.sectionFilter = '';
+    this.subjectFilter = '';
+    this.subjectsList = [];
+    const cls = this.classes.find(c => c.classId === this.classFilter);
+    this.sections = cls?.sections || [];
+  }
+
+  onSectionFilterChange(): void {
+    this.subjectFilter = '';
+    this.subjectsList = [];
+    if (!this.classFilter) return;
+    const cls = this.classes.find(c => c.classId === this.classFilter);
+    const sec = cls?.sections?.find(s => s.sectionId === this.sectionFilter);
+    const subjectIds = sec?.subjectIds || [];
+    if (subjectIds.length > 0) {
+      this.subjectService.getSubjectsByIds(subjectIds).subscribe({
+        next: (subs) => { this.subjectsList = subs.map(s => ({ subjectId: s.subjectId, name: s.name })); },
+      });
+    }
+  }
+
+  private loadClassesForYear(yearId: string): void {
+    this.api.getClasses(yearId).subscribe({
       next: (res) => {
         this.classes = Array.isArray(res.data) ? res.data : [];
-        this.classes.forEach(cls => { this.classMap[cls.classId] = cls.name; });
+        this.classes.forEach(cls => {
+          this.classMap[cls.classId] = cls.name;
+          (cls.sections || []).forEach(sec => {
+            this.sectionMap[sec.sectionId] = sec.name;
+          });
+        });
       },
     });
   }
 
   getClassName(classId: string): string {
     return this.classMap[classId] || '-';
+  }
+
+  getSectionName(sectionId: string): string {
+    if (!sectionId) return '';
+    return this.sectionMap[sectionId] || '';
   }
 
   getSubjectName(subjectId: string): string {
@@ -105,21 +158,40 @@ export class ExamsListComponent implements OnInit {
         this.exams = res.data || [];
         this.totalElements = this.exams.length;
         this.isLoading = false;
-        // Load marks count for each exam
         this.exams.forEach(exam => {
           const examId = exam.examId || exam.id;
           this.api.getExamMarks(examId).subscribe({
             next: (marksRes) => {
-              const marks = marksRes.data || [];
-              this.marksCountMap[examId] = marks.length;
+              this.marksCountMap[examId] = (marksRes.data || []).length;
             },
           });
+          // Resolve class name if not in map
+          if (exam.classId && !this.classMap[exam.classId]) {
+            this.classMap[exam.classId] = exam.className || exam.classId;
+          }
         });
       },
       error: () => {
         this.isLoading = false;
       },
     });
+  }
+
+  get filteredExams(): any[] {
+    let result = this.exams;
+    if (this.academicYearFilter) {
+      result = result.filter(e => e.academicYearId === this.academicYearFilter);
+    }
+    if (this.classFilter) {
+      result = result.filter(e => e.classId === this.classFilter);
+    }
+    if (this.sectionFilter) {
+      result = result.filter(e => e.sectionId === this.sectionFilter);
+    }
+    if (this.subjectFilter) {
+      result = result.filter(e => e.subjectId === this.subjectFilter);
+    }
+    return result;
   }
 
   onPageChange(event: PageEvent): void {
@@ -157,7 +229,29 @@ export class ExamsListComponent implements OnInit {
   }
 
   lockMarks(exam: any): void {
-    // Implementation for lock marks
+    const examId = exam.examId || exam.id;
+    this.api.lockMarks(examId).subscribe({
+      next: () => {
+        this.snackBar.open('Marks locked successfully', 'Close', { duration: 3000 });
+        this.loadExams();
+      },
+      error: () => {
+        this.snackBar.open('Failed to lock marks', 'Close', { duration: 3000 });
+      },
+    });
+  }
+
+  unlockMarks(exam: any): void {
+    const examId = exam.examId || exam.id;
+    this.api.unlockMarks(examId).subscribe({
+      next: () => {
+        this.snackBar.open('Marks unlocked successfully', 'Close', { duration: 3000 });
+        this.loadExams();
+      },
+      error: () => {
+        this.snackBar.open('Failed to unlock marks', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   viewResults(exam: any): void {
@@ -180,12 +274,6 @@ export class ExamsListComponent implements OnInit {
   }
 
   getExamTypeLabel(examType: string): string {
-    const labels: Record<string, string> = {
-      UNIT_TEST: 'Unit Test',
-      MID_TERM: 'Mid-Term',
-      FINAL: 'Final',
-      PRACTICAL: 'Practical',
-    };
-    return labels[examType] || examType || '-';
+    return examType || '-';
   }
 }

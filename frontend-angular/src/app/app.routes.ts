@@ -94,6 +94,13 @@ export const routes: Routes = [
         canActivate: [roleGuard],
         data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
       },
+      {
+        path: 'students/bulk-promote',
+        loadComponent: () =>
+          import('./features/students/bulk-promote/bulk-promote.component').then(m => m.BulkPromoteComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN] },
+      },
 
       // Employees (formerly Teachers)
       {

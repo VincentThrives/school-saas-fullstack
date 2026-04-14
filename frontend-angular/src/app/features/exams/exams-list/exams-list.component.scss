@@ -71,6 +71,22 @@ $gold-dark: #B8860B;
   color: #2e7d32 !important;
 }
 
+.enter-marks-btn {
+  font-size: 0.8rem;
+  color: #E65100;
+  border-color: #E65100;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
+  &:disabled { opacity: 0.4; }
+}
+
+.view-results-btn {
+  font-size: 0.8rem;
+  color: #1565C0;
+  border-color: #1565C0;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
+  &:disabled { opacity: 0.4; }
+}
+
 .locked-chip {
   background-color: rgba(158, 158, 158, 0.12) !important;
   color: #616161 !important;

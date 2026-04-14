@@ -110,6 +110,14 @@ export class ApiService {
     return this.http.delete<ApiResponse<void>>(`${this.API}/students/${studentId}`);
   }
 
+  bulkPromoteStudents(payload: {
+    fromClassId: string; fromSectionId: string;
+    toClassId: string; toSectionId: string;
+    toAcademicYearId: string; excludedStudentIds?: string[];
+  }): Observable<ApiResponse<{ promoted: number; skipped: number }>> {
+    return this.http.post<ApiResponse<{ promoted: number; skipped: number }>>(`${this.API}/students/bulk-promote`, payload);
+  }
+
   // ── Employees (formerly Teachers) ───────────────────────────────────
 
   getTeachers(page = 0, size = 20): Observable<ApiResponse<PaginatedResponse<Teacher>>> {
@@ -135,8 +143,10 @@ export class ApiService {
 
   // ── Classes ────────────────────────────────────────────────────────────
 
-  getClasses(): Observable<ApiResponse<SchoolClass[]>> {
-    return this.http.get<ApiResponse<SchoolClass[]>>(`${this.API}/classes`);
+  getClasses(academicYearId?: string): Observable<ApiResponse<SchoolClass[]>> {
+    let params = new HttpParams();
+    if (academicYearId) params = params.set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<SchoolClass[]>>(`${this.API}/classes`, { params });
   }
 
   getClassById(classId: string): Observable<ApiResponse<SchoolClass>> {
@@ -265,6 +275,10 @@ export class ApiService {
 
   lockMarks(examId: string): Observable<ApiResponse<any>> {
     return this.http.patch<ApiResponse<any>>(`${this.API}/exams/${examId}/lock-marks`, null);
+  }
+
+  unlockMarks(examId: string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.API}/exams/${examId}/unlock-marks`, null);
   }
 
   // Student marks
