@@ -80,6 +80,10 @@
             <mat-icon>more_vert</mat-icon>
           </button>
           <mat-menu #yearMenu="matMenu">
+            <button mat-menu-item (click)="openEditDialog(year)">
+              <mat-icon>edit</mat-icon>
+              <span>Edit</span>
+            </button>
             <button mat-menu-item *ngIf="!year.current" (click)="setAsCurrent(year)">
               <mat-icon class="gold-icon">check_circle</mat-icon>
               <span>Set as Current</span>
@@ -143,6 +147,39 @@
                 (click)="createAcademicYear()"
                 [disabled]="isCreating || !newLabel.trim() || !newStartDate || !newEndDate">
           {{ isCreating ? 'Creating...' : 'Create Academic Year' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Academic Year Dialog -->
+  <div class="dialog-overlay" *ngIf="editDialogOpen" (click)="closeEditDialog()">
+    <div class="dialog-panel" (click)="$event.stopPropagation()">
+      <h3>Edit Academic Year</h3>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Academic Year Label</mat-label>
+        <input matInput [(ngModel)]="editLabel">
+      </mat-form-field>
+
+      <div class="date-row">
+        <mat-form-field appearance="outline">
+          <mat-label>Start Date</mat-label>
+          <input matInput [(ngModel)]="editStartDate" type="date">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>End Date</mat-label>
+          <input matInput [(ngModel)]="editEndDate" type="date">
+        </mat-form-field>
+      </div>
+
+      <div class="dialog-actions">
+        <button mat-button (click)="closeEditDialog()">Cancel</button>
+        <button mat-raised-button class="create-button"
+                (click)="saveEdit()"
+                [disabled]="isEditing || !editLabel.trim()">
+          {{ isEditing ? 'Saving...' : 'Save Changes' }}
         </button>
       </div>
     </div>

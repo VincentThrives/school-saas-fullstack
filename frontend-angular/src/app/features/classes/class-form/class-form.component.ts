@@ -204,7 +204,9 @@ export class ClassFormComponent implements OnInit {
     }
 
     this.isSaving = true;
-    const formData = this.classForm.value;
+    const formData = { ...this.classForm.value };
+    // Format class name: 5 → "5th", 1 → "1st", etc.
+    formData.name = this.formatClassName(formData.name);
 
     const request$ = this.isEditing && this.classId
       ? this.apiService.updateClass(this.classId, formData)
@@ -224,6 +226,23 @@ export class ClassFormComponent implements OnInit {
         this.isSaving = false;
       },
     });
+  }
+
+  private formatClassName(value: any): string {
+    const num = parseInt(value, 10);
+    if (isNaN(num)) return String(value);
+    const suffix = this.getOrdinalSuffix(num);
+    return `${num}${suffix}`;
+  }
+
+  private getOrdinalSuffix(n: number): string {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 13) return 'th';
+    if (mod10 === 1) return 'st';
+    if (mod10 === 2) return 'nd';
+    if (mod10 === 3) return 'rd';
+    return 'th';
   }
 
   cancel(): void {

@@ -94,17 +94,10 @@ export class StudentFormComponent implements OnInit {
       zip: [''],
     });
 
-    this.loadClasses();
     this.loadAcademicYears();
 
-    // Listen for class/section/academicYear changes to reload subjects
-    this.studentForm.get('classId')?.valueChanges.subscribe(() => {
-      if (!this.isLoading) this.loadSubjectsForStudent();
-    });
+    // Listen for section changes to reload subjects
     this.studentForm.get('sectionId')?.valueChanges.subscribe(() => {
-      if (!this.isLoading) this.loadSubjectsForStudent();
-    });
-    this.studentForm.get('academicYearId')?.valueChanges.subscribe(() => {
       if (!this.isLoading) this.loadSubjectsForStudent();
     });
 
@@ -164,8 +157,6 @@ export class StudentFormComponent implements OnInit {
             dateOfBirth: s.dateOfBirth,
             gender: s.gender,
             bloodGroup: s.bloodGroup,
-            classId: s.classId,
-            sectionId: s.sectionId,
             academicYearId: s.academicYearId,
             parentName: s.parentName || '',
             parentPhone: s.parentPhone || '',
@@ -176,6 +167,16 @@ export class StudentFormComponent implements OnInit {
             state: s.address?.state || '',
             zip: s.address?.zip || '',
           });
+          // Load classes for this student's academic year, then set classId/sectionId
+          if (s.academicYearId) {
+            this.apiService.getClasses(s.academicYearId).subscribe({
+              next: (clsRes) => {
+                this.classes = Array.isArray(clsRes.data) ? clsRes.data : [];
+                this.studentForm.patchValue({ classId: s.classId, sectionId: s.sectionId });
+                this.loadSubjectsForStudent();
+              },
+            });
+          }
         }
         this.isLoading = false;
       },
@@ -196,10 +197,26 @@ export class StudentFormComponent implements OnInit {
     return cls?.sections || [];
   }
 
-  loadClasses(): void {
-    this.apiService.getClasses().subscribe({
+  onAcademicYearChange(): void {
+    this.studentForm.patchValue({ classId: '', sectionId: '' });
+    this.classes = [];
+    this.subjectsList = [];
+    const yearId = this.studentForm.get('academicYearId')?.value;
+    if (yearId) {
+      this.loadClassesForYear(yearId);
+    }
+  }
+
+  onClassChange(): void {
+    this.studentForm.patchValue({ sectionId: '' });
+    this.subjectsList = [];
+    this.loadSubjectsForStudent();
+  }
+
+  private loadClassesForYear(yearId: string): void {
+    this.apiService.getClasses(yearId).subscribe({
       next: (response) => {
-        this.classes = response.data;
+        this.classes = Array.isArray(response.data) ? response.data : [];
       },
     });
   }
@@ -207,11 +224,12 @@ export class StudentFormComponent implements OnInit {
   loadAcademicYears(): void {
     this.apiService.getAcademicYears().subscribe({
       next: (response) => {
-        this.academicYears = response.data;
+        this.academicYears = Array.isArray(response.data) ? response.data : [];
         if (!this.isEditing) {
           const current = this.academicYears.find(y => y.current);
           if (current) {
             this.studentForm.patchValue({ academicYearId: current.academicYearId });
+            this.loadClassesForYear(current.academicYearId);
           }
         }
       },

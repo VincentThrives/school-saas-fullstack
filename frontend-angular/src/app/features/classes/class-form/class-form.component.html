@@ -20,9 +20,10 @@
         <h3 class="section-title">Class Information</h3>
         <div class="form-grid">
           <mat-form-field appearance="outline">
-            <mat-label>Class Name</mat-label>
-            <input matInput formControlName="name" placeholder="e.g., Class 10, Grade 5">
-            <mat-error>Class name is required</mat-error>
+            <mat-label>Class</mat-label>
+            <input matInput formControlName="name" type="number" min="1" max="12" placeholder="e.g., 1, 2, 10">
+            <mat-hint>Enter class number (1-12)</mat-hint>
+            <mat-error>Class number is required</mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline">

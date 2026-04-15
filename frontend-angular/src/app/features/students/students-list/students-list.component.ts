@@ -50,10 +50,11 @@ export class StudentsListComponent implements OnInit {
   isLoading = false;
 
   searchQuery = '';
+  academicYearFilter = '';
   classFilter = '';
   sectionFilter = '';
-  genderFilter = '';
 
+  academicYears: any[] = [];
   classes: SchoolClass[] = [];
   classMap: Record<string, string> = {};
   sectionMap: Record<string, string> = {};
@@ -71,12 +72,47 @@ export class StudentsListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadClasses();
-    this.loadStudents();
+    // Load ALL classes first for name mapping (so class column always shows names)
+    this.apiService.getClasses().subscribe({
+      next: (res) => {
+        const allClasses = Array.isArray(res.data) ? res.data : [];
+        allClasses.forEach(cls => {
+          this.classMap[cls.classId] = cls.name;
+          (cls.sections || []).forEach(sec => { this.sectionMap[sec.sectionId] = sec.name; });
+        });
+      },
+    });
+
+    this.apiService.getAcademicYears().subscribe({
+      next: (res) => {
+        this.academicYears = Array.isArray(res.data) ? res.data : [];
+        const current = this.academicYears.find((y: any) => y.current);
+        if (current) {
+          this.academicYearFilter = current.academicYearId;
+          this.loadClasses();
+        }
+        this.loadStudents();
+      },
+    });
+  }
+
+  onAcademicYearChange(): void {
+    this.classFilter = '';
+    this.sectionFilter = '';
+    this.classes = [];
+    if (this.academicYearFilter) {
+      this.loadClasses();
+    }
+    this.onFilterChange();
+  }
+
+  onClassFilterChange(): void {
+    this.sectionFilter = '';
+    this.onFilterChange();
   }
 
   loadClasses(): void {
-    this.apiService.getClasses().subscribe({
+    this.apiService.getClasses(this.academicYearFilter || undefined).subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.classes = Array.isArray(response.data) ? response.data : [];
@@ -134,14 +170,21 @@ export class StudentsListComponent implements OnInit {
     const params: any = {};
     if (this.classFilter) params.classId = this.classFilter;
     if (this.sectionFilter) params.sectionId = this.sectionFilter;
-    if (this.genderFilter) params.gender = this.genderFilter;
     if (this.searchQuery) params.search = this.searchQuery;
 
     this.apiService.getStudents(this.pageIndex, this.pageSize, Object.keys(params).length > 0 ? params : undefined).subscribe({
       next: (response) => {
         if (response.success && response.data) {
-          this.dataSource.data = response.data.content || [];
-          this.totalElements = response.data.totalElements || 0;
+          let students = response.data.content || [];
+          // Filter by academic year if selected (and no class filter — class already filters by year)
+          if (this.academicYearFilter && !this.classFilter) {
+            const classIdsForYear = this.classes.map(c => c.classId);
+            if (classIdsForYear.length > 0) {
+              students = students.filter((s: any) => classIdsForYear.includes(s.classId));
+            }
+          }
+          this.dataSource.data = students;
+          this.totalElements = students.length;
 
           // Load user data for students that have userId
           const userIds = this.dataSource.data

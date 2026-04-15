@@ -175,6 +175,10 @@ export class ApiService {
     return this.http.post<ApiResponse<AcademicYear>>(`${this.API}/academic-years`, year);
   }
 
+  updateAcademicYear(id: string, year: Partial<AcademicYear>): Observable<ApiResponse<AcademicYear>> {
+    return this.http.put<ApiResponse<AcademicYear>>(`${this.API}/academic-years/${id}`, year);
+  }
+
   setCurrentAcademicYear(id: string): Observable<ApiResponse<AcademicYear>> {
     return this.http.patch<ApiResponse<AcademicYear>>(`${this.API}/academic-years/${id}/set-current`, null);
   }

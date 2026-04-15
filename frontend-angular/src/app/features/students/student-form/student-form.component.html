@@ -71,31 +71,33 @@
         <h3 class="section-title">Class Information</h3>
         <div class="form-grid">
           <mat-form-field appearance="outline">
-            <mat-label>Class</mat-label>
-            <mat-select formControlName="classId">
-              <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
-            </mat-select>
-            <mat-error>Class is required</mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Section *</mat-label>
-            <mat-select formControlName="sectionId" required>
-              <mat-option *ngFor="let section of selectedClassSections" [value]="section.sectionId">
-                {{ section.name }}
-              </mat-option>
-            </mat-select>
-            <mat-error>Section is required</mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Academic Year</mat-label>
-            <mat-select formControlName="academicYearId">
+            <mat-label>Academic Year *</mat-label>
+            <mat-select formControlName="academicYearId" (selectionChange)="onAcademicYearChange()">
               <mat-option *ngFor="let year of academicYears" [value]="year.academicYearId">
                 {{ year.label }} {{ year.current ? '(Current)' : '' }}
               </mat-option>
             </mat-select>
             <mat-error>Academic year is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Class *</mat-label>
+            <mat-select formControlName="classId" [disabled]="!studentForm.get('academicYearId')?.value" (selectionChange)="onClassChange()">
+              <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
+            </mat-select>
+            <mat-hint *ngIf="!studentForm.get('academicYearId')?.value">Select academic year first</mat-hint>
+            <mat-error>Class is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Section *</mat-label>
+            <mat-select formControlName="sectionId" required [disabled]="!studentForm.get('classId')?.value">
+              <mat-option *ngFor="let section of selectedClassSections" [value]="section.sectionId">
+                {{ section.name }}
+              </mat-option>
+            </mat-select>
+            <mat-hint *ngIf="!studentForm.get('classId')?.value">Select class first</mat-hint>
+            <mat-error>Section is required</mat-error>
           </mat-form-field>
         </div>
 

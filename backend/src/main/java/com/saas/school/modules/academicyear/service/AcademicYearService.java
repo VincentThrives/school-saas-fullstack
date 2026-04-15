@@ -20,6 +20,15 @@ public class AcademicYearService {
         return repo.save(req);
     }
 
+    public AcademicYear update(String id, AcademicYear req) {
+        AcademicYear year = repo.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("AcademicYear", id));
+        if (req.getLabel() != null) year.setLabel(req.getLabel());
+        if (req.getStartDate() != null) year.setStartDate(req.getStartDate());
+        if (req.getEndDate() != null) year.setEndDate(req.getEndDate());
+        return repo.save(year);
+    }
+
     public AcademicYear setCurrent(String id) {
         repo.findByIsCurrent(true).ifPresent(y -> { y.setCurrent(false); repo.save(y); });
         AcademicYear year = repo.findById(id)

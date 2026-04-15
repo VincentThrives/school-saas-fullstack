@@ -52,6 +52,14 @@ export class AcademicYearsListComponent implements OnInit {
   deleteDialogOpen = false;
   selectedYear: AcademicYear | null = null;
 
+  // Edit dialog state
+  editDialogOpen = false;
+  editYearId = '';
+  editLabel = '';
+  editStartDate = '';
+  editEndDate = '';
+  isEditing = false;
+
   constructor(
     private apiService: ApiService,
     private snackBar: MatSnackBar
@@ -214,5 +222,42 @@ export class AcademicYearsListComponent implements OnInit {
   getStatusClass(year: AcademicYear): string {
     if (year.current) return 'status-current';
     return 'status-archived';
+  }
+
+  openEditDialog(year: AcademicYear): void {
+    this.editYearId = year.academicYearId;
+    this.editLabel = year.label;
+    this.editStartDate = year.startDate || '';
+    this.editEndDate = year.endDate || '';
+    this.editDialogOpen = true;
+  }
+
+  closeEditDialog(): void {
+    this.editDialogOpen = false;
+    this.editYearId = '';
+    this.editLabel = '';
+    this.editStartDate = '';
+    this.editEndDate = '';
+  }
+
+  saveEdit(): void {
+    if (!this.editYearId || !this.editLabel.trim()) return;
+    this.isEditing = true;
+    this.apiService.updateAcademicYear(this.editYearId, {
+      label: this.editLabel.trim(),
+      startDate: this.editStartDate,
+      endDate: this.editEndDate,
+    }).subscribe({
+      next: () => {
+        this.isEditing = false;
+        this.editDialogOpen = false;
+        this.snackBar.open('Academic year updated', 'Close', { duration: 3000 });
+        this.loadAcademicYears();
+      },
+      error: (err) => {
+        this.isEditing = false;
+        this.snackBar.open(err?.error?.message || 'Failed to update', 'Close', { duration: 3000 });
+      },
+    });
   }
 }

@@ -83,12 +83,45 @@ export class BulkPromoteComponent implements OnInit {
     });
   }
 
+  // Filter TO academic years: only years after FROM year
+  get toAcademicYearOptions(): any[] {
+    if (!this.fromAcademicYearId) return [];
+    const fromYear = this.academicYears.find(y => y.academicYearId === this.fromAcademicYearId);
+    if (!fromYear) return [];
+    // Compare by label (e.g., "2025-2026" < "2026-2027")
+    return this.academicYears.filter(y => y.label > fromYear.label);
+  }
+
+  // Filter TO classes: exclude the FROM class (only higher/different classes)
+  get toClassOptions(): any[] {
+    if (!this.fromClassId) return this.toClasses;
+    const fromCls = this.fromClasses.find(c => c.classId === this.fromClassId);
+    if (!fromCls) return this.toClasses;
+    const fromNum = this.extractClassNumber(fromCls.name);
+    return this.toClasses.filter(c => {
+      const toNum = this.extractClassNumber(c.name);
+      return toNum > fromNum;
+    });
+  }
+
+  private extractClassNumber(name: string): number {
+    const match = String(name).match(/\d+/);
+    return match ? parseInt(match[0], 10) : 0;
+  }
+
   onFromYearChange(): void {
     this.fromClasses = this.allClasses.filter(c => c.academicYearId === this.fromAcademicYearId);
     this.fromClassId = '';
     this.fromSectionId = '';
     this.fromSections = [];
+    // Reset TO side
+    this.toAcademicYearId = '';
+    this.toClassId = '';
+    this.toSectionId = '';
+    this.toClasses = [];
+    this.toSections = [];
     this.students = [];
+    this.studentsLoaded = false;
     this.promotionDone = false;
   }
 
@@ -96,20 +129,22 @@ export class BulkPromoteComponent implements OnInit {
     const cls = this.fromClasses.find(c => c.classId === this.fromClassId);
     this.fromSections = cls?.sections || [];
     this.fromSectionId = '';
+    // Reset TO class/section
+    this.toClassId = '';
+    this.toSectionId = '';
+    this.toSections = [];
     this.students = [];
+    this.studentsLoaded = false;
     this.promotionDone = false;
     if (this.fromSections.length === 1) {
       this.fromSectionId = this.fromSections[0].sectionId;
-      this.loadStudents();
     }
   }
 
   onFromSectionChange(): void {
     this.students = [];
+    this.studentsLoaded = false;
     this.promotionDone = false;
-    if (this.fromSectionId) {
-      this.loadStudents();
-    }
   }
 
   onToYearChange(): void {

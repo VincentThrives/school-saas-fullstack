@@ -23,6 +23,12 @@ public class AcademicYearController {
     public ResponseEntity<ApiResponse<AcademicYear>> create(@RequestBody AcademicYear req) {
         return ResponseEntity.ok(ApiResponse.success(service.create(req), "Created"));
     }
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<AcademicYear>> update(@PathVariable String id, @RequestBody AcademicYear req) {
+        return ResponseEntity.ok(ApiResponse.success(service.update(id, req), "Updated"));
+    }
+
     @PatchMapping("/{id}/set-current")
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<AcademicYear>> setCurrent(@PathVariable String id) {
