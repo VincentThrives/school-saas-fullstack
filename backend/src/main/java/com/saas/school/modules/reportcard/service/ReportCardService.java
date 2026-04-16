@@ -19,8 +19,10 @@ import com.saas.school.modules.classes.model.SchoolClass;
 import com.saas.school.modules.classes.repository.SchoolClassRepository;
 import com.saas.school.modules.exam.model.Exam;
 import com.saas.school.modules.exam.model.ExamMark;
+import com.saas.school.modules.exam.model.StudentAssessments;
 import com.saas.school.modules.exam.repository.ExamMarkRepository;
 import com.saas.school.modules.exam.repository.ExamRepository;
+import com.saas.school.modules.exam.repository.StudentAssessmentsRepository;
 import com.saas.school.modules.reportcard.model.ReportCard;
 import com.saas.school.modules.reportcard.repository.ReportCardRepository;
 import com.saas.school.modules.student.model.Student;
@@ -42,6 +44,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Service
 public class ReportCardService {
@@ -53,6 +57,9 @@ public class ReportCardService {
 
     @Autowired
     private ExamMarkRepository examMarkRepository;
+
+    @Autowired
+    private StudentAssessmentsRepository assessmentsRepository;
 
     @Autowired
     private StudentRepository studentRepository;
@@ -75,8 +82,8 @@ public class ReportCardService {
     @Autowired
     private com.saas.school.modules.academicyear.repository.AcademicYearRepository academicYearRepository;
 
-    public ReportCard generateReportCard(String studentId, String academicYearId) {
-        logger.info("Generating report card for studentId={}, academicYearId={}", studentId, academicYearId);
+    public ReportCard generateReportCard(String studentId, String academicYearId, String examType) {
+        logger.info("Generating report card for studentId={}, academicYearId={}, examType={}", studentId, academicYearId, examType);
 
         Student student = studentRepository.findById(studentId)
                 .filter(s -> s.getDeletedAt() == null)
@@ -115,17 +122,40 @@ public class ReportCardService {
             }
         }
 
-        // Fetch all exams for the student's class and academic year
+        // Fetch exams for the student's class and academic year, optionally filtered by exam type
         List<Exam> exams = examRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
+        if (examType != null && !examType.isEmpty()) {
+            exams = exams.stream().filter(e -> examType.equals(e.getExamType())).collect(Collectors.toList());
+        }
         List<String> examIds = exams.stream().map(Exam::getExamId).collect(Collectors.toList());
-
-        // Fetch marks for this student across all exams
-        List<ExamMark> marks = examMarkRepository.findByStudentIdAndExamIdIn(studentId, examIds);
 
         // Build a map of examId -> Exam for lookup
         Map<String, Exam> examMap = new HashMap<>();
         for (Exam exam : exams) {
             examMap.put(exam.getExamId(), exam);
+        }
+
+        // Fetch marks — try StudentAssessments (batch) first, fallback to ExamMark (legacy)
+        // Build a simple list of (examId, marksObtained) per student
+        Map<String, Double> examMarksMap = new HashMap<>(); // examId -> marks obtained
+
+        // Check batch marks (StudentAssessments)
+        List<StudentAssessments> batchList = assessmentsRepository.findByExamIdIn(examIds);
+        for (StudentAssessments batch : batchList) {
+            if (batch.getEntries() == null) continue;
+            for (StudentAssessments.MarkEntry entry : batch.getEntries()) {
+                if (studentId.equals(entry.getStudentId())) {
+                    examMarksMap.put(batch.getExamId(), entry.getMarksObtained() != null ? entry.getMarksObtained() : 0.0);
+                }
+            }
+        }
+
+        // Fallback to legacy ExamMark for exams not found in batch
+        if (examMarksMap.isEmpty()) {
+            List<ExamMark> marks = examMarkRepository.findByStudentIdAndExamIdIn(studentId, examIds);
+            for (ExamMark mark : marks) {
+                examMarksMap.putIfAbsent(mark.getExamId(), mark.getMarksObtained() != null ? mark.getMarksObtained() : 0.0);
+            }
         }
 
         // Standard subjects list
@@ -155,13 +185,13 @@ public class ReportCardService {
         Map<String, Double> subjectMaxMarks = new HashMap<>();
         Map<String, String> subjectNamesFromExams = new HashMap<>();
 
-        for (ExamMark mark : marks) {
-            Exam exam = examMap.get(mark.getExamId());
+        for (Map.Entry<String, Double> entry : examMarksMap.entrySet()) {
+            Exam exam = examMap.get(entry.getKey());
             if (exam == null) continue;
             String subjectId = exam.getSubjectId();
             String subjectName = allSubjects.getOrDefault(subjectId, exam.getSubjectName() != null ? exam.getSubjectName() : subjectId);
             subjectNamesFromExams.putIfAbsent(subjectId, subjectName);
-            subjectMarksObtained.merge(subjectId, mark.getMarksObtained() != null ? mark.getMarksObtained() : 0.0, Double::sum);
+            subjectMarksObtained.merge(subjectId, entry.getValue(), Double::sum);
             subjectMaxMarks.merge(subjectId, (double) exam.getMaxMarks(), Double::sum);
         }
 
@@ -409,15 +439,15 @@ public class ReportCardService {
         }
     }
 
-    public List<ReportCard> generateBulkReportCards(String classId, String academicYearId) {
-        logger.info("Generating bulk report cards for classId={}, academicYearId={}", classId, academicYearId);
+    public List<ReportCard> generateBulkReportCards(String classId, String academicYearId, String examType) {
+        logger.info("Generating bulk report cards for classId={}, academicYearId={}, examType={}", classId, academicYearId, examType);
 
         List<Student> students = studentRepository.findByClassIdAndDeletedAtIsNull(classId, Pageable.unpaged()).getContent();
         List<ReportCard> reportCards = new ArrayList<>();
 
         for (Student student : students) {
             try {
-                ReportCard rc = generateReportCard(student.getStudentId(), academicYearId);
+                ReportCard rc = generateReportCard(student.getStudentId(), academicYearId, examType);
                 reportCards.add(rc);
             } catch (Exception e) {
                 logger.error("Error generating report card for studentId={}: {}", student.getStudentId(), e.getMessage());
@@ -433,6 +463,36 @@ public class ReportCardService {
 
         logger.info("Bulk report cards generated: {} cards for classId={}", reportCards.size(), classId);
         return reportCards;
+    }
+
+    public byte[] generateBulkPdf(String classId, String academicYearId, String examType, String tenantId) {
+        logger.info("Generating bulk PDF zip for classId={}, academicYearId={}, examType={}", classId, academicYearId, examType);
+
+        List<ReportCard> reportCards = generateBulkReportCards(classId, academicYearId, examType);
+
+        try {
+            ByteArrayOutputStream zipBaos = new ByteArrayOutputStream();
+            ZipOutputStream zipOut = new ZipOutputStream(zipBaos);
+
+            for (ReportCard rc : reportCards) {
+                try {
+                    byte[] pdfBytes = generateReportCardPdf(rc.getId(), tenantId);
+                    String fileName = "report_card_" + (rc.getStudentName() != null ? rc.getStudentName().replaceAll("[^a-zA-Z0-9]", "_") : rc.getStudentId()) + ".pdf";
+                    zipOut.putNextEntry(new ZipEntry(fileName));
+                    zipOut.write(pdfBytes);
+                    zipOut.closeEntry();
+                } catch (Exception e) {
+                    logger.error("Error generating PDF for student {}: {}", rc.getStudentId(), e.getMessage());
+                }
+            }
+
+            zipOut.close();
+            logger.info("Bulk PDF zip generated with {} report cards", reportCards.size());
+            return zipBaos.toByteArray();
+        } catch (Exception e) {
+            logger.error("Error generating bulk PDF zip: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to generate bulk PDF zip", e);
+        }
     }
 
     private String calculateGrade(double percentage) {

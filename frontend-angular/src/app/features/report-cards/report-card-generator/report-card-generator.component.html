@@ -8,42 +8,77 @@
     ]"
   ></app-page-header>
 
+  <!-- Filters -->
   <mat-card class="filter-card">
     <div class="filter-row">
       <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onAcademicYearChange()">
+          <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">
+            {{ ay.label }} {{ ay.current ? '(Current)' : '' }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Exam Type</mat-label>
+        <mat-select [(ngModel)]="selectedExamType" (selectionChange)="onExamTypeChange()" [disabled]="!selectedAcademicYearId">
+          <mat-option value="">All Exam Types</mat-option>
+          <mat-option *ngFor="let type of examTypes" [value]="type">{{ type }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Class</mat-label>
-        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadReportCards()">
+        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()" [disabled]="!selectedAcademicYearId">
+          <mat-option value="">Select Class</mat-option>
           <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
         </mat-select>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="filter-field">
-        <mat-label>Academic Year</mat-label>
-        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="loadReportCards()">
-          <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">{{ ay.label }}</mat-option>
+        <mat-label>Section</mat-label>
+        <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSectionChange()" [disabled]="!selectedClassId">
+          <mat-option value="">All Sections</mat-option>
+          <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">{{ sec.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field student-filter" *ngIf="students.length > 0">
+        <mat-label>Student</mat-label>
+        <mat-select [(ngModel)]="selectedStudentId" (selectionChange)="onStudentChange()">
+          <mat-option value="">All Students</mat-option>
+          <mat-option *ngFor="let s of students" [value]="s.studentId">
+            {{ s.firstName }} {{ s.lastName }} ({{ s.admissionNumber }})
+          </mat-option>
         </mat-select>
       </mat-form-field>
     </div>
   </mat-card>
 
+  <!-- Actions Bar -->
   <mat-card class="table-card">
     <div class="table-header">
-      <span class="selected-count" *ngIf="selection.selected.length > 0">
-        {{ selection.selected.length }} selected
-      </span>
-      <span *ngIf="selection.selected.length === 0"></span>
-      <button
-        mat-raised-button
-        class="generate-btn"
-        [disabled]="selection.isEmpty() || isGenerating"
-        (click)="generateReportCards()"
-      >
-        <mat-icon>description</mat-icon>
-        {{ isGenerating ? 'Generating...' : 'Generate Report Cards' }}
-      </button>
+      <div class="header-left">
+        <span class="selected-count" *ngIf="selection.selected.length > 0">
+          {{ selection.selected.length }} selected
+        </span>
+        <span class="total-count" *ngIf="filteredReportCards.length > 0 && selection.selected.length === 0">
+          {{ filteredReportCards.length }} students
+        </span>
+      </div>
+      <div class="header-actions">
+        <button mat-raised-button color="accent"
+          [disabled]="filteredReportCards.length === 0 || isDownloadingAll"
+          (click)="downloadAllPdfs()">
+          <mat-icon>download</mat-icon>
+          {{ isDownloadingAll ? 'Downloading...' : 'Download All PDFs' }}
+        </button>
+      </div>
     </div>
 
-    <table mat-table [dataSource]="reportCards" class="report-table">
+    <!-- Table -->
+    <table mat-table [dataSource]="filteredReportCards" class="report-table">
       <!-- Checkbox -->
       <ng-container matColumnDef="select">
         <th mat-header-cell *matHeaderCellDef>
@@ -108,25 +143,21 @@
       </ng-container>
 
       <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr
-        mat-row
-        *matRowDef="let row; columns: displayedColumns;"
-        class="table-row"
-      ></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="table-row"></tr>
     </table>
 
     <div class="loading-row" *ngIf="isLoading">
       <mat-spinner diameter="36"></mat-spinner>
     </div>
 
-    <div class="empty-state" *ngIf="!isLoading && reportCards.length === 0 && selectedClassId">
+    <div class="empty-state" *ngIf="!isLoading && filteredReportCards.length === 0 && selectedClassId">
       <mat-icon class="empty-icon">description</mat-icon>
-      <p>No report cards found for the selected class</p>
+      <p>No report cards found for the selected filters</p>
     </div>
 
     <div class="empty-state" *ngIf="!selectedClassId">
       <mat-icon class="empty-icon">filter_list</mat-icon>
-      <p>Select a class and academic year to view report cards</p>
+      <p>Select academic year and class to view report cards</p>
     </div>
   </mat-card>
 </div>

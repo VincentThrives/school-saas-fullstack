@@ -234,18 +234,28 @@ export class ApiService {
     return this.http.get<ApiResponse<any[]>>(`${this.API}/report-cards/class/${classId}/generate?academicYearId=${academicYearId}`);
   }
 
-  generateReportCards(params: { classId: string; academicYearId: string; studentIds: string[] }): Observable<ApiResponse<any>> {
-    return this.http.post<ApiResponse<any>>(`${this.API}/report-cards/class/${params.classId}/generate?academicYearId=${params.academicYearId}`, null);
+  generateReportCards(params: { classId: string; academicYearId: string; studentIds: string[]; examType?: string }): Observable<ApiResponse<any>> {
+    let url = `${this.API}/report-cards/class/${params.classId}/generate?academicYearId=${params.academicYearId}`;
+    if (params.examType) url += `&examType=${encodeURIComponent(params.examType)}`;
+    return this.http.post<ApiResponse<any>>(url, null);
   }
 
-  getStudentReportCard(studentId: string, academicYearId: string): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${this.API}/report-cards/student/${studentId}?academicYearId=${academicYearId}`);
+  getStudentReportCard(studentId: string, academicYearId: string, examType?: string): Observable<ApiResponse<any>> {
+    let url = `${this.API}/report-cards/student/${studentId}?academicYearId=${academicYearId}`;
+    if (examType) url += `&examType=${encodeURIComponent(examType)}`;
+    return this.http.get<ApiResponse<any>>(url);
   }
 
-  downloadReportCardPdf(studentId: string, academicYearId: string, tenantId: string): Observable<Blob> {
-    return this.http.get(`${this.API}/report-cards/student/${studentId}/pdf?academicYearId=${academicYearId}&tenantId=${tenantId}`, {
-      responseType: 'blob',
-    });
+  downloadReportCardPdf(studentId: string, academicYearId: string, tenantId: string, examType?: string): Observable<Blob> {
+    let url = `${this.API}/report-cards/student/${studentId}/pdf?academicYearId=${academicYearId}&tenantId=${tenantId}`;
+    if (examType) url += `&examType=${encodeURIComponent(examType)}`;
+    return this.http.get(url, { responseType: 'blob' });
+  }
+
+  downloadAllReportCardPdfs(classId: string, academicYearId: string, tenantId: string, examType?: string): Observable<Blob> {
+    let url = `${this.API}/report-cards/class/${classId}/pdf?academicYearId=${academicYearId}&tenantId=${tenantId}`;
+    if (examType) url += `&examType=${encodeURIComponent(examType)}`;
+    return this.http.get(url, { responseType: 'blob' });
   }
 
   // ── Exams ──────────────────────────────────────────────────────────────
