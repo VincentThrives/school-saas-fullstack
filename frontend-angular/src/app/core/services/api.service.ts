@@ -496,8 +496,37 @@ export class ApiService {
     return this.http.get<ApiResponse<any[]>>(`${this.API}/fees/structures`, { params });
   }
 
+  createFeeStructure(structure: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.API}/fees/structures`, structure);
+  }
+
+  updateFeeStructure(id: string, structure: any): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.API}/fees/structures/${id}`, structure);
+  }
+
+  deleteFeeStructure(id: string): Observable<ApiResponse<any>> {
+    return this.http.delete<ApiResponse<any>>(`${this.API}/fees/structures/${id}`);
+  }
+
   getStudentFeePayments(studentId: string): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.API}/fees/payments/student/${studentId}`);
+  }
+
+  getStudentFeeDetails(studentId: string, academicYearId: string): Observable<ApiResponse<any>> {
+    let params = new HttpParams().set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<any>>(`${this.API}/fees/student/${studentId}`, { params });
+  }
+
+  createFeePayment(payment: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.API}/fees/payments`, payment);
+  }
+
+  updateFeePayment(id: string, payment: any): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.API}/fees/payments/${id}`, payment);
+  }
+
+  deleteFeePayment(id: string): Observable<ApiResponse<any>> {
+    return this.http.delete<ApiResponse<any>>(`${this.API}/fees/payments/${id}`);
   }
 
   // ── Feature Management ───────────────────────────────────────────────
@@ -636,7 +665,7 @@ export class ApiService {
   getClassRankings(classId: string, examId?: string): Observable<ApiResponse<ClassRanking[]>> {
     let params = new HttpParams();
     if (examId) params = params.set('examId', examId);
-    return this.http.get<ApiResponse<ClassRanking[]>>(`${this.API}/analytics/classes/${classId}/rankings`, { params });
+    return this.http.get<ApiResponse<ClassRanking[]>>(`${this.API}/analytics/class/${classId}/rankings`, { params });
   }
 
   getClassPerformance(classId: string, academicYearId?: string): Observable<ApiResponse<any>> {

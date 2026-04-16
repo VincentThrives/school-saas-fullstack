@@ -360,6 +360,48 @@ export interface BulkFeatureToggleRequest {
   reason?: string;
 }
 
+// ── Fees ───────────────────────────────────────────────────────────────
+export type FeeType = 'TUITION' | 'EXAM' | 'LABORATORY' | 'SPORTS' | 'TRANSPORT' | 'LIBRARY' | 'OTHER';
+export type PaymentMode = 'CASH' | 'ONLINE' | 'CHEQUE' | 'DD' | 'OTHER';
+export type PaymentStatus = 'PARTIAL' | 'FULL';
+
+export interface FeeStructure {
+  feeStructureId: string;
+  academicYearId: string;
+  classId: string;
+  feeType?: FeeType;
+  amount: number;
+  dueDate?: string;
+  description?: string;
+  createdAt?: string;
+}
+
+export interface FeePayment {
+  paymentId: string;
+  receiptNumber: string;
+  studentId: string;
+  classId: string;
+  feeStructureId?: string;
+  academicYearId: string;
+  amountPaid: number;
+  paymentDate: string;
+  paymentMode: PaymentMode;
+  paymentStatus: PaymentStatus;
+  remarks?: string;
+  recordedBy?: string;
+  createdAt?: string;
+}
+
+export interface StudentFeeDetails {
+  studentId: string;
+  totalFee: number;
+  totalPaid: number;
+  pending: number;
+  status: 'PAID' | 'PARTIAL' | 'OVERDUE' | 'UNPAID' | 'NO_FEE';
+  payments: FeePayment[];
+  structures: FeeStructure[];
+}
+
 // ── ID Card ─────────────────────────────────────────────────────────────
 export interface IdCardRequest {
   userType: 'STUDENT' | 'TEACHER';

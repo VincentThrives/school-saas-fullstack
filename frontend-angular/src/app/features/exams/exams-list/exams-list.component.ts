@@ -50,7 +50,7 @@ export class ExamsListComponent implements OnInit {
   classes: SchoolClass[] = [];
   classMap: Record<string, string> = {};
   sectionMap: Record<string, string> = {};
-  displayedColumns = ['name', 'class', 'subject', 'date', 'maxMarks', 'status', 'enterMarks', 'viewResults', 'actions'];
+  displayedColumns = ['examType', 'name', 'class', 'subject', 'date', 'maxMarks', 'status', 'enterMarks', 'viewResults', 'actions'];
   marksCountMap: Record<string, number> = {};
 
   academicYearFilter = '';
@@ -64,6 +64,9 @@ export class ExamsListComponent implements OnInit {
   pageSize = 10;
   pageIndex = 0;
   isLoading = false;
+
+  deleteDialogOpen = false;
+  selectedExam: any = null;
 
   constructor(
     private api: ApiService,
@@ -259,18 +262,31 @@ export class ExamsListComponent implements OnInit {
   }
 
   deleteExam(exam: any): void {
-    const examId = exam.examId || exam.id;
-    if (confirm(`Are you sure you want to delete exam "${exam.name}"? This action cannot be undone.`)) {
-      this.api.deleteExam(examId).subscribe({
-        next: () => {
-          this.snackBar.open('Exam deleted successfully', 'Close', { duration: 3000 });
-          this.loadExams();
-        },
-        error: () => {
-          this.snackBar.open('Failed to delete exam', 'Close', { duration: 3000 });
-        },
-      });
-    }
+    this.selectedExam = exam;
+    this.deleteDialogOpen = true;
+  }
+
+  cancelDelete(): void {
+    this.deleteDialogOpen = false;
+    this.selectedExam = null;
+  }
+
+  confirmDelete(): void {
+    if (!this.selectedExam) return;
+    const examId = this.selectedExam.examId || this.selectedExam.id;
+    const name = this.selectedExam.name;
+    this.deleteDialogOpen = false;
+    this.selectedExam = null;
+
+    this.api.deleteExam(examId).subscribe({
+      next: () => {
+        this.snackBar.open(`Exam "${name}" deleted successfully`, 'Close', { duration: 3000 });
+        this.loadExams();
+      },
+      error: () => {
+        this.snackBar.open('Failed to delete exam', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   getExamTypeLabel(examType: string): string {

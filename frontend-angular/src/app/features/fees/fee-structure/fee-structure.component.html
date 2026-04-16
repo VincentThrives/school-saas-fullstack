@@ -1,0 +1,135 @@
+<div class="fee-structure-container">
+  <app-page-header
+    title="Fee Structure"
+    subtitle="Set fee amounts per class for each academic year"
+    [breadcrumbs]="[{ label: 'Dashboard', link: '/dashboard' }, { label: 'Fee Structure' }]"
+    actionLabel="Add Fee"
+    actionIcon="add"
+    (actionClick)="openForm()">
+  </app-page-header>
+
+  <!-- Filters -->
+  <mat-card class="filter-card">
+    <div class="filter-row">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onAcademicYearChange()">
+          <mat-option *ngFor="let yr of academicYears" [value]="yr.academicYearId">
+            {{ yr.label }} {{ yr.current ? '(Current)' : '' }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Class</mat-label>
+        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadStructures()">
+          <mat-option value="">All Classes</mat-option>
+          <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <button mat-icon-button matTooltip="Refresh" (click)="loadStructures()">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+  </mat-card>
+
+  <!-- Table -->
+  <mat-card class="table-card">
+    <table mat-table [dataSource]="structures" class="fee-table">
+      <ng-container matColumnDef="className">
+        <th mat-header-cell *matHeaderCellDef>Class</th>
+        <td mat-cell *matCellDef="let s">{{ getClassName(s.classId) }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="amount">
+        <th mat-header-cell *matHeaderCellDef>Total Amount</th>
+        <td mat-cell *matCellDef="let s"><strong>Rs. {{ s.amount | number:'1.0-0' }}</strong></td>
+      </ng-container>
+
+      <ng-container matColumnDef="dueDate">
+        <th mat-header-cell *matHeaderCellDef>Due Date</th>
+        <td mat-cell *matCellDef="let s">{{ s.dueDate || '-' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="description">
+        <th mat-header-cell *matHeaderCellDef>Description</th>
+        <td mat-cell *matCellDef="let s">{{ s.description || '-' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
+        <td mat-cell *matCellDef="let s" class="actions-col">
+          <button mat-icon-button matTooltip="Edit" (click)="openForm(s)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button matTooltip="Delete" color="warn" (click)="confirmDelete(s)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell no-data-cell" [attr.colspan]="displayedColumns.length">
+          No fee structures found
+        </td>
+      </tr>
+    </table>
+
+    <div class="loading-row" *ngIf="isLoading">
+      <mat-spinner diameter="36"></mat-spinner>
+    </div>
+  </mat-card>
+
+  <!-- Add/Edit Form Overlay -->
+  <div class="form-overlay" *ngIf="formOpen" (click)="closeForm()">
+    <div class="form-dialog" (click)="$event.stopPropagation()">
+      <h3>{{ editingId ? 'Edit Fee Structure' : 'Add Fee Structure' }}</h3>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Class</mat-label>
+        <mat-select [(ngModel)]="formData.classId" [disabled]="!!editingId">
+          <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Total Amount (Rs.)</mat-label>
+        <input matInput type="number" [(ngModel)]="formData.amount" placeholder="e.g. 50000">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Due Date</mat-label>
+        <input matInput type="date" [(ngModel)]="formData.dueDate">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Description</mat-label>
+        <input matInput [(ngModel)]="formData.description" placeholder="e.g. Annual Fee, Tuition Fee">
+      </mat-form-field>
+
+      <div class="dialog-actions">
+        <button mat-button (click)="closeForm()">Cancel</button>
+        <button mat-raised-button color="primary" (click)="saveStructure()" [disabled]="!formData.classId || !formData.amount">
+          {{ editingId ? 'Update' : 'Create' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Dialog -->
+  <div class="form-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <div class="delete-dialog-icon"><mat-icon>warning</mat-icon></div>
+      <h3>Delete Fee Structure</h3>
+      <p>Are you sure you want to delete this fee structure for <strong>{{ getClassName(selectedStructure?.classId) }}</strong>?</p>
+      <div class="dialog-actions">
+        <button mat-button (click)="cancelDelete()">Cancel</button>
+        <button mat-raised-button color="warn" (click)="deleteStructure()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>

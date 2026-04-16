@@ -297,9 +297,16 @@ export const routes: Routes = [
       {
         path: 'fees',
         loadComponent: () =>
-          import('./features/placeholder/placeholder.component').then(m => m.PlaceholderComponent),
+          import('./features/fees/fee-structure/fee-structure.component').then(m => m.FeeStructureComponent),
         canActivate: [roleGuard, featureGuard],
-        data: { roles: [UserRole.SCHOOL_ADMIN], feature: 'fee', title: 'Fee Management' },
+        data: { roles: [UserRole.SCHOOL_ADMIN], feature: 'fee', title: 'Fee Structure' },
+      },
+      {
+        path: 'fees/payments',
+        loadComponent: () =>
+          import('./features/fees/student-fees/student-fees.component').then(m => m.StudentFeesComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN], feature: 'fee', title: 'Student Fee Payments' },
       },
 
       // Events (feature-gated)

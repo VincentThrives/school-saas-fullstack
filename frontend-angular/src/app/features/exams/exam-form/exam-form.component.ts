@@ -74,7 +74,7 @@ export class ExamFormComponent implements OnInit {
       name: ['', Validators.required],
       academicYearId: ['', Validators.required],
       classId: ['', Validators.required],
-      sectionId: [''],
+      sectionId: ['', Validators.required],
       subjectId: ['', Validators.required],
       subjectName: [''],
       examDate: [null, Validators.required],

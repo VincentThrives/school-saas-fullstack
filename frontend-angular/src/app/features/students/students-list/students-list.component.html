@@ -101,6 +101,12 @@
         </td>
       </ng-container>
 
+      <!-- Academic Year Column -->
+      <ng-container matColumnDef="academicYear">
+        <th mat-header-cell *matHeaderCellDef>Academic Year</th>
+        <td mat-cell *matCellDef="let student">{{ getAcademicYearLabel(student.academicYearId) }}</td>
+      </ng-container>
+
       <!-- Admission Number Column -->
       <ng-container matColumnDef="admissionNumber">
         <th mat-header-cell *matHeaderCellDef>Admission No</th>

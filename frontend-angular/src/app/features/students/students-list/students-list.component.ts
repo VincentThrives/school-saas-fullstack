@@ -42,7 +42,7 @@ import { Student, SchoolClass, User } from '../../../core/models';
   styleUrl: './students-list.component.scss',
 })
 export class StudentsListComponent implements OnInit {
-  displayedColumns: string[] = ['rollNumber', 'name', 'parent', 'classSection', 'admissionNumber', 'gender', 'actions'];
+  displayedColumns: string[] = ['rollNumber', 'name', 'parent', 'classSection', 'academicYear', 'admissionNumber', 'gender', 'actions'];
   dataSource = new MatTableDataSource<Student>([]);
   totalElements = 0;
   pageSize = 10;
@@ -58,6 +58,7 @@ export class StudentsListComponent implements OnInit {
   classes: SchoolClass[] = [];
   classMap: Record<string, string> = {};
   sectionMap: Record<string, string> = {};
+  academicYearMap: Record<string, string> = {};
   userMap: Record<string, User> = {};
 
   deleteDialogOpen = false;
@@ -86,6 +87,7 @@ export class StudentsListComponent implements OnInit {
     this.apiService.getAcademicYears().subscribe({
       next: (res) => {
         this.academicYears = Array.isArray(res.data) ? res.data : [];
+        this.academicYears.forEach((y: any) => { this.academicYearMap[y.academicYearId] = y.label; });
         const current = this.academicYears.find((y: any) => y.current);
         if (current) {
           this.academicYearFilter = current.academicYearId;
@@ -125,6 +127,10 @@ export class StudentsListComponent implements OnInit {
         }
       },
     });
+  }
+
+  getAcademicYearLabel(academicYearId: string): string {
+    return this.academicYearMap[academicYearId] || '-';
   }
 
   getClassName(classId: string): string {

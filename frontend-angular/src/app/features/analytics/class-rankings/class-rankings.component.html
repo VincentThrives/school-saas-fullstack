@@ -1,7 +1,7 @@
 <div class="rankings-container">
   <app-page-header
     title="Class Rankings"
-    subtitle="View student rankings by class and exam"
+    subtitle="View student rankings by exam, class, and subject"
     [breadcrumbs]="[
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'Performance Analytics', link: '/analytics' },
@@ -11,18 +11,46 @@
 
   <mat-card class="filter-card">
     <div class="filter-row">
+      <!-- Academic Year -->
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onAcademicYearChange()">
+          <mat-option value="">Select Academic Year</mat-option>
+          <mat-option *ngFor="let year of academicYears" [value]="year.academicYearId">{{ year.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Exam Type (Multi-select) -->
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Exam Type</mat-label>
+        <mat-select [(ngModel)]="selectedExamTypes" (selectionChange)="onExamTypeChange()" [disabled]="!selectedAcademicYearId" multiple>
+          <mat-option *ngFor="let type of examTypes" [value]="type">{{ type }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Class -->
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Class</mat-label>
-        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadRankings()">
+        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()" [disabled]="selectedExamTypes.length === 0">
+          <mat-option value="">Select Class</mat-option>
           <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
         </mat-select>
       </mat-form-field>
 
+      <!-- Section (Optional) -->
       <mat-form-field appearance="outline" class="filter-field">
-        <mat-label>Exam</mat-label>
-        <mat-select [(ngModel)]="selectedExamId" (selectionChange)="loadRankings()">
-          <mat-option value="">All Exams</mat-option>
-          <mat-option *ngFor="let e of exams" [value]="e.id">{{ e.name }}</mat-option>
+        <mat-label>Section</mat-label>
+        <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSectionChange()" [disabled]="!selectedClassId">
+          <mat-option value="">All Sections</mat-option>
+          <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">{{ sec.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Subject (Multi-select) -->
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Subjects</mat-label>
+        <mat-select [(ngModel)]="selectedSubjectIds" (selectionChange)="onSubjectChange()" [disabled]="!selectedClassId" multiple>
+          <mat-option *ngFor="let sub of subjects" [value]="sub.subjectId">{{ sub.name }}</mat-option>
         </mat-select>
       </mat-form-field>
     </div>
@@ -57,6 +85,14 @@
         <td mat-cell *matCellDef="let r">{{ r.rollNumber || '-' }}</td>
       </ng-container>
 
+      <!-- Class & Section -->
+      <ng-container matColumnDef="classSection">
+        <th mat-header-cell *matHeaderCellDef>Class</th>
+        <td mat-cell *matCellDef="let r">
+          <span class="class-chip">{{ getClassSectionName() }}</span>
+        </td>
+      </ng-container>
+
       <!-- Total Marks -->
       <ng-container matColumnDef="totalMarks">
         <th mat-header-cell *matHeaderCellDef>Total Marks</th>
@@ -83,14 +119,19 @@
       <mat-spinner diameter="36"></mat-spinner>
     </div>
 
-    <div class="empty-state" *ngIf="!isLoading && rankings.length === 0 && selectedClassId">
+    <div class="empty-state" *ngIf="!isLoading && rankings.length === 0 && selectedSubjectIds.length > 0">
       <mat-icon class="empty-icon">leaderboard</mat-icon>
-      <p>No ranking data available</p>
+      <p>No ranking data available for the selected filters</p>
     </div>
 
-    <div class="empty-state" *ngIf="!selectedClassId">
+    <div class="empty-state" *ngIf="!selectedAcademicYearId">
       <mat-icon class="empty-icon">filter_list</mat-icon>
-      <p>Select a class to view rankings</p>
+      <p>Select an academic year to get started</p>
+    </div>
+
+    <div class="empty-state" *ngIf="selectedAcademicYearId && selectedSubjectIds.length === 0 && !isLoading && rankings.length === 0">
+      <mat-icon class="empty-icon">filter_list</mat-icon>
+      <p>Complete all filters to view rankings</p>
     </div>
   </mat-card>
 </div>

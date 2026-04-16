@@ -5,8 +5,10 @@ import com.saas.school.modules.analytics.dto.PerformanceTrendDto;
 import com.saas.school.modules.analytics.dto.SubjectAnalysisDto;
 import com.saas.school.modules.exam.model.Exam;
 import com.saas.school.modules.exam.model.ExamMark;
+import com.saas.school.modules.exam.model.StudentAssessments;
 import com.saas.school.modules.exam.repository.ExamMarkRepository;
 import com.saas.school.modules.exam.repository.ExamRepository;
+import com.saas.school.modules.exam.repository.StudentAssessmentsRepository;
 import com.saas.school.modules.student.model.Student;
 import com.saas.school.modules.student.repository.StudentRepository;
 import com.saas.school.modules.user.model.User;
@@ -29,6 +31,9 @@ public class PerformanceAnalyticsService {
 
     @Autowired
     private ExamMarkRepository examMarkRepository;
+
+    @Autowired
+    private StudentAssessmentsRepository assessmentsRepository;
 
     @Autowired
     private StudentRepository studentRepository;
@@ -105,28 +110,54 @@ public class PerformanceAnalyticsService {
         List<ClassRankingDto> rankings;
 
         if (examId != null && !examId.isEmpty()) {
-            // Single exam ranking
-            List<ExamMark> marks = examMarkRepository.findByExamId(examId);
+            // Single exam ranking — check both ExamMark (legacy) and StudentAssessments (batch)
             Exam exam = examRepository.findById(examId).orElse(null);
             double maxMarks = exam != null ? exam.getMaxMarks() : 100;
 
             rankings = new ArrayList<>();
-            for (ExamMark mark : marks) {
-                Student student = studentMap.get(mark.getStudentId());
-                if (student == null) continue;
 
-                double obtained = mark.getMarksObtained() != null ? mark.getMarksObtained() : 0;
-                double pct = maxMarks > 0 ? (obtained / maxMarks) * 100 : 0;
+            // Try batch marks first (StudentAssessments - new model)
+            Optional<StudentAssessments> batchMarks = assessmentsRepository.findByExamId(examId);
+            if (batchMarks.isPresent() && batchMarks.get().getEntries() != null) {
+                for (StudentAssessments.MarkEntry entry : batchMarks.get().getEntries()) {
+                    Student student = studentMap.get(entry.getStudentId());
+                    if (student == null) continue;
 
-                ClassRankingDto dto = new ClassRankingDto();
-                dto.setStudentId(mark.getStudentId());
-                dto.setStudentName(userNameMap.getOrDefault(mark.getStudentId(), ""));
-                dto.setRollNumber(student.getRollNumber());
-                dto.setObtainedMarks(obtained);
-                dto.setTotalMarks(maxMarks);
-                dto.setMaxMarks(maxMarks);
-                dto.setPercentage(Math.round(pct * 100.0) / 100.0);
-                rankings.add(dto);
+                    double obtained = entry.getMarksObtained() != null ? entry.getMarksObtained() : 0;
+                    double pct = maxMarks > 0 ? (obtained / maxMarks) * 100 : 0;
+
+                    ClassRankingDto dto = new ClassRankingDto();
+                    dto.setStudentId(entry.getStudentId());
+                    dto.setStudentName(userNameMap.getOrDefault(entry.getStudentId(), ""));
+                    dto.setRollNumber(student.getRollNumber());
+                    dto.setObtainedMarks(obtained);
+                    dto.setTotalMarks(maxMarks);
+                    dto.setMaxMarks(maxMarks);
+                    dto.setPercentage(Math.round(pct * 100.0) / 100.0);
+                    rankings.add(dto);
+                }
+            }
+
+            // Fallback to legacy ExamMark if no batch marks found
+            if (rankings.isEmpty()) {
+                List<ExamMark> marks = examMarkRepository.findByExamId(examId);
+                for (ExamMark mark : marks) {
+                    Student student = studentMap.get(mark.getStudentId());
+                    if (student == null) continue;
+
+                    double obtained = mark.getMarksObtained() != null ? mark.getMarksObtained() : 0;
+                    double pct = maxMarks > 0 ? (obtained / maxMarks) * 100 : 0;
+
+                    ClassRankingDto dto = new ClassRankingDto();
+                    dto.setStudentId(mark.getStudentId());
+                    dto.setStudentName(userNameMap.getOrDefault(mark.getStudentId(), ""));
+                    dto.setRollNumber(student.getRollNumber());
+                    dto.setObtainedMarks(obtained);
+                    dto.setTotalMarks(maxMarks);
+                    dto.setMaxMarks(maxMarks);
+                    dto.setPercentage(Math.round(pct * 100.0) / 100.0);
+                    rankings.add(dto);
+                }
             }
         } else {
             // All exams - aggregate across all exams for this class

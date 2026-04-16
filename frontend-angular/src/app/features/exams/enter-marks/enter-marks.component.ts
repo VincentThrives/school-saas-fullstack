@@ -80,9 +80,10 @@ export class EnterMarksComponent implements OnInit {
   }
 
   getClassName(): string {
-    if (this.exam?.className) return this.exam.className;
-    if (this.exam?.classId) return this.classMap[this.exam.classId] || '-';
-    return '-';
+    let name = this.exam?.className || (this.exam?.classId ? this.classMap[this.exam.classId] : null) || '-';
+    const section = this.exam?.sectionName;
+    if (section) name += ' - ' + section;
+    return name;
   }
 
   getSubjectName(): string {
@@ -115,7 +116,10 @@ export class EnterMarksComponent implements OnInit {
     }
 
     // Load students - try with classId filter first, fallback to all
-    this.api.getStudents(0, 100, this.exam.classId ? { classId: this.exam.classId } : undefined).subscribe({
+    const params: any = {};
+    if (this.exam.classId) params.classId = this.exam.classId;
+    if (this.exam.sectionId) params.sectionId = this.exam.sectionId;
+    this.api.getStudents(0, 100, Object.keys(params).length > 0 ? params : undefined).subscribe({
       next: (res) => {
         let studentList = res.data?.content || [];
 

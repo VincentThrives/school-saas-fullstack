@@ -68,6 +68,13 @@
   <!-- Exams Table -->
   <mat-card class="table-card">
     <table mat-table [dataSource]="filteredExams" class="exams-table">
+      <ng-container matColumnDef="examType">
+        <th mat-header-cell *matHeaderCellDef>Exam Type</th>
+        <td mat-cell *matCellDef="let exam">
+          <mat-chip class="exam-type-chip">{{ exam.examType || '-' }}</mat-chip>
+        </td>
+      </ng-container>
+
       <ng-container matColumnDef="name">
         <th mat-header-cell *matHeaderCellDef>Exam Name</th>
         <td mat-cell *matCellDef="let exam">
@@ -179,4 +186,19 @@
       showFirstLastButtons
     ></mat-paginator>
   </mat-card>
+
+  <!-- Delete Confirmation Dialog -->
+  <div class="delete-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <div class="delete-dialog-icon">
+        <mat-icon>warning</mat-icon>
+      </div>
+      <h3>Delete Exam</h3>
+      <p>Are you sure you want to delete <strong>"{{ selectedExam?.name }}"</strong>? This action cannot be undone.</p>
+      <div class="dialog-actions">
+        <button mat-button (click)="cancelDelete()">Cancel</button>
+        <button mat-raised-button color="warn" (click)="confirmDelete()">Delete</button>
+      </div>
+    </div>
+  </div>
 </div>

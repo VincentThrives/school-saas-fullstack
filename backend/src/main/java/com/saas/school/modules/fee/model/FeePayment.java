@@ -15,9 +15,11 @@ public class FeePayment {
     private String studentId;
     private String classId;
     private String feeStructureId;
+    private String academicYearId;
     private double amountPaid;
     private LocalDate paymentDate;
     private PaymentMode paymentMode;
+    private PaymentStatus paymentStatus;
     private String remarks;
     private String recordedBy;
 
@@ -87,6 +89,22 @@ public class FeePayment {
         this.feeStructureId = feeStructureId;
     }
 
+    public String getAcademicYearId() {
+        return academicYearId;
+    }
+
+    public void setAcademicYearId(String academicYearId) {
+        this.academicYearId = academicYearId;
+    }
+
+    public PaymentStatus getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(PaymentStatus paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
     public double getAmountPaid() {
         return amountPaid;
     }
@@ -138,4 +156,5 @@ public class FeePayment {
     // ── Nested types ──────────────────────────────────────────────
 
     public enum PaymentMode { CASH, ONLINE, CHEQUE, DD, OTHER }
+    public enum PaymentStatus { PARTIAL, FULL }
 }
