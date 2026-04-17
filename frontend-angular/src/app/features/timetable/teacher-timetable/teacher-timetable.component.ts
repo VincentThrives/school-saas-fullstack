@@ -28,6 +28,14 @@ interface DayColumn {
   shortLabel: string;
   periods: GridPeriod[];
   isToday: boolean;
+  holidayTitle?: string;
+  date: Date;
+}
+
+interface Holiday {
+  startDate: string;
+  endDate?: string;
+  title: string;
 }
 
 @Component({
@@ -75,6 +83,9 @@ export class TeacherTimetableComponent implements OnInit {
 
   private classNameMap: Record<string, string> = {};
   private sectionNameMap: Record<string, string> = {};
+  private holidays: Holiday[] = [];
+  todayHolidayTitle = '';
+  weekHolidayCount = 0;
 
   private subjectColorMap: Record<string, number> = {};
   private colorPaletteSize = 8;
@@ -96,7 +107,54 @@ export class TeacherTimetableComponent implements OnInit {
     }
 
     this.loadClassNames();
+    this.loadHolidays();
     this.loadAcademicYears();
+  }
+
+  private loadHolidays(): void {
+    this.api.getHolidays().subscribe({
+      next: (res) => {
+        this.holidays = (res?.data || []).map((h: any) => ({
+          startDate: h.startDate,
+          endDate: h.endDate || h.startDate,
+          title: h.title || 'Holiday',
+        }));
+        if (this.timetables.length > 0 || this.days.length > 0) this.buildGrid();
+      },
+      error: () => {
+        this.holidays = [];
+      },
+    });
+  }
+
+  private holidayForDate(date: Date): Holiday | null {
+    const dStr = this.toIsoDate(date);
+    for (const h of this.holidays) {
+      if (!h.startDate) continue;
+      const start = h.startDate;
+      const end = h.endDate || h.startDate;
+      if (dStr >= start && dStr <= end) return h;
+    }
+    return null;
+  }
+
+  private toIsoDate(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  private weekDateFor(dayKey: string): Date {
+    // Find the date this week (Sun..Sat) that matches `dayKey`
+    const today = new Date();
+    const todayIdx = today.getDay(); // 0=Sun
+    const keyIdx = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'].indexOf(dayKey);
+    const delta = keyIdx - todayIdx;
+    const d = new Date(today);
+    d.setDate(today.getDate() + delta);
+    d.setHours(0, 0, 0, 0);
+    return d;
   }
 
   private loadClassNames(): void {
@@ -172,8 +230,13 @@ export class TeacherTimetableComponent implements OnInit {
     const periodSet = new Set<number>();
     let total = 0;
 
+    let holidayCount = 0;
+    this.todayHolidayTitle = '';
+
     // Flatten: for each day in DAYS, collect this teacher's periods across all returned timetables
     this.days = this.DAYS.map(({ key, short }) => {
+      const dayDate = this.weekDateFor(key);
+      const hol = this.holidayForDate(dayDate);
       const periods: GridPeriod[] = [];
 
       for (const tt of this.timetables) {
@@ -190,26 +253,38 @@ export class TeacherTimetableComponent implements OnInit {
             classId: tt.classId,
             sectionId: tt.sectionId,
             colorIndex: this.colorFor(p.subjectId || p.subjectName || ''),
-            isNow: key === todayKey && this.isPeriodNow(p, currentMin),
+            isNow: !hol && key === todayKey && this.isPeriodNow(p, currentMin),
           };
           periods.push(gp);
 
-          subjectSet.add(p.subjectId || p.subjectName || '');
-          if (tt.classId) classSet.add(`${tt.classId}:${tt.sectionId}`);
-          periodSet.add(p.periodNumber);
-          total++;
+          // Only count periods that actually happen (not on holidays)
+          if (!hol) {
+            subjectSet.add(p.subjectId || p.subjectName || '');
+            if (tt.classId) classSet.add(`${tt.classId}:${tt.sectionId}`);
+            periodSet.add(p.periodNumber);
+            total++;
+          }
         }
       }
 
       periods.sort((a, b) => a.periodNumber - b.periodNumber);
+
+      if (hol) {
+        holidayCount++;
+        if (key === todayKey) this.todayHolidayTitle = hol.title;
+      }
 
       return {
         dayOfWeek: key,
         shortLabel: short,
         periods,
         isToday: key === todayKey,
+        holidayTitle: hol?.title,
+        date: dayDate,
       };
     });
+
+    this.weekHolidayCount = holidayCount;
 
     this.periodNumbers = Array.from(periodSet).sort((a, b) => a - b);
     this.totalPeriodsPerWeek = total;

@@ -223,6 +223,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'Subject Attendance', path: '/attendance/subject-wise', icon: 'menu_book', feature: 'attendance' },
         { title: 'Attendance Report', path: '/attendance/report', icon: 'assessment', feature: 'attendance' },
         { title: 'Subject Report', path: '/attendance/subject-report', icon: 'analytics', feature: 'attendance' },
+        { title: 'Events & Holidays', path: '/events', icon: 'event', feature: 'events' },
         { title: 'My Timetable', path: '/my-timetable', icon: 'calendar_month', feature: 'timetable' },
         { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams' },
         { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams' },
