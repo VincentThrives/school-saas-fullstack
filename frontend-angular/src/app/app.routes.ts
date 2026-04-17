@@ -518,6 +518,13 @@ export const routes: Routes = [
         canActivate: [featureGuard],
         data: { feature: 'timetable' },
       },
+      {
+        path: 'my-timetable',
+        loadComponent: () =>
+          import('./features/timetable/teacher-timetable/teacher-timetable.component').then(m => m.TeacherTimetableComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.TEACHER], feature: 'timetable' },
+      },
 
       // Settings (SCHOOL_ADMIN only)
       {

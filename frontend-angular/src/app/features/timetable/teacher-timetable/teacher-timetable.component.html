@@ -1,0 +1,121 @@
+<div class="teacher-tt-container">
+  <app-page-header
+    title="My Timetable"
+    subtitle="Your assigned classes and subjects for the week"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'My Timetable' }
+    ]">
+  </app-page-header>
+
+  <!-- Controls + summary -->
+  <mat-card class="tt-header-card">
+    <div class="tt-header-row">
+      <div class="tt-teacher-info">
+        <div class="teacher-avatar">{{ (teacherName || '?').charAt(0) }}</div>
+        <div class="teacher-meta">
+          <div class="teacher-name">{{ teacherName || 'Teacher' }}</div>
+          <div class="teacher-role">Teacher</div>
+        </div>
+      </div>
+
+      <mat-form-field appearance="outline" class="year-field">
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onAcademicYearChange()">
+          <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">
+            {{ ay.label }} {{ ay.current ? '(Current)' : '' }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <div class="tt-stats" *ngIf="hasAnyPeriods()">
+        <div class="stat">
+          <mat-icon>schedule</mat-icon>
+          <div>
+            <div class="stat-num">{{ totalPeriodsPerWeek }}</div>
+            <div class="stat-label">Periods / week</div>
+          </div>
+        </div>
+        <div class="stat">
+          <mat-icon>menu_book</mat-icon>
+          <div>
+            <div class="stat-num">{{ uniqueSubjects }}</div>
+            <div class="stat-label">Subjects</div>
+          </div>
+        </div>
+        <div class="stat">
+          <mat-icon>class</mat-icon>
+          <div>
+            <div class="stat-num">{{ uniqueClasses }}</div>
+            <div class="stat-label">Classes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- Loading -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <!-- Grid -->
+  <mat-card class="tt-grid-card" *ngIf="!isLoading && hasAnyPeriods()">
+    <div class="tt-grid" [style.--cols]="periodNumbers.length + 1">
+      <!-- Header row: blank + period numbers -->
+      <div class="tt-cell header corner">Day</div>
+      <div class="tt-cell header" *ngFor="let pn of periodNumbers">
+        <div class="period-header-number">Period {{ pn }}</div>
+      </div>
+
+      <!-- Rows: one per day -->
+      <ng-container *ngFor="let day of days">
+        <div class="tt-cell day-cell" [class.today]="day.isToday">
+          <div class="day-short">{{ day.shortLabel }}</div>
+          <div class="today-pill" *ngIf="day.isToday">Today</div>
+        </div>
+
+        <ng-container *ngFor="let pn of periodNumbers">
+          <ng-container *ngIf="getPeriodForCell(day, pn) as p; else emptyCell">
+            <div class="tt-cell period-cell"
+                 [class.now]="p.isNow"
+                 [attr.data-color]="p.colorIndex"
+                 [matTooltip]="(p.subjectName || 'Subject') + ' — ' + (p.className || '') + ' ' + (p.sectionName || '')">
+              <div class="period-top">
+                <span class="period-time">{{ p.startTime }} – {{ p.endTime }}</span>
+                <span class="now-tag" *ngIf="p.isNow">Now</span>
+              </div>
+              <div class="period-class-pill">
+                <mat-icon>class</mat-icon>
+                <span>{{ p.className }}<span *ngIf="p.sectionName"> · {{ p.sectionName }}</span></span>
+              </div>
+              <div class="period-subject">{{ p.subjectName || 'Subject' }}</div>
+              <div class="period-room" *ngIf="p.roomNumber">
+                <mat-icon>meeting_room</mat-icon>
+                Room {{ p.roomNumber }}
+              </div>
+            </div>
+          </ng-container>
+          <ng-template #emptyCell>
+            <div class="tt-cell empty-cell">
+              <span class="free-dash">—</span>
+            </div>
+          </ng-template>
+        </ng-container>
+      </ng-container>
+    </div>
+  </mat-card>
+
+  <!-- Empty state -->
+  <mat-card class="empty-card" *ngIf="!isLoading && !hasAnyPeriods() && selectedAcademicYearId">
+    <mat-icon class="empty-icon">event_busy</mat-icon>
+    <h3>No assigned periods</h3>
+    <p>You have no timetable periods assigned for this academic year. Please contact your school admin if this seems wrong.</p>
+  </mat-card>
+
+  <mat-card class="empty-card" *ngIf="!isLoading && !selectedAcademicYearId">
+    <mat-icon class="empty-icon">date_range</mat-icon>
+    <h3>Select an academic year</h3>
+    <p>Choose an academic year above to view your timetable.</p>
+  </mat-card>
+</div>

@@ -129,13 +129,13 @@ export class EnterMarksComponent implements OnInit {
             next: (allRes) => {
               studentList = allRes.data?.content || [];
               this.mapStudents(studentList);
-              this.isLoading = false;
+              this.loadExistingMarks();
             },
             error: () => { this.isLoading = false; },
           });
         } else {
           this.mapStudents(studentList);
-          this.isLoading = false;
+          this.loadExistingMarks();
         }
       },
       error: () => {
@@ -153,6 +153,44 @@ export class EnterMarksComponent implements OnInit {
       marksObtained: null,
       remarks: '',
     }));
+  }
+
+  /**
+   * Fetch previously saved marks for this exam and merge them into the student rows
+   * so the teacher sees the existing values and can edit individual entries instead
+   * of re-entering everyone's marks.
+   */
+  private loadExistingMarks(): void {
+    if (!this.examId || this.students.length === 0) {
+      this.isLoading = false;
+      return;
+    }
+    this.api.getExamMarks(this.examId).subscribe({
+      next: (res) => {
+        const entries = res?.data || [];
+        if (entries.length > 0) {
+          const byStudent: Record<string, any> = {};
+          entries.forEach((e: any) => {
+            if (e?.studentId) byStudent[e.studentId] = e;
+          });
+          this.students = this.students.map((s) => {
+            const existing = byStudent[s.studentId];
+            if (!existing) return s;
+            const raw = existing.marksObtained;
+            return {
+              ...s,
+              marksObtained: raw === null || raw === undefined || raw === '' ? null : Number(raw),
+              remarks: existing.remarks || s.remarks || '',
+            };
+          });
+        }
+        this.isLoading = false;
+      },
+      error: () => {
+        // Not fatal — teacher can still enter marks fresh
+        this.isLoading = false;
+      },
+    });
   }
 
   get maxMarks(): number {
@@ -192,6 +230,7 @@ export class EnterMarksComponent implements OnInit {
         studentId: s.studentId,
         subjectId: this.exam?.subjectId || '',
         marksObtained: s.marksObtained as number,
+        remarks: s.remarks || '',
       }));
 
     if (validMarks.length === 0) {

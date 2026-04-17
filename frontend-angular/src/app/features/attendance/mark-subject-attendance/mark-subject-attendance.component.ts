@@ -16,7 +16,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { SchoolClass, AcademicYear } from '../../../core/models';
+import { AuthService } from '../../../core/services/auth.service';
+import { SchoolClass, AcademicYear, UserRole } from '../../../core/models';
 
 interface TimetablePeriod {
   periodNumber: number;
@@ -28,6 +29,12 @@ interface TimetablePeriod {
   endTime: string;
   marked: boolean;
   studentCount: number;
+  // Stamped in teacher-mode auto-load so selecting a card knows its class/section
+  classId?: string;
+  className?: string;
+  sectionId?: string;
+  sectionName?: string;
+  academicYearId?: string;
 }
 
 interface StudentAttendance {
@@ -89,19 +96,176 @@ export class MarkSubjectAttendanceComponent implements OnInit {
   isSaving = false;
   studentsLoaded = false;
 
+  // Teacher-mode state
+  isTeacherMode = false;
+  teacherUserId = '';
+  teacherName = '';
+  showFilters = true;            // admins: always true; teachers: false until fallback triggers
+  autoLoadAttempted = false;     // true once teacher auto-load has run
+  autoLoadEmpty = false;         // true when teacher auto-load returned zero periods for today
+  private cachedTeacherTimetables: any[] = [];   // cached to re-filter on date change without re-fetching
+
   readonly statusOptions = [
     { value: 'PRESENT', label: 'Present', icon: 'check_circle', color: '#4caf50' },
     { value: 'ABSENT', label: 'Absent', icon: 'cancel', color: '#f44336' },
     { value: 'LATE', label: 'Late', icon: 'schedule', color: '#ff9800' },
   ];
 
+  private readonly DAY_KEYS = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+
   constructor(
     private api: ApiService,
+    private authService: AuthService,
     private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
-    this.loadAcademicYears();
+    const role = this.authService.currentRole;
+    const user = this.authService.currentUser;
+    this.isTeacherMode = role === UserRole.TEACHER;
+
+    if (this.isTeacherMode) {
+      this.teacherUserId = user?.userId || '';
+      this.teacherName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Teacher';
+      this.showFilters = false;
+      this.runTeacherAutoLoad();
+    } else {
+      // Admin flow (unchanged)
+      this.showFilters = true;
+      this.loadAcademicYears();
+    }
+  }
+
+  /**
+   * Teacher fast path:
+   *   1. Resolve the current academic year (silently).
+   *   2. Fetch the teacher's own timetables for that year.
+   *   3. Flatten today's periods (stamping classId/sectionId/year onto each card).
+   *   4. If nothing found → auto-reveal the filter dropdowns as fallback.
+   */
+  private runTeacherAutoLoad(): void {
+    if (!this.teacherUserId) {
+      this.autoLoadAttempted = true;
+      this.autoLoadEmpty = true;
+      this.showFilters = true;
+      this.loadAcademicYears();
+      return;
+    }
+
+    this.isLoadingPeriods = true;
+
+    this.api.getAcademicYears().subscribe({
+      next: (ayRes) => {
+        this.academicYears = ayRes.data || [];
+        const current = this.academicYears.find((y) => y.current) || this.academicYears[0];
+
+        if (!current) {
+          this.finishAutoLoadEmpty();
+          return;
+        }
+        this.selectedAcademicYearId = current.academicYearId;
+
+        this.api.getTeacherTimetable(this.teacherUserId, this.selectedAcademicYearId).subscribe({
+          next: (res) => {
+            this.cachedTeacherTimetables = res.data || [];
+            this.applyTeacherDayFilter();
+            this.isLoadingPeriods = false;
+            this.autoLoadAttempted = true;
+            if (this.timetablePeriods.length === 0) {
+              this.autoLoadEmpty = true;
+              this.showFilters = true;          // reveal dropdowns as fallback
+              this.loadClassesForFallback();
+            }
+          },
+          error: () => {
+            this.finishAutoLoadEmpty();
+          },
+        });
+      },
+      error: () => {
+        this.finishAutoLoadEmpty();
+      },
+    });
+  }
+
+  private finishAutoLoadEmpty(): void {
+    this.isLoadingPeriods = false;
+    this.autoLoadAttempted = true;
+    this.autoLoadEmpty = true;
+    this.showFilters = true;
+    this.loadClassesForFallback();
+  }
+
+  private loadClassesForFallback(): void {
+    if (this.selectedAcademicYearId) {
+      this.loadClasses();
+    } else {
+      this.loadAcademicYears();
+    }
+  }
+
+  /**
+   * Re-filter the cached teacher timetables against the currently selected date.
+   * Called on initial load and whenever the teacher changes the date.
+   */
+  private applyTeacherDayFilter(): void {
+    const dayKey = this.getDayKey(this.selectedDate);
+    const periods: TimetablePeriod[] = [];
+
+    for (const tt of this.cachedTeacherTimetables) {
+      const daySched = (tt?.schedule || []).find((d: any) => (d?.dayOfWeek || '').toUpperCase() === dayKey);
+      if (!daySched || !daySched.periods) continue;
+
+      for (const p of daySched.periods) {
+        if (p.teacherId !== this.teacherUserId) continue;
+        periods.push({
+          periodNumber: p.periodNumber,
+          subjectId: p.subjectId,
+          subjectName: p.subjectName,
+          teacherId: p.teacherId,
+          teacherName: p.teacherName,
+          startTime: p.startTime,
+          endTime: p.endTime,
+          marked: false,
+          studentCount: 0,
+          classId: tt.classId,
+          className: tt.className,
+          sectionId: tt.sectionId,
+          sectionName: tt.sectionName,
+          academicYearId: tt.academicYearId,
+        });
+      }
+    }
+
+    periods.sort((a, b) => a.periodNumber - b.periodNumber);
+    this.timetablePeriods = periods;
+    this.selectedPeriod = null;
+    this.students = [];
+    this.studentsLoaded = false;
+  }
+
+  private getDayKey(date: Date): string {
+    const d = date instanceof Date ? date : new Date(date);
+    return this.DAY_KEYS[d.getDay()];
+  }
+
+  /** Teacher mode: change date → re-filter cached timetables (no network call). */
+  onTeacherDateChange(): void {
+    if (!this.isTeacherMode) return;
+    this.applyTeacherDayFilter();
+    if (this.timetablePeriods.length === 0) {
+      this.autoLoadEmpty = true;
+      this.showFilters = true;
+      this.loadClassesForFallback();
+    } else {
+      this.autoLoadEmpty = false;
+    }
+  }
+
+  /** Manual toggle so a teacher can open filters even when auto-loaded cards exist. */
+  toggleFilters(): void {
+    this.showFilters = !this.showFilters;
+    if (this.showFilters) this.loadClassesForFallback();
   }
 
   loadAcademicYears(): void {
@@ -217,6 +381,11 @@ export class MarkSubjectAttendanceComponent implements OnInit {
 
   selectPeriod(period: TimetablePeriod): void {
     this.selectedPeriod = period;
+    // In teacher-mode auto-load, the period carries its own class/section/year.
+    // Copy those onto the component state so saveAttendance() + loadStudents() work unchanged.
+    if (period.classId) this.selectedClassId = period.classId;
+    if (period.sectionId) this.selectedSectionId = period.sectionId;
+    if (period.academicYearId) this.selectedAcademicYearId = period.academicYearId;
     this.loadStudents();
   }
 
@@ -309,8 +478,13 @@ export class MarkSubjectAttendanceComponent implements OnInit {
       next: () => {
         this.isSaving = false;
         this.snackBar.open('Attendance saved successfully!', 'Close', { duration: 3000 });
-        // Refresh periods to show "marked" status
-        this.loadTimetablePeriods();
+        // Refresh period state. Teacher auto-load cards are kept in memory;
+        // admin/fallback flow reloads the server-side day view.
+        if (this.isTeacherMode && !this.showFilters) {
+          this.applyTeacherDayFilter();
+        } else {
+          this.loadTimetablePeriods();
+        }
         this.selectedPeriod = null;
         this.students = [];
         this.studentsLoaded = false;

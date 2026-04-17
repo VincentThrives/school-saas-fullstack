@@ -319,7 +319,8 @@ export class TimetableBuilderComponent implements OnInit {
   }
 
   getTeacherName(teacherId: string): string {
-    const t = this.teachers.find((t) => t.teacherId === teacherId);
+    // periods may store either the teacher's userId (new) or teacherId (legacy)
+    const t = this.teachers.find((t) => t.userId === teacherId || t.teacherId === teacherId);
     return t ? `${t.firstName || ''} ${t.lastName || ''}`.trim() || t.employeeId || teacherId : teacherId;
   }
 

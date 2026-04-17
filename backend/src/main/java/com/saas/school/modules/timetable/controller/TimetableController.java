@@ -77,6 +77,7 @@ public class TimetableController {
     }
 
     @GetMapping("/teacher/{teacherId}")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL') or #teacherId == authentication.principal")
     public ResponseEntity<ApiResponse<List<Timetable>>> getTeacherSchedule(
             @PathVariable String teacherId,
             @RequestParam String academicYearId) {

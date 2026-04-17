@@ -9,8 +9,45 @@
     ]"
   ></app-page-header>
 
-  <!-- Step 1: Select Class, Section, Date -->
-  <mat-card class="filters-card">
+  <!-- Teacher banner (teacher-mode only) -->
+  <mat-card class="teacher-banner" *ngIf="isTeacherMode">
+    <mat-card-content>
+      <div class="teacher-banner-row">
+        <div class="teacher-banner-left">
+          <div class="teacher-avatar">{{ (teacherName || '?').charAt(0) }}</div>
+          <div>
+            <div class="teacher-banner-title">Hi, {{ teacherName || 'Teacher' }}</div>
+            <div class="teacher-banner-sub">
+              Showing your assigned periods for the selected date.
+            </div>
+          </div>
+        </div>
+
+        <div class="teacher-banner-right">
+          <mat-form-field appearance="outline" class="inline-date-field">
+            <mat-label>Date</mat-label>
+            <input matInput [matDatepicker]="teacherPicker" [(ngModel)]="selectedDate" [max]="today" (dateChange)="onTeacherDateChange()">
+            <mat-datepicker-toggle matIconSuffix [for]="teacherPicker"></mat-datepicker-toggle>
+            <mat-datepicker #teacherPicker></mat-datepicker>
+          </mat-form-field>
+
+          <button mat-stroked-button class="toggle-filters-btn" (click)="toggleFilters()">
+            <mat-icon>{{ showFilters ? 'expand_less' : 'tune' }}</mat-icon>
+            {{ showFilters ? 'Hide filters' : 'Change filters' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Fallback hint when auto-load found nothing -->
+      <div class="teacher-fallback-hint" *ngIf="autoLoadAttempted && autoLoadEmpty">
+        <mat-icon>info</mat-icon>
+        <span>No classes auto-loaded for this date. Use the filters below to pick a class manually.</span>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Step 1: Select Class, Section, Date (hidden for teachers unless fallback/toggle) -->
+  <mat-card class="filters-card" *ngIf="showFilters">
     <mat-card-content>
       <div class="filters-row">
         <mat-form-field appearance="outline" class="filter-field">
@@ -36,7 +73,7 @@
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="filter-field">
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="!isTeacherMode">
           <mat-label>Date</mat-label>
           <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [max]="today" (dateChange)="onSectionOrDateChange()">
           <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
@@ -57,10 +94,11 @@
   </div>
 
   <!-- Step 2: Period Cards from Timetable -->
-  <div class="periods-section" *ngIf="selectedClassId && selectedSectionId && !isHoliday">
+  <div class="periods-section"
+       *ngIf="!isHoliday && (isTeacherMode ? autoLoadAttempted : (selectedClassId && selectedSectionId))">
     <h3 class="section-title">
       <mat-icon>schedule</mat-icon>
-      Today's Periods (from Timetable)
+      {{ isTeacherMode && !showFilters ? 'Your Periods' : "Today's Periods (from Timetable)" }}
     </h3>
 
     <div class="loading-container" *ngIf="isLoadingPeriods">
@@ -69,14 +107,18 @@
 
     <div class="period-cards" *ngIf="!isLoadingPeriods && timetablePeriods.length > 0">
       <div class="period-card" *ngFor="let p of timetablePeriods; let idx = index"
-           [class.selected]="selectedPeriod?.periodNumber === p.periodNumber"
+           [class.selected]="selectedPeriod?.periodNumber === p.periodNumber && selectedPeriod?.classId === p.classId && selectedPeriod?.sectionId === p.sectionId"
            [class.marked]="p.marked"
            [class.locked]="isPeriodLocked(idx)"
            (click)="!isPeriodLocked(idx) && selectPeriod(p)">
         <div class="period-number">Period {{ p.periodNumber }}</div>
         <div class="period-time">{{ p.startTime }} - {{ p.endTime }}</div>
         <div class="period-subject">{{ p.subjectName }}</div>
-        <div class="period-teacher">
+        <div class="period-class-pill" *ngIf="isTeacherMode && p.className">
+          <mat-icon class="small-icon">class</mat-icon>
+          {{ p.className }}<span *ngIf="p.sectionName"> · {{ p.sectionName }}</span>
+        </div>
+        <div class="period-teacher" *ngIf="!isTeacherMode">
           <mat-icon class="small-icon">person</mat-icon>
           {{ p.teacherName || '-' }}
         </div>
@@ -93,7 +135,8 @@
 
     <div class="empty-periods" *ngIf="!isLoadingPeriods && timetablePeriods.length === 0">
       <mat-icon>event_busy</mat-icon>
-      <p>No timetable periods found for this day. Create a timetable first.</p>
+      <p *ngIf="!isTeacherMode">No timetable periods found for this day. Create a timetable first.</p>
+      <p *ngIf="isTeacherMode">No classes scheduled for you on this date. Use the filters above to pick a class manually.</p>
     </div>
   </div>
 
@@ -103,7 +146,8 @@
       <mat-card-content>
         <div class="selected-period-info">
           <strong>Period {{ selectedPeriod.periodNumber }}: {{ selectedPeriod.subjectName }}</strong>
-          <span class="teacher-info">Teacher: {{ selectedPeriod.teacherName || '-' }}</span>
+          <span class="teacher-info" *ngIf="selectedPeriod.className">{{ selectedPeriod.className }}<span *ngIf="selectedPeriod.sectionName"> · {{ selectedPeriod.sectionName }}</span></span>
+          <span class="teacher-info" *ngIf="!isTeacherMode">Teacher: {{ selectedPeriod.teacherName || '-' }}</span>
         </div>
         <div class="actions-row">
           <div class="quick-actions">
@@ -183,12 +227,12 @@
     </div>
   </div>
 
-  <!-- Info Alert -->
-  <mat-card class="info-alert" *ngIf="!selectedAcademicYearId">
+  <!-- Info Alert (admin / fallback only) -->
+  <mat-card class="info-alert" *ngIf="!isTeacherMode && !selectedAcademicYearId">
     <mat-icon>info</mat-icon>
     <span>Please select an academic year first.</span>
   </mat-card>
-  <mat-card class="info-alert" *ngIf="selectedAcademicYearId && !selectedClassId">
+  <mat-card class="info-alert" *ngIf="!isTeacherMode && selectedAcademicYearId && !selectedClassId">
     <mat-icon>info</mat-icon>
     <span>Select a class and section to view today's periods from the timetable.</span>
   </mat-card>

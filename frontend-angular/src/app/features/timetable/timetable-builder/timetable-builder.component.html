@@ -109,7 +109,7 @@
                     <mat-label>Teacher</mat-label>
                     <mat-select [(ngModel)]="daySchedule.periods[i].teacherId">
                       <mat-option value="">--</mat-option>
-                      <mat-option *ngFor="let t of getTeachersForSubject(daySchedule.periods[i].subjectId)" [value]="t.teacherId">
+                      <mat-option *ngFor="let t of getTeachersForSubject(daySchedule.periods[i].subjectId)" [value]="t.userId || t.teacherId">
                         {{ t.firstName && t.lastName ? (t.firstName + ' ' + t.lastName) : t.employeeId || t.teacherId }}
                       </mat-option>
                     </mat-select>

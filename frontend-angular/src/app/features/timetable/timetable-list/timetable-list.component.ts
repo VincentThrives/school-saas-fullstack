@@ -12,7 +12,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { AcademicYear, Timetable, SchoolClass } from '../../../core/models';
+import { AuthService } from '../../../core/services/auth.service';
+import { AcademicYear, Timetable, SchoolClass, UserRole } from '../../../core/models';
 
 @Component({
   selector: 'app-timetable-list',
@@ -47,9 +48,15 @@ export class TimetableListComponent implements OnInit {
     private api: ApiService,
     private router: Router,
     private snackBar: MatSnackBar,
+    private authService: AuthService,
   ) {}
 
   ngOnInit(): void {
+    // Teachers have a dedicated view — send them there.
+    if (this.authService.currentRole === UserRole.TEACHER) {
+      this.router.navigate(['/my-timetable']);
+      return;
+    }
     this.loadClasses();
     this.api.getAcademicYears().subscribe((res) => {
       const data = res.data;
