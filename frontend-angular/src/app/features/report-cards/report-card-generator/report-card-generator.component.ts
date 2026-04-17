@@ -34,9 +34,6 @@ export class ReportCardGeneratorComponent implements OnInit {
   academicYears: AcademicYear[] = [];
   allExams: any[] = [];
   examTypes: string[] = [];
-  readonly defaultExamTypes: string[] = [
-    'Unit Test 1', 'Unit Test 2', 'Mid Term', 'Half Yearly', 'Pre Board', 'Final', 'Annual',
-  ];
   classes: SchoolClass[] = [];
   sections: { sectionId: string; name: string }[] = [];
   students: any[] = [];
@@ -98,11 +95,11 @@ export class ReportCardGeneratorComponent implements OnInit {
       return;
     }
 
-    // Extract exam types for this academic year; fall back to default list when none exist yet
+    // Extract exam types for this academic year (empty list when no exams exist yet)
     const examsForYear = this.allExams.filter((e: any) => e.academicYearId === this.selectedAcademicYearId);
     const types = new Set<string>();
     examsForYear.forEach((e: any) => { if (e.examType) types.add(e.examType); });
-    this.examTypes = types.size > 0 ? Array.from(types).sort() : [...this.defaultExamTypes];
+    this.examTypes = Array.from(types).sort();
 
     // Load classes for this year
     this.api.getClasses(this.selectedAcademicYearId).subscribe((res) => {
