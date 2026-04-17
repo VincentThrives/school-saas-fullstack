@@ -16,7 +16,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { SchoolClass } from '../../../core/models';
+import { SchoolClass, AcademicYear } from '../../../core/models';
 
 interface TimetablePeriod {
   periodNumber: number;
@@ -64,6 +64,8 @@ interface StudentAttendance {
   styleUrl: './mark-subject-attendance.component.scss',
 })
 export class MarkSubjectAttendanceComponent implements OnInit {
+  academicYears: AcademicYear[] = [];
+  selectedAcademicYearId = '';
   classes: SchoolClass[] = [];
   sections: { name: string; capacity: number; sectionId?: string }[] = [];
   selectedClassId = '';
@@ -99,11 +101,38 @@ export class MarkSubjectAttendanceComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadClasses();
+    this.loadAcademicYears();
+  }
+
+  loadAcademicYears(): void {
+    this.api.getAcademicYears().subscribe({
+      next: (res) => {
+        this.academicYears = res.data || [];
+        const current = this.academicYears.find((y) => y.current);
+        if (current) {
+          this.selectedAcademicYearId = current.academicYearId;
+          this.loadClasses();
+        }
+      },
+    });
+  }
+
+  onAcademicYearChange(): void {
+    this.selectedClassId = '';
+    this.selectedSectionId = '';
+    this.sections = [];
+    this.timetablePeriods = [];
+    this.selectedPeriod = null;
+    this.students = [];
+    this.studentsLoaded = false;
+    this.classes = [];
+    if (this.selectedAcademicYearId) {
+      this.loadClasses();
+    }
   }
 
   loadClasses(): void {
-    this.api.getClasses().subscribe({
+    this.api.getClasses(this.selectedAcademicYearId).subscribe({
       next: (res) => { this.classes = res.data || []; },
     });
   }
@@ -172,10 +201,8 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     this.timetablePeriods = [];
 
     const dateStr = this.getDateStr();
-    const cls = this.classes.find(c => c.classId === this.selectedClassId);
-    const academicYearId = cls?.academicYearId || '';
 
-    this.api.getTimetablePeriods(this.selectedClassId, this.selectedSectionId, dateStr, academicYearId).subscribe({
+    this.api.getTimetablePeriods(this.selectedClassId, this.selectedSectionId, dateStr, this.selectedAcademicYearId).subscribe({
       next: (res) => {
         this.timetablePeriods = res.data || [];
         this.isLoadingPeriods = false;
@@ -264,12 +291,11 @@ export class MarkSubjectAttendanceComponent implements OnInit {
 
     this.isSaving = true;
     const dateStr = this.getDateStr();
-    const cls = this.classes.find(c => c.classId === this.selectedClassId);
 
     this.api.markAttendance({
       classId: this.selectedClassId,
       sectionId: this.selectedSectionId,
-      academicYearId: cls?.academicYearId || 'default',
+      academicYearId: this.selectedAcademicYearId,
       date: dateStr,
       subjectId: this.selectedPeriod.subjectId,
       teacherId: this.selectedPeriod.teacherId,

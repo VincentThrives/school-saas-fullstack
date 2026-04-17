@@ -16,7 +16,7 @@ import { PageHeaderComponent } from '../../../shared/components/page-header/page
 import { StatCardComponent } from '../../../shared/components/stat-card/stat-card.component';
 import { ApiService } from '../../../core/services/api.service';
 import { SubjectService } from '../../../core/services/subject.service';
-import { SchoolClass } from '../../../core/models';
+import { SchoolClass, AcademicYear } from '../../../core/models';
 
 interface SubjectReport {
   subjectId: string;
@@ -65,6 +65,8 @@ interface StudentSubjectReport {
   styleUrl: './subject-attendance-report.component.scss',
 })
 export class SubjectAttendanceReportComponent implements OnInit {
+  academicYears: AcademicYear[] = [];
+  selectedAcademicYearId = '';
   classes: SchoolClass[] = [];
   sections: { name: string; capacity: number; sectionId: string }[] = [];
   selectedClassId = '';
@@ -96,7 +98,31 @@ export class SubjectAttendanceReportComponent implements OnInit {
 
   ngOnInit(): void {
     this.subjectService.loadSubjects();
-    this.api.getClasses().subscribe({
+    this.api.getAcademicYears().subscribe({
+      next: (res) => {
+        this.academicYears = res.data || [];
+        const current = this.academicYears.find((y) => y.current);
+        if (current) {
+          this.selectedAcademicYearId = current.academicYearId;
+          this.loadClasses();
+        }
+      },
+    });
+  }
+
+  onAcademicYearChange(): void {
+    this.selectedClassId = '';
+    this.selectedSectionId = '';
+    this.sections = [];
+    this.classes = [];
+    this.reportLoaded = false;
+    if (this.selectedAcademicYearId) {
+      this.loadClasses();
+    }
+  }
+
+  loadClasses(): void {
+    this.api.getClasses(this.selectedAcademicYearId).subscribe({
       next: (res) => {
         if (res.success && res.data) {
           this.classes = Array.isArray(res.data) ? res.data : [];
@@ -113,6 +139,10 @@ export class SubjectAttendanceReportComponent implements OnInit {
   }
 
   loadReport(): void {
+    if (!this.selectedAcademicYearId) {
+      this.snackBar.open('Please select an academic year', 'Close', { duration: 3000 });
+      return;
+    }
     if (!this.selectedClassId || !this.selectedSectionId) {
       this.snackBar.open('Please select class and section', 'Close', { duration: 3000 });
       return;

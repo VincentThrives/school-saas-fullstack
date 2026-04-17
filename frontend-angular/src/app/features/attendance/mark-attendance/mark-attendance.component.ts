@@ -16,7 +16,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { SchoolClass } from '../../../core/models';
+import { SchoolClass, AcademicYear } from '../../../core/models';
 
 interface StudentAttendance {
   studentId: string;
@@ -52,6 +52,8 @@ interface StudentAttendance {
   styleUrl: './mark-attendance.component.scss',
 })
 export class MarkAttendanceComponent implements OnInit {
+  academicYears: AcademicYear[] = [];
+  selectedAcademicYearId = '';
   classes: SchoolClass[] = [];
   sections: { name: string; capacity: number; sectionId?: string }[] = [];
   selectedClassId = '';
@@ -79,11 +81,36 @@ export class MarkAttendanceComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadClasses();
+    this.loadAcademicYears();
+  }
+
+  loadAcademicYears(): void {
+    this.api.getAcademicYears().subscribe({
+      next: (res) => {
+        this.academicYears = res.data || [];
+        const current = this.academicYears.find((y) => y.current);
+        if (current) {
+          this.selectedAcademicYearId = current.academicYearId;
+          this.loadClasses();
+        }
+      },
+    });
+  }
+
+  onAcademicYearChange(): void {
+    this.selectedClassId = '';
+    this.selectedSectionId = '';
+    this.sections = [];
+    this.students = [];
+    this.studentsLoaded = false;
+    this.classes = [];
+    if (this.selectedAcademicYearId) {
+      this.loadClasses();
+    }
   }
 
   loadClasses(): void {
-    this.api.getClasses().subscribe({
+    this.api.getClasses(this.selectedAcademicYearId).subscribe({
       next: (res) => {
         this.classes = res.data || [];
       },
@@ -182,7 +209,7 @@ export class MarkAttendanceComponent implements OnInit {
       .markAttendance({
         classId: this.selectedClassId,
         sectionId: this.selectedSectionId,
-        academicYearId: this.classes.find(c => c.classId === this.selectedClassId)?.academicYearId || '',
+        academicYearId: this.selectedAcademicYearId,
         date: dateStr,
         entries: this.students.map((s) => ({
           studentId: s.studentId,

@@ -19,29 +19,29 @@ public class AcademicYearController {
         return ResponseEntity.ok(ApiResponse.success(service.listAll()));
     }
     @PostMapping
-    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AcademicYear>> create(@RequestBody AcademicYear req) {
         return ResponseEntity.ok(ApiResponse.success(service.create(req), "Created"));
     }
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AcademicYear>> update(@PathVariable String id, @RequestBody AcademicYear req) {
         return ResponseEntity.ok(ApiResponse.success(service.update(id, req), "Updated"));
     }
 
     @PatchMapping("/{id}/set-current")
-    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AcademicYear>> setCurrent(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.success(service.setCurrent(id)));
     }
     @PatchMapping("/{id}/archive")
-    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<AcademicYear>> archive(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.success(service.archive(id)));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable String id) {
         service.delete(id);
         return ResponseEntity.ok(ApiResponse.success(null, "Academic year deleted"));

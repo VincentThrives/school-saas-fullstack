@@ -34,6 +34,9 @@ export class ReportCardGeneratorComponent implements OnInit {
   academicYears: AcademicYear[] = [];
   allExams: any[] = [];
   examTypes: string[] = [];
+  readonly defaultExamTypes: string[] = [
+    'Unit Test 1', 'Unit Test 2', 'Mid Term', 'Half Yearly', 'Pre Board', 'Final', 'Annual',
+  ];
   classes: SchoolClass[] = [];
   sections: { sectionId: string; name: string }[] = [];
   students: any[] = [];
@@ -95,11 +98,11 @@ export class ReportCardGeneratorComponent implements OnInit {
       return;
     }
 
-    // Extract exam types for this academic year
+    // Extract exam types for this academic year; fall back to default list when none exist yet
     const examsForYear = this.allExams.filter((e: any) => e.academicYearId === this.selectedAcademicYearId);
     const types = new Set<string>();
     examsForYear.forEach((e: any) => { if (e.examType) types.add(e.examType); });
-    this.examTypes = Array.from(types).sort();
+    this.examTypes = types.size > 0 ? Array.from(types).sort() : [...this.defaultExamTypes];
 
     // Load classes for this year
     this.api.getClasses(this.selectedAcademicYearId).subscribe((res) => {
@@ -108,14 +111,17 @@ export class ReportCardGeneratorComponent implements OnInit {
   }
 
   onExamTypeChange(): void {
-    this.selectedClassId = '';
     this.selectedSectionId = '';
     this.selectedStudentId = '';
-    this.sections = [];
     this.students = [];
     this.reportCards = [];
     this.filteredReportCards = [];
     this.selection.clear();
+
+    // Reload for the currently selected class (if any) so the table reflects the new exam-type filter
+    if (this.selectedClassId) {
+      this.loadReportCards();
+    }
   }
 
   onClassChange(): void {
@@ -134,10 +140,8 @@ export class ReportCardGeneratorComponent implements OnInit {
     const cls = this.classes.find(c => c.classId === this.selectedClassId);
     this.sections = cls?.sections || [];
 
-    // Auto-load report cards if exam type is selected
-    if (this.selectedExamType) {
-      this.loadReportCards();
-    }
+    // Auto-load report cards; if exam type is empty, backend returns data across all exam types
+    this.loadReportCards();
   }
 
   onSectionChange(): void {
@@ -259,26 +263,42 @@ export class ReportCardGeneratorComponent implements OnInit {
 
   downloadAllPdfs(): void {
     if (!this.selectedClassId || !this.selectedAcademicYearId) return;
+    if (this.filteredReportCards.length === 0) return;
+
     this.isDownloadingAll = true;
     const tenantId = this.authService.currentSchoolInfo?.tenantId || '';
+    const cards = [...this.filteredReportCards];
+    let completed = 0;
+    let failed = 0;
 
-    this.api.downloadAllReportCardPdfs(
-      this.selectedClassId, this.selectedAcademicYearId, tenantId, this.selectedExamType || undefined
-    ).subscribe({
-      next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `report-cards-all.zip`;
-        a.click();
-        window.URL.revokeObjectURL(url);
+    const downloadNext = (index: number) => {
+      if (index >= cards.length) {
         this.isDownloadingAll = false;
-        this.snackBar.open('All report cards downloaded', 'Close', { duration: 3000 });
-      },
-      error: () => {
-        this.isDownloadingAll = false;
-        this.snackBar.open('Failed to download all report cards', 'Close', { duration: 3000 });
-      },
-    });
+        const msg = failed > 0
+          ? `Downloaded ${completed} PDFs, ${failed} failed`
+          : `Downloaded ${completed} PDFs`;
+        this.snackBar.open(msg, 'Close', { duration: 3000 });
+        return;
+      }
+      const rc = cards[index];
+      this.api.downloadReportCardPdf(rc.studentId, this.selectedAcademicYearId, tenantId, this.selectedExamType || undefined).subscribe({
+        next: (blob) => {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `report-card-${rc.studentName || rc.studentId}.pdf`;
+          a.click();
+          window.URL.revokeObjectURL(url);
+          completed++;
+          setTimeout(() => downloadNext(index + 1), 300);
+        },
+        error: () => {
+          failed++;
+          setTimeout(() => downloadNext(index + 1), 300);
+        },
+      });
+    };
+
+    downloadNext(0);
   }
 }

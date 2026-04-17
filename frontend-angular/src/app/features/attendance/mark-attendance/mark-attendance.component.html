@@ -14,8 +14,17 @@
     <mat-card-content>
       <div class="filters-row">
         <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Academic Year</mat-label>
+          <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onAcademicYearChange()">
+            <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">
+              {{ ay.label }} {{ ay.current ? '(Current)' : '' }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Class</mat-label>
-          <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()">
+          <mat-select [(ngModel)]="selectedClassId" [disabled]="!selectedAcademicYearId" (selectionChange)="onClassChange()">
             <mat-option *ngFor="let cls of classes" [value]="cls.classId">
               {{ cls.name }}
             </mat-option>
@@ -172,7 +181,11 @@
   </div>
 
   <!-- Info Alert -->
-  <mat-card class="info-alert" *ngIf="!selectedClassId">
+  <mat-card class="info-alert" *ngIf="!selectedAcademicYearId">
+    <mat-icon>info</mat-icon>
+    <span>Please select an academic year first.</span>
+  </mat-card>
+  <mat-card class="info-alert" *ngIf="selectedAcademicYearId && !selectedClassId">
     <mat-icon>info</mat-icon>
     <span>Please select a class and section to mark attendance.</span>
   </mat-card>

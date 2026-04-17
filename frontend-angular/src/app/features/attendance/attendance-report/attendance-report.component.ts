@@ -15,7 +15,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { SchoolClass } from '../../../core/models';
+import { SchoolClass, AcademicYear } from '../../../core/models';
 
 interface StudentReport {
   studentId: string;
@@ -75,6 +75,8 @@ interface StudentSubjectReport {
   styleUrl: './attendance-report.component.scss',
 })
 export class AttendanceReportComponent implements OnInit {
+  academicYears: AcademicYear[] = [];
+  selectedAcademicYearId = '';
   classes: SchoolClass[] = [];
   sections: { name: string; capacity: number; sectionId: string }[] = [];
   selectedClassId = '';
@@ -110,9 +112,14 @@ export class AttendanceReportComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.api.getClasses().subscribe({
+    this.api.getAcademicYears().subscribe({
       next: (res) => {
-        this.classes = Array.isArray(res.data) ? res.data : [];
+        this.academicYears = res.data || [];
+        const current = this.academicYears.find((y) => y.current);
+        if (current) {
+          this.selectedAcademicYearId = current.academicYearId;
+          this.loadClasses();
+        }
       },
     });
     this.api.getAttendanceMode().subscribe({
@@ -125,6 +132,25 @@ export class AttendanceReportComponent implements OnInit {
   get isDayWiseMode(): boolean { return this.attendanceMode === 'DAY_WISE'; }
   get isSubjectWiseMode(): boolean { return this.attendanceMode === 'SUBJECT_WISE'; }
 
+  onAcademicYearChange(): void {
+    this.selectedClassId = '';
+    this.selectedSectionId = '';
+    this.sections = [];
+    this.classes = [];
+    this.reportLoaded = false;
+    if (this.selectedAcademicYearId) {
+      this.loadClasses();
+    }
+  }
+
+  loadClasses(): void {
+    this.api.getClasses(this.selectedAcademicYearId).subscribe({
+      next: (res) => {
+        this.classes = Array.isArray(res.data) ? res.data : [];
+      },
+    });
+  }
+
   onClassChange(): void {
     const cls = this.classes.find(c => c.classId === this.selectedClassId);
     this.sections = cls?.sections || [];
@@ -133,6 +159,10 @@ export class AttendanceReportComponent implements OnInit {
   }
 
   loadReport(): void {
+    if (!this.selectedAcademicYearId) {
+      this.snackBar.open('Please select an academic year', 'Close', { duration: 3000 });
+      return;
+    }
     if (!this.selectedClassId || !this.selectedSectionId) {
       this.snackBar.open('Please select class and section', 'Close', { duration: 3000 });
       return;

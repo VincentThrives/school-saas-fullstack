@@ -9,8 +9,17 @@
   <mat-card class="filter-card">
     <div class="filter-row">
       <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onAcademicYearChange()">
+          <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">
+            {{ ay.label }} {{ ay.current ? '(Current)' : '' }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Class</mat-label>
-        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()">
+        <mat-select [(ngModel)]="selectedClassId" [disabled]="!selectedAcademicYearId" (selectionChange)="onClassChange()">
           <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
         </mat-select>
       </mat-form-field>
@@ -33,7 +42,7 @@
       </mat-form-field>
 
       <button mat-raised-button class="generate-btn" (click)="loadReport()"
-              [disabled]="isLoading || !selectedClassId || !selectedSectionId">
+              [disabled]="isLoading || !selectedAcademicYearId || !selectedClassId || !selectedSectionId">
         <mat-icon>analytics</mat-icon>
         Generate Report
       </button>

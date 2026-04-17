@@ -71,7 +71,7 @@ public class SecurityConfig {
                 // School Admin & above
                 .requestMatchers(HttpMethod.POST, "/api/v1/users/**").hasAnyRole("SCHOOL_ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/v1/users/**").hasRole("SCHOOL_ADMIN")
-                .requestMatchers("/api/v1/academic-years/**").hasRole("SCHOOL_ADMIN")
+                .requestMatchers("/api/v1/academic-years/**").hasAnyRole("SCHOOL_ADMIN", "SUPER_ADMIN")
                 .requestMatchers("/api/v1/settings/**").hasRole("SCHOOL_ADMIN")
 
                 // All authenticated tenant users
