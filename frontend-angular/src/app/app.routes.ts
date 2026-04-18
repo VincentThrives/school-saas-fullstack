@@ -262,6 +262,13 @@ export const routes: Routes = [
         canActivate: [featureGuard],
         data: { feature: 'exams' },
       },
+      {
+        path: 'exam-types',
+        loadComponent: () =>
+          import('./features/exam-types/exam-types-page.component').then(m => m.ExamTypesPageComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL], feature: 'exams' },
+      },
 
       // ── MCQ (feature-gated) ──────────────────────────────
       {
@@ -336,7 +343,7 @@ export const routes: Routes = [
       {
         path: 'notifications',
         loadComponent: () =>
-          import('./features/placeholder/placeholder.component').then(m => m.PlaceholderComponent),
+          import('./features/notifications/notifications-page/notifications-page.component').then(m => m.NotificationsPageComponent),
         canActivate: [featureGuard],
         data: { feature: 'notifications', title: 'Notifications' },
       },
@@ -530,7 +537,7 @@ export const routes: Routes = [
       {
         path: 'settings',
         loadComponent: () =>
-          import('./features/placeholder/placeholder.component').then(m => m.PlaceholderComponent),
+          import('./features/settings/settings-page/settings-page.component').then(m => m.SettingsPageComponent),
         canActivate: [roleGuard],
         data: { roles: [UserRole.SCHOOL_ADMIN], title: 'Settings' },
       },

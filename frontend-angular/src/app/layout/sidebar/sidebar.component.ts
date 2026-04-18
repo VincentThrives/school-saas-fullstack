@@ -197,6 +197,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'Timetable', path: '/timetable', icon: 'calendar_month', feature: 'timetable' },
         { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams' },
         { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams' },
+        { title: 'Exam Types', path: '/exam-types', icon: 'category', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
         { title: 'MCQ Exams', path: '/mcq', icon: 'quiz', feature: 'mcq' },
         { title: 'Fee Structure', path: '/fees', icon: 'payment', feature: 'fee', roles: [UserRole.SCHOOL_ADMIN] },
         { title: 'Fee Payments', path: '/fees/payments', icon: 'receipt_long', feature: 'fee', roles: [UserRole.SCHOOL_ADMIN] },

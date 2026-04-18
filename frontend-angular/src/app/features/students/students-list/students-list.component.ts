@@ -102,10 +102,14 @@ export class StudentsListComponent implements OnInit {
     this.classFilter = '';
     this.sectionFilter = '';
     this.classes = [];
+    this.pageIndex = 0;
     if (this.academicYearFilter) {
-      this.loadClasses();
+      // Load classes first, then reload students so the year → class-id filter can apply.
+      this.loadClasses(() => this.loadStudents());
+    } else {
+      // "All Years" — no class scope needed
+      this.loadStudents();
     }
-    this.onFilterChange();
   }
 
   onClassFilterChange(): void {
@@ -113,7 +117,7 @@ export class StudentsListComponent implements OnInit {
     this.onFilterChange();
   }
 
-  loadClasses(): void {
+  loadClasses(done?: () => void): void {
     this.apiService.getClasses(this.academicYearFilter || undefined).subscribe({
       next: (response) => {
         if (response.success && response.data) {
@@ -125,6 +129,10 @@ export class StudentsListComponent implements OnInit {
             });
           });
         }
+        if (done) done();
+      },
+      error: () => {
+        if (done) done();
       },
     });
   }
@@ -178,19 +186,29 @@ export class StudentsListComponent implements OnInit {
     if (this.sectionFilter) params.sectionId = this.sectionFilter;
     if (this.searchQuery) params.search = this.searchQuery;
 
-    this.apiService.getStudents(this.pageIndex, this.pageSize, Object.keys(params).length > 0 ? params : undefined).subscribe({
+    // When filtering by academic year (without a specific class) we must filter client-side.
+    // The backend paginates before the filter runs, so ask for a bigger slice to avoid
+    // showing an empty page just because the current page happened to miss this year's classes.
+    const yearOnly = !!this.academicYearFilter && !this.classFilter;
+    const page = yearOnly ? 0 : this.pageIndex;
+    const size = yearOnly ? 500 : this.pageSize;
+
+    this.apiService.getStudents(page, size, Object.keys(params).length > 0 ? params : undefined).subscribe({
       next: (response) => {
         if (response.success && response.data) {
           let students = response.data.content || [];
           // Filter by academic year if selected (and no class filter — class already filters by year)
-          if (this.academicYearFilter && !this.classFilter) {
+          if (yearOnly) {
             const classIdsForYear = this.classes.map(c => c.classId);
             if (classIdsForYear.length > 0) {
               students = students.filter((s: any) => classIdsForYear.includes(s.classId));
+            } else {
+              // No classes for this year → no students belong to it
+              students = [];
             }
           }
           this.dataSource.data = students;
-          this.totalElements = students.length;
+          this.totalElements = yearOnly ? students.length : (response.data.totalElements ?? students.length);
 
           // Load user data for students that have userId
           const userIds = this.dataSource.data

@@ -114,3 +114,9 @@ mat-divider {
     opacity: 0.6;
   }
 }
+
+.form-grid .span-2 { grid-column: span 2; }
+
+@media (max-width: 640px) {
+  .form-grid .span-2 { grid-column: span 1; }
+}

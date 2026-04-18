@@ -35,6 +35,9 @@ export class ReportCardViewComponent implements OnInit {
   reportCard: any = null;
   marksColumns = ['subjectName', 'marksObtained', 'maxMarks', 'grade'];
   isLoading = false;
+  selectedExamType = '';
+  selectedAcademicYearId = '';
+  missingContext = false;
 
   constructor(
     private api: ApiService,
@@ -45,37 +48,53 @@ export class ReportCardViewComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('reportCardId') || '';
-    if (id) {
+    // Read context from query params set by the generator when "View" was clicked.
+    this.selectedExamType = this.route.snapshot.queryParamMap.get('examType') || '';
+    this.selectedAcademicYearId = this.route.snapshot.queryParamMap.get('academicYearId') || '';
+
+    if (!id) {
+      this.missingContext = true;
+      return;
+    }
+    if (!this.selectedExamType) {
+      // Can't show a meaningful card without an exam type.
+      this.missingContext = true;
+      return;
+    }
+    if (this.selectedAcademicYearId) {
       this.loadReportCard(id);
+    } else {
+      this.resolveCurrentYearAndLoad(id);
     }
   }
 
-  loadReportCard(studentId: string): void {
-    this.isLoading = true;
+  private resolveCurrentYearAndLoad(studentId: string): void {
     this.api.getAcademicYears().subscribe({
       next: (ayRes) => {
         const years = Array.isArray(ayRes.data) ? ayRes.data : (ayRes.data as any)?.content || [];
         const current = years.find((y: any) => y.current);
-        const academicYearId = current?.academicYearId || (years.length > 0 ? years[0].academicYearId : '');
-
-        if (!academicYearId) {
-          this.isLoading = false;
+        this.selectedAcademicYearId = current?.academicYearId || (years.length > 0 ? years[0].academicYearId : '');
+        if (!this.selectedAcademicYearId) {
           this.snackBar.open('No academic year found', 'Close', { duration: 3000 });
           return;
         }
+        this.loadReportCard(studentId);
+      },
+    });
+  }
 
-        this.api.getStudentReportCard(studentId, academicYearId).subscribe({
-          next: (res) => {
-            if (res.success && res.data) {
-              this.reportCard = res.data;
-            }
-            this.isLoading = false;
-          },
-          error: (err) => {
-            this.isLoading = false;
-            this.snackBar.open(err?.error?.message || 'Failed to load report card', 'Close', { duration: 3000 });
-          },
-        });
+  loadReportCard(studentId: string): void {
+    this.isLoading = true;
+    this.api.getStudentReportCard(studentId, this.selectedAcademicYearId, this.selectedExamType).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.reportCard = res.data;
+        }
+        this.isLoading = false;
+      },
+      error: (err) => {
+        this.isLoading = false;
+        this.snackBar.open(err?.error?.message || 'Failed to load report card', 'Close', { duration: 3000 });
       },
     });
   }
@@ -83,7 +102,7 @@ export class ReportCardViewComponent implements OnInit {
   downloadPdf(): void {
     if (!this.reportCard) return;
     const tenantId = this.authService.currentSchoolInfo?.tenantId || '';
-    this.api.downloadReportCardPdf(this.reportCard.studentId, this.reportCard.academicYearId, tenantId).subscribe({
+    this.api.downloadReportCardPdf(this.reportCard.studentId, this.reportCard.academicYearId, tenantId, this.selectedExamType).subscribe({
       next: (blob) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -15,6 +15,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { scrollToFirstInvalid } from '../../../shared/utils/form-scroll';
 import { ApiService } from '../../../core/services/api.service';
 import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
 import { SchoolClass, EmployeeRole } from '../../../core/models';
@@ -72,6 +73,7 @@ export class TeacherFormComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private snackBar: MatSnackBar,
+    private hostEl: ElementRef<HTMLElement>,
   ) {}
 
   ngOnInit(): void {
@@ -93,6 +95,12 @@ export class TeacherFormComponent implements OnInit {
       classTeacherOfClassId: [''],
       classTeacherOfSectionId: [''],
       classSubjectAssignments: this.fb.array([]),
+      // Address
+      street: [''],
+      city: [''],
+      state: [''],
+      country: [''],
+      zip: [''],
     });
 
     this.api.getClasses().subscribe({
@@ -132,6 +140,7 @@ export class TeacherFormComponent implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           const t = res.data;
+          const addr = (t as any).address || {};
           this.employeeForm.patchValue({
             firstName: t.firstName || '',
             lastName: t.lastName || '',
@@ -146,6 +155,11 @@ export class TeacherFormComponent implements OnInit {
             isClassTeacher: t.isClassTeacher || t.classTeacher || false,
             classTeacherOfClassId: t.classTeacherOfClassId || '',
             classTeacherOfSectionId: t.classTeacherOfSectionId || '',
+            street: addr.street || '',
+            city: addr.city || '',
+            state: addr.state || '',
+            country: addr.country || '',
+            zip: addr.zip || '',
           });
 
           // Load class-subject assignments
@@ -230,7 +244,8 @@ export class TeacherFormComponent implements OnInit {
 
   onSubmit(): void {
     if (this.employeeForm.invalid) {
-      this.employeeForm.markAllAsTouched();
+      scrollToFirstInvalid(this.hostEl, this.employeeForm);
+      this.snackBar.open('Please fill the highlighted required fields', 'Close', { duration: 3000 });
       return;
     }
 
@@ -250,6 +265,13 @@ export class TeacherFormComponent implements OnInit {
       classTeacherOfClassId: formData.classTeacherOfClassId || null,
       classTeacherOfSectionId: formData.classTeacherOfSectionId || null,
       classSubjectAssignments: this.isTeacherRole ? (formData.classSubjectAssignments || []) : [],
+      address: {
+        street: formData.street || '',
+        city: formData.city || '',
+        state: formData.state || '',
+        country: formData.country || '',
+        zip: formData.zip || '',
+      },
     };
     // Only send dates if they have a value (avoid sending empty string to LocalDate)
     if (formData.dateOfBirth) {

@@ -38,11 +38,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -84,6 +87,9 @@ public class ReportCardService {
 
     public ReportCard generateReportCard(String studentId, String academicYearId, String examType) {
         logger.info("Generating report card for studentId={}, academicYearId={}, examType={}", studentId, academicYearId, examType);
+        if (examType == null || examType.isBlank()) {
+            throw new IllegalArgumentException("Exam type is required. Please select an exam type (e.g. Sem 1, Final) before generating a report card.");
+        }
 
         Student student = studentRepository.findById(studentId)
                 .filter(s -> s.getDeletedAt() == null)
@@ -184,15 +190,55 @@ public class ReportCardService {
         Map<String, Double> subjectMarksObtained = new HashMap<>();
         Map<String, Double> subjectMaxMarks = new HashMap<>();
         Map<String, String> subjectNamesFromExams = new HashMap<>();
+        // Track which subjects should be rendered "Absent" (a matching exam exists
+        // for the selected type, but this student has no marks entry for it).
+        Set<String> absentSubjectIds = new HashSet<>();
 
-        for (Map.Entry<String, Double> entry : examMarksMap.entrySet()) {
-            Exam exam = examMap.get(entry.getKey());
-            if (exam == null) continue;
-            String subjectId = exam.getSubjectId();
-            String subjectName = allSubjects.getOrDefault(subjectId, exam.getSubjectName() != null ? exam.getSubjectName() : subjectId);
-            subjectNamesFromExams.putIfAbsent(subjectId, subjectName);
-            subjectMarksObtained.merge(subjectId, entry.getValue(), Double::sum);
-            subjectMaxMarks.merge(subjectId, (double) exam.getMaxMarks(), Double::sum);
+        boolean specificExamType = examType != null && !examType.isEmpty();
+
+        if (specificExamType) {
+            // ── One exam per subject rule ───────────────────────────
+            // For a specific exam type (e.g. "Sem 1"), pick exactly ONE exam per
+            // subject — the most recent by examDate, falling back to createdAt —
+            // and use that single exam's marks/maxMarks. No summing, no duplicates.
+            Map<String, Exam> bestExamBySubject = new HashMap<>();
+            for (Exam exam : exams) {
+                String subjectId = exam.getSubjectId();
+                if (subjectId == null) continue;
+                Exam current = bestExamBySubject.get(subjectId);
+                if (current == null || isNewerExam(exam, current)) {
+                    bestExamBySubject.put(subjectId, exam);
+                }
+            }
+
+            for (Map.Entry<String, Exam> e : bestExamBySubject.entrySet()) {
+                String subjectId = e.getKey();
+                Exam exam = e.getValue();
+                String subjectName = allSubjects.getOrDefault(
+                    subjectId, exam.getSubjectName() != null ? exam.getSubjectName() : subjectId);
+                subjectNamesFromExams.put(subjectId, subjectName);
+
+                subjectMaxMarks.put(subjectId, (double) exam.getMaxMarks());
+                Double obtained = examMarksMap.get(exam.getExamId());
+                if (obtained != null) {
+                    subjectMarksObtained.put(subjectId, obtained);
+                } else {
+                    // Student was absent / marks not entered for this subject's exam
+                    subjectMarksObtained.put(subjectId, 0.0);
+                    absentSubjectIds.add(subjectId);
+                }
+            }
+        } else {
+            // ── All Exam Types: cumulative across every exam (existing behavior) ──
+            for (Map.Entry<String, Double> entry : examMarksMap.entrySet()) {
+                Exam exam = examMap.get(entry.getKey());
+                if (exam == null) continue;
+                String subjectId = exam.getSubjectId();
+                String subjectName = allSubjects.getOrDefault(subjectId, exam.getSubjectName() != null ? exam.getSubjectName() : subjectId);
+                subjectNamesFromExams.putIfAbsent(subjectId, subjectName);
+                subjectMarksObtained.merge(subjectId, entry.getValue(), Double::sum);
+                subjectMaxMarks.merge(subjectId, (double) exam.getMaxMarks(), Double::sum);
+            }
         }
 
         // Build subject grades — include all subjects that have marks
@@ -207,9 +253,10 @@ public class ReportCardService {
             double obtained = subjectMarksObtained.getOrDefault(subjectId, 0.0);
             double max = subjectMaxMarks.getOrDefault(subjectId, 0.0);
             double pct = max > 0 ? (obtained / max) * 100 : 0;
-            String grade = calculateGrade(pct);
+            boolean isAbsent = absentSubjectIds.contains(subjectId);
+            String grade = isAbsent ? "—" : calculateGrade(pct);
 
-            // Skip subjects with no marks
+            // Skip subjects with no configured max
             if (max <= 0) continue;
 
             ReportCard.SubjectGrade sg = new ReportCard.SubjectGrade();
@@ -218,6 +265,7 @@ public class ReportCardService {
             sg.setMarksObtained(obtained);
             sg.setMaxMarks(max);
             sg.setGrade(grade);
+            sg.setAbsent(isAbsent);
             subjectGrades.add(sg);
 
             totalMarks += obtained;
@@ -244,6 +292,7 @@ public class ReportCardService {
         academicYearRepository.findById(academicYearId).ifPresent(ay ->
             reportCard.setAcademicYearLabel(ay.getLabel())
         );
+        reportCard.setExamType(specificExamType ? examType : null);
         reportCard.setSubjects(subjectGrades);
         reportCard.setTotalMarks(totalMarks);
         reportCard.setTotalMaxMarks(totalMaxMarks);
@@ -503,6 +552,23 @@ public class ReportCardService {
         if (percentage >= 50) return "C";
         if (percentage >= 40) return "D";
         return "F";
+    }
+
+    /**
+     * Pick the "newer" of two exams. Prefer examDate; fall back to createdAt.
+     * Used when filtering by a specific exam type and more than one exam exists
+     * for the same subject — we keep the most recent run.
+     */
+    private boolean isNewerExam(Exam a, Exam b) {
+        LocalDate ad = a.getExamDate();
+        LocalDate bd = b.getExamDate();
+        if (ad != null && bd != null) return ad.isAfter(bd);
+        if (ad != null) return true;
+        if (bd != null) return false;
+        Instant ac = a.getCreatedAt();
+        Instant bc = b.getCreatedAt();
+        if (ac != null && bc != null) return ac.isAfter(bc);
+        return false;
     }
 
     private double calculateAttendancePercentage(String studentId, String academicYearId) {

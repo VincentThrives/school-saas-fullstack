@@ -89,3 +89,23 @@ $gold-dark: #B8860B;
   justify-content: center;
   padding: 32px;
 }
+
+.exam-chip {
+  background: linear-gradient(135deg, #fff7e6 0%, #fde68a 100%) !important;
+  color: #7a5a14 !important;
+  font-weight: 700;
+}
+.absent-chip {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  font-weight: 700;
+  font-size: 11px !important;
+  min-height: 24px !important;
+}
+.muted { color: #9ca3af; font-weight: 700; }
+.marks-footnote {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+}

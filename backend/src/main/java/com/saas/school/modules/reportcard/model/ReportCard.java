@@ -18,6 +18,7 @@ public class ReportCard {
     private String className;
     private String academicYearId;
     private String academicYearLabel;
+    private String examType; // null/empty = All exam types
     private List<SubjectGrade> subjects;
     private double totalMarks;
     private double totalMaxMarks;
@@ -91,6 +92,9 @@ public class ReportCard {
     public void setAcademicYearLabel(String academicYearLabel) {
         this.academicYearLabel = academicYearLabel;
     }
+
+    public String getExamType() { return examType; }
+    public void setExamType(String examType) { this.examType = examType; }
 
     public List<SubjectGrade> getSubjects() {
         return subjects;
@@ -180,6 +184,7 @@ public class ReportCard {
         private double maxMarks;
         private String grade;
         private String teacherRemarks;
+        private boolean absent;
 
         public SubjectGrade() {
         }
@@ -231,5 +236,8 @@ public class ReportCard {
         public void setTeacherRemarks(String teacherRemarks) {
             this.teacherRemarks = teacherRemarks;
         }
+
+        public boolean isAbsent() { return absent; }
+        public void setAbsent(boolean absent) { this.absent = absent; }
     }
 }

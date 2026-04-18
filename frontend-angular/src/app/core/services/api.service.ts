@@ -386,6 +386,51 @@ export class ApiService {
     return this.http.get<ApiResponse<number>>(`${this.API}/notifications/unread-count`);
   }
 
+  // ── Exam Types catalog ────────────────────────────────────────────────
+
+  getExamTypes(includeArchived = false): Observable<ApiResponse<any[]>> {
+    const params = new HttpParams().set('includeArchived', includeArchived);
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/exam-types`, { params });
+  }
+
+  createExamType(e: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.API}/exam-types`, e);
+  }
+
+  updateExamType(id: string, e: any): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.API}/exam-types/${id}`, e);
+  }
+
+  archiveExamType(id: string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.API}/exam-types/${id}/archive`, null);
+  }
+
+  restoreExamType(id: string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.API}/exam-types/${id}/restore`, null);
+  }
+
+  deleteExamType(id: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/exam-types/${id}`);
+  }
+
+  // ── Notification Templates ────────────────────────────────────────────
+
+  getNotificationTemplates(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/notification-templates`);
+  }
+
+  createNotificationTemplate(tpl: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.API}/notification-templates`, tpl);
+  }
+
+  updateNotificationTemplate(id: string, tpl: any): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.API}/notification-templates/${id}`, tpl);
+  }
+
+  deleteNotificationTemplate(id: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/notification-templates/${id}`);
+  }
+
   // ── WhatsApp ───────────────────────────────────────────────────────────
 
   sendWhatsAppMessage(req: SendWhatsAppRequest): Observable<ApiResponse<WhatsAppMessage>> {

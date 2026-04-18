@@ -63,6 +63,9 @@ export class BulkPromoteComponent implements OnInit {
   promotedCount = 0;
   skippedCount = 0;
 
+  // Confirmation dialog
+  confirmOpen = false;
+
   displayedColumns = ['select', 'rollNumber', 'name', 'admissionNumber'];
 
   constructor(
@@ -83,25 +86,54 @@ export class BulkPromoteComponent implements OnInit {
     });
   }
 
-  // Filter TO academic years: only years after FROM year
+  // TO academic year: only the year whose start-year = FROM's end-year.
+  // Labels follow "YYYY-YYYY" (e.g. 2026-2027 → 2027-2028). We fall back to
+  // the chronologically next year if label parsing fails.
   get toAcademicYearOptions(): any[] {
     if (!this.fromAcademicYearId) return [];
     const fromYear = this.academicYears.find(y => y.academicYearId === this.fromAcademicYearId);
     if (!fromYear) return [];
-    // Compare by label (e.g., "2025-2026" < "2026-2027")
-    return this.academicYears.filter(y => y.label > fromYear.label);
+
+    const fromParts = this.extractYearRange(fromYear.label);
+    if (fromParts) {
+      const expectedNextLabel = `${fromParts.end}-${fromParts.end + 1}`;
+      const direct = this.academicYears.find(y => y.label === expectedNextLabel);
+      if (direct) return [direct];
+    }
+
+    // Fallback: next academic year by startDate (or label asc)
+    const sorted = [...this.academicYears]
+      .filter(y => y.academicYearId !== this.fromAcademicYearId)
+      .sort((a, b) => {
+        const ad = a.startDate || a.label || '';
+        const bd = b.startDate || b.label || '';
+        return ad.localeCompare(bd);
+      });
+    const fromKey = fromYear.startDate || fromYear.label || '';
+    const next = sorted.find(y => (y.startDate || y.label || '').localeCompare(fromKey) > 0);
+    return next ? [next] : [];
   }
 
-  // Filter TO classes: exclude the FROM class (only higher/different classes)
+  private extractYearRange(label: string | undefined): { start: number; end: number } | null {
+    if (!label) return null;
+    const m = String(label).match(/(\d{4})\s*[-–—]\s*(\d{4})/);
+    if (!m) return null;
+    const start = parseInt(m[1], 10);
+    const end = parseInt(m[2], 10);
+    if (isNaN(start) || isNaN(end)) return null;
+    return { start, end };
+  }
+
+  // TO class: only the class whose numeric grade is exactly FROM + 1.
+  // If FROM class name has no number (e.g. "Nursery"), fall back to the full list.
   get toClassOptions(): any[] {
-    if (!this.fromClassId) return this.toClasses;
+    if (!this.fromClassId || this.toClasses.length === 0) return this.toClasses;
     const fromCls = this.fromClasses.find(c => c.classId === this.fromClassId);
     if (!fromCls) return this.toClasses;
     const fromNum = this.extractClassNumber(fromCls.name);
-    return this.toClasses.filter(c => {
-      const toNum = this.extractClassNumber(c.name);
-      return toNum > fromNum;
-    });
+    if (fromNum === 0) return this.toClasses;
+    const nextNum = fromNum + 1;
+    return this.toClasses.filter(c => this.extractClassNumber(c.name) === nextNum);
   }
 
   private extractClassNumber(name: string): number {
@@ -110,7 +142,10 @@ export class BulkPromoteComponent implements OnInit {
   }
 
   onFromYearChange(): void {
-    this.fromClasses = this.allClasses.filter(c => c.academicYearId === this.fromAcademicYearId);
+    // Classes filtered by academicYearId; if none match (older records without the field),
+    // fall back to showing every class so the admin can still promote.
+    const scoped = this.allClasses.filter(c => c.academicYearId === this.fromAcademicYearId);
+    this.fromClasses = scoped.length > 0 ? scoped : [...this.allClasses];
     this.fromClassId = '';
     this.fromSectionId = '';
     this.fromSections = [];
@@ -123,6 +158,13 @@ export class BulkPromoteComponent implements OnInit {
     this.students = [];
     this.studentsLoaded = false;
     this.promotionDone = false;
+
+    // Only one valid TO year exists → pre-select it so the admin skips the step
+    const nextYears = this.toAcademicYearOptions;
+    if (nextYears.length === 1) {
+      this.toAcademicYearId = nextYears[0].academicYearId;
+      this.onToYearChange();
+    }
   }
 
   onFromClassChange(): void {
@@ -136,8 +178,15 @@ export class BulkPromoteComponent implements OnInit {
     this.students = [];
     this.studentsLoaded = false;
     this.promotionDone = false;
-    if (this.fromSections.length === 1) {
-      this.fromSectionId = this.fromSections[0].sectionId;
+
+    // If only one valid "next class" exists in the TO year, pre-select it — but
+    // leave the TO section empty so the admin picks it explicitly.
+    const nextClasses = this.toClassOptions;
+    if (nextClasses.length === 1) {
+      this.toClassId = nextClasses[0].classId;
+      const toCls = this.toClasses.find(c => c.classId === this.toClassId);
+      this.toSections = toCls?.sections || [];
+      this.toSectionId = '';
     }
   }
 
@@ -145,10 +194,16 @@ export class BulkPromoteComponent implements OnInit {
     this.students = [];
     this.studentsLoaded = false;
     this.promotionDone = false;
+    // Auto-load the roster right away so admins can start excluding students
+    // without having to fill in the TO side first.
+    if (this.fromClassId && this.fromSectionId) {
+      this.loadStudents();
+    }
   }
 
   onToYearChange(): void {
-    this.toClasses = this.allClasses.filter(c => c.academicYearId === this.toAcademicYearId);
+    const scoped = this.allClasses.filter(c => c.academicYearId === this.toAcademicYearId);
+    this.toClasses = scoped.length > 0 ? scoped : [...this.allClasses];
     this.toClassId = '';
     this.toSectionId = '';
     this.toSections = [];
@@ -160,9 +215,7 @@ export class BulkPromoteComponent implements OnInit {
     this.toSections = cls?.sections || [];
     this.toSectionId = '';
     this.promotionDone = false;
-    if (this.toSections.length === 1) {
-      this.toSectionId = this.toSections[0].sectionId;
-    }
+    // Admin picks the TO section manually — no auto-fill even when there's only one option.
   }
 
   loadStudents(): void {
@@ -229,6 +282,11 @@ export class BulkPromoteComponent implements OnInit {
     return this.academicYears.find(y => y.academicYearId === this.toAcademicYearId)?.label || '';
   }
 
+  fromYearLabel(): string {
+    return this.academicYears.find(y => y.academicYearId === this.fromAcademicYearId)?.label || '';
+  }
+
+  // Step 1: open confirmation dialog (runs the same guards as before)
   promote(): void {
     if (!this.canPromote) return;
 
@@ -247,6 +305,18 @@ export class BulkPromoteComponent implements OnInit {
       }
     }
 
+    this.confirmOpen = true;
+  }
+
+  cancelConfirm(): void {
+    if (this.isPromoting) return;
+    this.confirmOpen = false;
+  }
+
+  // Step 2: user confirmed — actually send the promotion request
+  confirmPromote(): void {
+    if (!this.canPromote) return;
+
     const excludedIds = this.students.filter(s => !s.selected).map(s => s.studentId);
 
     this.isPromoting = true;
@@ -260,6 +330,7 @@ export class BulkPromoteComponent implements OnInit {
     }).subscribe({
       next: (res) => {
         this.isPromoting = false;
+        this.confirmOpen = false;
         this.promotionDone = true;
         this.promotedCount = res.data?.promoted || 0;
         this.skippedCount = res.data?.skipped || 0;
@@ -270,6 +341,7 @@ export class BulkPromoteComponent implements OnInit {
       },
       error: (err) => {
         this.isPromoting = false;
+        this.confirmOpen = false;
         this.snackBar.open(err?.error?.message || 'Promotion failed', 'Close', { duration: 5000 });
       },
     });

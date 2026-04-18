@@ -20,7 +20,14 @@
         <div class="form-grid">
           <mat-form-field appearance="outline">
             <mat-label>Exam Type *</mat-label>
-            <input matInput formControlName="examType" placeholder="e.g., Unit Test 1, Mid-Term, Final Exam">
+            <mat-select formControlName="examType">
+              <mat-option *ngFor="let t of examTypes" [value]="t.name" [matTooltip]="t.description || ''">
+                {{ t.name }}
+              </mat-option>
+            </mat-select>
+            <mat-hint *ngIf="examTypes.length === 0">
+              No exam types yet — add one under Exam Types in the sidebar
+            </mat-hint>
             <mat-error>Exam type is required</mat-error>
           </mat-form-field>
 

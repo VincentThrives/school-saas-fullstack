@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -15,6 +15,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { scrollToFirstInvalid } from '../../../shared/utils/form-scroll';
 import { ApiService } from '../../../core/services/api.service';
 
 @Component({
@@ -68,6 +69,7 @@ export class EventFormComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private snackBar: MatSnackBar,
+    private hostEl: ElementRef<HTMLElement>,
   ) {}
 
   ngOnInit(): void {
@@ -135,7 +137,8 @@ export class EventFormComponent implements OnInit {
 
   onSubmit(): void {
     if (this.eventForm.invalid) {
-      this.eventForm.markAllAsTouched();
+      scrollToFirstInvalid(this.hostEl, this.eventForm);
+      this.snackBar.open('Please fill the highlighted required fields', 'Close', { duration: 3000 });
       return;
     }
 

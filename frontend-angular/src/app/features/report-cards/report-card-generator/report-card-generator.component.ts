@@ -63,19 +63,35 @@ export class ReportCardGeneratorComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // Load exams first, then academic years — so exam types are ready when year auto-selects
-    this.api.getExams().subscribe((res) => {
-      this.allExams = res.data || [];
-
-      this.api.getAcademicYears().subscribe((ayRes) => {
-        this.academicYears = ayRes.data || [];
-        const current = this.academicYears.find((ay) => ay.current);
-        if (current) {
-          this.selectedAcademicYearId = current.academicYearId;
-          this.onAcademicYearChange();
-        }
-      });
+    // Academic years first. Exam types are derived per class+section once the admin
+    // drills down — we only show types that actually have exams conducted for the scope.
+    this.api.getAcademicYears().subscribe((ayRes) => {
+      this.academicYears = ayRes.data || [];
+      const current = this.academicYears.find((ay) => ay.current);
+      if (current) {
+        this.selectedAcademicYearId = current.academicYearId;
+        this.onAcademicYearChange();
+      }
     });
+  }
+
+  /**
+   * Re-derive the list of exam types shown in the dropdown. Only exams that exist
+   * for the currently selected class (and section, if chosen) count. If the admin
+   * hasn't picked a class yet, or the scope has no conducted exams, the list is empty.
+   */
+  private recomputeExamTypes(): void {
+    if (!this.selectedClassId) {
+      this.examTypes = [];
+      return;
+    }
+    let scoped = this.allExams.filter((e: any) => e.classId === this.selectedClassId);
+    if (this.selectedSectionId) {
+      scoped = scoped.filter((e: any) => e.sectionId === this.selectedSectionId);
+    }
+    const types = new Set<string>();
+    scoped.forEach((e: any) => { if (e.examType) types.add(e.examType); });
+    this.examTypes = Array.from(types).sort();
   }
 
   onAcademicYearChange(): void {
@@ -88,22 +104,22 @@ export class ReportCardGeneratorComponent implements OnInit {
     this.students = [];
     this.reportCards = [];
     this.filteredReportCards = [];
+    this.allExams = [];
+    this.examTypes = [];
     this.selection.clear();
 
     if (!this.selectedAcademicYearId) {
-      this.examTypes = [];
       return;
     }
 
-    // Extract exam types for this academic year (empty list when no exams exist yet)
-    const examsForYear = this.allExams.filter((e: any) => e.academicYearId === this.selectedAcademicYearId);
-    const types = new Set<string>();
-    examsForYear.forEach((e: any) => { if (e.examType) types.add(e.examType); });
-    this.examTypes = Array.from(types).sort();
-
-    // Load classes for this year
+    // Load classes and exams scoped to this academic year. Exam types are derived
+    // from the loaded exams once class + section are selected.
     this.api.getClasses(this.selectedAcademicYearId).subscribe((res) => {
       this.classes = res.data || [];
+    });
+    this.api.getExams().subscribe((res) => {
+      this.allExams = (res?.data || []).filter((e: any) => e.academicYearId === this.selectedAcademicYearId);
+      this.recomputeExamTypes();
     });
   }
 
@@ -115,8 +131,8 @@ export class ReportCardGeneratorComponent implements OnInit {
     this.filteredReportCards = [];
     this.selection.clear();
 
-    // Reload for the currently selected class (if any) so the table reflects the new exam-type filter
-    if (this.selectedClassId) {
+    // Only load when both class + exam type are set. Exam type is mandatory now.
+    if (this.selectedClassId && this.selectedExamType) {
       this.loadReportCards();
     }
   }
@@ -124,6 +140,7 @@ export class ReportCardGeneratorComponent implements OnInit {
   onClassChange(): void {
     this.selectedSectionId = '';
     this.selectedStudentId = '';
+    this.selectedExamType = '';
     this.students = [];
     this.reportCards = [];
     this.filteredReportCards = [];
@@ -131,21 +148,31 @@ export class ReportCardGeneratorComponent implements OnInit {
 
     if (!this.selectedClassId) {
       this.sections = [];
+      this.examTypes = [];
       return;
     }
 
     const cls = this.classes.find(c => c.classId === this.selectedClassId);
     this.sections = cls?.sections || [];
 
-    // Auto-load report cards; if exam type is empty, backend returns data across all exam types
-    this.loadReportCards();
+    // Narrow the exam-type options to the types that exist for this class.
+    this.recomputeExamTypes();
   }
 
   onSectionChange(): void {
     this.selectedStudentId = '';
+    // Re-derive exam types: section scope may have a different set of conducted exams
+    const previousType = this.selectedExamType;
+    this.recomputeExamTypes();
+    // If the previously-picked type is no longer valid for this section, clear it
+    if (previousType && !this.examTypes.includes(previousType)) {
+      this.selectedExamType = '';
+      this.reportCards = [];
+      this.filteredReportCards = [];
+    }
     this.selection.clear();
 
-    // Filter report cards by section
+    // Filter report cards by section (existing behavior)
     if (this.selectedSectionId) {
       this.loadStudentsForSection();
       this.filteredReportCards = this.reportCards.filter(rc => {
@@ -182,7 +209,7 @@ export class ReportCardGeneratorComponent implements OnInit {
   }
 
   loadReportCards(): void {
-    if (!this.selectedClassId || !this.selectedAcademicYearId) return;
+    if (!this.selectedClassId || !this.selectedAcademicYearId || !this.selectedExamType) return;
     this.isLoading = true;
     this.selection.clear();
 
@@ -194,12 +221,12 @@ export class ReportCardGeneratorComponent implements OnInit {
       },
     });
 
-    // Generate report cards with exam type filter
+    // Generate report cards — exam type is always passed now
     this.api.generateReportCards({
       classId: this.selectedClassId,
       academicYearId: this.selectedAcademicYearId,
       studentIds: [],
-      examType: this.selectedExamType || undefined,
+      examType: this.selectedExamType,
     }).subscribe({
       next: (res) => {
         this.reportCards = res.data || [];
@@ -238,12 +265,17 @@ export class ReportCardGeneratorComponent implements OnInit {
   // ── Actions ────────────────────────────────────────────────
 
   viewReportCard(rc: any): void {
-    this.router.navigate(['/report-cards', rc.studentId]);
+    this.router.navigate(['/report-cards', rc.studentId], {
+      queryParams: {
+        examType: this.selectedExamType,
+        academicYearId: this.selectedAcademicYearId,
+      },
+    });
   }
 
   downloadPdf(rc: ReportCard): void {
     const tenantId = this.authService.currentSchoolInfo?.tenantId || '';
-    this.api.downloadReportCardPdf(rc.studentId, this.selectedAcademicYearId, tenantId, this.selectedExamType || undefined).subscribe({
+    this.api.downloadReportCardPdf(rc.studentId, this.selectedAcademicYearId, tenantId, this.selectedExamType).subscribe({
       next: (blob) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -278,7 +310,7 @@ export class ReportCardGeneratorComponent implements OnInit {
         return;
       }
       const rc = cards[index];
-      this.api.downloadReportCardPdf(rc.studentId, this.selectedAcademicYearId, tenantId, this.selectedExamType || undefined).subscribe({
+      this.api.downloadReportCardPdf(rc.studentId, this.selectedAcademicYearId, tenantId, this.selectedExamType).subscribe({
         next: (blob) => {
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');

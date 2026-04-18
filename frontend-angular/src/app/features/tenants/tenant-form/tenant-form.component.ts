@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { scrollToFirstInvalid } from '../../../shared/utils/form-scroll';
 import { ApiService } from '../../../core/services/api.service';
 import { CreateTenantRequest } from '../../../core/models';
 
@@ -47,7 +48,8 @@ export class TenantFormComponent implements OnInit {
     private fb: FormBuilder,
     private apiService: ApiService,
     private router: Router,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private hostEl: ElementRef<HTMLElement>,
   ) {}
 
   ngOnInit(): void {
@@ -74,7 +76,8 @@ export class TenantFormComponent implements OnInit {
 
   onSubmit(): void {
     if (this.tenantForm.invalid) {
-      this.tenantForm.markAllAsTouched();
+      scrollToFirstInvalid(this.hostEl, this.tenantForm);
+      this.snackBar.open('Please fill the highlighted required fields', 'Close', { duration: 3000 });
       return;
     }
 

@@ -1,0 +1,299 @@
+<div class="notif-container">
+  <app-page-header
+    title="Notifications"
+    subtitle="Send announcements and alerts to your school"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Notifications' }
+    ]">
+  </app-page-header>
+
+  <div class="notif-layout">
+    <!-- Left rail -->
+    <nav class="notif-rail">
+      <button *ngFor="let t of tabs"
+              class="rail-btn"
+              [class.active]="activeTab === t.key"
+              [class.disabled]="!t.enabled"
+              (click)="selectTab(t)">
+        <mat-icon>{{ t.icon }}</mat-icon>
+        <span class="rail-label">{{ t.label }}</span>
+        <span class="rail-soon" *ngIf="!t.enabled">Soon</span>
+      </button>
+    </nav>
+
+    <!-- Right panel -->
+    <section class="notif-panel">
+
+      <!-- Compose tab -->
+      <div *ngIf="activeTab === 'compose'">
+        <mat-card class="panel-card">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Compose notification</h2>
+              <p class="panel-sub">Craft a one-off announcement or alert and pick who should receive it.</p>
+            </div>
+          </div>
+
+          <!-- Live preview -->
+          <div class="compose-preview" [class.priority-high]="priority === 'HIGH'" [class.priority-urgent]="priority === 'URGENT'">
+            <mat-icon class="preview-icon">
+              {{ (typeOptions | slice:0:1)[0].icon }}
+            </mat-icon>
+            <div class="preview-body">
+              <div class="preview-meta">
+                <span class="preview-type">{{ type }}</span>
+                <span class="preview-priority" *ngIf="priority !== 'NORMAL'">{{ priority }}</span>
+              </div>
+              <div class="preview-title">{{ title || 'Notification title' }}</div>
+              <div class="preview-text">{{ body || 'Your message body will appear here.' }}</div>
+              <div class="preview-footer">
+                <span><mat-icon>group</mat-icon> {{ audienceLabel }}</span>
+                <span><mat-icon>send</mat-icon> {{ channelLabel }}</span>
+              </div>
+            </div>
+          </div>
+
+          <mat-divider></mat-divider>
+
+          <!-- Message fields -->
+          <h3 class="section-title">Message</h3>
+          <div class="field-grid">
+            <mat-form-field appearance="outline" class="span-2">
+              <mat-label>Title</mat-label>
+              <input matInput [(ngModel)]="title" maxlength="100" placeholder="e.g. School closed tomorrow" />
+              <mat-hint align="end">{{ title.length }} / 100</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="span-2">
+              <mat-label>Body</mat-label>
+              <textarea matInput [(ngModel)]="body" rows="4" maxlength="1000"
+                        placeholder="Type your message…"></textarea>
+              <mat-hint align="end">{{ body.length }} / 1000</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Category</mat-label>
+              <mat-select [(ngModel)]="type">
+                <mat-option *ngFor="let o of typeOptions" [value]="o.value">
+                  <mat-icon class="option-icon">{{ o.icon }}</mat-icon>
+                  {{ o.label }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Priority</mat-label>
+              <mat-select [(ngModel)]="priority">
+                <mat-option *ngFor="let o of priorityOptions" [value]="o.value">{{ o.label }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <mat-divider></mat-divider>
+
+          <!-- Audience -->
+          <h3 class="section-title">Audience</h3>
+          <mat-radio-group [(ngModel)]="recipientType" (change)="onRecipientTypeChange()" class="audience-radio">
+            <mat-radio-button value="ALL">Everyone in the school</mat-radio-button>
+            <mat-radio-button value="ROLE">Specific role</mat-radio-button>
+            <mat-radio-button value="CLASS">Specific class / section</mat-radio-button>
+            <mat-radio-button value="INDIVIDUAL">Individual users</mat-radio-button>
+          </mat-radio-group>
+
+          <div class="audience-detail" *ngIf="recipientType === 'ROLE'">
+            <mat-form-field appearance="outline">
+              <mat-label>Role</mat-label>
+              <mat-select [(ngModel)]="recipientRole">
+                <mat-option *ngFor="let r of roleOptions" [value]="r.value">{{ r.label }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="audience-detail" *ngIf="recipientType === 'CLASS'">
+            <mat-form-field appearance="outline">
+              <mat-label>Class</mat-label>
+              <mat-select [(ngModel)]="recipientClassId" (selectionChange)="onClassChange()">
+                <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Section (optional)</mat-label>
+              <mat-select [(ngModel)]="recipientSectionId" [disabled]="!sections.length">
+                <mat-option value="">All sections</mat-option>
+                <mat-option *ngFor="let s of sections" [value]="s.sectionId">{{ s.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="audience-detail" *ngIf="recipientType === 'INDIVIDUAL'">
+            <mat-form-field appearance="outline" class="span-2">
+              <mat-label>User IDs</mat-label>
+              <mat-chip-grid #chipGrid>
+                <mat-chip-row *ngFor="let id of recipientUserIds" (removed)="recipientUserIds.splice(recipientUserIds.indexOf(id), 1)">
+                  {{ id }}
+                  <button matChipRemove><mat-icon>cancel</mat-icon></button>
+                </mat-chip-row>
+                <input placeholder="Paste user IDs and press Enter"
+                       [matChipInputFor]="chipGrid"
+                       (matChipInputTokenEnd)="recipientUserIds.push($event.value.trim()); $event.chipInput!.clear()" />
+              </mat-chip-grid>
+              <mat-hint>Full user picker coming soon. For now, paste user IDs.</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <mat-divider></mat-divider>
+
+          <!-- Channels -->
+          <h3 class="section-title">Channels</h3>
+          <div class="channels-row">
+            <mat-checkbox [(ngModel)]="channelInApp">
+              <mat-icon>notifications</mat-icon> In-app
+            </mat-checkbox>
+            <mat-checkbox [(ngModel)]="channelEmail">
+              <mat-icon>email</mat-icon> Email
+            </mat-checkbox>
+            <span class="channels-hint">Recipients will receive this via the selected channels.</span>
+          </div>
+
+          <!-- Save as template -->
+          <div class="save-as-template" *ngIf="title.trim() && body.trim()">
+            <mat-form-field appearance="outline" class="save-name">
+              <mat-label>Save this as a template (optional)</mat-label>
+              <input matInput [(ngModel)]="saveAsTemplateName" placeholder="e.g. Fee Due Reminder" />
+            </mat-form-field>
+            <button mat-stroked-button type="button" (click)="saveCurrentComposeAsTemplate()">
+              <mat-icon>bookmark_add</mat-icon> Save as template
+            </button>
+          </div>
+
+          <!-- Actions -->
+          <div class="actions-row">
+            <button mat-stroked-button type="button" (click)="clearForm()" [disabled]="isSending">
+              <mat-icon>refresh</mat-icon> Clear
+            </button>
+            <button mat-flat-button color="primary" [disabled]="!canSend || isSending" (click)="sendNow()">
+              <mat-spinner diameter="18" *ngIf="isSending"></mat-spinner>
+              <mat-icon *ngIf="!isSending">send</mat-icon>
+              {{ isSending ? 'Sending…' : 'Send now' }}
+            </button>
+          </div>
+        </mat-card>
+      </div>
+
+      <!-- Templates tab -->
+      <div *ngIf="activeTab === 'templates'">
+        <mat-card class="panel-card">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Templates</h2>
+              <p class="panel-sub">Save recurring messages once and apply them to Compose with a click.</p>
+            </div>
+            <div>
+              <button mat-flat-button color="primary" (click)="openNewTemplate()">
+                <mat-icon>add</mat-icon> New template
+              </button>
+            </div>
+          </div>
+
+          <div class="loading-container" *ngIf="isLoadingTemplates">
+            <mat-spinner diameter="36"></mat-spinner>
+          </div>
+
+          <div class="templates-empty" *ngIf="!isLoadingTemplates && templates.length === 0">
+            <mat-icon>bookmarks</mat-icon>
+            <h3>No templates yet</h3>
+            <p>Create your first reusable message template to save time on repeat announcements.</p>
+            <button mat-stroked-button (click)="openNewTemplate()">
+              <mat-icon>add</mat-icon> New template
+            </button>
+          </div>
+
+          <div class="templates-grid" *ngIf="!isLoadingTemplates && templates.length > 0">
+            <div class="template-card" *ngFor="let t of templates">
+              <div class="template-card-top">
+                <span class="template-type-pill">{{ t.type }}</span>
+                <span class="template-channel">{{ t.defaultChannel }}</span>
+              </div>
+              <div class="template-name">{{ t.name }}</div>
+              <div class="template-title">{{ t.title }}</div>
+              <div class="template-body">{{ t.body }}</div>
+              <div class="template-actions">
+                <button mat-stroked-button (click)="applyTemplate(t)">
+                  <mat-icon>north_east</mat-icon> Apply
+                </button>
+                <button mat-icon-button (click)="openEditTemplate(t)" matTooltip="Edit">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button (click)="deleteTemplate(t)" matTooltip="Delete">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+        </mat-card>
+
+        <!-- Template editor modal -->
+        <div class="template-modal" *ngIf="templateEditorOpen">
+          <div class="template-modal-backdrop" (click)="closeTemplateEditor()"></div>
+          <mat-card class="template-modal-card">
+            <h3 class="modal-title">
+              <mat-icon>{{ editingTemplate ? 'edit' : 'bookmark_add' }}</mat-icon>
+              {{ editingTemplate ? 'Edit template' : 'New template' }}
+            </h3>
+
+            <div class="field-grid">
+              <mat-form-field appearance="outline" class="span-2">
+                <mat-label>Name</mat-label>
+                <input matInput [(ngModel)]="templateForm.name" maxlength="80" placeholder="e.g. Fee Due Reminder" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="span-2">
+                <mat-label>Title</mat-label>
+                <input matInput [(ngModel)]="templateForm.title" maxlength="100" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="span-2">
+                <mat-label>Body</mat-label>
+                <textarea matInput rows="4" [(ngModel)]="templateForm.body" maxlength="1000"></textarea>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Category</mat-label>
+                <mat-select [(ngModel)]="templateForm.type">
+                  <mat-option *ngFor="let o of typeOptions" [value]="o.value">{{ o.label }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Default channel</mat-label>
+                <mat-select [(ngModel)]="templateForm.defaultChannel">
+                  <mat-option value="IN_APP">In-app</mat-option>
+                  <mat-option value="EMAIL">Email</mat-option>
+                  <mat-option value="BOTH">In-app + Email</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <div class="modal-actions">
+              <button mat-stroked-button (click)="closeTemplateEditor()" [disabled]="isSavingTemplate">Cancel</button>
+              <button mat-flat-button color="primary" (click)="saveTemplate()" [disabled]="isSavingTemplate">
+                <mat-spinner diameter="18" *ngIf="isSavingTemplate"></mat-spinner>
+                <mat-icon *ngIf="!isSavingTemplate">save</mat-icon>
+                {{ isSavingTemplate ? 'Saving…' : 'Save template' }}
+              </button>
+            </div>
+          </mat-card>
+        </div>
+      </div>
+
+      <!-- Placeholder for other tabs -->
+      <mat-card class="panel-card coming-soon" *ngIf="activeTab !== 'compose'">
+        <mat-icon>schedule</mat-icon>
+        <h3>Coming soon</h3>
+        <p>This notifications section is on the roadmap.</p>
+      </mat-card>
+    </section>
+  </div>
+</div>

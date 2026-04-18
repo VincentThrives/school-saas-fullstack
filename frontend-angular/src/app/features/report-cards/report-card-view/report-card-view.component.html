@@ -33,6 +33,12 @@
           <span class="info-value">{{ reportCard.academicYearLabel || reportCard.academicYearId }}</span>
         </div>
         <div class="info-item">
+          <span class="info-label">Exam</span>
+          <span class="info-value">
+            <mat-chip class="exam-chip">{{ reportCard.examType || 'All Exam Types' }}</mat-chip>
+          </span>
+        </div>
+        <div class="info-item">
           <span class="info-label">Rank</span>
           <span class="info-value highlight">{{ reportCard.rank || '-' }}</span>
         </div>
@@ -72,7 +78,10 @@
 
         <ng-container matColumnDef="marksObtained">
           <th mat-header-cell *matHeaderCellDef>Marks Obtained</th>
-          <td mat-cell *matCellDef="let mark">{{ mark.marksObtained }}</td>
+          <td mat-cell *matCellDef="let mark">
+            <span *ngIf="!mark.absent">{{ mark.marksObtained }}</span>
+            <mat-chip class="absent-chip" *ngIf="mark.absent">Absent</mat-chip>
+          </td>
         </ng-container>
 
         <ng-container matColumnDef="maxMarks">
@@ -83,7 +92,8 @@
         <ng-container matColumnDef="grade">
           <th mat-header-cell *matHeaderCellDef>Grade</th>
           <td mat-cell *matCellDef="let mark">
-            <mat-chip class="grade-chip-sm">{{ mark.grade }}</mat-chip>
+            <mat-chip class="grade-chip-sm" *ngIf="!mark.absent">{{ mark.grade }}</mat-chip>
+            <span class="muted" *ngIf="mark.absent">—</span>
           </td>
         </ng-container>
 
@@ -97,6 +107,10 @@
         <span><strong>Percentage:</strong> {{ reportCard.percentage }}%</span>
         <span><strong>Grade:</strong> {{ reportCard.grade }}</span>
       </div>
+
+      <p class="marks-footnote" *ngIf="reportCard.examType">
+        Each subject shows the most recent <strong>{{ reportCard.examType }}</strong> mark for this student.
+      </p>
     </mat-card>
 
     <!-- Remarks -->
@@ -111,8 +125,15 @@
     </mat-card>
   </div>
 
+  <!-- Missing context empty state (opened without picking exam type) -->
+  <div class="empty-state" *ngIf="missingContext && !isLoading">
+    <mat-icon class="empty-icon">assignment</mat-icon>
+    <h3>Select an exam type first</h3>
+    <p>Open a student's report card from the Report Cards list after choosing an exam type.</p>
+  </div>
+
   <!-- Empty state -->
-  <div class="empty-state" *ngIf="!reportCard && !isLoading">
+  <div class="empty-state" *ngIf="!reportCard && !isLoading && !missingContext">
     <mat-icon class="empty-icon">description</mat-icon>
     <h3>Report card not found</h3>
     <p>No exam marks available for this student</p>

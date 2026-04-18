@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -12,8 +12,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { scrollToFirstInvalid } from '../../../shared/utils/form-scroll';
 import { ApiService } from '../../../core/services/api.service';
 import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
 import { SchoolClass, AcademicYear } from '../../../core/models';
@@ -34,6 +36,7 @@ import { SchoolClass, AcademicYear } from '../../../core/models';
     MatIconModule,
     MatDividerModule,
     MatProgressSpinnerModule,
+    MatTooltipModule,
     MatSnackBarModule,
     PageHeaderComponent,
   ],
@@ -52,6 +55,7 @@ export class ExamFormComponent implements OnInit {
   academicYears: AcademicYear[] = [];
   sections: { name: string; capacity: number; sectionId?: string; subjectIds?: string[] }[] = [];
   subjectsList: SubjectItem[] = [];
+  examTypes: any[] = [];
 
   private pendingSubjectId: string | null = null;
   private pendingClassId: string | null = null;
@@ -63,6 +67,7 @@ export class ExamFormComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private snackBar: MatSnackBar,
+    private hostEl: ElementRef<HTMLElement>,
   ) {}
 
   ngOnInit(): void {
@@ -89,6 +94,20 @@ export class ExamFormComponent implements OnInit {
     this.examForm.get('subjectId')?.valueChanges.subscribe((value) => {
       const sub = this.subjectsList.find(s => s.subjectId === value);
       this.examForm.get('subjectName')?.setValue(sub?.name || value || '');
+    });
+
+    // Load exam types for the picker; auto-fill maxMarks from the catalog when empty/default
+    this.api.getExamTypes().subscribe({
+      next: (res) => { this.examTypes = res?.data || []; },
+    });
+    this.examForm.get('examType')?.valueChanges.subscribe((name) => {
+      if (!name) return;
+      const picked = this.examTypes.find(t => t.name === name);
+      const currentMax = this.examForm.get('maxMarks')?.value;
+      // Only auto-fill when the max is still the default (100) or empty
+      if (picked?.defaultMaxMarks && (currentMax === 100 || currentMax == null || currentMax === '')) {
+        this.examForm.patchValue({ maxMarks: picked.defaultMaxMarks });
+      }
     });
 
     // Listen for sectionId changes to re-filter subjects
@@ -250,7 +269,8 @@ export class ExamFormComponent implements OnInit {
 
   onSubmit(): void {
     if (this.examForm.invalid) {
-      this.examForm.markAllAsTouched();
+      scrollToFirstInvalid(this.hostEl, this.examForm);
+      this.snackBar.open('Please fill the highlighted required fields', 'Close', { duration: 3000 });
       return;
     }
 

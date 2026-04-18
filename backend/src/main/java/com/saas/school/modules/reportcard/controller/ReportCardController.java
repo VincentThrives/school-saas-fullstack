@@ -30,7 +30,7 @@ public class ReportCardController {
     public ResponseEntity<ApiResponse<ReportCard>> getStudentReportCard(
             @PathVariable String studentId,
             @RequestParam String academicYearId,
-            @RequestParam(required = false) String examType) {
+            @RequestParam String examType) {
         logger.info("Request to get/generate report card: studentId={}, academicYearId={}, examType={}", studentId, academicYearId, examType);
         ReportCard reportCard = reportCardService.generateReportCard(studentId, academicYearId, examType);
         return ResponseEntity.ok(ApiResponse.success(reportCard));
@@ -41,7 +41,7 @@ public class ReportCardController {
             @PathVariable String studentId,
             @RequestParam String academicYearId,
             @RequestParam String tenantId,
-            @RequestParam(required = false) String examType) {
+            @RequestParam String examType) {
         logger.info("Request to generate report card PDF: studentId={}, academicYearId={}, examType={}", studentId, academicYearId, examType);
         ReportCard reportCard = reportCardService.generateReportCard(studentId, academicYearId, examType);
         byte[] pdfBytes = reportCardService.generateReportCardPdf(reportCard.getId(), tenantId);
@@ -55,7 +55,7 @@ public class ReportCardController {
     public ResponseEntity<ApiResponse<List<ReportCard>>> generateClassReportCards(
             @PathVariable String classId,
             @RequestParam String academicYearId,
-            @RequestParam(required = false) String examType) {
+            @RequestParam String examType) {
         logger.info("Request to generate bulk report cards: classId={}, academicYearId={}, examType={}", classId, academicYearId, examType);
         List<ReportCard> reportCards = reportCardService.generateBulkReportCards(classId, academicYearId, examType);
         return ResponseEntity.ok(ApiResponse.success(reportCards, "Report cards generated for " + reportCards.size() + " students"));
@@ -66,7 +66,7 @@ public class ReportCardController {
             @PathVariable String classId,
             @RequestParam String academicYearId,
             @RequestParam String tenantId,
-            @RequestParam(required = false) String examType) {
+            @RequestParam String examType) {
         logger.info("Request to download all report card PDFs: classId={}, academicYearId={}, examType={}", classId, academicYearId, examType);
         byte[] zipBytes = reportCardService.generateBulkPdf(classId, academicYearId, examType, tenantId);
         return ResponseEntity.ok()

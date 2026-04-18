@@ -89,3 +89,14 @@ $gold-dark: #B8860B;
   height: 48px;
   color: rgba(0, 0, 0, 0.15);
 }
+
+.context-chip-row {
+  display: flex;
+  margin: 8px 0 12px;
+}
+.ctx-chip {
+  background: linear-gradient(135deg, #fff7e6 0%, #fde68a 100%) !important;
+  color: #7a5a14 !important;
+  font-weight: 700;
+  mat-icon { color: #b68018; margin-right: 4px; font-size: 18px; width: 18px; height: 18px; vertical-align: middle; }
+}

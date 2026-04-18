@@ -37,6 +37,7 @@ public class Teacher {
     private String classTeacherOfSectionId;
     private LocalDate dateOfBirth;
     private LocalDate joiningDate;
+    private Address address;
 
     @CreatedDate
     private Instant createdAt;
@@ -181,6 +182,9 @@ public class Teacher {
         this.joiningDate = joiningDate;
     }
 
+    public Address getAddress() { return address; }
+    public void setAddress(Address address) { this.address = address; }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -248,5 +252,26 @@ public class Teacher {
 
         public String getSubjectId() { return subjectId; }
         public void setSubjectId(String subjectId) { this.subjectId = subjectId; }
+    }
+
+    public static class Address {
+        private String street;
+        private String city;
+        private String state;
+        private String country;
+        private String zip;
+
+        public Address() {}
+
+        public String getStreet() { return street; }
+        public void setStreet(String street) { this.street = street; }
+        public String getCity() { return city; }
+        public void setCity(String city) { this.city = city; }
+        public String getState() { return state; }
+        public void setState(String state) { this.state = state; }
+        public String getCountry() { return country; }
+        public void setCountry(String country) { this.country = country; }
+        public String getZip() { return zip; }
+        public void setZip(String zip) { this.zip = zip; }
     }
 }

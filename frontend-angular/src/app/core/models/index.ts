@@ -178,6 +178,18 @@ export interface AcademicYear {
   createdAt?: string;
 }
 
+// Exam Type catalog — managed by School Admin, drives every exam-type dropdown
+export interface ExamType {
+  id: string;
+  name: string;
+  displayOrder: number;
+  defaultMaxMarks?: number;
+  description?: string;
+  status: 'ACTIVE' | 'ARCHIVED';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // Notification
 export interface Notification {
   notificationId: string;

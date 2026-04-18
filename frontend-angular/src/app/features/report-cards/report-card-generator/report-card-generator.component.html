@@ -21,14 +21,6 @@
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="filter-field">
-        <mat-label>Exam Type</mat-label>
-        <mat-select [(ngModel)]="selectedExamType" (selectionChange)="onExamTypeChange()" [disabled]="!selectedAcademicYearId">
-          <mat-option value="">All Exam Types</mat-option>
-          <mat-option *ngFor="let type of examTypes" [value]="type">{{ type }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Class</mat-label>
         <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()" [disabled]="!selectedAcademicYearId">
           <mat-option value="">Select Class</mat-option>
@@ -44,6 +36,17 @@
         </mat-select>
       </mat-form-field>
 
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Exam Type *</mat-label>
+        <mat-select [(ngModel)]="selectedExamType" (selectionChange)="onExamTypeChange()" [disabled]="!selectedClassId" required>
+          <mat-option *ngFor="let type of examTypes" [value]="type">{{ type }}</mat-option>
+        </mat-select>
+        <mat-hint *ngIf="!selectedClassId">Select a class first</mat-hint>
+        <mat-hint *ngIf="selectedClassId && examTypes.length === 0">
+          No exams conducted yet for this {{ selectedSectionId ? 'class & section' : 'class' }}
+        </mat-hint>
+      </mat-form-field>
+
       <mat-form-field appearance="outline" class="filter-field student-filter" *ngIf="students.length > 0">
         <mat-label>Student</mat-label>
         <mat-select [(ngModel)]="selectedStudentId" (selectionChange)="onStudentChange()">
@@ -55,6 +58,16 @@
       </mat-form-field>
     </div>
   </mat-card>
+
+  <!-- Context chip — what these report cards are for -->
+  <div class="context-chip-row" *ngIf="filteredReportCards.length > 0 && selectedExamType">
+    <mat-chip-set>
+      <mat-chip class="ctx-chip">
+        <mat-icon>assignment</mat-icon>
+        Showing: {{ selectedExamType }}
+      </mat-chip>
+    </mat-chip-set>
+  </div>
 
   <!-- Actions Bar -->
   <mat-card class="table-card">
@@ -150,14 +163,24 @@
       <mat-spinner diameter="36"></mat-spinner>
     </div>
 
-    <div class="empty-state" *ngIf="!isLoading && filteredReportCards.length === 0 && selectedClassId">
+    <div class="empty-state" *ngIf="!isLoading && filteredReportCards.length === 0 && selectedClassId && selectedExamType">
       <mat-icon class="empty-icon">description</mat-icon>
       <p>No report cards found for the selected filters</p>
     </div>
 
-    <div class="empty-state" *ngIf="!selectedClassId">
+    <div class="empty-state" *ngIf="!selectedExamType && selectedAcademicYearId">
+      <mat-icon class="empty-icon">assignment</mat-icon>
+      <p>Select an <strong>exam type</strong> (e.g. Sem 1, Final) to view report cards</p>
+    </div>
+
+    <div class="empty-state" *ngIf="!selectedClassId && selectedExamType">
       <mat-icon class="empty-icon">filter_list</mat-icon>
-      <p>Select academic year and class to view report cards</p>
+      <p>Select a class to view report cards</p>
+    </div>
+
+    <div class="empty-state" *ngIf="!selectedAcademicYearId">
+      <mat-icon class="empty-icon">date_range</mat-icon>
+      <p>Select an academic year to get started</p>
     </div>
   </mat-card>
 </div>

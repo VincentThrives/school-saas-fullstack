@@ -68,7 +68,9 @@
             </mat-option>
           </mat-select>
           <mat-hint *ngIf="!fromAcademicYearId">Select FROM year first</mat-hint>
-          <mat-hint *ngIf="fromAcademicYearId && toAcademicYearOptions.length === 0">No higher academic year available</mat-hint>
+          <mat-hint *ngIf="fromAcademicYearId && toAcademicYearOptions.length === 0">
+            Create the next academic year ({{ fromYearLabel() }} → next) under Academic Years first.
+          </mat-hint>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
@@ -78,7 +80,9 @@
               {{ cls.name }}
             </mat-option>
           </mat-select>
-          <mat-hint *ngIf="toAcademicYearId && toClassOptions.length === 0">No higher class available</mat-hint>
+          <mat-hint *ngIf="toAcademicYearId && toClassOptions.length === 0">
+            Create the next class in this academic year first.
+          </mat-hint>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
@@ -93,19 +97,28 @@
     </mat-card>
   </div>
 
-  <!-- Load Students Button -->
-  <div class="load-section" *ngIf="fromClassId && fromSectionId && toClassId && toSectionId && toAcademicYearId && !promotionDone">
+  <!-- Load / Reload Students Button — available as soon as FROM class+section are set.
+       (Students also auto-load when FROM section is picked.) -->
+  <div class="load-section" *ngIf="fromClassId && fromSectionId && !promotionDone">
     <button mat-flat-button class="load-btn" (click)="loadStudents()" [disabled]="isLoadingStudents">
       <mat-spinner diameter="20" *ngIf="isLoadingStudents"></mat-spinner>
-      <mat-icon *ngIf="!isLoadingStudents">people</mat-icon>
-      {{ isLoadingStudents ? 'Loading...' : 'Load Students' }}
+      <mat-icon *ngIf="!isLoadingStudents">{{ studentsLoaded ? 'refresh' : 'people' }}</mat-icon>
+      {{ isLoadingStudents ? 'Loading...' : (studentsLoaded ? 'Reload students' : 'Load students') }}
     </button>
   </div>
 
-  <!-- No Students Found -->
-  <div class="empty-state" *ngIf="studentsLoaded && students.length === 0">
+  <!-- No classes at all for the selected FROM year → no students can exist -->
+  <div class="empty-state" *ngIf="fromAcademicYearId && fromClasses.length === 0">
     <mat-icon>person_off</mat-icon>
-    <p>No students found in {{ getFromClassName() }} - {{ getFromSectionName() }}</p>
+    <p>No students found for academic year <strong>{{ fromYearLabel() }}</strong>.</p>
+    <p class="empty-hint">Create classes and enrol students under Academic Years → Classes first.</p>
+  </div>
+
+  <!-- No students in the selected FROM class/section -->
+  <div class="empty-state" *ngIf="studentsLoaded && students.length === 0 && fromClasses.length > 0">
+    <mat-icon>person_off</mat-icon>
+    <p>No students found in <strong>{{ getFromClassName() }} - {{ getFromSectionName() }}</strong>
+       for academic year <strong>{{ fromYearLabel() }}</strong>.</p>
   </div>
 
   <!-- Students List -->
@@ -186,4 +199,52 @@
       <p>{{ promotedCount }} students promoted successfully. {{ skippedCount }} students skipped.</p>
     </div>
   </mat-card>
+
+  <!-- Confirm Promote Dialog -->
+  <div class="confirm-modal" *ngIf="confirmOpen">
+    <div class="confirm-modal-backdrop" (click)="cancelConfirm()"></div>
+    <mat-card class="confirm-modal-card">
+      <div class="confirm-header">
+        <mat-icon class="confirm-icon">arrow_upward</mat-icon>
+        <h3>Confirm bulk promotion</h3>
+      </div>
+
+      <p class="confirm-lead">
+        Are you sure you want to promote <strong>{{ selectedCount }} students</strong>?
+        This action cannot be undone.
+      </p>
+
+      <div class="confirm-grid">
+        <div class="confirm-col">
+          <div class="confirm-col-label">From</div>
+          <div class="confirm-col-value">{{ getFromClassName() }} · {{ getFromSectionName() }}</div>
+          <div class="confirm-col-sub">{{ academicYears.length ? (fromYearLabel()) : '' }}</div>
+        </div>
+        <mat-icon class="confirm-arrow">east</mat-icon>
+        <div class="confirm-col">
+          <div class="confirm-col-label">To</div>
+          <div class="confirm-col-value">{{ getToClassName() }} · {{ getToSectionName() }}</div>
+          <div class="confirm-col-sub">{{ getToYearLabel() }}</div>
+        </div>
+      </div>
+
+      <div class="confirm-summary-row">
+        <span class="confirm-chip chip-selected">
+          <mat-icon>check_circle</mat-icon> {{ selectedCount }} will move
+        </span>
+        <span class="confirm-chip chip-excluded" *ngIf="excludedCount > 0">
+          <mat-icon>block</mat-icon> {{ excludedCount }} excluded
+        </span>
+      </div>
+
+      <div class="confirm-actions">
+        <button mat-stroked-button (click)="cancelConfirm()" [disabled]="isPromoting">Cancel</button>
+        <button mat-flat-button color="primary" (click)="confirmPromote()" [disabled]="isPromoting">
+          <mat-spinner diameter="18" *ngIf="isPromoting"></mat-spinner>
+          <mat-icon *ngIf="!isPromoting">arrow_upward</mat-icon>
+          {{ isPromoting ? 'Promoting…' : 'Yes, promote ' + selectedCount + ' students' }}
+        </button>
+      </div>
+    </mat-card>
+  </div>
 </div>
