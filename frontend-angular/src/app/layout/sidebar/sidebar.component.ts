@@ -203,16 +203,16 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'Fee Payments', path: '/fees/payments', icon: 'receipt_long', feature: 'fee', roles: [UserRole.SCHOOL_ADMIN] },
         { title: 'Events', path: '/events', icon: 'event', feature: 'events' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications' },
-        { title: 'WhatsApp', path: '/whatsapp', icon: 'chat', feature: 'whatsapp' },
-        { title: 'ID Cards', path: '/id-cards', icon: 'badge', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+        // { title: 'WhatsApp', path: '/whatsapp', icon: 'chat', feature: 'whatsapp' },
+        // { title: 'ID Cards', path: '/id-cards', icon: 'badge', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
         { title: 'Report Cards', path: '/report-cards', icon: 'description', feature: 'report_cards' },
         { title: 'Syllabus Tracker', path: '/syllabus', icon: 'menu_book' },
-        { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
+        // { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
         { title: 'Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
         { title: 'Class Rankings', path: '/analytics/rankings', icon: 'leaderboard', feature: 'analytics' },
-        { title: 'PTM', path: '/ptm', icon: 'groups' },
+      //   { title: 'PTM', path: '/ptm', icon: 'groups' },
         { title: 'Reports', path: '/reports', icon: 'summarize', feature: 'analytics', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
-        { title: 'Settings', path: '/settings', icon: 'settings', roles: [UserRole.SCHOOL_ADMIN] },
+        // { title: 'Settings', path: '/settings', icon: 'settings', roles: [UserRole.SCHOOL_ADMIN] },
       );
     }
 
