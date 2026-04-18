@@ -218,7 +218,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     if (role === UserRole.TEACHER) {
       items.push(
-        { title: 'My Classes', path: '/my-classes', icon: 'class' },
+        // { title: 'My Classes', path: '/my-classes', icon: 'class' },
         { title: 'My Students', path: '/my-students', icon: 'school' },
         { title: 'Mark Attendance', path: '/attendance', icon: 'event_note', feature: 'attendance' },
         { title: 'Subject Attendance', path: '/attendance/subject-wise', icon: 'menu_book', feature: 'attendance' },
@@ -228,16 +228,16 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'My Timetable', path: '/my-timetable', icon: 'calendar_month', feature: 'timetable' },
         { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams' },
         { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams' },
-        { title: 'MCQ Exams', path: '/mcq', icon: 'quiz', feature: 'mcq' },
+        // { title: 'MCQ Exams', path: '/mcq', icon: 'quiz', feature: 'mcq' },
         { title: 'Syllabus Tracker', path: '/syllabus', icon: 'menu_book' },
         { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
         { title: 'Report Cards', path: '/report-cards', icon: 'description', feature: 'report_cards' },
         { title: 'Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
         { title: 'PTM', path: '/ptm', icon: 'groups' },
-        { title: 'Study Materials', path: '/study-materials', icon: 'library_books', feature: 'content' },
-        { title: 'Mentoring Notes', path: '/mentoring', icon: 'note' },
-        { title: 'Messages', path: '/messages', icon: 'message', feature: 'messaging' },
-        { title: 'WhatsApp', path: '/whatsapp', icon: 'chat', feature: 'whatsapp' },
+        // { title: 'Study Materials', path: '/study-materials', icon: 'library_books', feature: 'content' },
+        // { title: 'Mentoring Notes', path: '/mentoring', icon: 'note' },
+        // { title: 'Messages', path: '/messages', icon: 'message', feature: 'messaging' },
+        // { title: 'WhatsApp', path: '/whatsapp', icon: 'chat', feature: 'whatsapp' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications' },
       );
     }
@@ -250,7 +250,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'MCQ Exams', path: '/mcq/available', icon: 'quiz', feature: 'mcq' },
         { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
         { title: 'Report Cards', path: '/report-cards', icon: 'description', feature: 'report_cards' },
-        { title: 'My Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
+        // { title: 'My Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
         { title: 'Study Materials', path: '/study-materials', icon: 'library_books', feature: 'content' },
         { title: 'Events', path: '/events', icon: 'event', feature: 'events' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications' },
