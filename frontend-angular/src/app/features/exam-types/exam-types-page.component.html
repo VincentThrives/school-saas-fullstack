@@ -132,4 +132,32 @@
       </div>
     </mat-card>
   </div>
+
+  <!-- Delete Confirmation Dialog (uses shared global styles) -->
+  <div class="delete-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <h3>Delete exam type</h3>
+      <p>
+        Are you sure you want to delete <strong>{{ rowToDelete?.name }}</strong>?
+        This action cannot be undone.
+      </p>
+
+      <div class="delete-warning">
+        <mat-icon>info</mat-icon>
+        <span>
+          If any exam already uses this type, the server will block deletion —
+          archive it instead from the actions column.
+        </span>
+      </div>
+
+      <div class="dialog-actions">
+        <button mat-stroked-button (click)="cancelDelete()" [disabled]="isDeleting">Cancel</button>
+        <button mat-raised-button color="warn" (click)="confirmDelete()" [disabled]="isDeleting">
+          <mat-spinner diameter="18" *ngIf="isDeleting"></mat-spinner>
+          <mat-icon *ngIf="!isDeleting">delete</mat-icon>
+          {{ isDeleting ? 'Deleting…' : 'Yes, delete' }}
+        </button>
+      </div>
+    </div>
+  </div>
 </div>

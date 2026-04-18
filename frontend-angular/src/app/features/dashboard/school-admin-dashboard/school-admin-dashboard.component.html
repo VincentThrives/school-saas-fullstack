@@ -5,27 +5,25 @@
   <div class="school-admin-dashboard__stats">
     <app-stat-card
       title="Total Students"
-      [value]="(stats.totalStudents || 1250).toLocaleString()"
+      [value]="(stats.totalStudents ?? 0).toLocaleString()"
       icon="school"
       color="primary"
-      [trend]="{ value: 5 }"
-      subtitle="vs last year"
     ></app-stat-card>
     <app-stat-card
       title="Total Teachers"
-      [value]="stats.totalTeachers || 65"
+      [value]="(stats.totalTeachers ?? 0).toLocaleString()"
       icon="person"
       color="info"
     ></app-stat-card>
     <app-stat-card
       title="Today's Attendance"
-      [value]="(stats.attendanceRateToday || 92.5) + '%'"
+      [value]="(stats.attendanceTodayPercent ?? 0) + '%'"
       icon="event_note"
       color="success"
     ></app-stat-card>
     <app-stat-card
       title="Active Classes"
-      [value]="stats.totalClasses || 24"
+      [value]="(stats.totalClasses ?? 0).toLocaleString()"
       icon="class"
       color="warning"
     ></app-stat-card>
@@ -40,8 +38,17 @@
         <mat-card-title>Upcoming Exams</mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <mat-list>
-          <mat-list-item *ngFor="let exam of upcomingExams; let last = last">
+        <div class="panel-loading" *ngIf="isLoadingExams">
+          <mat-spinner diameter="24"></mat-spinner>
+        </div>
+
+        <div class="panel-empty" *ngIf="!isLoadingExams && upcomingExams.length === 0">
+          <mat-icon>event_busy</mat-icon>
+          <span>No upcoming exams scheduled</span>
+        </div>
+
+        <mat-list *ngIf="!isLoadingExams && upcomingExams.length > 0">
+          <mat-list-item *ngFor="let exam of upcomingExams">
             <div class="school-admin-dashboard__list-item">
               <div class="school-admin-dashboard__item-avatar">
                 <mat-icon>assignment</mat-icon>
@@ -63,8 +70,17 @@
         <mat-card-title>Upcoming Events</mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <mat-list>
-          <mat-list-item *ngFor="let event of upcomingEvents; let last = last">
+        <div class="panel-loading" *ngIf="isLoadingEvents">
+          <mat-spinner diameter="24"></mat-spinner>
+        </div>
+
+        <div class="panel-empty" *ngIf="!isLoadingEvents && upcomingEvents.length === 0">
+          <mat-icon>event_busy</mat-icon>
+          <span>No upcoming events scheduled</span>
+        </div>
+
+        <mat-list *ngIf="!isLoadingEvents && upcomingEvents.length > 0">
+          <mat-list-item *ngFor="let event of upcomingEvents">
             <div class="school-admin-dashboard__list-item">
               <div class="school-admin-dashboard__item-avatar">
                 <mat-icon>event</mat-icon>

@@ -8,6 +8,11 @@ import com.saas.school.modules.classes.model.Subject;
 import com.saas.school.modules.classes.repository.SubjectRepository;
 import com.saas.school.modules.event.model.SchoolEvent;
 import com.saas.school.modules.event.repository.SchoolEventRepository;
+import com.saas.school.modules.notification.model.Notification;
+import com.saas.school.modules.notification.service.NotificationRuleEngine;
+import com.saas.school.modules.notification.service.NotificationRuleEngine.FirePayload;
+import com.saas.school.modules.student.model.Student;
+import com.saas.school.modules.student.repository.StudentRepository;
 import com.saas.school.modules.teacher.model.Teacher;
 import com.saas.school.modules.teacher.repository.TeacherRepository;
 import com.saas.school.modules.timetable.model.Timetable;
@@ -32,6 +37,8 @@ public class AttendanceService {
     @Autowired private SubjectRepository subjectRepository;
     @Autowired private TeacherRepository teacherRepository;
     @Autowired private SchoolEventRepository eventRepository;
+    @Autowired private StudentRepository studentRepository;
+    @Autowired private NotificationRuleEngine ruleEngine;
     @Autowired private AuditService auditService;
 
     // ── Batch attendance (1 document per class+section+date+period) ──
@@ -88,7 +95,41 @@ public class AttendanceService {
         auditService.log("MARK_ATTENDANCE", "StudentsAttendance", record.getId(),
                 "Batch attendance: class=" + req.getClassId() + " date=" + req.getDate()
                         + " period=" + period + " students=" + entries.size());
+
+        // Fire ABSENCE_ALERT for each absent student. Idempotent per (studentId, date).
+        fireAbsenceAlerts(entries, req.getDate());
         return record;
+    }
+
+    private void fireAbsenceAlerts(List<StudentsAttendance.StudentEntry> entries, LocalDate date) {
+        if (entries == null || date == null) return;
+        String dateKey = date.toString();
+        for (var e : entries) {
+            if (!"ABSENT".equalsIgnoreCase(e.getStatus())) continue;
+            Student stu = studentRepository.findByStudentIdAndDeletedAtIsNull(e.getStudentId()).orElse(null);
+            if (stu == null) continue;
+            List<String> recipients = new ArrayList<>();
+            if (stu.getParentIds() != null) recipients.addAll(stu.getParentIds());
+            if (stu.getUserId() != null) recipients.add(stu.getUserId());
+            if (recipients.isEmpty()) continue;
+
+            String name = stu.getFirstName() != null
+                    ? (stu.getFirstName() + (stu.getLastName() != null ? " " + stu.getLastName() : ""))
+                    : ("Student " + (stu.getAdmissionNumber() != null ? stu.getAdmissionNumber() : ""));
+
+            Map<String, Object> vars = new HashMap<>();
+            vars.put("student", name);
+            vars.put("date", dateKey);
+
+            FirePayload payload = FirePayload.toIndividuals(recipients)
+                    .entityId(e.getStudentId())
+                    .dateKey(dateKey)
+                    .type(Notification.NotificationType.ATTENDANCE)
+                    .vars(vars)
+                    .fallback("Absent today",
+                            "Dear Parent, " + name + " was marked absent on " + dateKey + ".");
+            ruleEngine.fire("ABSENCE_ALERT", payload);
+        }
     }
 
     // ── Timetable lookup for a specific date ──

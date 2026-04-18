@@ -34,18 +34,104 @@
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="filter-field student-field">
-        <mat-label>Student</mat-label>
-        <mat-select [(ngModel)]="selectedStudentId" (selectionChange)="onStudentChange()" [disabled]="!selectedSectionId">
-          <mat-option value="">Select Student</mat-option>
-          <mat-option *ngFor="let s of students" [value]="s.studentId">
-            {{ getStudentName(s) }} ({{ s.admissionNumber }})
-          </mat-option>
-        </mat-select>
+        <mat-label>Search student</mat-label>
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput type="text"
+               [(ngModel)]="studentSearch"
+               placeholder="Name, admission or roll no."
+               [disabled]="!selectedSectionId || students.length === 0" />
+        <button mat-icon-button matSuffix
+                *ngIf="studentSearch"
+                type="button"
+                (click)="studentSearch = ''">
+          <mat-icon>close</mat-icon>
+        </button>
       </mat-form-field>
     </div>
   </mat-card>
 
-  <!-- Loading -->
+  <!-- Loading students roster -->
+  <div class="loading-container" *ngIf="isLoadingStudents && !selectedStudentId">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <!-- Students Roster (class + section picked, no individual student yet) -->
+  <mat-card class="table-card"
+            *ngIf="!selectedStudentId && selectedSectionId && !isLoadingStudents">
+    <div class="table-header">
+      <h3>
+        Students
+        <span class="student-count-badge" *ngIf="filteredStudents.length > 0">
+          {{ filteredStudents.length }}<span *ngIf="studentSearch"> of {{ students.length }}</span>
+        </span>
+      </h3>
+    </div>
+
+    <table mat-table [dataSource]="filteredStudents" class="payments-table students-roster">
+      <ng-container matColumnDef="rollNumber">
+        <th mat-header-cell *matHeaderCellDef>Roll No</th>
+        <td mat-cell *matCellDef="let s">{{ s.rollNumber || s.admissionNumber || '-' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Student Name</th>
+        <td mat-cell *matCellDef="let s">
+          <div class="student-cell">
+            <div class="student-avatar">{{ (s.firstName?.charAt(0) || '?').toUpperCase() }}</div>
+            <span class="student-name">{{ getStudentName(s) }}</span>
+          </div>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="admission">
+        <th mat-header-cell *matHeaderCellDef>Admission No</th>
+        <td mat-cell *matCellDef="let s"><code>{{ s.admissionNumber }}</code></td>
+      </ng-container>
+
+      <ng-container matColumnDef="open">
+        <th mat-header-cell *matHeaderCellDef class="actions-col">View</th>
+        <td mat-cell *matCellDef="let s" class="actions-col">
+          <button mat-icon-button class="view-fee-btn" matTooltip="View payments" aria-label="View payments">
+            <mat-icon>visibility</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="['rollNumber','name','admission','open']"></tr>
+      <tr mat-row
+          *matRowDef="let row; columns: ['rollNumber','name','admission','open'];"
+          class="roster-row"
+          (click)="selectStudentRow(row)"></tr>
+
+      <tr class="mat-row" *matNoDataRow>
+        <td class="mat-cell no-data-cell" [attr.colspan]="4">
+          <ng-container *ngIf="studentSearch">
+            No students matching "<strong>{{ studentSearch }}</strong>"
+          </ng-container>
+          <ng-container *ngIf="!studentSearch">No students in this class &amp; section</ng-container>
+        </td>
+      </tr>
+    </table>
+  </mat-card>
+
+  <!-- Back-to-list crumb when an individual student is open -->
+  <div class="selected-student-bar" *ngIf="selectedStudentId && selectedStudent">
+    <button mat-stroked-button (click)="clearStudent()">
+      <mat-icon>arrow_back</mat-icon> Back to students
+    </button>
+    <div class="selected-student-info">
+      <div class="student-avatar lg">{{ (selectedStudent.firstName?.charAt(0) || '?').toUpperCase() }}</div>
+      <div>
+        <div class="selected-student-name">{{ getStudentName(selectedStudent) }}</div>
+        <div class="selected-student-meta">
+          Admission: <code>{{ selectedStudent.admissionNumber }}</code>
+          <span *ngIf="selectedStudent.rollNumber"> &nbsp;·&nbsp; Roll: <code>{{ selectedStudent.rollNumber }}</code></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading individual student fee details -->
   <div class="loading-container" *ngIf="isLoading">
     <mat-spinner diameter="40"></mat-spinner>
   </div>
@@ -145,10 +231,11 @@
     </table>
   </mat-card>
 
-  <!-- Empty state -->
-  <div class="empty-state" *ngIf="!feeDetails && !isLoading && selectedAcademicYearId">
+  <!-- Empty state: year picked but no class/section yet -->
+  <div class="empty-state"
+       *ngIf="!feeDetails && !isLoading && !isLoadingStudents && selectedAcademicYearId && !selectedSectionId">
     <mat-icon class="empty-icon">account_balance_wallet</mat-icon>
-    <p>Select a student to view fee details</p>
+    <p>Select a class and section to load the students</p>
   </div>
 
   <!-- Payment Form Overlay -->

@@ -48,22 +48,6 @@ $gold-dark: #B8860B;
   .dialog-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }
 }
 
-.delete-dialog {
-  background: white; border-radius: 16px; padding: 32px;
-  max-width: 420px; width: 90%; text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-  animation: slideIn 0.2s ease-out;
-
-  .delete-dialog-icon {
-    width: 56px; height: 56px; border-radius: 50%;
-    background: rgba(244,67,54,0.1); display: flex;
-    align-items: center; justify-content: center; margin: 0 auto 16px;
-    mat-icon { font-size: 28px; width: 28px; height: 28px; color: #d32f2f; }
-  }
-  h3 { margin: 0 0 8px; font-size: 20px; font-weight: 600; }
-  p { color: #555; margin: 0 0 24px; line-height: 1.6; }
-  .dialog-actions { display: flex; justify-content: center; gap: 12px; }
-}
 
 @keyframes slideIn {
   from { opacity: 0; transform: scale(0.95) translateY(-10px); }

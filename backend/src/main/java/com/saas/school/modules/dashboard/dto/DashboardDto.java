@@ -9,6 +9,7 @@ public class DashboardDto {
     private Long totalTeachers;
     private Long totalUsers;
     private Double attendanceTodayPercent;
+    private Long totalClasses;
     private Long upcomingExamsCount;
     private Long unreadNotifications;
     // Super Admin
@@ -65,6 +66,9 @@ public class DashboardDto {
     public void setAttendanceTodayPercent(Double attendanceTodayPercent) {
         this.attendanceTodayPercent = attendanceTodayPercent;
     }
+
+    public Long getTotalClasses() { return totalClasses; }
+    public void setTotalClasses(Long totalClasses) { this.totalClasses = totalClasses; }
 
     public Long getUpcomingExamsCount() {
         return upcomingExamsCount;

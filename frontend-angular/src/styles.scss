@@ -1,6 +1,11 @@
 // Custom Theming for Angular Material
 @use '@angular/material' as mat;
 
+// Self-hosted Material Icons — guarantees icons render even when the browser
+// can't reach Google Fonts (offline, firewall, etc.). The <link> in index.html
+// is kept as a fast CDN path; this is the fallback.
+@import 'material-icons/iconfont/material-icons.css';
+
 @include mat.core();
 
 // Define the theme object.
@@ -547,5 +552,190 @@ body.dark-theme {
   }
   ::-webkit-scrollbar-thumb {
     background: #444444;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────
+   Global Delete Confirmation Dialog
+   ----------------------------------------------------------------
+   Every list page in the app uses <div class="delete-overlay">
+   + <div class="delete-dialog"> markup (students, classes, events,
+   exams, users, teachers, tenants, timetables, fees, mcq, etc.).
+   Styling here applies everywhere at once — no template edits needed.
+   ──────────────────────────────────────────────────────────────── */
+
+.delete-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 24, 39, 0.55);
+  backdrop-filter: blur(4px);
+  animation: cc-delete-fade 0.18s ease-out;
+  padding: 20px;
+}
+
+.delete-dialog {
+  position: relative;
+  width: min(480px, calc(100vw - 40px));
+  padding: 28px 26px 22px;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(17, 24, 39, 0.3);
+  animation: cc-delete-pop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  text-align: center;
+  box-sizing: border-box;
+  overflow: hidden;
+
+  /* Red soft glow behind the top */
+  &::before {
+    content: '';
+    position: absolute;
+    top: -60px;
+    left: -40px;
+    right: -40px;
+    height: 140px;
+    border-radius: 50%;
+    background: radial-gradient(circle at center, #dc2626, transparent 70%);
+    opacity: 0.14;
+    filter: blur(14px);
+    pointer-events: none;
+  }
+
+  /* The big icon (injected via ::before on h3) */
+  h3 {
+    position: relative;
+    margin: 0 0 10px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #111827;
+    letter-spacing: -0.01em;
+    padding-top: 82px;
+
+    &::before {
+      content: 'warning';
+      font-family: 'Material Icons';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 38px;
+      line-height: 1;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: #fee2e2;
+      color: #dc2626;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  p {
+    margin: 0 0 18px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: #4b5563;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+
+    strong {
+      color: #111827;
+      font-weight: 700;
+    }
+  }
+
+  /* Warning callout (optional — only appears if a page wraps extra copy in .delete-warning) */
+  .delete-warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    margin: 0 auto 18px;
+    max-width: 400px;
+    background: #fef2f2;
+    color: #7f1d1d;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    font-size: 13px;
+
+    mat-icon {
+      color: #dc2626;
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 14px;
+    border-top: 1px solid #f3f4f6;
+
+    button {
+      min-width: 110px;
+      font-weight: 600;
+    }
+
+    /* Make the primary Delete button red and solid */
+    [color="warn"].mat-mdc-raised-button,
+    .mat-mdc-raised-button[color="warn"] {
+      background-color: #dc2626 !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
+
+      &:hover {
+        background-color: #b91c1c !important;
+      }
+    }
+  }
+}
+
+/* Tighten on mobile */
+@media (max-width: 480px) {
+  .delete-dialog {
+    padding: 22px 18px 18px;
+
+    h3 { padding-top: 72px; font-size: 18px; }
+    h3::before { font-size: 32px; width: 60px; height: 60px; }
+
+    .dialog-actions {
+      flex-direction: column-reverse;
+      button { width: 100%; }
+    }
+  }
+}
+
+@keyframes cc-delete-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes cc-delete-pop {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Dark-mode treatment */
+body.dark-mode {
+  .delete-overlay { background: rgba(0, 0, 0, 0.65); }
+  .delete-dialog {
+    background: #1f2937;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+
+    h3 { color: #f9fafb; }
+    h3::before { background: rgba(220, 38, 38, 0.18); }
+    p { color: #d1d5db; strong { color: #f9fafb; } }
+    .dialog-actions { border-top-color: #374151; }
+    .delete-warning { background: rgba(220, 38, 38, 0.12); color: #fecaca; border-color: rgba(220, 38, 38, 0.35); }
   }
 }

@@ -96,6 +96,22 @@
           <button mat-icon-button matTooltip="Edit" (click)="editUser(user)">
             <mat-icon>edit</mat-icon>
           </button>
+
+          <!-- Activate / Deactivate toggle -->
+          <button mat-icon-button
+                  [matTooltip]="user.isActive ? 'Deactivate user' : 'Activate user'"
+                  (click)="toggleUserStatus(user)">
+            <mat-icon *ngIf="user.isActive">toggle_on</mat-icon>
+            <mat-icon *ngIf="!user.isActive">toggle_off</mat-icon>
+          </button>
+
+          <!-- Unlock (only when locked) -->
+          <button mat-icon-button matTooltip="Unlock account"
+                  *ngIf="user.isLocked"
+                  (click)="unlockUser(user)">
+            <mat-icon>lock_open</mat-icon>
+          </button>
+
           <button mat-icon-button matTooltip="Delete" color="warn" (click)="confirmDelete(user)">
             <mat-icon>delete</mat-icon>
           </button>
@@ -130,6 +146,66 @@
       <div class="dialog-actions">
         <button mat-button (click)="cancelDelete()">Cancel</button>
         <button mat-raised-button color="warn" (click)="deleteUser()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activate / Deactivate Confirmation Dialog -->
+  <div class="status-modal" *ngIf="statusDialogOpen" (click)="cancelStatusChange()">
+    <div class="status-modal-backdrop"></div>
+    <div class="status-modal-card"
+         [class.activating]="statusDialogActivating"
+         [class.deactivating]="!statusDialogActivating"
+         (click)="$event.stopPropagation()">
+
+      <div class="status-modal-icon">
+        <mat-icon *ngIf="statusDialogActivating">check_circle</mat-icon>
+        <mat-icon *ngIf="!statusDialogActivating">block</mat-icon>
+      </div>
+
+      <h3 class="status-modal-title">
+        {{ statusDialogActivating ? 'Activate user?' : 'Deactivate user?' }}
+      </h3>
+
+      <div class="status-modal-user">
+        <div class="status-user-avatar">{{ userInitial(statusDialogUser) }}</div>
+        <div class="status-user-meta">
+          <div class="status-user-name">{{ userDisplayName(statusDialogUser) }}</div>
+          <div class="status-user-role" *ngIf="statusDialogUser?.role">
+            {{ formatRole(statusDialogUser!.role) }}
+            <span *ngIf="statusDialogUser?.email"> · {{ statusDialogUser!.email }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-modal-effect">
+        <mat-icon>{{ statusDialogActivating ? 'lock_open' : 'lock' }}</mat-icon>
+        <span *ngIf="statusDialogActivating">
+          This user will be able to sign in and use their account.
+        </span>
+        <span *ngIf="!statusDialogActivating">
+          This user will be blocked from signing in until you reactivate them.
+        </span>
+      </div>
+
+      <div class="status-modal-actions">
+        <button mat-stroked-button
+                (click)="cancelStatusChange()"
+                [disabled]="isTogglingStatus">
+          Cancel
+        </button>
+        <button mat-flat-button
+                [color]="statusDialogActivating ? 'primary' : 'warn'"
+                (click)="confirmStatusChange()"
+                [disabled]="isTogglingStatus">
+          <mat-spinner diameter="18" *ngIf="isTogglingStatus"></mat-spinner>
+          <mat-icon *ngIf="!isTogglingStatus">
+            {{ statusDialogActivating ? 'check' : 'block' }}
+          </mat-icon>
+          {{ isTogglingStatus
+              ? 'Updating…'
+              : (statusDialogActivating ? 'Yes, activate' : 'Yes, deactivate') }}
+        </button>
       </div>
     </div>
   </div>

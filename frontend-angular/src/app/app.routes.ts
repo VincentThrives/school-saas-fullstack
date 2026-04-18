@@ -564,8 +564,9 @@ export const routes: Routes = [
       {
         path: 'my-students',
         loadComponent: () =>
-          import('./features/placeholder/placeholder.component').then(m => m.PlaceholderComponent),
-        data: { title: 'My Students' },
+          import('./features/students/my-students/my-students.component').then(m => m.MyStudentsComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.TEACHER, UserRole.PRINCIPAL], title: 'My Students' },
       },
       {
         path: 'mentoring',

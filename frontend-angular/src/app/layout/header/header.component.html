@@ -21,39 +21,17 @@
       <mat-icon>{{ isDarkMode ? 'light_mode' : 'dark_mode' }}</mat-icon>
     </button>
 
-    <!-- Notifications -->
+    <!-- Notifications bell → opens the Inbox tab on /notifications -->
     <button
       *ngIf="!isSuperAdmin"
       mat-icon-button
-      class="header-icon-btn"
-      [matMenuTriggerFor]="notifMenu"
+      class="header-icon-btn bell-btn"
+      (click)="navigateToNotifications()"
       matTooltip="Notifications"
     >
-      <mat-icon
-        [matBadge]="unreadCount > 0 ? unreadCount : null"
-        matBadgeColor="warn"
-        matBadgeSize="small"
-        [matBadgeHidden]="unreadCount === 0"
-      >
-        notifications
-      </mat-icon>
+      <mat-icon>notifications</mat-icon>
+      <span class="bell-badge" *ngIf="unreadCount > 0">{{ badgeLabel }}</span>
     </button>
-
-    <mat-menu #notifMenu="matMenu" xPosition="before" class="notification-menu">
-      <div class="notif-header" (click)="$event.stopPropagation()">
-        <strong>Notifications</strong>
-        <span *ngIf="unreadCount > 0" class="notif-count">
-          {{ unreadCount }} unread notification{{ unreadCount > 1 ? 's' : '' }}
-        </span>
-      </div>
-      <div class="notif-empty" (click)="$event.stopPropagation()">
-        <span>No new notifications</span>
-      </div>
-      <mat-divider></mat-divider>
-      <button mat-menu-item class="notif-view-all" (click)="navigateToNotifications()">
-        View All Notifications
-      </button>
-    </mat-menu>
 
     <!-- User avatar and menu -->
     <button

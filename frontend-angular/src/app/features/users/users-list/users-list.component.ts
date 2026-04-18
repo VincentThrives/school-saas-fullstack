@@ -60,6 +60,12 @@ export class UsersListComponent implements OnInit {
   deleteDialogOpen = false;
   selectedUser: User | null = null;
 
+  // Status toggle dialog state
+  statusDialogOpen = false;
+  statusDialogUser: User | null = null;
+  statusDialogActivating = false; // true = will activate, false = will deactivate
+  isTogglingStatus = false;
+
   @ViewChild(MatPaginator) paginator!: MatPaginator;
 
   constructor(
@@ -77,7 +83,14 @@ export class UsersListComponent implements OnInit {
     this.isLoading = true;
     this.apiService.getUsers(this.pageIndex, this.pageSize, { role: this.roleFilter || undefined, status: this.statusFilter || undefined, search: this.searchQuery || undefined }).subscribe({
       next: (response) => {
-        this.dataSource.data = response.data.content;
+        // Normalize boolean flags — backend may send either "isActive"/"isLocked"
+        // (preferred) or "active"/"locked" depending on Jackson's property naming.
+        const rows = (response.data.content || []).map((u: any) => ({
+          ...u,
+          isActive: u.isActive ?? u.active ?? false,
+          isLocked: u.isLocked ?? u.locked ?? false,
+        }));
+        this.dataSource.data = rows;
         this.totalElements = response.data.totalElements;
         this.isLoading = false;
       },
@@ -163,5 +176,71 @@ export class UsersListComponent implements OnInit {
   getStatusClass(user: User): string {
     if (user.isLocked) return 'status-locked';
     return user.isActive ? 'status-active' : 'status-inactive';
+  }
+
+  /**
+   * Open the activate/deactivate confirmation dialog. The actual toggle
+   * happens only when the admin clicks the primary button in the dialog.
+   * Backend endpoint: PATCH /api/v1/users/{userId}/status?active=true|false
+   */
+  toggleUserStatus(user: User): void {
+    if (!user?.userId) return;
+    this.statusDialogUser = user;
+    this.statusDialogActivating = !user.isActive; // what it WILL be after confirming
+    this.statusDialogOpen = true;
+  }
+
+  cancelStatusChange(): void {
+    if (this.isTogglingStatus) return;
+    this.statusDialogOpen = false;
+    this.statusDialogUser = null;
+  }
+
+  confirmStatusChange(): void {
+    const user = this.statusDialogUser;
+    if (!user?.userId) return;
+    const nextActive = this.statusDialogActivating;
+    const name = this.userDisplayName(user);
+
+    this.isTogglingStatus = true;
+    this.apiService.updateUserStatus(user.userId, nextActive).subscribe({
+      next: () => {
+        user.isActive = nextActive;
+        this.isTogglingStatus = false;
+        this.statusDialogOpen = false;
+        this.statusDialogUser = null;
+        this.snackBar.open(`${name} is now ${nextActive ? 'Active' : 'Inactive'}`, 'Close', { duration: 2500 });
+      },
+      error: (err) => {
+        this.isTogglingStatus = false;
+        this.snackBar.open(err?.error?.message || 'Failed to update status', 'Close', { duration: 3000 });
+      },
+    });
+  }
+
+  userDisplayName(user: User | null): string {
+    if (!user) return '';
+    const full = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    return full || user.email || 'this user';
+  }
+
+  userInitial(user: User | null): string {
+    if (!user) return '?';
+    const n = (user.firstName || user.email || '?').trim();
+    return n.charAt(0).toUpperCase();
+  }
+
+  /** Unlock a user who hit the max-failed-login limit. */
+  unlockUser(user: User): void {
+    if (!user?.userId) return;
+    this.apiService.unlockUser(user.userId).subscribe({
+      next: () => {
+        user.isLocked = false;
+        this.snackBar.open('Account unlocked', 'Close', { duration: 2500 });
+      },
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to unlock', 'Close', { duration: 3000 });
+      },
+    });
   }
 }

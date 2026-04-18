@@ -12,9 +12,13 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { NotificationBusService } from '../../../core/services/notification-bus.service';
 import { SchoolClass, UserRole } from '../../../core/models';
 
 type RecipientType = 'ALL' | 'ROLE' | 'CLASS' | 'INDIVIDUAL';
@@ -43,6 +47,8 @@ interface Tab {
     MatDividerModule,
     MatProgressSpinnerModule,
     MatChipsModule,
+    MatSlideToggleModule,
+    MatTooltipModule,
     MatSnackBarModule,
     PageHeaderComponent,
   ],
@@ -50,13 +56,14 @@ interface Tab {
   styleUrl: './notifications-page.component.scss',
 })
 export class NotificationsPageComponent implements OnInit {
-  readonly tabs: Tab[] = [
-    { key: 'compose',   label: 'Compose',   icon: 'edit',     enabled: true  },
-    { key: 'templates', label: 'Templates', icon: 'bookmarks',enabled: true  },
-    { key: 'rules',     label: 'Auto Rules',icon: 'bolt',     enabled: false },
-    { key: 'history',   label: 'History',   icon: 'history',  enabled: false },
-  ];
-  activeTab = 'compose';
+  // Tabs are filtered by role in ngOnInit.
+  tabs: Tab[] = [];
+  activeTab = 'inbox';
+  isAdminOrPrincipalOrTeacher = false; // can access Compose / Templates
+
+  // Inbox state
+  inbox: any[] = [];
+  isLoadingInbox = false;
 
   readonly typeOptions = [
     { value: 'ANNOUNCEMENT', label: 'Announcement', icon: 'campaign'      },
@@ -111,12 +118,193 @@ export class NotificationsPageComponent implements OnInit {
 
   constructor(
     private api: ApiService,
+    private authService: AuthService,
+    private notificationBus: NotificationBusService,
     private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
-    this.loadClasses();
-    this.loadTemplates();
+    const role = this.authService.currentRole;
+    this.isAdminOrPrincipalOrTeacher =
+      role === UserRole.SCHOOL_ADMIN ||
+      role === UserRole.PRINCIPAL ||
+      role === UserRole.TEACHER;
+
+    // Everyone can see Inbox. Admins/principals/teachers get the rest.
+    this.tabs = [
+      { key: 'inbox',     label: 'Inbox',     icon: 'inbox',     enabled: true },
+      ...(this.isAdminOrPrincipalOrTeacher ? [
+        { key: 'compose',   label: 'Compose',    icon: 'edit',      enabled: true },
+        { key: 'templates', label: 'Templates',  icon: 'bookmarks', enabled: true },
+        { key: 'rules',     label: 'Auto Rules', icon: 'bolt',      enabled: true },
+        { key: 'history',   label: 'History',    icon: 'history',   enabled: true },
+      ] : []),
+    ];
+    this.activeTab = 'inbox';
+
+    this.loadInbox();
+    if (this.isAdminOrPrincipalOrTeacher) {
+      this.loadClasses();
+      this.loadTemplates();
+      this.loadRules();
+      this.loadHistory();
+    }
+  }
+
+  // ── Auto Rules ───────────────────────────────────────────────────
+
+  rules: any[] = [];
+  isLoadingRules = false;
+  isResettingRules = false;
+  readonly channelOptions = [
+    { value: 'IN_APP', label: 'In-app' },
+    { value: 'EMAIL',  label: 'Email' },
+    { value: 'BOTH',   label: 'In-app + Email' },
+  ];
+
+  loadRules(): void {
+    this.isLoadingRules = true;
+    this.api.getNotificationRules().subscribe({
+      next: (res) => {
+        this.rules = res?.data || [];
+        this.isLoadingRules = false;
+      },
+      error: () => { this.rules = []; this.isLoadingRules = false; },
+    });
+  }
+
+  /** Save the current state of a rule (enabled/channel/template). */
+  saveRule(rule: any): void {
+    this.api.updateNotificationRule(rule.id, {
+      enabled: !!rule.enabled,
+      channel: rule.channel,
+      templateId: rule.templateId || null,
+    }).subscribe({
+      next: () => {
+        this.snackBar.open(
+          `${rule.name} ${rule.enabled ? 'enabled' : 'disabled'}`,
+          'Close', { duration: 2000 },
+        );
+      },
+      error: (err) => {
+        // Revert optimistic toggle on failure
+        rule.enabled = !rule.enabled;
+        this.snackBar.open(err?.error?.message || 'Failed to update rule', 'Close', { duration: 3000 });
+      },
+    });
+  }
+
+  /** Toggle switch change handler. */
+  onRuleToggle(rule: any): void {
+    this.saveRule(rule);
+  }
+
+  // Rules reset dialog state
+  resetRulesDialogOpen = false;
+
+  /** Open the reset-confirmation dialog (actual reset runs after confirm). */
+  resetRules(): void {
+    this.resetRulesDialogOpen = true;
+  }
+  cancelResetRules(): void {
+    if (this.isResettingRules) return;
+    this.resetRulesDialogOpen = false;
+  }
+  confirmResetRules(): void {
+    this.resetRulesDialogOpen = false;
+    this.isResettingRules = true;
+    this.api.resetNotificationRules().subscribe({
+      next: (res) => {
+        this.rules = res?.data || [];
+        this.isResettingRules = false;
+        this.snackBar.open('Rules restored to defaults', 'Close', { duration: 2500 });
+      },
+      error: () => {
+        this.isResettingRules = false;
+        this.snackBar.open('Failed to reset rules', 'Close', { duration: 3000 });
+      },
+    });
+  }
+
+  getTemplateNameById(id: string | undefined | null): string {
+    if (!id) return '—';
+    const t = this.templates.find((x) => x.templateId === id);
+    return t?.name || '—';
+  }
+
+  // ── History ─────────────────────────────────────────────────────
+
+  history: any[] = [];
+  isLoadingHistory = false;
+
+  loadHistory(): void {
+    this.isLoadingHistory = true;
+    this.api.getSentNotifications(0, 50).subscribe({
+      next: (res) => {
+        this.history = (res?.data as any)?.content || [];
+        this.isLoadingHistory = false;
+      },
+      error: () => { this.history = []; this.isLoadingHistory = false; },
+    });
+  }
+
+  /** Audience label for a single row in the History tab. */
+  historyAudienceLabel(n: any): string {
+    switch (n?.recipientType) {
+      case 'ALL':        return 'Everyone';
+      case 'ROLE':       return `Role: ${n.recipientRole}`;
+      case 'CLASS':      return 'Specific class';
+      case 'INDIVIDUAL': return `${(n.recipientIds || []).length} recipient(s)`;
+      default:           return '—';
+    }
+  }
+
+  readCount(n: any): number {
+    return (n?.readBy || []).length;
+  }
+
+  // ── Inbox (everyone) ──────────────────────────────────────────────
+
+  loadInbox(): void {
+    this.isLoadingInbox = true;
+    this.api.getNotifications(0, 50).subscribe({
+      next: (res) => {
+        this.inbox = (res?.data as any)?.content || [];
+        this.isLoadingInbox = false;
+      },
+      error: () => {
+        this.inbox = [];
+        this.isLoadingInbox = false;
+      },
+    });
+  }
+
+  markNotificationRead(n: any): void {
+    if (!n?.notificationId) return;
+    const myId = this.authService.currentUser?.userId || '';
+    if (n.readBy && myId && n.readBy.includes(myId)) return;
+    this.api.markNotificationRead(n.notificationId).subscribe({
+      next: () => {
+        n.readBy = [...(n.readBy || []), myId];
+        // Tell the header bell to re-fetch its unread count instantly.
+        this.notificationBus.emitRefresh();
+      },
+    });
+  }
+
+  isUnread(n: any): boolean {
+    const myId = this.authService.currentUser?.userId || '';
+    return !(n?.readBy || []).includes(myId);
+  }
+
+  formatSentAt(iso: string | undefined): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString(undefined, {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
   }
 
   // ── Templates ──────────────────────────────────────────────
@@ -179,15 +367,39 @@ export class NotificationsPageComponent implements OnInit {
     });
   }
 
+  // ── Template delete confirmation (uses the shared global .delete-overlay styles) ──
+  deleteDialogOpen = false;
+  templateToDelete: any = null;
+  isDeletingTemplate = false;
+
+  /** Opens the confirmation dialog. */
   deleteTemplate(t: any): void {
-    if (!confirm(`Delete template "${t.name}"?`)) return;
+    if (!t?.templateId) return;
+    this.templateToDelete = t;
+    this.deleteDialogOpen = true;
+  }
+
+  cancelTemplateDelete(): void {
+    if (this.isDeletingTemplate) return;
+    this.deleteDialogOpen = false;
+    this.templateToDelete = null;
+  }
+
+  confirmTemplateDelete(): void {
+    const t = this.templateToDelete;
+    if (!t?.templateId) return;
+    this.isDeletingTemplate = true;
     this.api.deleteNotificationTemplate(t.templateId).subscribe({
       next: () => {
-        this.snackBar.open('Template deleted', 'Close', { duration: 3000 });
+        this.isDeletingTemplate = false;
+        this.deleteDialogOpen = false;
+        this.templateToDelete = null;
+        this.snackBar.open(`Template "${t.name}" deleted`, 'Close', { duration: 2500 });
         this.loadTemplates();
       },
-      error: () => {
-        this.snackBar.open('Failed to delete template', 'Close', { duration: 3000 });
+      error: (err) => {
+        this.isDeletingTemplate = false;
+        this.snackBar.open(err?.error?.message || 'Failed to delete template', 'Close', { duration: 3000 });
       },
     });
   }

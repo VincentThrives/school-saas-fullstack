@@ -88,3 +88,21 @@ $gold-dark: #B8860B;
     white-space: nowrap;
   }
 }
+
+.panel-loading {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.panel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 12px;
+  color: #6b7280;
+  font-size: 14px;
+
+  mat-icon { color: #9ca3af; }
+}

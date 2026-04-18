@@ -1,5 +1,6 @@
 package com.saas.school.modules.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.saas.school.modules.user.model.UserRole;
 
 import java.time.Instant;
@@ -13,7 +14,13 @@ public class UserDto {
     private String phone;
     private String profilePhotoUrl;
     private UserRole role;
+
+    // Force JSON key "isActive" / "isLocked" — Jackson would otherwise strip the "is" prefix
+    // when it sees the matching getter (isActive()), breaking the Angular UI that expects
+    // user.isActive / user.isLocked.
+    @JsonProperty("isActive")
     private boolean isActive;
+    @JsonProperty("isLocked")
     private boolean isLocked;
     private Instant lastLoginAt;
     private Instant createdAt;
@@ -93,6 +100,7 @@ public class UserDto {
         this.role = role;
     }
 
+    @JsonProperty("isActive")
     public boolean isActive() {
         return isActive;
     }
@@ -101,6 +109,7 @@ public class UserDto {
         isActive = active;
     }
 
+    @JsonProperty("isLocked")
     public boolean isLocked() {
         return isLocked;
     }

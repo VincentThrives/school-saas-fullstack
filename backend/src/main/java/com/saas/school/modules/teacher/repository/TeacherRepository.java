@@ -9,4 +9,5 @@ public interface TeacherRepository extends MongoRepository<Teacher, String> {
     Optional<Teacher> findByTeacherIdAndDeletedAtIsNull(String teacherId);
     Page<Teacher> findByDeletedAtIsNull(Pageable pageable);
     boolean existsByEmployeeIdAndDeletedAtIsNull(String employeeId);
+    long countByDeletedAtIsNull();
 }

@@ -2,6 +2,9 @@ package com.saas.school.modules.event.controller;
 import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.event.model.SchoolEvent;
 import com.saas.school.modules.event.repository.SchoolEventRepository;
+import com.saas.school.modules.notification.model.Notification;
+import com.saas.school.modules.notification.service.NotificationRuleEngine;
+import com.saas.school.modules.notification.service.NotificationRuleEngine.FirePayload;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -15,6 +18,7 @@ import java.time.LocalDate; import java.util.*;
 @RequestMapping("/api/v1/events")
 public class EventController {
     @Autowired private SchoolEventRepository eventRepo;
+    @Autowired private NotificationRuleEngine ruleEngine;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<SchoolEvent>>> list(
@@ -34,7 +38,21 @@ public class EventController {
             @RequestBody SchoolEvent req, @AuthenticationPrincipal String userId) {
         req.setEventId(UUID.randomUUID().toString());
         req.setCreatedBy(userId);
-        return ResponseEntity.ok(ApiResponse.success(eventRepo.save(req), "Created"));
+        SchoolEvent saved = eventRepo.save(req);
+
+        // Fire HOLIDAY_DECLARED to everyone when a holiday is created.
+        if (saved.isHoliday()) {
+            Map<String, Object> vars = new HashMap<>();
+            vars.put("title", saved.getTitle() != null ? saved.getTitle() : "Holiday");
+            vars.put("date",  saved.getStartDate() != null ? saved.getStartDate().toString() : "");
+            ruleEngine.fire("HOLIDAY_DECLARED", FirePayload.toAll()
+                    .entityId(saved.getEventId())
+                    .type(Notification.NotificationType.ANNOUNCEMENT)
+                    .vars(vars)
+                    .fallback("Holiday declared — " + vars.get("title"),
+                            "The school will be closed on " + vars.get("date") + " — " + vars.get("title") + "."));
+        }
+        return ResponseEntity.ok(ApiResponse.success(saved, "Created"));
     }
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")

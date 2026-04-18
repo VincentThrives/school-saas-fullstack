@@ -25,6 +25,60 @@
     <!-- Right panel -->
     <section class="notif-panel">
 
+      <!-- Inbox tab (everyone) -->
+      <div *ngIf="activeTab === 'inbox'">
+        <mat-card class="panel-card">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Inbox</h2>
+              <p class="panel-sub">Announcements and alerts sent to you.</p>
+            </div>
+            <div>
+              <button mat-stroked-button (click)="loadInbox()" matTooltip="Refresh">
+                <mat-icon>refresh</mat-icon> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div class="loading-container" *ngIf="isLoadingInbox">
+            <mat-spinner diameter="32"></mat-spinner>
+          </div>
+
+          <div class="inbox-empty" *ngIf="!isLoadingInbox && inbox.length === 0">
+            <mat-icon>inbox</mat-icon>
+            <h3>No notifications yet</h3>
+            <p>When someone sends you an announcement, it will appear here.</p>
+          </div>
+
+          <div class="inbox-list" *ngIf="!isLoadingInbox && inbox.length > 0">
+            <div class="inbox-item"
+                 *ngFor="let n of inbox"
+                 [class.unread]="isUnread(n)"
+                 (click)="markNotificationRead(n)">
+              <div class="inbox-item-icon">
+                <mat-icon>{{ n.type === 'EXAM' ? 'assignment' :
+                              n.type === 'ATTENDANCE' ? 'event_note' :
+                              n.type === 'FEE' ? 'payments' :
+                              n.type === 'ALERT' ? 'warning' :
+                              n.type === 'ANNOUNCEMENT' ? 'campaign' : 'info' }}</mat-icon>
+                <span class="unread-dot" *ngIf="isUnread(n)"></span>
+              </div>
+              <div class="inbox-item-body">
+                <div class="inbox-item-row">
+                  <span class="inbox-item-title">{{ n.title }}</span>
+                  <span class="inbox-item-type-chip">{{ n.type }}</span>
+                </div>
+                <div class="inbox-item-text">{{ n.body }}</div>
+                <div class="inbox-item-meta">
+                  <mat-icon class="mini">schedule</mat-icon>
+                  <span>{{ formatSentAt(n.sentAt || n.createdAt) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+
       <!-- Compose tab -->
       <div *ngIf="activeTab === 'compose'">
         <mat-card class="panel-card">
@@ -288,12 +342,179 @@
         </div>
       </div>
 
-      <!-- Placeholder for other tabs -->
-      <mat-card class="panel-card coming-soon" *ngIf="activeTab !== 'compose'">
-        <mat-icon>schedule</mat-icon>
-        <h3>Coming soon</h3>
-        <p>This notifications section is on the roadmap.</p>
-      </mat-card>
+      <!-- Auto Rules tab -->
+      <div *ngIf="activeTab === 'rules'">
+        <mat-card class="panel-card">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Auto Rules</h2>
+              <p class="panel-sub">Turn on automatic notifications for common school events.</p>
+            </div>
+            <div>
+              <button mat-stroked-button (click)="resetRules()" [disabled]="isResettingRules">
+                <mat-spinner diameter="16" *ngIf="isResettingRules"></mat-spinner>
+                <mat-icon *ngIf="!isResettingRules">restart_alt</mat-icon>
+                Reset to defaults
+              </button>
+            </div>
+          </div>
+
+          <div class="loading-container" *ngIf="isLoadingRules">
+            <mat-spinner diameter="32"></mat-spinner>
+          </div>
+
+          <div class="rules-list" *ngIf="!isLoadingRules && rules.length > 0">
+            <div class="rule-card" *ngFor="let r of rules" [class.on]="r.enabled">
+              <div class="rule-icon">
+                <mat-icon>bolt</mat-icon>
+              </div>
+
+              <div class="rule-body">
+                <div class="rule-top">
+                  <div class="rule-name">{{ r.name }}</div>
+                  <mat-slide-toggle
+                    [(ngModel)]="r.enabled"
+                    (change)="onRuleToggle(r)"
+                    matTooltip="{{ r.enabled ? 'Disable' : 'Enable' }}">
+                  </mat-slide-toggle>
+                </div>
+                <div class="rule-desc">{{ r.description }}</div>
+
+                <div class="rule-controls" *ngIf="r.enabled">
+                  <mat-form-field appearance="outline" class="rule-channel">
+                    <mat-label>Channel</mat-label>
+                    <mat-select [(ngModel)]="r.channel" (selectionChange)="saveRule(r)">
+                      <mat-option *ngFor="let c of channelOptions" [value]="c.value">{{ c.label }}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="rule-template">
+                    <mat-label>Template (optional)</mat-label>
+                    <mat-select [(ngModel)]="r.templateId" (selectionChange)="saveRule(r)">
+                      <mat-option [value]="null">Use default message</mat-option>
+                      <mat-option *ngFor="let t of templates" [value]="t.templateId">{{ t.name }}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+
+                <div class="rule-footer" *ngIf="r.enabled">
+                  <mat-icon class="mini">check_circle</mat-icon>
+                  <span>Active</span>
+                  <span class="dot">·</span>
+                  <mat-icon class="mini">forum</mat-icon>
+                  <span>{{ r.channel }}</span>
+                  <ng-container *ngIf="r.templateId">
+                    <span class="dot">·</span>
+                    <mat-icon class="mini">bookmark</mat-icon>
+                    <span>{{ getTemplateNameById(r.templateId) }}</span>
+                  </ng-container>
+                </div>
+              </div>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+
+      <!-- History tab -->
+      <div *ngIf="activeTab === 'history'">
+        <mat-card class="panel-card">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Sent history</h2>
+              <p class="panel-sub">Every notification you've sent, newest first.</p>
+            </div>
+            <div>
+              <button mat-stroked-button (click)="loadHistory()">
+                <mat-icon>refresh</mat-icon> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div class="loading-container" *ngIf="isLoadingHistory">
+            <mat-spinner diameter="32"></mat-spinner>
+          </div>
+
+          <div class="history-empty" *ngIf="!isLoadingHistory && history.length === 0">
+            <mat-icon>history</mat-icon>
+            <h3>No notifications sent yet</h3>
+            <p>Anything you send from the Compose tab will appear here.</p>
+          </div>
+
+          <div class="history-list" *ngIf="!isLoadingHistory && history.length > 0">
+            <div class="history-item" *ngFor="let n of history">
+              <div class="history-col time">
+                <mat-icon>schedule</mat-icon>
+                <span>{{ formatSentAt(n.sentAt || n.createdAt) }}</span>
+              </div>
+              <div class="history-col body">
+                <div class="history-title-row">
+                  <span class="history-title">{{ n.title }}</span>
+                  <span class="history-type-chip">{{ n.type }}</span>
+                </div>
+                <div class="history-preview">{{ n.body }}</div>
+              </div>
+              <div class="history-col audience">
+                <mat-icon class="mini">group</mat-icon>
+                <span>{{ historyAudienceLabel(n) }}</span>
+              </div>
+              <div class="history-col channel">
+                <mat-icon class="mini">forum</mat-icon>
+                <span>{{ n.channel }}</span>
+              </div>
+              <div class="history-col stats" [matTooltip]="readCount(n) + ' users have read this'">
+                <mat-icon class="mini">visibility</mat-icon>
+                <span>{{ readCount(n) }}</span>
+              </div>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+
     </section>
+  </div>
+
+  <!-- Delete template confirmation -->
+  <div class="delete-overlay" *ngIf="deleteDialogOpen" (click)="cancelTemplateDelete()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <h3>Delete template</h3>
+      <p>
+        Are you sure you want to delete <strong>{{ templateToDelete?.name }}</strong>?
+        This action cannot be undone.
+      </p>
+      <div class="delete-warning">
+        <mat-icon>info</mat-icon>
+        <span>Any Auto Rules currently using this template will fall back to the default message.</span>
+      </div>
+      <div class="dialog-actions">
+        <button mat-stroked-button (click)="cancelTemplateDelete()" [disabled]="isDeletingTemplate">Cancel</button>
+        <button mat-raised-button color="warn" (click)="confirmTemplateDelete()" [disabled]="isDeletingTemplate">
+          <mat-spinner diameter="18" *ngIf="isDeletingTemplate"></mat-spinner>
+          <mat-icon *ngIf="!isDeletingTemplate">delete</mat-icon>
+          {{ isDeletingTemplate ? 'Deleting…' : 'Yes, delete' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Auto Rules confirmation -->
+  <div class="delete-overlay" *ngIf="resetRulesDialogOpen" (click)="cancelResetRules()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <h3>Reset rules to defaults?</h3>
+      <p>
+        All 8 auto-notification rules will be turned off and any channel / template choices you made will be cleared.
+      </p>
+      <div class="delete-warning">
+        <mat-icon>info</mat-icon>
+        <span>You can re-enable and customise each rule again afterwards.</span>
+      </div>
+      <div class="dialog-actions">
+        <button mat-stroked-button (click)="cancelResetRules()" [disabled]="isResettingRules">Cancel</button>
+        <button mat-raised-button color="warn" (click)="confirmResetRules()" [disabled]="isResettingRules">
+          <mat-spinner diameter="18" *ngIf="isResettingRules"></mat-spinner>
+          <mat-icon *ngIf="!isResettingRules">restart_alt</mat-icon>
+          {{ isResettingRules ? 'Resetting…' : 'Yes, reset' }}
+        </button>
+      </div>
+    </div>
   </div>
 </div>

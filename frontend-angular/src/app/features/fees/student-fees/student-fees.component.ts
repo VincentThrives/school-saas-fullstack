@@ -10,6 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
@@ -21,7 +22,7 @@ import { SchoolClass, AcademicYear, Student } from '../../../core/models';
   imports: [
     CommonModule, FormsModule, MatCardModule, MatTableModule, MatFormFieldModule,
     MatSelectModule, MatInputModule, MatButtonModule, MatIconModule, MatChipsModule,
-    MatProgressSpinnerModule, MatSnackBarModule, PageHeaderComponent,
+    MatProgressSpinnerModule, MatTooltipModule, MatSnackBarModule, PageHeaderComponent,
   ],
   templateUrl: './student-fees.component.html',
   styleUrl: './student-fees.component.scss',
@@ -37,6 +38,10 @@ export class StudentFeesComponent implements OnInit {
   selectedClassId = '';
   selectedSectionId = '';
   selectedStudentId = '';
+
+  // Student search / roster
+  studentSearch = '';
+  isLoadingStudents = false;
 
   // Fee data
   feeDetails: any = null;
@@ -82,6 +87,7 @@ export class StudentFeesComponent implements OnInit {
     this.sections = [];
     this.students = [];
     this.feeDetails = null;
+    this.studentSearch = '';
     this.loadClasses();
   }
 
@@ -90,13 +96,19 @@ export class StudentFeesComponent implements OnInit {
     this.selectedStudentId = '';
     this.students = [];
     this.feeDetails = null;
+    this.studentSearch = '';
     const cls = this.classes.find(c => c.classId === this.selectedClassId);
     this.sections = cls?.sections || [];
   }
 
+  /**
+   * Once class + section are chosen, fetch the full roster so the admin can
+   * see everyone in the table and either search or click a row.
+   */
   onSectionChange(): void {
     this.selectedStudentId = '';
     this.feeDetails = null;
+    this.studentSearch = '';
     if (this.selectedClassId && this.selectedSectionId) {
       this.loadStudents();
     } else {
@@ -104,11 +116,35 @@ export class StudentFeesComponent implements OnInit {
     }
   }
 
-  onStudentChange(): void {
-    this.feeDetails = null;
-    if (this.selectedStudentId && this.selectedAcademicYearId) {
+  /** Narrowed list after applying the search box. Client-side, instant. */
+  get filteredStudents(): Student[] {
+    const q = (this.studentSearch || '').trim().toLowerCase();
+    if (!q) return this.students;
+    return this.students.filter((s) => {
+      const name = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase();
+      const adm = (s.admissionNumber || '').toLowerCase();
+      const roll = (s.rollNumber || '').toLowerCase();
+      return name.includes(q) || adm.includes(q) || roll.includes(q);
+    });
+  }
+
+  /** Click a row to open that student's fee details. */
+  selectStudentRow(student: Student): void {
+    if (!student?.studentId) return;
+    this.selectedStudentId = student.studentId;
+    if (this.selectedAcademicYearId) {
       this.loadFeeDetails();
     }
+  }
+
+  /** Return from the student's fee view back to the roster. */
+  clearStudent(): void {
+    this.selectedStudentId = '';
+    this.feeDetails = null;
+  }
+
+  get selectedStudent(): Student | undefined {
+    return this.students.find((s) => s.studentId === this.selectedStudentId);
   }
 
   loadClasses(): void {
@@ -119,11 +155,19 @@ export class StudentFeesComponent implements OnInit {
   }
 
   loadStudents(): void {
-    this.api.getStudents(0, 200, {
+    this.isLoadingStudents = true;
+    this.api.getStudents(0, 500, {
       classId: this.selectedClassId,
       sectionId: this.selectedSectionId,
-    }).subscribe((res) => {
-      this.students = res.data?.content || [];
+    }).subscribe({
+      next: (res) => {
+        this.students = res.data?.content || [];
+        this.isLoadingStudents = false;
+      },
+      error: () => {
+        this.students = [];
+        this.isLoadingStudents = false;
+      },
     });
   }
 

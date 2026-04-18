@@ -96,30 +96,47 @@ export class TimetableBuilderComponent implements OnInit {
     this.api.getTeachers(0, 200).subscribe((res) => {
       this.teachers = res.data?.content || [];
     });
+
+    // Years first, then classes for the picked year, then respect any query params.
     this.api.getAcademicYears().subscribe((res) => {
       this.academicYears = res.data || [];
       const current = this.academicYears.find((ay) => ay.current);
       if (current) {
         this.selectedAcademicYearId = current.academicYearId;
       }
-    });
 
-    // Load classes FIRST, then check query params
-    this.api.getClasses().subscribe((res) => {
-      this.classes = res.data || [];
+      this.api.getClasses().subscribe((cres) => {
+        this.classes = cres.data || [];
 
-      // Check for query params (edit/view mode) — only after classes are loaded
-      this.route.queryParams.subscribe((params) => {
-        if (params['classId'] && params['sectionId'] && params['academicYearId']) {
-          this.selectedClassId = params['classId'];
-          this.selectedSectionId = params['sectionId'];
-          this.selectedAcademicYearId = params['academicYearId'];
-          this.onClassChange();
-          this.loadTimetable();
-          this.loadSubjectsForClass();
-        }
+        this.route.queryParams.subscribe((params) => {
+          if (params['classId'] && params['sectionId'] && params['academicYearId']) {
+            this.selectedAcademicYearId = params['academicYearId'];
+            this.selectedClassId = params['classId'];
+            this.selectedSectionId = params['sectionId'];
+            this.onClassChange();
+            this.loadTimetable();
+            this.loadSubjectsForClass();
+          }
+        });
       });
     });
+  }
+
+  /** Classes that belong to the selected academic year. Used to drive the Class dropdown. */
+  get filteredClasses(): SchoolClass[] {
+    if (!this.selectedAcademicYearId) return [];
+    return this.classes.filter(c => c.academicYearId === this.selectedAcademicYearId);
+  }
+
+  onAcademicYearChange(): void {
+    // Changing the year invalidates previously-picked class/section.
+    this.selectedClassId = '';
+    this.selectedSectionId = '';
+    this.sections = [];
+    this.subjects = [];
+    this.schedule = [];
+    this.timetable = null;
+    this.editMode = false;
   }
 
   onClassChange(resetSection = false): void {

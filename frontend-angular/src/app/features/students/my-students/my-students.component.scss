@@ -1,0 +1,146 @@
+.my-students-container {
+  padding: 24px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 36px 0;
+}
+
+.empty-card {
+  text-align: center;
+  padding: 48px 24px;
+  max-width: 520px;
+  margin: 40px auto;
+
+  .empty-icon {
+    font-size: 56px;
+    width: 56px;
+    height: 56px;
+    color: #c7962f;
+    margin-bottom: 10px;
+  }
+  h3 { margin: 0 0 6px; color: #1f2937; font-weight: 700; }
+  p  { margin: 0; color: #6b7280; font-size: 14px; line-height: 1.5; }
+}
+
+.filter-card {
+  margin-bottom: 16px;
+  padding: 14px 18px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+
+  .class-field  { min-width: 260px; margin-bottom: -18px; flex: 0 1 320px; }
+  .search-field { min-width: 220px; margin-bottom: -18px; flex: 1 1 320px; }
+}
+
+.context-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    background: #fff7e6;
+    color: #7a5a14;
+    .mini { font-size: 14px; width: 14px; height: 14px; color: #b68018; }
+  }
+  .chip-role {
+    background: #fde68a;
+    color: #7a5a14;
+  }
+  .chip-role.alt {
+    background: #e0e7ff;
+    color: #3730a3;
+    .mini { color: #4f46e5; }
+  }
+  .chip-year {
+    background: #ecfdf5;
+    color: #065f46;
+    .mini { color: #059669; }
+  }
+}
+
+.table-card {
+  padding: 0;
+}
+
+.table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 8px;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+  }
+
+  .count-badge {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 2px 10px;
+    background: #fff7e6;
+    color: #8d6516;
+    font-weight: 700;
+    font-size: 12px;
+    border-radius: 999px;
+    vertical-align: middle;
+  }
+}
+
+.students-table {
+  width: 100%;
+}
+
+.student-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .student-name { font-weight: 600; color: #1f2937; }
+}
+
+.student-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c7962f 0%, #8d6516 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.no-data-cell {
+  text-align: center;
+  color: #6b7280;
+  padding: 28px 12px !important;
+}
+
+code {
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #374151;
+}

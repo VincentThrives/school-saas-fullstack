@@ -29,7 +29,10 @@ public interface StudentRepository extends MongoRepository<Student, String> {
     Page<Student> searchStudents(String query, Pageable pageable);
 
     Page<Student> findByDeletedAtIsNull(Pageable pageable);
+    List<Student> findByDeletedAtIsNull();
 
     long countByClassIdAndDeletedAtIsNull(String classId);
     long countByDeletedAtIsNull();
+
+    Optional<Student> findByUserIdAndDeletedAtIsNull(String userId);
 }

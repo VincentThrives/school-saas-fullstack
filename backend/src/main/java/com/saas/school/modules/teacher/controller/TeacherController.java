@@ -17,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -50,6 +51,16 @@ public class TeacherController {
         return ResponseEntity.ok(ApiResponse.success(
                 teacherRepo.findByTeacherIdAndDeletedAtIsNull(id)
                         .orElseThrow(() -> new ResourceNotFoundException("Employee not found"))));
+    }
+
+    /** The currently logged-in teacher's profile (used by My Classes / My Students). */
+    @GetMapping("/me")
+    @PreAuthorize("hasAnyRole('TEACHER','PRINCIPAL','SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<Teacher>> me(@AuthenticationPrincipal String userId) {
+        Teacher t = teacherRepo.findByUserIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No employee profile linked to this user"));
+        return ResponseEntity.ok(ApiResponse.success(t));
     }
 
     @PostMapping

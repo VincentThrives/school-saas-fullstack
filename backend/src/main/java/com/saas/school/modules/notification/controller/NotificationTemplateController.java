@@ -16,7 +16,7 @@ import java.util.UUID;
 @Tag(name = "Notification Templates")
 @RestController
 @RequestMapping("/api/v1/notification-templates")
-@PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL')")
+@PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
 public class NotificationTemplateController {
 
     @Autowired private NotificationTemplateRepository repo;

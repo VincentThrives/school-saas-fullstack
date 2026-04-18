@@ -16,6 +16,31 @@
   <!-- Table -->
   <div class="table-card" *ngIf="!isLoading">
     <div class="table-toolbar">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onAcademicYearChange()">
+          <mat-option value="">All Years</mat-option>
+          <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">
+            {{ ay.label }} <span *ngIf="ay.current">(Current)</span>
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Class</mat-label>
+        <mat-select [(ngModel)]="selectedClassId"
+                    (selectionChange)="onClassFilterChange()"
+                    [disabled]="classOptions.length === 0">
+          <mat-option value="">All Classes</mat-option>
+          <mat-option *ngFor="let cls of classOptions" [value]="cls.classId">{{ cls.name }}</mat-option>
+        </mat-select>
+        <mat-hint *ngIf="classOptions.length === 0 && selectedAcademicYearId">
+          No classes for this year
+        </mat-hint>
+      </mat-form-field>
+
+      <span class="toolbar-spacer"></span>
+
       <button mat-icon-button matTooltip="Refresh" (click)="loadClasses()">
         <mat-icon>refresh</mat-icon>
       </button>
@@ -112,7 +137,12 @@
 
       <tr class="mat-row" *matNoDataRow>
         <td class="mat-cell no-data-cell" [attr.colspan]="displayedColumns.length">
-          No classes found
+          <ng-container *ngIf="selectedAcademicYearId">
+            No classes found for <strong>{{ getAcademicYearLabel(selectedAcademicYearId) }}</strong>.
+          </ng-container>
+          <ng-container *ngIf="!selectedAcademicYearId">
+            No classes found.
+          </ng-container>
         </td>
       </tr>
     </table>

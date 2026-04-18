@@ -18,6 +18,9 @@ public interface UserRepository extends MongoRepository<User, String> {
     @Query("{ 'role': ?0, 'isActive': ?1, 'deletedAt': null }")
     Page<User> findByRoleAndIsActive(UserRole role, boolean active, Pageable pageable);
 
+    @Query("{ 'isActive': ?0, 'deletedAt': null }")
+    Page<User> findByIsActive(boolean active, Pageable pageable);
+
     @Query("{ '$or': [{'firstName': {$regex: ?0, $options: 'i'}}, {'lastName': {$regex: ?0, $options: 'i'}}, {'email': {$regex: ?0, $options: 'i'}}], 'deletedAt': null }")
     Page<User> searchByName(String query, Pageable pageable);
 

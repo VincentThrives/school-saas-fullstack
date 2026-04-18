@@ -50,6 +50,11 @@ export class ExamTypesPageComponent implements OnInit {
   form: Row = this.blankForm();
   isSaving = false;
 
+  // Delete confirmation
+  deleteDialogOpen = false;
+  rowToDelete: Row | null = null;
+  isDeleting = false;
+
   displayedColumns = ['displayOrder', 'name', 'defaultMaxMarks', 'description', 'status', 'actions'];
 
   constructor(private api: ApiService, private snackBar: MatSnackBar) {}
@@ -155,12 +160,35 @@ export class ExamTypesPageComponent implements OnInit {
     });
   }
 
+  // ── Delete flow (uses the shared global .delete-overlay / .delete-dialog styles) ──
   remove(row: Row): void {
-    if (!row.id) return;
-    if (!confirm(`Delete exam type "${row.name}"? This cannot be undone.`)) return;
+    if (!row?.id) return;
+    this.rowToDelete = row;
+    this.deleteDialogOpen = true;
+  }
+
+  cancelDelete(): void {
+    if (this.isDeleting) return;
+    this.deleteDialogOpen = false;
+    this.rowToDelete = null;
+  }
+
+  confirmDelete(): void {
+    const row = this.rowToDelete;
+    if (!row?.id) return;
+    this.isDeleting = true;
     this.api.deleteExamType(row.id).subscribe({
-      next: () => { this.snackBar.open('Deleted', 'Close', { duration: 2500 }); this.load(); },
-      error: (err) => this.snackBar.open(err?.error?.message || 'Failed to delete', 'Close', { duration: 5000 }),
+      next: () => {
+        this.isDeleting = false;
+        this.deleteDialogOpen = false;
+        this.rowToDelete = null;
+        this.snackBar.open(`Deleted "${row.name}"`, 'Close', { duration: 2500 });
+        this.load();
+      },
+      error: (err) => {
+        this.isDeleting = false;
+        this.snackBar.open(err?.error?.message || 'Failed to delete', 'Close', { duration: 5000 });
+      },
     });
   }
 }

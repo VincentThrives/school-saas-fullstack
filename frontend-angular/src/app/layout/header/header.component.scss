@@ -46,10 +46,25 @@ $white: #FFFFFF;
   display: flex;
   align-items: center;
   gap: 4px;
+  height: 100%;
 }
 
 .header-icon-btn {
   color: rgba(26, 26, 26, 0.7);
+  // Center the Material icon perfectly inside the 40x40 button.
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+
+  mat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    height: 24px;
+    width: 24px;
+  }
 
   &:hover {
     background-color: rgba(212, 168, 67, 0.08);
@@ -58,11 +73,33 @@ $white: #FFFFFF;
 
 .avatar-btn {
   margin-left: 8px;
+  // Force a perfect square button so the round avatar inside stays a circle.
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  padding: 0 !important;
+  flex: 0 0 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+
+  // Neutralise Material MDC button's internal wrappers that can stretch the shape.
+  ::ng-deep .mat-mdc-button-touch-target,
+  ::ng-deep .mat-mdc-button-persistent-ripple,
+  ::ng-deep .mdc-icon-button__ripple,
+  ::ng-deep .mat-mdc-focus-indicator {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+  }
 }
 
 .user-avatar {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 36px;
   border-radius: 50%;
   background-color: $gold;
   color: $black;
@@ -70,10 +107,11 @@ $white: #FFFFFF;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.95rem;
   border: 2px solid rgba(212, 168, 67, 0.3);
   transition: all 0.3s ease;
   overflow: hidden;
+  box-sizing: border-box;
 
   &:hover {
     box-shadow: 0 0 12px rgba(212, 168, 67, 0.4);
@@ -239,4 +277,62 @@ $white: #FFFFFF;
   .notif-empty span {
     color: #AAAAAA;
   }
+}
+
+/* Hand-rolled bell badge — doesn't depend on matBadge (which is flaky on
+   our setup). Positioned via the parent .bell-btn which is position: relative. */
+.bell-btn {
+  position: relative;
+}
+
+.bell-badge {
+  position: absolute;
+  top: -4px;                       /* sits above the bell glyph */
+  left: 50%;
+  transform: translateX(-50%);     /* horizontally centered over the bell */
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #ffffff;   /* white ring so it pops on the light header */
+  pointer-events: none;
+  animation: bell-badge-pop 0.25s ease-out;
+}
+
+@keyframes bell-badge-pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+/* Dark mode: ring matches the dark header background */
+body.dark-theme .bell-badge {
+  box-shadow: 0 0 0 2px #1A1A1A;
+}
+
+/* Make sure the bell button + its Material internals don't clip the badge. */
+.bell-btn,
+.bell-btn .mat-mdc-button-persistent-ripple,
+.bell-btn .mat-mdc-focus-indicator,
+.bell-btn .mat-mdc-button-touch-target,
+.bell-btn .mdc-icon-button__ripple {
+  overflow: visible !important;
+}
+
+/* Give the badge a higher z-index and a tiny bump upward now that it's
+   allowed to overflow outside the button. */
+.bell-badge {
+  top: -6px;
+  z-index: 2;
+}
+
+/* The parent toolbar also clips — force it to show children that overflow. */
+.app-header,
+.app-header .header-right {
+  overflow: visible !important;
 }

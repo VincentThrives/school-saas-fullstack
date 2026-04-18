@@ -129,6 +129,11 @@ export class ApiService {
     return this.http.get<ApiResponse<Teacher>>(`${this.API}/employees/${teacherId}`);
   }
 
+  /** Currently logged-in teacher's profile (for My Classes, My Students). */
+  getMyTeacherProfile(): Observable<ApiResponse<Teacher>> {
+    return this.http.get<ApiResponse<Teacher>>(`${this.API}/employees/me`);
+  }
+
   createTeacher(teacher: Partial<Teacher>): Observable<ApiResponse<Teacher>> {
     return this.http.post<ApiResponse<Teacher>>(`${this.API}/employees`, teacher);
   }
@@ -429,6 +434,30 @@ export class ApiService {
 
   deleteNotificationTemplate(id: string): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.API}/notification-templates/${id}`);
+  }
+
+  // ── Notification Rules (auto triggers) ────────────────────────────────
+
+  getNotificationRules(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/notification-rules`);
+  }
+
+  updateNotificationRule(id: string, rule: any): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.API}/notification-rules/${id}`, rule);
+  }
+
+  resetNotificationRules(): Observable<ApiResponse<any[]>> {
+    return this.http.post<ApiResponse<any[]>>(`${this.API}/notification-rules/reset`, null);
+  }
+
+  // ── Notification history (for the current user's Sent tab) ────────────
+
+  getSentNotifications(page = 0, size = 20): Observable<ApiResponse<any>> {
+    const params = new HttpParams()
+      .set('page', page)
+      .set('size', size)
+      .set('sentByMe', true);
+    return this.http.get<ApiResponse<any>>(`${this.API}/notifications`, { params });
   }
 
   // ── WhatsApp ───────────────────────────────────────────────────────────

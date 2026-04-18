@@ -43,13 +43,23 @@ public class UserService {
         PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<User> result;
 
+        boolean hasStatus = status != null && !status.isBlank();
+        boolean hasRole = role != null;
+        Boolean active = null;
+        if (hasStatus) {
+            // Accept "active"/"inactive" in any case
+            active = "active".equalsIgnoreCase(status);
+        }
+
         if (search != null && !search.isBlank()) {
             result = userRepository.searchByName(search, pageable);
-        } else if (role != null && status != null) {
-            boolean active = "active".equalsIgnoreCase(status);
+        } else if (hasRole && hasStatus) {
             result = userRepository.findByRoleAndIsActive(role, active, pageable);
-        } else if (role != null) {
+        } else if (hasRole) {
             result = userRepository.findByRoleAndDeletedAtIsNull(role, pageable);
+        } else if (hasStatus) {
+            // Status-only filter now works on its own (previously silently ignored).
+            result = userRepository.findByIsActive(active, pageable);
         } else {
             result = userRepository.findByDeletedAtIsNull(pageable);
         }

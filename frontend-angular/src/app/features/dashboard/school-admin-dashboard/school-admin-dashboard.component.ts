@@ -4,9 +4,22 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { StatCardComponent } from '../../../shared/components/stat-card/stat-card.component';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+
+interface UpcomingExamRow {
+  name: string;
+  subjectName: string;
+  date: string; // ISO yyyy-mm-dd
+}
+
+interface UpcomingEventRow {
+  title: string;
+  startDate: string;
+  type: string;
+}
 
 @Component({
   selector: 'app-school-admin-dashboard',
@@ -17,6 +30,7 @@ import { ApiService } from '../../../core/services/api.service';
     MatIconModule,
     MatListModule,
     MatChipsModule,
+    MatProgressSpinnerModule,
     StatCardComponent,
     PageHeaderComponent,
   ],
@@ -28,50 +42,98 @@ export class SchoolAdminDashboardComponent implements OnInit {
     totalStudents: 0,
     totalTeachers: 0,
     totalClasses: 0,
-    attendanceRateToday: 0,
-    feeCollectionThisMonth: 0,
-    pendingFees: 0,
+    attendanceTodayPercent: 0,
   };
+  isLoadingStats = false;
 
-  upcomingExams = [
-    { name: 'Mid-Term Math', date: '2024-03-15', subjectName: 'Mathematics' },
-    { name: 'Science Test', date: '2024-03-18', subjectName: 'Science' },
-    { name: 'English Exam', date: '2024-03-20', subjectName: 'English' },
-  ];
+  upcomingExams: UpcomingExamRow[] = [];
+  isLoadingExams = false;
 
-  upcomingEvents = [
-    { title: 'Parent-Teacher Meeting', startDate: '2024-03-16', type: 'ACADEMIC' },
-    { title: 'Sports Day', startDate: '2024-03-22', type: 'SPORTS' },
-    { title: 'Annual Function', startDate: '2024-03-28', type: 'CULTURAL' },
-  ];
+  upcomingEvents: UpcomingEventRow[] = [];
+  isLoadingEvents = false;
 
   constructor(private apiService: ApiService) {}
 
   ngOnInit(): void {
-    this.loadDashboard();
+    this.loadStats();
+    this.loadUpcomingExams();
+    this.loadUpcomingEvents();
   }
 
-  private loadDashboard(): void {
+  // ── Stat cards ──────────────────────────────────────────────
+  private loadStats(): void {
+    this.isLoadingStats = true;
     this.apiService.getDashboard().subscribe({
       next: (res) => {
-        if (res.success && res.data) {
+        if (res?.success && res.data) {
+          // Backend DTO uses attendanceTodayPercent (camel case); template reads both keys safely.
           this.stats = { ...this.stats, ...res.data };
         }
+        this.isLoadingStats = false;
       },
       error: () => {
-        this.stats = {
-          totalStudents: 1250,
-          totalTeachers: 65,
-          totalClasses: 24,
-          attendanceRateToday: 92.5,
-          feeCollectionThisMonth: 450000,
-          pendingFees: 125000,
-        };
+        this.isLoadingStats = false;
+        // Leave zeros in place so the UI shows real state (no hardcoded masking).
+      },
+    });
+  }
+
+  // ── Upcoming Exams (live from /api/v1/exams) ──────────────────
+  private loadUpcomingExams(): void {
+    this.isLoadingExams = true;
+    this.apiService.getExams().subscribe({
+      next: (res) => {
+        const all: any[] = res?.data || [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        this.upcomingExams = all
+          .filter((e) => e?.examDate && new Date(e.examDate) >= today)
+          .sort((a, b) => new Date(a.examDate).getTime() - new Date(b.examDate).getTime())
+          .slice(0, 5)
+          .map((e) => ({
+            name: e.name || e.examType || 'Exam',
+            subjectName: e.subjectName || e.subjectId || '—',
+            date: e.examDate,
+          }));
+        this.isLoadingExams = false;
+      },
+      error: () => {
+        this.upcomingExams = [];
+        this.isLoadingExams = false;
+      },
+    });
+  }
+
+  // ── Upcoming Events (live from /api/v1/events) ────────────────
+  private loadUpcomingEvents(): void {
+    this.isLoadingEvents = true;
+    this.apiService.getEvents().subscribe({
+      next: (res) => {
+        const all: any[] = res?.data || [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        this.upcomingEvents = all
+          .filter((e) => e?.startDate && new Date(e.startDate) >= today)
+          .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+          .slice(0, 5)
+          .map((e) => ({
+            title: e.title || 'Event',
+            startDate: e.startDate,
+            type: e.type || 'OTHER',
+          }));
+        this.isLoadingEvents = false;
+      },
+      error: () => {
+        this.upcomingEvents = [];
+        this.isLoadingEvents = false;
       },
     });
   }
 
   formatDate(dateStr: string): string {
-    return new Date(dateStr).toLocaleDateString();
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString(undefined, {
+      day: '2-digit', month: 'short', year: 'numeric',
+    });
   }
 }

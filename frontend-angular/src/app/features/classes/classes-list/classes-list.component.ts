@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -27,6 +28,7 @@ import { SchoolClass, AcademicYear, Teacher } from '../../../core/models';
     MatInputModule,
     MatFormFieldModule,
     MatChipsModule,
+    MatSelectModule,
     MatTooltipModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
@@ -44,6 +46,13 @@ export class ClassesListComponent implements OnInit {
   studentCountMap: Record<string, number> = {};
   isLoading = false;
 
+  // Filters — empty string means "All"
+  selectedAcademicYearId: string = '';
+  selectedClassId: string = '';
+
+  // Master list (all classes for the selected year) vs filtered list that feeds the table.
+  private allClasses: SchoolClass[] = [];
+
   deleteDialogOpen = false;
   selectedClass: SchoolClass | null = null;
 
@@ -54,9 +63,53 @@ export class ClassesListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadAcademicYears();
     this.loadTeachers();
+    // Load years first, pre-select the current one, then load classes scoped to it.
+    this.loadAcademicYearsThenClasses();
+  }
+
+  private loadAcademicYearsThenClasses(): void {
+    this.apiService.getAcademicYears().subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          const years = Array.isArray(res.data) ? res.data : (res.data as any).content || [];
+          this.academicYears = years;
+          years.forEach((y: AcademicYear) => {
+            this.academicYearMap[y.academicYearId] = y.label;
+          });
+          // Default filter to the current year (if any). Empty = "All years".
+          const current = this.academicYears.find((y) => y.current);
+          this.selectedAcademicYearId = current?.academicYearId || '';
+        }
+        this.loadClasses();
+      },
+      error: () => {
+        this.loadClasses();
+      },
+    });
+  }
+
+  onAcademicYearChange(): void {
+    // Changing the year invalidates any class picked from the old year.
+    this.selectedClassId = '';
     this.loadClasses();
+  }
+
+  onClassFilterChange(): void {
+    this.applyClassFilter();
+  }
+
+  private applyClassFilter(): void {
+    if (!this.selectedClassId) {
+      this.dataSource.data = [...this.allClasses];
+      return;
+    }
+    this.dataSource.data = this.allClasses.filter(c => c.classId === this.selectedClassId);
+  }
+
+  /** Options for the Class dropdown — always drawn from the year-scoped list. */
+  get classOptions(): SchoolClass[] {
+    return this.allClasses;
   }
 
   loadTeachers(): void {
@@ -80,32 +133,28 @@ export class ClassesListComponent implements OnInit {
     return '-';
   }
 
-  loadAcademicYears(): void {
-    this.apiService.getAcademicYears().subscribe({
-      next: (res) => {
-        if (res.success && res.data) {
-          const years = Array.isArray(res.data) ? res.data : (res.data as any).content || [];
-          this.academicYears = years;
-          years.forEach((y: AcademicYear) => {
-            this.academicYearMap[y.academicYearId] = y.label;
-          });
-        }
-      },
-    });
-  }
-
   getAcademicYearLabel(academicYearId: string): string {
     return this.academicYearMap[academicYearId] || academicYearId || '-';
   }
 
   loadClasses(): void {
     this.isLoading = true;
-    this.apiService.getClasses().subscribe({
+    // Pass the selected year to the backend; empty means "All years".
+    const yearFilter = this.selectedAcademicYearId || undefined;
+    this.apiService.getClasses(yearFilter).subscribe({
       next: (response) => {
         if (response.success && response.data) {
-          this.dataSource.data = Array.isArray(response.data) ? response.data : [];
-          // Load student count for each class
-          this.dataSource.data.forEach(cls => {
+          this.allClasses = Array.isArray(response.data) ? response.data : [];
+
+          // If the picked class isn't in the new year-scoped list, clear it.
+          if (this.selectedClassId && !this.allClasses.some(c => c.classId === this.selectedClassId)) {
+            this.selectedClassId = '';
+          }
+          this.applyClassFilter();
+
+          // Load student counts for every loaded class (ignoring the class filter
+          // so counts stay accurate if the admin switches back to "All classes").
+          this.allClasses.forEach(cls => {
             this.apiService.getStudents(0, 1, { classId: cls.classId }).subscribe({
               next: (res) => {
                 if (res.success && res.data) {

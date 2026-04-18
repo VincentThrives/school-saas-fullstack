@@ -16,4 +16,6 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
     List<Attendance> findAbsentsByStudentAndDateRange(String studentId, LocalDate from, LocalDate to);
     long countByStudentIdAndStatusAndDateBetween(String studentId, Attendance.Status status, LocalDate from, LocalDate to);
     long countByStudentIdAndDateBetween(String studentId, LocalDate from, LocalDate to);
+    long countByDate(LocalDate date);
+    long countByDateAndStatus(LocalDate date, Attendance.Status status);
 }
