@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
-import { Router, ActivatedRoute } from '@angular/router';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -17,7 +17,6 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { scrollToFirstInvalid } from '../../../shared/utils/form-scroll';
 import { ApiService } from '../../../core/services/api.service';
-import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
 import { SchoolClass, EmployeeRole } from '../../../core/models';
 
 @Component({
@@ -26,6 +25,7 @@ import { SchoolClass, EmployeeRole } from '../../../core/models';
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    RouterModule,
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
@@ -52,10 +52,6 @@ export class TeacherFormComponent implements OnInit {
 
   classes: SchoolClass[] = [];
 
-  // Per-assignment row: sections and subjects
-  assignmentSections: { sectionId: string; name: string; subjectIds?: string[] }[][] = [];
-  assignmentSubjects: SubjectItem[][] = [];
-
   employeeRoles: { value: EmployeeRole; label: string }[] = [
     { value: 'TEACHER', label: 'Teacher' },
     { value: 'ACCOUNTANT', label: 'Accountant' },
@@ -69,7 +65,6 @@ export class TeacherFormComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private api: ApiService,
-    private subjectService: SubjectService,
     private router: Router,
     private route: ActivatedRoute,
     private snackBar: MatSnackBar,
@@ -94,7 +89,6 @@ export class TeacherFormComponent implements OnInit {
       isClassTeacher: [false],
       classTeacherOfClassId: [''],
       classTeacherOfSectionId: [''],
-      classSubjectAssignments: this.fb.array([]),
       // Address
       street: [''],
       city: [''],
@@ -113,10 +107,6 @@ export class TeacherFormComponent implements OnInit {
 
   get pageTitle(): string {
     return this.isEditing ? 'Edit Employee' : 'Add Employee';
-  }
-
-  get assignments(): FormArray {
-    return this.employeeForm.get('classSubjectAssignments') as FormArray;
   }
 
   get isTeacherRole(): boolean {
@@ -162,21 +152,7 @@ export class TeacherFormComponent implements OnInit {
             zip: addr.zip || '',
           });
 
-          // Load class-subject assignments
-          this.assignments.clear();
-          this.assignmentSections = [];
-          this.assignmentSubjects = [];
-          if (t.classSubjectAssignments && t.classSubjectAssignments.length > 0) {
-            t.classSubjectAssignments.forEach((a, idx) => {
-              this.assignments.push(this.fb.group({
-                classId: [a.classId, Validators.required],
-                sectionId: [a.sectionId, Validators.required],
-                subjectId: [a.subjectId, Validators.required],
-              }));
-              this.loadSectionsForRow(idx, a.classId);
-              this.loadSubjectsForRow(idx, a.classId, a.sectionId);
-            });
-          }
+          // Class-subject assignments are now managed on the Teacher Assignments page (per-year).
         }
         this.isLoading = false;
       },
@@ -184,61 +160,6 @@ export class TeacherFormComponent implements OnInit {
         this.isLoading = false;
         this.snackBar.open('Failed to load employee data', 'Close', { duration: 3000 });
       },
-    });
-  }
-
-  addAssignment(): void {
-    this.assignments.push(this.fb.group({
-      classId: ['', Validators.required],
-      sectionId: ['', Validators.required],
-      subjectId: ['', Validators.required],
-    }));
-    this.assignmentSections.push([]);
-    this.assignmentSubjects.push([]);
-  }
-
-  removeAssignment(index: number): void {
-    this.assignments.removeAt(index);
-    this.assignmentSections.splice(index, 1);
-    this.assignmentSubjects.splice(index, 1);
-  }
-
-  onAssignmentClassChange(index: number): void {
-    const classId = this.assignments.at(index).get('classId')?.value;
-    this.assignments.at(index).patchValue({ sectionId: '', subjectId: '' });
-    this.assignmentSubjects[index] = [];
-    this.loadSectionsForRow(index, classId);
-  }
-
-  onAssignmentSectionChange(index: number): void {
-    const classId = this.assignments.at(index).get('classId')?.value;
-    const sectionId = this.assignments.at(index).get('sectionId')?.value;
-    this.assignments.at(index).patchValue({ subjectId: '' });
-    this.loadSubjectsForRow(index, classId, sectionId);
-  }
-
-  private loadSectionsForRow(index: number, classId: string): void {
-    const cls = this.classes.find(c => c.classId === classId);
-    while (this.assignmentSections.length <= index) this.assignmentSections.push([]);
-    this.assignmentSections[index] = cls?.sections || [];
-  }
-
-  private loadSubjectsForRow(index: number, classId: string, sectionId: string): void {
-    while (this.assignmentSubjects.length <= index) this.assignmentSubjects.push([]);
-    if (!classId || !sectionId) {
-      this.assignmentSubjects[index] = [];
-      return;
-    }
-    const cls = this.classes.find(c => c.classId === classId);
-    const section = cls?.sections?.find(s => s.sectionId === sectionId);
-    const subjectIds = section?.subjectIds || [];
-    if (subjectIds.length === 0) {
-      this.assignmentSubjects[index] = [];
-      return;
-    }
-    this.subjectService.getSubjectsByIds(subjectIds).subscribe({
-      next: (subjects) => { this.assignmentSubjects[index] = subjects; },
-      error: () => { this.assignmentSubjects[index] = []; },
     });
   }
 
@@ -264,7 +185,8 @@ export class TeacherFormComponent implements OnInit {
       classTeacher: formData.isClassTeacher || false,
       classTeacherOfClassId: formData.classTeacherOfClassId || null,
       classTeacherOfSectionId: formData.classTeacherOfSectionId || null,
-      classSubjectAssignments: this.isTeacherRole ? (formData.classSubjectAssignments || []) : [],
+      // classSubjectAssignments intentionally omitted — managed via the
+      // dedicated Teacher Assignments page (per-academic-year).
       address: {
         street: formData.street || '',
         city: formData.city || '',

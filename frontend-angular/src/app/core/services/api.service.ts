@@ -27,6 +27,14 @@ import {
   Syllabus,
   CreateSyllabusRequest,
   UpdateTopicStatusRequest,
+  TeacherSubjectAssignment,
+  CreateTeacherAssignmentRequest,
+  CarryForwardAssignmentsRequest,
+  StudentFeeLedger,
+  AppendPaymentRequest,
+  UpdateLedgerPaymentRequest,
+  VoidPaymentRequest,
+  LedgerStatus,
   Assignment,
   AssignmentSubmission,
   CreateAssignmentRequest,
@@ -549,15 +557,22 @@ export class ApiService {
 
   // ── Events ─────────────────────────────────────────────────────────────
 
-  getEvents(params?: { from?: string; to?: string }): Observable<ApiResponse<any[]>> {
+  getEvents(params?: { from?: string; to?: string; academicYearId?: string; year?: number; month?: number }): Observable<ApiResponse<any[]>> {
     let httpParams = new HttpParams();
     if (params?.from) httpParams = httpParams.set('from', params.from);
     if (params?.to) httpParams = httpParams.set('to', params.to);
+    if (params?.academicYearId) httpParams = httpParams.set('academicYearId', params.academicYearId);
+    if (params?.year != null) httpParams = httpParams.set('year', String(params.year));
+    if (params?.month != null) httpParams = httpParams.set('month', String(params.month));
     return this.http.get<ApiResponse<any[]>>(`${this.API}/events`, { params: httpParams });
   }
 
-  getHolidays(): Observable<ApiResponse<any[]>> {
-    return this.http.get<ApiResponse<any[]>>(`${this.API}/events/holidays`);
+  getHolidays(params?: { academicYearId?: string; year?: number; month?: number }): Observable<ApiResponse<any[]>> {
+    let httpParams = new HttpParams();
+    if (params?.academicYearId) httpParams = httpParams.set('academicYearId', params.academicYearId);
+    if (params?.year != null) httpParams = httpParams.set('year', String(params.year));
+    if (params?.month != null) httpParams = httpParams.set('month', String(params.month));
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/events/holidays`, { params: httpParams });
   }
 
   createEvent(event: any): Observable<ApiResponse<any>> {
@@ -611,6 +626,52 @@ export class ApiService {
 
   deleteFeePayment(id: string): Observable<ApiResponse<any>> {
     return this.http.delete<ApiResponse<any>>(`${this.API}/fees/payments/${id}`);
+  }
+
+  // ── Student Fee Ledgers (new — one document per student+year) ─────────
+  getFeeLedgers(params?: {
+    academicYearId?: string;
+    classId?: string;
+    sectionId?: string;
+    status?: LedgerStatus;
+  }): Observable<ApiResponse<StudentFeeLedger[]>> {
+    let p = new HttpParams();
+    if (params?.academicYearId) p = p.set('academicYearId', params.academicYearId);
+    if (params?.classId) p = p.set('classId', params.classId);
+    if (params?.sectionId) p = p.set('sectionId', params.sectionId);
+    if (params?.status) p = p.set('status', params.status);
+    return this.http.get<ApiResponse<StudentFeeLedger[]>>(`${this.API}/fee-ledgers`, { params: p });
+  }
+
+  /** Get-or-create the ledger for a (student, year) pair. */
+  getFeeLedgerForStudent(studentId: string, academicYearId: string): Observable<ApiResponse<StudentFeeLedger>> {
+    const p = new HttpParams().set('studentId', studentId).set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<StudentFeeLedger>>(`${this.API}/fee-ledgers/for-student`, { params: p });
+  }
+
+  getFeeLedgerById(ledgerId: string): Observable<ApiResponse<StudentFeeLedger>> {
+    return this.http.get<ApiResponse<StudentFeeLedger>>(`${this.API}/fee-ledgers/${ledgerId}`);
+  }
+
+  appendFeePayment(ledgerId: string, req: AppendPaymentRequest): Observable<ApiResponse<StudentFeeLedger>> {
+    return this.http.post<ApiResponse<StudentFeeLedger>>(`${this.API}/fee-ledgers/${ledgerId}/payments`, req);
+  }
+
+  updateFeeLedgerPayment(ledgerId: string, paymentId: string, req: UpdateLedgerPaymentRequest): Observable<ApiResponse<StudentFeeLedger>> {
+    return this.http.put<ApiResponse<StudentFeeLedger>>(`${this.API}/fee-ledgers/${ledgerId}/payments/${paymentId}`, req);
+  }
+
+  voidFeeLedgerPayment(ledgerId: string, paymentId: string, req?: VoidPaymentRequest): Observable<ApiResponse<StudentFeeLedger>> {
+    return this.http.post<ApiResponse<StudentFeeLedger>>(`${this.API}/fee-ledgers/${ledgerId}/payments/${paymentId}/void`, req || {});
+  }
+
+  deleteFeeLedger(ledgerId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/fee-ledgers/${ledgerId}`);
+  }
+
+  migrateLegacyFeePayments(): Observable<ApiResponse<{ legacyCount: number; migratedLedgers: number; migratedPayments: number; skipped: number }>> {
+    return this.http.post<ApiResponse<{ legacyCount: number; migratedLedgers: number; migratedPayments: number; skipped: number }>>(
+      `${this.API}/fee-ledgers/migrate-legacy`, {});
   }
 
   // ── Feature Management ───────────────────────────────────────────────
@@ -669,10 +730,21 @@ export class ApiService {
   }
 
   // ── Syllabus ──────────────────────────────────────────────────────────
-  getSyllabusList(params?: { classId?: string; academicYearId?: string }): Observable<ApiResponse<Syllabus[]>> {
+  getSyllabusList(params?: {
+    classId?: string;
+    sectionId?: string;
+    subjectId?: string;
+    academicYearId?: string;
+    teacherId?: string;
+    mine?: boolean;
+  }): Observable<ApiResponse<Syllabus[]>> {
     let httpParams = new HttpParams();
     if (params?.classId) httpParams = httpParams.set('classId', params.classId);
+    if (params?.sectionId) httpParams = httpParams.set('sectionId', params.sectionId);
+    if (params?.subjectId) httpParams = httpParams.set('subjectId', params.subjectId);
     if (params?.academicYearId) httpParams = httpParams.set('academicYearId', params.academicYearId);
+    if (params?.teacherId) httpParams = httpParams.set('teacherId', params.teacherId);
+    if (params?.mine) httpParams = httpParams.set('mine', 'true');
     return this.http.get<ApiResponse<Syllabus[]>>(`${this.API}/syllabus`, { params: httpParams });
   }
 
@@ -694,6 +766,44 @@ export class ApiService {
 
   deleteSyllabus(syllabusId: string): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.API}/syllabus/${syllabusId}`);
+  }
+
+  // ── Teacher Subject Assignments ───────────────────────────────────────
+  getTeacherAssignments(params?: {
+    teacherId?: string;
+    academicYearId?: string;
+    classId?: string;
+    sectionId?: string;
+  }): Observable<ApiResponse<TeacherSubjectAssignment[]>> {
+    let httpParams = new HttpParams();
+    if (params?.teacherId) httpParams = httpParams.set('teacherId', params.teacherId);
+    if (params?.academicYearId) httpParams = httpParams.set('academicYearId', params.academicYearId);
+    if (params?.classId) httpParams = httpParams.set('classId', params.classId);
+    if (params?.sectionId) httpParams = httpParams.set('sectionId', params.sectionId);
+    return this.http.get<ApiResponse<TeacherSubjectAssignment[]>>(`${this.API}/teacher-assignments`, { params: httpParams });
+  }
+
+  getMyTeacherAssignments(academicYearId?: string): Observable<ApiResponse<TeacherSubjectAssignment[]>> {
+    let httpParams = new HttpParams();
+    if (academicYearId) httpParams = httpParams.set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<TeacherSubjectAssignment[]>>(`${this.API}/teacher-assignments/me`, { params: httpParams });
+  }
+
+  createTeacherAssignment(req: CreateTeacherAssignmentRequest): Observable<ApiResponse<TeacherSubjectAssignment>> {
+    return this.http.post<ApiResponse<TeacherSubjectAssignment>>(`${this.API}/teacher-assignments`, req);
+  }
+
+  updateTeacherAssignment(assignmentId: string, req: CreateTeacherAssignmentRequest): Observable<ApiResponse<TeacherSubjectAssignment>> {
+    return this.http.put<ApiResponse<TeacherSubjectAssignment>>(`${this.API}/teacher-assignments/${assignmentId}`, req);
+  }
+
+  deleteTeacherAssignment(assignmentId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/teacher-assignments/${assignmentId}`);
+  }
+
+  carryForwardTeacherAssignments(req: CarryForwardAssignmentsRequest): Observable<ApiResponse<{ copied: number; fromAcademicYearId: string; toAcademicYearId: string }>> {
+    return this.http.post<ApiResponse<{ copied: number; fromAcademicYearId: string; toAcademicYearId: string }>>(
+      `${this.API}/teacher-assignments/carry-forward`, req);
   }
 
   // ── Assignments ───────────────────────────────────────────────────────

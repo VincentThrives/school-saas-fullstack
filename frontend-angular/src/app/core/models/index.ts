@@ -414,6 +414,81 @@ export interface StudentFeeDetails {
   structures: FeeStructure[];
 }
 
+// ── Student Fee Ledger (new — one document per student+year) ─────────────
+export type LedgerPaymentMode = 'CASH' | 'ONLINE' | 'UPI' | 'CHEQUE' | 'DD' | 'CARD' | 'OTHER';
+export type LedgerStatus = 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERDUE';
+
+export interface FeeLedgerPayment {
+  paymentId: string;
+  receiptNumber: string;
+  amount: number;
+  mode: LedgerPaymentMode;
+  paidAt: string;
+  collectedByUserId?: string;
+  collectedByName?: string;
+  notes?: string;
+  voidedAt?: string;
+  voidedByUserId?: string;
+  voidReason?: string;
+  supersededPaymentId?: string;
+  createdAt?: string;
+}
+
+export interface FeeLedgerCorrection {
+  correctionId: string;
+  paymentId: string;
+  action: 'APPEND' | 'EDIT' | 'VOID';
+  reason?: string;
+  byUserId?: string;
+  at?: string;
+}
+
+export interface StudentFeeLedger {
+  ledgerId: string;
+  studentId: string;
+  studentName?: string;
+  admissionNumber?: string;
+  rollNumber?: string;
+  classId?: string;
+  className?: string;
+  sectionId?: string;
+  sectionName?: string;
+  academicYearId: string;
+  academicYearLabel?: string;
+  feeStructureId?: string;
+  totalFee: number;
+  concession: number;
+  totalDue: number;
+  totalPaid: number;
+  balance: number;
+  status: LedgerStatus;
+  dueDate?: string;
+  payments: FeeLedgerPayment[];
+  corrections?: FeeLedgerCorrection[];
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AppendPaymentRequest {
+  amount: number;
+  mode: LedgerPaymentMode;
+  paidAt?: string;
+  notes?: string;
+}
+
+export interface UpdateLedgerPaymentRequest {
+  amount: number;
+  mode: LedgerPaymentMode;
+  paidAt?: string;
+  notes?: string;
+  reason?: string;
+}
+
+export interface VoidPaymentRequest {
+  reason?: string;
+}
+
 // ── ID Card ─────────────────────────────────────────────────────────────
 export interface IdCardRequest {
   userType: 'STUDENT' | 'TEACHER';
@@ -462,6 +537,39 @@ export interface GenerateReportCardRequest {
   studentIds: string[];
 }
 
+// ── Teacher Subject Assignment ──────────────────────────────────────────
+export type TeacherAssignmentRole = 'CLASS_TEACHER' | 'SUBJECT_TEACHER';
+export type TeacherAssignmentStatus = 'ACTIVE' | 'ARCHIVED';
+
+export interface TeacherSubjectAssignment {
+  assignmentId: string;
+  teacherId: string;
+  academicYearId: string;
+  classId: string;
+  sectionId?: string;
+  subjectId?: string;
+  roles: TeacherAssignmentRole[];
+  status: TeacherAssignmentStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateTeacherAssignmentRequest {
+  teacherId: string;
+  academicYearId: string;
+  classId: string;
+  sectionId?: string;
+  subjectId?: string;
+  roles: TeacherAssignmentRole[];
+}
+
+export interface CarryForwardAssignmentsRequest {
+  fromAcademicYearId: string;
+  toAcademicYearId: string;
+  teacherIds?: string[];
+  skipExisting?: boolean;
+}
+
 // ── Syllabus Tracker ────────────────────────────────────────────────────
 export type SyllabusTopicStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
 
@@ -479,6 +587,8 @@ export interface Syllabus {
   syllabusId: string;
   classId: string;
   className: string;
+  sectionId?: string;
+  sectionName?: string;
   subjectId: string;
   subjectName: string;
   academicYearId: string;
@@ -495,9 +605,11 @@ export interface Syllabus {
 
 export interface CreateSyllabusRequest {
   classId: string;
+  sectionId?: string;
   subjectId: string;
+  subjectName?: string;
   academicYearId: string;
-  topics: { topicName: string; description?: string; plannedDate?: string }[];
+  topics: { topicId?: string; topicName: string; description?: string; plannedDate?: string }[];
 }
 
 export interface UpdateTopicStatusRequest {
@@ -675,6 +787,10 @@ export interface SchoolEvent {
   isRecurring: boolean;
   recurrencePattern?: RecurrencePattern;
   visibleTo?: string[];
+  // Derived on save from startDate — lets us filter by academic year / month.
+  academicYearId?: string;
+  year?: number;
+  month?: number;
   createdAt?: string;
 }
 

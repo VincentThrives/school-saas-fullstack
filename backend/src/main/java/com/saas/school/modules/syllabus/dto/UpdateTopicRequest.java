@@ -1,8 +1,9 @@
 package com.saas.school.modules.syllabus.dto;
 
+/** Updates a single topic's progress. Frontend sends topicId + status + completionPercentage. */
 public class UpdateTopicRequest {
 
-    private int topicIndex;
+    private String topicId;
     private String status;
     private int completionPercentage;
     private String completedDate;
@@ -10,13 +11,8 @@ public class UpdateTopicRequest {
     public UpdateTopicRequest() {
     }
 
-    public int getTopicIndex() {
-        return topicIndex;
-    }
-
-    public void setTopicIndex(int topicIndex) {
-        this.topicIndex = topicIndex;
-    }
+    public String getTopicId() { return topicId; }
+    public void setTopicId(String topicId) { this.topicId = topicId; }
 
     public String getStatus() {
         return status;

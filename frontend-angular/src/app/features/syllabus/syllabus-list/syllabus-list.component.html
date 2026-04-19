@@ -11,22 +11,76 @@
     (actionClick)="createSyllabus()"
   ></app-page-header>
 
+  <!-- ─── Summary stats ─── -->
+  <div class="stats-grid" *ngIf="!isLoading && syllabusList.length > 0">
+    <div class="stat-card">
+      <mat-icon class="stat-icon" style="background: #E3F2FD; color: #1976D2;">menu_book</mat-icon>
+      <div class="stat-body">
+        <span class="stat-value">{{ totalCount }}</span>
+        <span class="stat-label">Total Syllabi</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <mat-icon class="stat-icon" style="background: #FFF8E1; color: #F9A825;">schedule</mat-icon>
+      <div class="stat-body">
+        <span class="stat-value">{{ inProgressCount }}</span>
+        <span class="stat-label">In Progress</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <mat-icon class="stat-icon" style="background: #E8F5E9; color: #2E7D32;">task_alt</mat-icon>
+      <div class="stat-body">
+        <span class="stat-value">{{ completedCount }}</span>
+        <span class="stat-label">Completed</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <mat-icon class="stat-icon" style="background: #F3E5F5; color: #6A1B9A;">trending_up</mat-icon>
+      <div class="stat-body">
+        <span class="stat-value">{{ averageProgress }}%</span>
+        <span class="stat-label">Average Progress</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Filter row ─── -->
   <mat-card class="filter-card">
     <div class="filter-row">
       <mat-form-field appearance="outline" class="filter-field">
-        <mat-label>Class</mat-label>
-        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="loadSyllabus()">
-          <mat-option value="">All Classes</mat-option>
-          <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onYearChange()">
+          <mat-option value="">All Years</mat-option>
+          <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">{{ ay.label }}</mat-option>
         </mat-select>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="filter-field">
-        <mat-label>Academic Year</mat-label>
-        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="loadSyllabus()">
-          <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">{{ ay.label }}</mat-option>
+        <mat-label>Class</mat-label>
+        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()">
+          <mat-option value="">All Classes</mat-option>
+          <mat-option *ngFor="let cls of classOptions" [value]="cls.classId">{{ cls.name }}</mat-option>
         </mat-select>
       </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field" *ngIf="selectedClassId && sectionOptions.length > 0">
+        <mat-label>Section</mat-label>
+        <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSectionChange()">
+          <mat-option value="">All Sections</mat-option>
+          <mat-option *ngFor="let sec of sectionOptions" [value]="sec.sectionId">{{ sec.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field" *ngIf="selectedClassId && subjectOptions.length > 0">
+        <mat-label>Subject</mat-label>
+        <mat-select [(ngModel)]="selectedSubjectId" (selectionChange)="onSubjectChange()">
+          <mat-option value="">All Subjects</mat-option>
+          <mat-option *ngFor="let sub of subjectOptions" [value]="sub.id">{{ sub.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <button mat-icon-button matTooltip="Refresh" (click)="loadSyllabus()">
+        <mat-icon>refresh</mat-icon>
+      </button>
     </div>
   </mat-card>
 
@@ -34,12 +88,15 @@
     <mat-spinner diameter="36"></mat-spinner>
   </div>
 
+  <!-- ─── Cards grid ─── -->
   <div class="syllabus-grid" *ngIf="!isLoading">
     <mat-card class="syllabus-card" *ngFor="let s of syllabusList" (click)="viewDetail(s.syllabusId)">
       <div class="card-header">
         <div class="subject-info">
           <h3 class="subject-name">{{ s.subjectName }}</h3>
-          <span class="class-name">{{ s.className }}</span>
+          <span class="class-name">
+            {{ s.className }}<span *ngIf="s.sectionName"> — {{ s.sectionName }}</span>
+          </span>
         </div>
         <mat-icon class="card-icon">menu_book</mat-icon>
       </div>
@@ -52,23 +109,58 @@
       <div class="progress-section">
         <div class="progress-header">
           <span>Progress</span>
-          <span class="progress-value">{{ s.progressPercentage | number:'1.0-0' }}%</span>
+          <span class="progress-value" [ngClass]="{
+            'progress-red': s.progressPercentage < 30,
+            'progress-amber': s.progressPercentage >= 30 && s.progressPercentage < 70,
+            'progress-green': s.progressPercentage >= 70
+          }">{{ s.progressPercentage | number:'1.0-0' }}%</span>
         </div>
         <mat-progress-bar
           mode="determinate"
           [value]="s.progressPercentage"
+          [color]="progressColor(s.progressPercentage)"
           class="progress-bar"
         ></mat-progress-bar>
       </div>
 
-      <div class="topics-count">
-        <span>{{ s.completedTopics }} / {{ s.totalTopics }} topics completed</span>
+      <div class="card-footer">
+        <span class="topics-count">
+          {{ s.completedTopics }} / {{ s.totalTopics }} topics completed
+        </span>
+        <div class="card-actions" *ngIf="canModify(s)" (click)="$event.stopPropagation()">
+          <button mat-icon-button matTooltip="Edit" (click)="editSyllabus($event, s)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button matTooltip="Delete" color="warn" (click)="confirmDelete($event, s)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
       </div>
     </mat-card>
   </div>
 
   <div class="empty-state" *ngIf="!isLoading && syllabusList.length === 0">
     <mat-icon class="empty-icon">menu_book</mat-icon>
-    <p>No syllabus records found</p>
+    <p class="empty-title">No syllabus records found</p>
+    <p class="empty-subtitle">Create a new syllabus to start tracking</p>
+  </div>
+
+  <!-- ─── Delete confirmation ─── -->
+  <div class="delete-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <h3>Delete Syllabus</h3>
+      <p>
+        Are you sure you want to delete the syllabus for
+        <strong>{{ selectedForDelete?.subjectName }}</strong>
+        ({{ selectedForDelete?.className }}<span *ngIf="selectedForDelete?.sectionName"> — {{ selectedForDelete?.sectionName }}</span>)?
+        This action cannot be undone.
+      </p>
+      <div class="dialog-actions">
+        <button mat-button [disabled]="isDeleting" (click)="cancelDelete()">Cancel</button>
+        <button mat-raised-button color="warn" [disabled]="isDeleting" (click)="deleteSyllabus()">
+          {{ isDeleting ? 'Deleting…' : 'Delete' }}
+        </button>
+      </div>
+    </div>
   </div>
 </div>

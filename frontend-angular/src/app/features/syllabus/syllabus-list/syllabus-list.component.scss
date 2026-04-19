@@ -134,3 +134,91 @@ $gold-dark: #B8860B;
   height: 48px;
   color: rgba(0, 0, 0, 0.15);
 }
+
+.empty-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.6);
+  margin: 8px 0 4px;
+}
+
+.empty-subtitle {
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.45);
+  margin: 0;
+}
+
+// ─── Stat cards ───
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.stat-icon {
+  font-size: 36px !important;
+  width: 48px !important;
+  height: 48px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.stat-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.87);
+  line-height: 1.1;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+// ─── Progress colors ───
+.progress-red   { color: #D32F2F; }
+.progress-amber { color: #F9A825; }
+.progress-green { color: #2E7D32; }
+
+.syllabus-card .progress-bar ::ng-deep .mdc-linear-progress__bar-inner {
+  // Override the gold-only override so mat-progress-bar [color] works.
+  border-color: currentColor !important;
+}
+.syllabus-card .progress-bar.mat-warn    ::ng-deep .mdc-linear-progress__bar-inner { border-color: #F44336 !important; }
+.syllabus-card .progress-bar.mat-accent  ::ng-deep .mdc-linear-progress__bar-inner { border-color: #F9A825 !important; }
+.syllabus-card .progress-bar.mat-primary ::ng-deep .mdc-linear-progress__bar-inner { border-color: #2E7D32 !important; }
+
+// ─── Card footer with actions ───
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.card-actions {
+  display: flex;
+  gap: 2px;
+}

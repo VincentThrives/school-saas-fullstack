@@ -24,6 +24,10 @@ public class SchoolEvent {
     private boolean isRecurring;
     private RecurrencePattern recurrencePattern;
     private List<String> visibleTo;
+    // Derived from startDate — persisted so we can index + query by academic year / month.
+    private String academicYearId;
+    private Integer year;   // e.g. 2026
+    private Integer month;  // 1..12
     @CreatedDate private Instant createdAt;
 
     public enum EventType { CULTURAL, SPORTS, ACADEMIC, HOLIDAY, MEETING, OTHER }
@@ -84,4 +88,13 @@ public class SchoolEvent {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public String getAcademicYearId() { return academicYearId; }
+    public void setAcademicYearId(String academicYearId) { this.academicYearId = academicYearId; }
+
+    public Integer getYear() { return year; }
+    public void setYear(Integer year) { this.year = year; }
+
+    public Integer getMonth() { return month; }
+    public void setMonth(Integer month) { this.month = month; }
 }

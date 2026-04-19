@@ -84,94 +84,24 @@
           </mat-form-field>
         </div>
 
-        <!-- Class Teacher Assignment (for Teacher role) -->
+        <!-- Class-Subject Assignments moved to a dedicated page (per-academic-year). -->
         <div *ngIf="isTeacherRole">
-          <!-- <mat-divider></mat-divider>
-          <h3 class="section-title">Class Teacher Assignment</h3>
-          <div class="form-grid">
-            <mat-checkbox formControlName="isClassTeacher" color="primary">
-              Is Class Teacher
-            </mat-checkbox>
-          </div>
-
-          <div class="form-grid" *ngIf="isClassTeacherChecked">
-            <mat-form-field appearance="outline">
-              <mat-label>Class Teacher of Class</mat-label>
-              <mat-select formControlName="classTeacherOfClassId">
-                <mat-option value="">-- Select --</mat-option>
-                <mat-option *ngFor="let cls of classes" [value]="cls.classId">
-                  {{ cls.name }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Section</mat-label>
-              <mat-select formControlName="classTeacherOfSectionId">
-                <mat-option value="">-- Select --</mat-option>
-                <mat-option *ngFor="let sec of classTeacherSections" [value]="sec.sectionId">
-                  {{ sec.name }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div> -->
-
-          <!-- Class-Subject Assignments -->
           <mat-divider></mat-divider>
-          <div class="assignments-header">
-            <h3 class="section-title">Class - Section - Subject Assignments</h3>
-            <button mat-stroked-button type="button" class="add-btn" (click)="addAssignment()">
-              <mat-icon>add</mat-icon>
-              Add Assignment
-            </button>
-          </div>
-
-          <div formArrayName="classSubjectAssignments">
-            <div *ngFor="let assignment of assignments.controls; let i = index"
-                 [formGroupName]="i" class="assignment-row">
-              <span class="row-number">{{ i + 1 }}</span>
-
-              <mat-form-field appearance="outline" class="assignment-field">
-                <mat-label>Class</mat-label>
-                <mat-select formControlName="classId" (selectionChange)="onAssignmentClassChange(i)">
-                  <mat-option *ngFor="let cls of classes" [value]="cls.classId">
-                    {{ cls.name }}
-                  </mat-option>
-                </mat-select>
-                <mat-error>Required</mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="assignment-field">
-                <mat-label>Section</mat-label>
-                <mat-select formControlName="sectionId" (selectionChange)="onAssignmentSectionChange(i)"
-                            [disabled]="!assignments.at(i).get('classId')?.value">
-                  <mat-option *ngFor="let sec of assignmentSections[i] || []" [value]="sec.sectionId">
-                    {{ sec.name }}
-                  </mat-option>
-                </mat-select>
-                <mat-error>Required</mat-error>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="assignment-field">
-                <mat-label>Subject</mat-label>
-                <mat-select formControlName="subjectId"
-                            [disabled]="!assignments.at(i).get('sectionId')?.value">
-                  <mat-option *ngFor="let sub of assignmentSubjects[i] || []" [value]="sub.subjectId">
-                    {{ sub.name }}
-                  </mat-option>
-                </mat-select>
-                <mat-error>Required</mat-error>
-              </mat-form-field>
-
-              <button mat-icon-button color="warn" type="button" (click)="removeAssignment(i)"
-                      matTooltip="Remove assignment">
-                <mat-icon>delete</mat-icon>
-              </button>
+          <div class="assignments-info-card">
+            <mat-icon class="info-icon">assignment_ind</mat-icon>
+            <div class="info-body">
+              <h4>Class / Section / Subject assignments</h4>
+              <p>
+                Teaching assignments are now managed per academic year on the
+                <strong>Teacher Assignments</strong> page. Save this employee first, then open
+                <strong>Teacher Assignments</strong> from the sidebar to assign classes, sections,
+                subjects, and roles (Class Teacher / Subject Teacher).
+              </p>
+              <a mat-stroked-button color="primary" routerLink="/teacher-assignments">
+                <mat-icon>open_in_new</mat-icon>
+                Open Teacher Assignments
+              </a>
             </div>
-          </div>
-
-          <div class="no-assignments" *ngIf="assignments.length === 0">
-            <p>No assignments added. Click "Add Assignment" to assign classes and subjects.</p>
           </div>
         </div>
 

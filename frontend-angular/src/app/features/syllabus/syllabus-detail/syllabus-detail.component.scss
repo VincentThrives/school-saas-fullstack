@@ -150,3 +150,17 @@ $gold-dark: #B8860B;
   justify-content: center;
   padding: 32px;
 }
+
+// ─── Progress text colors ───
+.progress-red   { color: #D32F2F !important; }
+.progress-amber { color: #F9A825 !important; }
+.progress-green { color: #2E7D32 !important; }
+
+// ─── Let mat-progress-bar [color] win over the global gold override ───
+.overall-progress-bar.mat-warn    ::ng-deep .mdc-linear-progress__bar-inner { border-color: #F44336 !important; }
+.overall-progress-bar.mat-accent  ::ng-deep .mdc-linear-progress__bar-inner { border-color: #F9A825 !important; }
+.overall-progress-bar.mat-primary ::ng-deep .mdc-linear-progress__bar-inner { border-color: #2E7D32 !important; }
+
+.topic-progress-bar.mat-warn    ::ng-deep .mdc-linear-progress__bar-inner { border-color: #F44336 !important; }
+.topic-progress-bar.mat-accent  ::ng-deep .mdc-linear-progress__bar-inner { border-color: #F9A825 !important; }
+.topic-progress-bar.mat-primary ::ng-deep .mdc-linear-progress__bar-inner { border-color: #2E7D32 !important; }

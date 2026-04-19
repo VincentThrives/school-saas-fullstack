@@ -1,5 +1,6 @@
 package com.saas.school.modules.syllabus.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -16,9 +17,13 @@ public class Syllabus {
     private String tenantId;
     private String classId;
     private String className;
+    // NEW — optional section scoping
+    private String sectionId;
+    private String sectionName;
     private String subjectId;
     private String subjectName;
     private String academicYearId;
+    private String academicYearLabel;
     private List<Topic> topics;
     private int totalTopics;
     private int completedTopics;
@@ -37,10 +42,13 @@ public class Syllabus {
 
     // ── Getters and Setters ───────────────────────────────────────
 
+    /** Mongo _id — exposed to the frontend as "syllabusId". */
+    @JsonProperty("syllabusId")
     public String getId() {
         return id;
     }
 
+    @JsonProperty("syllabusId")
     public void setId(String id) {
         this.id = id;
     }
@@ -69,6 +77,12 @@ public class Syllabus {
         this.className = className;
     }
 
+    public String getSectionId() { return sectionId; }
+    public void setSectionId(String sectionId) { this.sectionId = sectionId; }
+
+    public String getSectionName() { return sectionName; }
+    public void setSectionName(String sectionName) { this.sectionName = sectionName; }
+
     public String getSubjectId() {
         return subjectId;
     }
@@ -92,6 +106,9 @@ public class Syllabus {
     public void setAcademicYearId(String academicYearId) {
         this.academicYearId = academicYearId;
     }
+
+    public String getAcademicYearLabel() { return academicYearLabel; }
+    public void setAcademicYearLabel(String academicYearLabel) { this.academicYearLabel = academicYearLabel; }
 
     public List<Topic> getTopics() {
         return topics;
@@ -117,10 +134,13 @@ public class Syllabus {
         this.completedTopics = completedTopics;
     }
 
+    /** Stored as overallProgress; exposed to the frontend as "progressPercentage". */
+    @JsonProperty("progressPercentage")
     public double getOverallProgress() {
         return overallProgress;
     }
 
+    @JsonProperty("progressPercentage")
     public void setOverallProgress(double overallProgress) {
         this.overallProgress = overallProgress;
     }
@@ -164,6 +184,7 @@ public class Syllabus {
     }
 
     public static class Topic {
+        private String topicId;        // NEW — stable UUID for frontend addressing
         private String topicName;
         private String description;
         private String plannedDate;
@@ -174,8 +195,9 @@ public class Syllabus {
         public Topic() {
         }
 
-        public Topic(String topicName, String description, String plannedDate, String completedDate,
+        public Topic(String topicId, String topicName, String description, String plannedDate, String completedDate,
                      TopicStatus status, int completionPercentage) {
+            this.topicId = topicId;
             this.topicName = topicName;
             this.description = description;
             this.plannedDate = plannedDate;
@@ -183,6 +205,9 @@ public class Syllabus {
             this.status = status;
             this.completionPercentage = completionPercentage;
         }
+
+        public String getTopicId() { return topicId; }
+        public void setTopicId(String topicId) { this.topicId = topicId; }
 
         public String getTopicName() {
             return topicName;
@@ -215,6 +240,13 @@ public class Syllabus {
         public void setCompletedDate(String completedDate) {
             this.completedDate = completedDate;
         }
+
+        /** Also expose as completionDate for the frontend interface. */
+        @JsonProperty("completionDate")
+        public String getCompletionDate() { return completedDate; }
+
+        @JsonProperty("completionDate")
+        public void setCompletionDate(String completionDate) { this.completedDate = completionDate; }
 
         public TopicStatus getStatus() {
             return status;

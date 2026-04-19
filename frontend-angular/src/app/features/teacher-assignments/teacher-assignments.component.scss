@@ -1,0 +1,139 @@
+.ta-container { padding: 0; }
+
+.bar-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 10px 16px;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.year-field { min-width: 240px; flex: 0 0 auto; }
+
+.filter-field {
+  min-width: 180px;
+  flex: 1 1 180px;
+  max-width: 260px;
+}
+
+.search-field {
+  min-width: 220px;
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+.table-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+  padding: 0;
+}
+
+.ta-table { width: 100%; }
+
+.role-chip {
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.col-actions {
+  width: 120px;
+  text-align: right !important;
+}
+
+.loading-row {
+  display: flex; justify-content: center; padding: 24px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: rgba(0, 0, 0, 0.5);
+}
+.empty-icon {
+  font-size: 48px; width: 48px; height: 48px;
+  color: rgba(0, 0, 0, 0.15);
+}
+.empty-title {
+  font-size: 1rem; font-weight: 600;
+  color: rgba(0, 0, 0, 0.6);
+  margin: 8px 0 4px;
+}
+.empty-subtitle {
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.45);
+  margin: 0;
+}
+
+// ─── Form overlay (reuses the global .delete-overlay style pattern) ───
+.form-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 150ms ease-out;
+}
+
+.form-dialog {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  width: 560px;
+  max-width: 94vw;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.18);
+}
+
+.form-dialog h3 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.muted {
+  color: rgba(0, 0, 0, 0.55);
+  font-size: 0.85rem;
+  margin: 4px 0 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.roles-row {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 10px 12px;
+  background: rgba(212, 168, 67, 0.07);
+  border-radius: 8px;
+}
+
+.roles-label {
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.7);
+  margin-right: 8px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

@@ -1,0 +1,228 @@
+<div class="ta-container">
+  <app-page-header
+    title="Teacher Assignments"
+    subtitle="Map teachers to classes, sections and subjects per academic year"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Teacher Assignments' }
+    ]"
+    actionLabel="Add Assignment"
+    actionIcon="add"
+    (actionClick)="openCreateForm()">
+  </app-page-header>
+
+  <!-- Filters + Carry-forward bar -->
+  <mat-card class="bar-card">
+    <div class="bar">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onYearChange()">
+          <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">
+            {{ ay.label }} <span *ngIf="ay.current">(current)</span>
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Class</mat-label>
+        <mat-select [(ngModel)]="filterClassId" (selectionChange)="onFilterClassChange()">
+          <mat-option value="">All Classes</mat-option>
+          <mat-option *ngFor="let c of filterClassOptions" [value]="c.classId">{{ c.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field" *ngIf="filterClassId">
+        <mat-label>Section</mat-label>
+        <mat-select [(ngModel)]="filterSectionId" (selectionChange)="onFilterSectionChange()">
+          <mat-option value="">All Sections</mat-option>
+          <mat-option *ngFor="let s of filterSectionOptions" [value]="s.sectionId">{{ s.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Teacher</mat-label>
+        <mat-select [(ngModel)]="filterTeacherId" (selectionChange)="onFilterTeacherChange()">
+          <mat-option value="">All Teachers</mat-option>
+          <mat-option *ngFor="let t of teachers" [value]="t.teacherId">{{ t.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search</mat-label>
+        <input matInput [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange()" placeholder="Name, class, subject…">
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <button mat-icon-button matTooltip="Clear filters" (click)="clearFilters()">
+        <mat-icon>filter_alt_off</mat-icon>
+      </button>
+
+      <button mat-stroked-button (click)="openCarry()">
+        <mat-icon>switch_account</mat-icon>
+        Carry Forward
+      </button>
+
+      <button mat-icon-button matTooltip="Refresh" (click)="loadAssignments()">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+  </mat-card>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="32"></mat-spinner>
+  </div>
+
+  <mat-card class="table-card" *ngIf="!isLoading">
+    <table mat-table [dataSource]="dataSource" class="ta-table">
+      <ng-container matColumnDef="teacher">
+        <th mat-header-cell *matHeaderCellDef>Teacher</th>
+        <td mat-cell *matCellDef="let a">{{ teacherName(a.teacherId) }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="class">
+        <th mat-header-cell *matHeaderCellDef>Class</th>
+        <td mat-cell *matCellDef="let a">{{ classLabel(a) }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="section">
+        <th mat-header-cell *matHeaderCellDef>Section</th>
+        <td mat-cell *matCellDef="let a">{{ sectionLabel(a) }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="subject">
+        <th mat-header-cell *matHeaderCellDef>Subject</th>
+        <td mat-cell *matCellDef="let a">{{ subjectLabel(a) }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="roles">
+        <th mat-header-cell *matHeaderCellDef>Roles</th>
+        <td mat-cell *matCellDef="let a">
+          <mat-chip-set>
+            <mat-chip *ngFor="let r of rolesLabel(a.roles)" class="role-chip">{{ r }}</mat-chip>
+          </mat-chip-set>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="col-actions">Actions</th>
+        <td mat-cell *matCellDef="let a" class="col-actions">
+          <button mat-icon-button matTooltip="Edit" (click)="openEditForm(a)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button matTooltip="Delete" color="warn" (click)="confirmDelete(a)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+
+    <div class="empty-state" *ngIf="!isLoading && dataSource.data.length === 0">
+      <mat-icon class="empty-icon">assignment_ind</mat-icon>
+      <p class="empty-title">No assignments for this year</p>
+      <p class="empty-subtitle">Click "Add Assignment" or carry forward from a previous year</p>
+    </div>
+  </mat-card>
+
+  <!-- ─── Add / Edit form overlay ─── -->
+  <div class="form-overlay" *ngIf="formOpen" (click)="closeForm()">
+    <div class="form-dialog" (click)="$event.stopPropagation()">
+      <h3>{{ editingId ? 'Edit Assignment' : 'Add Assignment' }}</h3>
+
+      <div class="grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Teacher</mat-label>
+          <mat-select [(ngModel)]="formTeacherId" [disabled]="!!editingId">
+            <mat-option *ngFor="let t of teachers" [value]="t.teacherId">{{ t.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Class</mat-label>
+          <mat-select [(ngModel)]="formClassId" (selectionChange)="onFormClassChange()">
+            <mat-option *ngFor="let c of formClassOptions" [value]="c.classId">{{ c.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Section (optional)</mat-label>
+          <mat-select [(ngModel)]="formSectionId" [disabled]="!formClassId" (selectionChange)="onFormSectionChange()">
+            <mat-option value="">Any / Whole class</mat-option>
+            <mat-option *ngFor="let s of formSectionOptions" [value]="s.sectionId">{{ s.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Subject</mat-label>
+          <mat-select [(ngModel)]="formSubjectId" [disabled]="!formClassId">
+            <mat-option value="">No subject (for Class Teacher only)</mat-option>
+            <mat-option *ngFor="let s of formSubjectOptions" [value]="s.id">{{ s.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="roles-row">
+        <label class="roles-label">Roles</label>
+        <mat-checkbox [(ngModel)]="formRoleClass">Class Teacher</mat-checkbox>
+        <mat-checkbox [(ngModel)]="formRoleSubject">Subject Teacher</mat-checkbox>
+      </div>
+
+      <div class="dialog-actions">
+        <button mat-button [disabled]="isSaving" (click)="closeForm()">Cancel</button>
+        <button mat-raised-button color="primary" [disabled]="isSaving" (click)="saveForm()">
+          {{ isSaving ? 'Saving…' : (editingId ? 'Update' : 'Create') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Delete confirmation ─── -->
+  <div class="delete-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <h3>Remove Assignment</h3>
+      <p>Remove <strong>{{ teacherName(deleteTarget?.teacherId || '') }}</strong>
+        from {{ classLabel(deleteTarget!) }}<span *ngIf="deleteTarget?.sectionId"> — {{ sectionLabel(deleteTarget!) }}</span>
+        <span *ngIf="deleteTarget?.subjectId"> · {{ subjectLabel(deleteTarget!) }}</span>?
+      </p>
+      <div class="dialog-actions">
+        <button mat-button [disabled]="isDeleting" (click)="cancelDelete()">Cancel</button>
+        <button mat-raised-button color="warn" [disabled]="isDeleting" (click)="deleteAssignment()">
+          {{ isDeleting ? 'Removing…' : 'Remove' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Carry-forward dialog ─── -->
+  <div class="form-overlay" *ngIf="carryOpen" (click)="closeCarry()">
+    <div class="form-dialog" (click)="$event.stopPropagation()">
+      <h3>Carry Forward Assignments</h3>
+      <p class="muted">Copy all ACTIVE assignments from one academic year to another. Duplicates are skipped.</p>
+
+      <div class="grid">
+        <mat-form-field appearance="outline">
+          <mat-label>From Year</mat-label>
+          <mat-select [(ngModel)]="carryFromYearId">
+            <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">{{ ay.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>To Year</mat-label>
+          <mat-select [(ngModel)]="carryToYearId">
+            <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">{{ ay.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="dialog-actions">
+        <button mat-button [disabled]="isCarrying" (click)="closeCarry()">Cancel</button>
+        <button mat-raised-button color="primary" [disabled]="isCarrying" (click)="runCarry()">
+          {{ isCarrying ? 'Copying…' : 'Carry Forward' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

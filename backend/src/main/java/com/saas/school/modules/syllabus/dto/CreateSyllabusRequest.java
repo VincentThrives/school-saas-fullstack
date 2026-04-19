@@ -5,6 +5,7 @@ import java.util.List;
 public class CreateSyllabusRequest {
 
     private String classId;
+    private String sectionId;    // NEW — optional
     private String subjectId;
     private String subjectName;
     private String academicYearId;
@@ -20,6 +21,9 @@ public class CreateSyllabusRequest {
     public void setClassId(String classId) {
         this.classId = classId;
     }
+
+    public String getSectionId() { return sectionId; }
+    public void setSectionId(String sectionId) { this.sectionId = sectionId; }
 
     public String getSubjectId() {
         return subjectId;
@@ -54,12 +58,16 @@ public class CreateSyllabusRequest {
     }
 
     public static class TopicRequest {
+        private String topicId; // Optional — preserved on edit, generated on create
         private String topicName;
         private String description;
         private String plannedDate;
 
         public TopicRequest() {
         }
+
+        public String getTopicId() { return topicId; }
+        public void setTopicId(String topicId) { this.topicId = topicId; }
 
         public String getTopicName() {
             return topicName;

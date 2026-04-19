@@ -12,7 +12,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,13 +29,32 @@ public class SyllabusController {
     @Autowired
     private SyllabusService syllabusService;
 
+    /** Extract current role string from the security context. */
+    private String currentRole() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getAuthorities() == null) return null;
+        return auth.getAuthorities().stream()
+                .map(a -> a.getAuthority())
+                .filter(a -> a != null && a.startsWith("ROLE_"))
+                .map(a -> a.substring(5))
+                .findFirst()
+                .orElse(null);
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER','STUDENT','PARENT')")
     public ResponseEntity<ApiResponse<List<Syllabus>>> getSyllabi(
-            @RequestParam String classId,
-            @RequestParam String academicYearId) {
-        logger.info("Request to list syllabi: classId={}, academicYearId={}", classId, academicYearId);
-        List<Syllabus> syllabi = syllabusService.getSyllabiByClassAndYear(classId, academicYearId);
+            @AuthenticationPrincipal String userId,
+            @RequestParam(required = false) String academicYearId,
+            @RequestParam(required = false) String classId,
+            @RequestParam(required = false) String sectionId,
+            @RequestParam(required = false) String subjectId,
+            @RequestParam(required = false) String teacherId,
+            @RequestParam(required = false, defaultValue = "false") boolean mine) {
+        logger.info("List syllabi ay={} cls={} sec={} subj={} teacher={} mine={}",
+                academicYearId, classId, sectionId, subjectId, teacherId, mine);
+        List<Syllabus> syllabi = syllabusService.list(
+                academicYearId, classId, sectionId, subjectId, teacherId, mine, userId, currentRole());
         return ResponseEntity.ok(ApiResponse.success(syllabi));
     }
 
@@ -46,42 +67,45 @@ public class SyllabusController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','TEACHER')")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
     public ResponseEntity<ApiResponse<Syllabus>> createSyllabus(
             @Valid @RequestBody CreateSyllabusRequest request,
-            @AuthenticationPrincipal String userId,
-            @RequestParam(required = false) String teacherId,
-            @RequestParam(required = false) String tenantId) {
-        logger.info("Request to create syllabus: classId={}, subjectId={}", request.getClassId(), request.getSubjectId());
-        Syllabus syllabus = syllabusService.createSyllabus(request, teacherId, tenantId);
+            @AuthenticationPrincipal String userId) {
+        logger.info("Create syllabus: classId={}, sectionId={}, subjectId={}",
+                request.getClassId(), request.getSectionId(), request.getSubjectId());
+        Syllabus syllabus = syllabusService.createSyllabus(request, userId, currentRole());
         return ResponseEntity.ok(ApiResponse.success(syllabus, "Syllabus created successfully"));
     }
 
     @PutMapping("/{syllabusId}")
-    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','TEACHER')")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
     public ResponseEntity<ApiResponse<Syllabus>> updateSyllabus(
             @PathVariable String syllabusId,
-            @Valid @RequestBody CreateSyllabusRequest request) {
+            @Valid @RequestBody CreateSyllabusRequest request,
+            @AuthenticationPrincipal String userId) {
         logger.info("Request to update syllabus: syllabusId={}", syllabusId);
-        Syllabus syllabus = syllabusService.updateSyllabus(syllabusId, request);
+        Syllabus syllabus = syllabusService.updateSyllabus(syllabusId, request, userId, currentRole());
         return ResponseEntity.ok(ApiResponse.success(syllabus, "Syllabus updated successfully"));
     }
 
     @PatchMapping("/{syllabusId}/topics")
-    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','TEACHER')")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
     public ResponseEntity<ApiResponse<Syllabus>> updateTopicStatus(
             @PathVariable String syllabusId,
-            @Valid @RequestBody UpdateTopicRequest request) {
-        logger.info("Request to update topic status: syllabusId={}, topicIndex={}", syllabusId, request.getTopicIndex());
-        Syllabus syllabus = syllabusService.updateTopicStatus(syllabusId, request);
+            @Valid @RequestBody UpdateTopicRequest request,
+            @AuthenticationPrincipal String userId) {
+        logger.info("Request to update topic status: syllabusId={}, topicId={}", syllabusId, request.getTopicId());
+        Syllabus syllabus = syllabusService.updateTopicStatus(syllabusId, request, userId, currentRole());
         return ResponseEntity.ok(ApiResponse.success(syllabus, "Topic status updated successfully"));
     }
 
     @DeleteMapping("/{syllabusId}")
-    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> deleteSyllabus(@PathVariable String syllabusId) {
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
+    public ResponseEntity<ApiResponse<Void>> deleteSyllabus(
+            @PathVariable String syllabusId,
+            @AuthenticationPrincipal String userId) {
         logger.info("Request to delete syllabus: syllabusId={}", syllabusId);
-        syllabusService.deleteSyllabus(syllabusId);
+        syllabusService.deleteSyllabus(syllabusId, userId, currentRole());
         return ResponseEntity.ok(ApiResponse.success(null, "Syllabus deleted successfully"));
     }
 }

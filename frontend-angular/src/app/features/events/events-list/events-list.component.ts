@@ -100,8 +100,6 @@ export class EventsListComponent implements OnInit {
     }
 
     this.loadAcademicYears();
-    this.loadEvents();
-    this.loadHolidays();
   }
 
   loadAcademicYears(): void {
@@ -109,29 +107,43 @@ export class EventsListComponent implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           this.academicYears = res.data;
-          // Auto-select current academic year
+          // Auto-select current academic year, then trigger the first backend load.
           const current = this.academicYears.find(y => y.current);
-          if (current) {
-            this.selectedAcademicYearId = current.academicYearId;
-            this.applyFilters();
-          }
+          this.selectedAcademicYearId = current ? current.academicYearId : '';
+          this.reload();
+        } else {
+          this.reload();
         }
       },
+      error: () => this.reload(),
     });
+  }
+
+  /** Build the query params the backend expects. */
+  private buildFilterParams(): { academicYearId?: string; month?: number } {
+    const p: { academicYearId?: string; month?: number } = {};
+    if (this.selectedAcademicYearId) p.academicYearId = this.selectedAcademicYearId;
+    if (this.selectedMonth) p.month = parseInt(this.selectedMonth, 10);
+    return p;
   }
 
   loadEvents(): void {
     this.isLoading = true;
-    this.apiService.getEvents().subscribe({
+    this.apiService.getEvents(this.buildFilterParams()).subscribe({
       next: (res) => {
         if (res.success && res.data) {
-          // Events tab: only non-holiday events
+          // Events tab: only non-holiday events (backend returns both kinds on /events)
           this.allEvents = res.data.filter((e: any) => !e.isHoliday && e.type !== 'HOLIDAY');
-          this.applyFilters();
+          this.events = [...this.allEvents];
+        } else {
+          this.allEvents = [];
+          this.events = [];
         }
         this.isLoading = false;
       },
       error: () => {
+        this.allEvents = [];
+        this.events = [];
         this.isLoading = false;
       },
     });
@@ -139,55 +151,33 @@ export class EventsListComponent implements OnInit {
 
   loadHolidays(): void {
     this.isLoadingHolidays = true;
-    this.apiService.getHolidays().subscribe({
+    this.apiService.getHolidays(this.buildFilterParams()).subscribe({
       next: (res) => {
         if (res.success && res.data) {
           this.allHolidays = res.data;
-          this.applyFilters();
+          this.holidays = [...this.allHolidays];
+        } else {
+          this.allHolidays = [];
+          this.holidays = [];
         }
         this.isLoadingHolidays = false;
       },
       error: () => {
+        this.allHolidays = [];
+        this.holidays = [];
         this.isLoadingHolidays = false;
       },
     });
   }
 
   onFilterChange(): void {
-    this.applyFilters();
+    this.reload();
   }
 
-  applyFilters(): void {
-    this.events = this.filterBySelection(this.allEvents);
-    this.holidays = this.filterBySelection(this.allHolidays);
-  }
-
-  private filterBySelection(list: SchoolEvent[]): SchoolEvent[] {
-    let filtered = [...list];
-
-    // Filter by academic year date range
-    if (this.selectedAcademicYearId) {
-      const ay = this.academicYears.find(y => y.academicYearId === this.selectedAcademicYearId);
-      if (ay) {
-        const ayStart = new Date(ay.startDate);
-        const ayEnd = new Date(ay.endDate);
-        filtered = filtered.filter(e => {
-          const eventStart = new Date(e.startDate);
-          return eventStart >= ayStart && eventStart <= ayEnd;
-        });
-      }
-    }
-
-    // Filter by month
-    if (this.selectedMonth) {
-      const month = parseInt(this.selectedMonth, 10);
-      filtered = filtered.filter(e => {
-        const eventStart = new Date(e.startDate);
-        return (eventStart.getMonth() + 1) === month;
-      });
-    }
-
-    return filtered;
+  /** Re-fetch both tabs from the backend using the current filter selection. */
+  private reload(): void {
+    this.loadEvents();
+    this.loadHolidays();
   }
 
   getTypeColor(type: string): string {

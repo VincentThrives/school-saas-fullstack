@@ -10,11 +10,21 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { SchoolClass, AcademicYear, Student } from '../../../core/models';
+import {
+  SchoolClass,
+  AcademicYear,
+  Student,
+  StudentFeeLedger,
+  FeeLedgerPayment,
+  LedgerPaymentMode,
+  AppendPaymentRequest,
+  UpdateLedgerPaymentRequest,
+} from '../../../core/models';
 
 @Component({
   selector: 'app-student-fees',
@@ -22,7 +32,7 @@ import { SchoolClass, AcademicYear, Student } from '../../../core/models';
   imports: [
     CommonModule, FormsModule, MatCardModule, MatTableModule, MatFormFieldModule,
     MatSelectModule, MatInputModule, MatButtonModule, MatIconModule, MatChipsModule,
-    MatProgressSpinnerModule, MatTooltipModule, MatSnackBarModule, PageHeaderComponent,
+    MatProgressSpinnerModule, MatProgressBarModule, MatTooltipModule, MatSnackBarModule, PageHeaderComponent,
   ],
   templateUrl: './student-fees.component.html',
   styleUrl: './student-fees.component.scss',
@@ -43,28 +53,36 @@ export class StudentFeesComponent implements OnInit {
   studentSearch = '';
   isLoadingStudents = false;
 
-  // Fee data
-  feeDetails: any = null;
+  // Roster ledger map for quick balance/status display in the roster table.
+  rosterLedgersByStudentId: Record<string, StudentFeeLedger> = {};
+
+  // Currently-open student's ledger
+  ledger: StudentFeeLedger | null = null;
   isLoading = false;
-  displayedColumns = ['paymentDate', 'amountPaid', 'paymentStatus', 'paymentMode', 'receiptNumber', 'remarks', 'actions'];
+  displayedColumns = ['paymentDate', 'receiptNumber', 'amount', 'mode', 'collectedBy', 'notes', 'actions'];
 
   // Payment form
   paymentFormOpen = false;
   editingPaymentId: string | null = null;
   paymentForm = {
-    amountPaid: 0,
-    paymentStatus: 'PARTIAL',
-    paymentMode: 'CASH',
-    paymentDate: '',
-    remarks: '',
+    amount: 0,
+    mode: 'CASH' as LedgerPaymentMode,
+    paidAt: '',
+    notes: '',
+    reason: '',
   };
 
-  // Delete
-  deleteDialogOpen = false;
-  selectedPayment: any = null;
+  // Void dialog
+  voidDialogOpen = false;
+  voidTarget: FeeLedgerPayment | null = null;
+  voidReason = '';
 
-  paymentModes = ['CASH', 'ONLINE', 'CHEQUE', 'DD', 'OTHER'];
-  paymentStatuses = ['PARTIAL', 'FULL'];
+  // Overpayment warning dialog
+  overpaymentDialogOpen = false;
+  overpaymentAttempted = 0;
+  overpaymentAllowed = 0;
+
+  paymentModes: LedgerPaymentMode[] = ['CASH', 'ONLINE', 'UPI', 'CHEQUE', 'DD', 'CARD', 'OTHER'];
 
   constructor(private api: ApiService, private snackBar: MatSnackBar) {}
 
@@ -86,7 +104,8 @@ export class StudentFeesComponent implements OnInit {
     this.classes = [];
     this.sections = [];
     this.students = [];
-    this.feeDetails = null;
+    this.rosterLedgersByStudentId = {};
+    this.ledger = null;
     this.studentSearch = '';
     this.loadClasses();
   }
@@ -95,28 +114,27 @@ export class StudentFeesComponent implements OnInit {
     this.selectedSectionId = '';
     this.selectedStudentId = '';
     this.students = [];
-    this.feeDetails = null;
+    this.rosterLedgersByStudentId = {};
+    this.ledger = null;
     this.studentSearch = '';
     const cls = this.classes.find(c => c.classId === this.selectedClassId);
     this.sections = cls?.sections || [];
   }
 
-  /**
-   * Once class + section are chosen, fetch the full roster so the admin can
-   * see everyone in the table and either search or click a row.
-   */
   onSectionChange(): void {
     this.selectedStudentId = '';
-    this.feeDetails = null;
+    this.ledger = null;
     this.studentSearch = '';
     if (this.selectedClassId && this.selectedSectionId) {
       this.loadStudents();
+      this.loadRosterLedgers();
     } else {
       this.students = [];
+      this.rosterLedgersByStudentId = {};
     }
   }
 
-  /** Narrowed list after applying the search box. Client-side, instant. */
+  /** Client-side search narrowing of the roster. */
   get filteredStudents(): Student[] {
     const q = (this.studentSearch || '').trim().toLowerCase();
     if (!q) return this.students;
@@ -128,19 +146,18 @@ export class StudentFeesComponent implements OnInit {
     });
   }
 
-  /** Click a row to open that student's fee details. */
+  /** Click a roster row to open that student's ledger. */
   selectStudentRow(student: Student): void {
     if (!student?.studentId) return;
     this.selectedStudentId = student.studentId;
     if (this.selectedAcademicYearId) {
-      this.loadFeeDetails();
+      this.loadLedger();
     }
   }
 
-  /** Return from the student's fee view back to the roster. */
   clearStudent(): void {
     this.selectedStudentId = '';
-    this.feeDetails = null;
+    this.ledger = null;
   }
 
   get selectedStudent(): Student | undefined {
@@ -164,29 +181,60 @@ export class StudentFeesComponent implements OnInit {
         this.students = res.data?.content || [];
         this.isLoadingStudents = false;
       },
-      error: () => {
-        this.students = [];
-        this.isLoadingStudents = false;
-      },
+      error: () => { this.students = []; this.isLoadingStudents = false; },
     });
   }
 
-  loadFeeDetails(): void {
-    this.isLoading = true;
-    this.api.getStudentFeeDetails(this.selectedStudentId, this.selectedAcademicYearId).subscribe({
+  /**
+   * Preload the ledger balance/status for every student in the roster so we
+   * can render the status chip + outstanding amount without drilling in.
+   */
+  loadRosterLedgers(): void {
+    this.rosterLedgersByStudentId = {};
+    this.api.getFeeLedgers({
+      academicYearId: this.selectedAcademicYearId,
+      classId: this.selectedClassId,
+      sectionId: this.selectedSectionId,
+    }).subscribe({
       next: (res) => {
-        this.feeDetails = res.data;
-        this.isLoading = false;
+        const map: Record<string, StudentFeeLedger> = {};
+        (res.data || []).forEach(l => { if (l.studentId) map[l.studentId] = l; });
+        this.rosterLedgersByStudentId = map;
       },
-      error: () => {
-        this.feeDetails = null;
+      error: () => { this.rosterLedgersByStudentId = {}; },
+    });
+  }
+
+  loadLedger(): void {
+    this.isLoading = true;
+    this.api.getFeeLedgerForStudent(this.selectedStudentId, this.selectedAcademicYearId).subscribe({
+      next: (res) => {
+        this.ledger = res.data;
         this.isLoading = false;
+        // Keep the roster map in sync for the summary row above.
+        if (this.ledger && this.ledger.studentId) {
+          this.rosterLedgersByStudentId = {
+            ...this.rosterLedgersByStudentId,
+            [this.ledger.studentId]: this.ledger,
+          };
+        }
       },
+      error: () => { this.ledger = null; this.isLoading = false; },
     });
   }
 
   getStudentName(student: Student): string {
     return `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.admissionNumber;
+  }
+
+  /** Roster row helpers — read from the preloaded map. */
+  rowBalance(student: Student): number {
+    const l = this.rosterLedgersByStudentId[student.studentId];
+    return l ? l.balance : 0;
+  }
+  rowStatus(student: Student): string {
+    const l = this.rosterLedgersByStudentId[student.studentId];
+    return l ? l.status : 'UNPAID';
   }
 
   getStatusClass(status: string): string {
@@ -199,22 +247,48 @@ export class StudentFeesComponent implements OnInit {
     }
   }
 
-  // ── Payment Form ────────────────────────────────────────────
+  /** Visible payments (exclude superseded-by-correction entries for a tidy view). */
+  get visiblePayments(): FeeLedgerPayment[] {
+    if (!this.ledger) return [];
+    const supersededIds = new Set<string>();
+    this.ledger.payments.forEach(p => {
+      if (p.supersededPaymentId) supersededIds.add(p.supersededPaymentId);
+    });
+    // Show everything including voided, but highlight voided rows in the UI.
+    // Omit the superseded originals once a correction exists.
+    return this.ledger.payments
+      .filter(p => !supersededIds.has(p.paymentId))
+      .sort((a, b) => (a.paidAt < b.paidAt ? 1 : -1));
+  }
 
-  openPaymentForm(payment?: any): void {
+  progressColor(): 'primary' | 'accent' | 'warn' {
+    const p = this.ledger ? this.progressPercent : 0;
+    if (p >= 100) return 'primary';
+    if (p >= 50) return 'accent';
+    return 'warn';
+  }
+
+  get progressPercent(): number {
+    if (!this.ledger || this.ledger.totalDue <= 0) return 0;
+    return Math.min(100, Math.round((this.ledger.totalPaid / this.ledger.totalDue) * 100));
+  }
+
+  // ── Payment form ──────────────────────────────────────────
+
+  openPaymentForm(payment?: FeeLedgerPayment): void {
     if (payment) {
       this.editingPaymentId = payment.paymentId;
       this.paymentForm = {
-        amountPaid: payment.amountPaid,
-        paymentStatus: payment.paymentStatus || 'PARTIAL',
-        paymentMode: payment.paymentMode || 'CASH',
-        paymentDate: payment.paymentDate || '',
-        remarks: payment.remarks || '',
+        amount: payment.amount,
+        mode: payment.mode,
+        paidAt: payment.paidAt,
+        notes: payment.notes || '',
+        reason: '',
       };
     } else {
       this.editingPaymentId = null;
       const today = new Date().toISOString().split('T')[0];
-      this.paymentForm = { amountPaid: 0, paymentStatus: 'PARTIAL', paymentMode: 'CASH', paymentDate: today, remarks: '' };
+      this.paymentForm = { amount: 0, mode: 'CASH', paidAt: today, notes: '', reason: '' };
     }
     this.paymentFormOpen = true;
   }
@@ -225,57 +299,114 @@ export class StudentFeesComponent implements OnInit {
   }
 
   savePayment(): void {
+    if (!this.ledger) return;
+    if (!this.paymentForm.amount || this.paymentForm.amount <= 0) {
+      this.snackBar.open('Enter a positive amount', 'Close', { duration: 2500 });
+      return;
+    }
+
+    // ─── Overpayment guard ──────────────────────────────────────
+    // New payment: can't exceed current balance.
+    // Correction:  projected total (current totalPaid - old amount + new amount) can't exceed totalDue.
+    const totalDue = this.ledger.totalDue || 0;
+    let allowed: number;
     if (this.editingPaymentId) {
-      this.api.updateFeePayment(this.editingPaymentId, this.paymentForm).subscribe({
-        next: () => {
-          this.snackBar.open('Payment updated', 'Close', { duration: 3000 });
+      const existing = this.ledger.payments.find(p => p.paymentId === this.editingPaymentId);
+      const existingAmount = existing ? existing.amount : 0;
+      allowed = totalDue - (this.ledger.totalPaid - existingAmount);
+    } else {
+      allowed = this.ledger.balance;
+    }
+    if (this.paymentForm.amount > allowed + 0.0001) {
+      this.overpaymentAttempted = this.paymentForm.amount;
+      this.overpaymentAllowed = Math.max(0, allowed);
+      this.overpaymentDialogOpen = true;
+      return;
+    }
+
+    if (this.editingPaymentId) {
+      const req: UpdateLedgerPaymentRequest = {
+        amount: this.paymentForm.amount,
+        mode: this.paymentForm.mode,
+        paidAt: this.paymentForm.paidAt || undefined,
+        notes: this.paymentForm.notes || undefined,
+        reason: this.paymentForm.reason || undefined,
+      };
+      this.api.updateFeeLedgerPayment(this.ledger.ledgerId, this.editingPaymentId, req).subscribe({
+        next: (res) => {
+          this.snackBar.open('Payment corrected', 'Close', { duration: 2500 });
+          this.ledger = res.data;
           this.closePaymentForm();
-          this.loadFeeDetails();
         },
-        error: () => this.snackBar.open('Failed to update payment', 'Close', { duration: 3000 }),
+        error: (e) => this.snackBar.open(e?.error?.message || 'Failed to update payment', 'Close', { duration: 3000 }),
       });
     } else {
-      const payload = {
-        ...this.paymentForm,
-        studentId: this.selectedStudentId,
-        classId: this.selectedClassId,
-        academicYearId: this.selectedAcademicYearId,
+      const req: AppendPaymentRequest = {
+        amount: this.paymentForm.amount,
+        mode: this.paymentForm.mode,
+        paidAt: this.paymentForm.paidAt || undefined,
+        notes: this.paymentForm.notes || undefined,
       };
-      this.api.createFeePayment(payload).subscribe({
-        next: () => {
-          this.snackBar.open('Payment recorded', 'Close', { duration: 3000 });
+      this.api.appendFeePayment(this.ledger.ledgerId, req).subscribe({
+        next: (res) => {
+          this.snackBar.open('Payment recorded', 'Close', { duration: 2500 });
+          this.ledger = res.data;
+          if (this.ledger && this.ledger.studentId) {
+            this.rosterLedgersByStudentId = {
+              ...this.rosterLedgersByStudentId,
+              [this.ledger.studentId]: this.ledger,
+            };
+          }
           this.closePaymentForm();
-          this.loadFeeDetails();
         },
-        error: () => this.snackBar.open('Failed to record payment', 'Close', { duration: 3000 }),
+        error: (e) => this.snackBar.open(e?.error?.message || 'Failed to record payment', 'Close', { duration: 3000 }),
       });
     }
   }
 
-  // ── Delete ──────────────────────────────────────────────────
+  // ── Void ──────────────────────────────────────────────────
 
-  confirmDeletePayment(payment: any): void {
-    this.selectedPayment = payment;
-    this.deleteDialogOpen = true;
+  openVoidDialog(payment: FeeLedgerPayment): void {
+    this.voidTarget = payment;
+    this.voidReason = '';
+    this.voidDialogOpen = true;
   }
 
-  cancelDelete(): void {
-    this.deleteDialogOpen = false;
-    this.selectedPayment = null;
+  closeVoidDialog(): void {
+    this.voidDialogOpen = false;
+    this.voidTarget = null;
+    this.voidReason = '';
   }
 
-  deletePayment(): void {
-    if (!this.selectedPayment) return;
-    const id = this.selectedPayment.paymentId;
-    this.deleteDialogOpen = false;
-    this.selectedPayment = null;
+  // ── Overpayment dialog ────────────────────────────────────────
 
-    this.api.deleteFeePayment(id).subscribe({
-      next: () => {
-        this.snackBar.open('Payment deleted', 'Close', { duration: 3000 });
-        this.loadFeeDetails();
+  closeOverpaymentDialog(): void {
+    this.overpaymentDialogOpen = false;
+  }
+
+  /** Snap the input to the max allowed and close the warning so the user can save. */
+  setToAllowedAmount(): void {
+    this.paymentForm.amount = this.overpaymentAllowed;
+    this.overpaymentDialogOpen = false;
+  }
+
+  confirmVoid(): void {
+    if (!this.ledger || !this.voidTarget) return;
+    const ledgerId = this.ledger.ledgerId;
+    const paymentId = this.voidTarget.paymentId;
+    this.api.voidFeeLedgerPayment(ledgerId, paymentId, { reason: this.voidReason || undefined }).subscribe({
+      next: (res) => {
+        this.snackBar.open('Payment voided', 'Close', { duration: 2500 });
+        this.ledger = res.data;
+        if (this.ledger && this.ledger.studentId) {
+          this.rosterLedgersByStudentId = {
+            ...this.rosterLedgersByStudentId,
+            [this.ledger.studentId]: this.ledger,
+          };
+        }
+        this.closeVoidDialog();
       },
-      error: () => this.snackBar.open('Failed to delete payment', 'Close', { duration: 3000 }),
+      error: (e) => this.snackBar.open(e?.error?.message || 'Failed to void payment', 'Close', { duration: 3000 }),
     });
   }
 }

@@ -98,6 +98,48 @@ $gold-dark: #B8860B;
   font-size: 0.9rem;
 }
 
+.assignments-info-card {
+  margin: 20px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 20px;
+  background: rgba(212, 168, 67, 0.08);
+  border: 1px solid rgba(212, 168, 67, 0.25);
+  border-radius: 12px;
+
+  .info-icon {
+    flex: 0 0 auto;
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+    color: $gold-dark;
+    margin-top: 2px;
+  }
+
+  .info-body {
+    flex: 1;
+
+    h4 {
+      margin: 0 0 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: rgba(0, 0, 0, 0.82);
+    }
+
+    p {
+      margin: 0 0 12px;
+      font-size: 0.88rem;
+      color: rgba(0, 0, 0, 0.65);
+      line-height: 1.45;
+    }
+
+    a[mat-stroked-button] {
+      mat-icon { margin-right: 4px; }
+    }
+  }
+}
+
 mat-divider {
   margin: 20px 0;
 }

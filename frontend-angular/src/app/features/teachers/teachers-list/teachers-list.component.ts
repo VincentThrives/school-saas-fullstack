@@ -1,6 +1,6 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
 import { MatPaginatorModule, MatPaginator, PageEvent } from '@angular/material/paginator';
@@ -22,6 +22,7 @@ import { Teacher } from '../../../core/models';
   imports: [
     CommonModule,
     FormsModule,
+    RouterModule,
     MatTableModule,
     MatPaginatorModule,
     MatButtonModule,

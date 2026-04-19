@@ -1,13 +1,13 @@
 <div class="syllabus-detail-container">
   <app-page-header
     [title]="syllabus?.subjectName || 'Syllabus Detail'"
-    [subtitle]="syllabus ? syllabus.className + ' - ' + syllabus.academicYearLabel : ''"
+    [subtitle]="syllabus ? (syllabus.className + (syllabus.sectionName ? ' — ' + syllabus.sectionName : '') + ' · ' + syllabus.academicYearLabel) : ''"
     [breadcrumbs]="[
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'Syllabus Tracker', link: '/syllabus' },
       { label: syllabus?.subjectName || 'Detail' }
     ]"
-    actionLabel="Edit"
+    [actionLabel]="canModify ? 'Edit' : ''"
     actionIcon="edit"
     (actionClick)="editSyllabus()"
   ></app-page-header>
@@ -17,28 +17,42 @@
   </div>
 
   <div *ngIf="syllabus && !isLoading">
-    <!-- Overall Progress -->
+    <!-- ─── Overall Progress ─── -->
     <mat-card class="progress-card">
       <div class="progress-info">
         <div>
           <h3 class="progress-title">Overall Progress</h3>
-          <span class="progress-subtitle">{{ syllabus.completedTopics }} of {{ syllabus.totalTopics }} topics completed</span>
+          <span class="progress-subtitle">
+            {{ syllabus.completedTopics }} of {{ syllabus.totalTopics }} topics completed
+            <span *ngIf="syllabus.teacherName"> · Teacher: {{ syllabus.teacherName }}</span>
+          </span>
         </div>
-        <span class="progress-percentage">{{ syllabus.progressPercentage | number:'1.0-0' }}%</span>
+        <span class="progress-percentage" [ngClass]="{
+          'progress-red': syllabus.progressPercentage < 30,
+          'progress-amber': syllabus.progressPercentage >= 30 && syllabus.progressPercentage < 70,
+          'progress-green': syllabus.progressPercentage >= 70
+        }">{{ syllabus.progressPercentage | number:'1.0-0' }}%</span>
       </div>
       <mat-progress-bar
         mode="determinate"
         [value]="syllabus.progressPercentage"
+        [color]="progressColor(syllabus.progressPercentage)"
         class="overall-progress-bar"
       ></mat-progress-bar>
     </mat-card>
 
-    <!-- Topics Table -->
+    <!-- ─── Topics Table ─── -->
     <mat-card class="topics-card">
       <table mat-table [dataSource]="syllabus.topics" class="topics-table">
+        <!-- # -->
+        <ng-container matColumnDef="index">
+          <th mat-header-cell *matHeaderCellDef>#</th>
+          <td mat-cell *matCellDef="let topic; let i = index">{{ i + 1 }}</td>
+        </ng-container>
+
         <!-- Topic Name -->
         <ng-container matColumnDef="topicName">
-          <th mat-header-cell *matHeaderCellDef>Topic Name</th>
+          <th mat-header-cell *matHeaderCellDef>Topic</th>
           <td mat-cell *matCellDef="let topic">
             <div class="topic-name">{{ topic.topicName }}</div>
             <div class="topic-desc" *ngIf="topic.description">{{ topic.description }}</div>
@@ -47,8 +61,14 @@
 
         <!-- Planned Date -->
         <ng-container matColumnDef="plannedDate">
-          <th mat-header-cell *matHeaderCellDef>Planned Date</th>
-          <td mat-cell *matCellDef="let topic">{{ topic.plannedDate ? (topic.plannedDate | date:'dd MMM yyyy') : '-' }}</td>
+          <th mat-header-cell *matHeaderCellDef>Planned</th>
+          <td mat-cell *matCellDef="let topic">{{ formatDate(topic.plannedDate) }}</td>
+        </ng-container>
+
+        <!-- Completed Date -->
+        <ng-container matColumnDef="completedDate">
+          <th mat-header-cell *matHeaderCellDef>Completed</th>
+          <td mat-cell *matCellDef="let topic">{{ formatDate(topic.completionDate) }}</td>
         </ng-container>
 
         <!-- Status -->
@@ -61,7 +81,7 @@
           </td>
         </ng-container>
 
-        <!-- Completion -->
+        <!-- Completion bar -->
         <ng-container matColumnDef="completion">
           <th mat-header-cell *matHeaderCellDef>Completion</th>
           <td mat-cell *matCellDef="let topic">
@@ -69,6 +89,7 @@
               <mat-progress-bar
                 mode="determinate"
                 [value]="topic.completionPercentage"
+                [color]="progressColor(topic.completionPercentage)"
                 class="topic-progress-bar"
               ></mat-progress-bar>
               <span class="completion-text">{{ topic.completionPercentage }}%</span>
@@ -80,23 +101,42 @@
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
           <td mat-cell *matCellDef="let topic" class="actions-col">
-            <button
-              mat-stroked-button
-              class="action-btn in-progress-btn"
-              *ngIf="topic.status === 'PENDING'"
-              (click)="markInProgress(topic)"
-            >
-              Mark In Progress
-            </button>
-            <button
-              mat-stroked-button
-              class="action-btn complete-btn"
-              *ngIf="topic.status !== 'COMPLETED'"
-              (click)="markComplete(topic)"
-            >
-              Mark Complete
-            </button>
-            <span *ngIf="topic.status === 'COMPLETED'" class="completed-label">
+            <ng-container *ngIf="canModify">
+              <button
+                mat-stroked-button
+                class="action-btn"
+                [matMenuTriggerFor]="progressMenu"
+                [disabled]="isUpdating"
+              >
+                <mat-icon>trending_up</mat-icon>
+                Progress
+              </button>
+              <mat-menu #progressMenu="matMenu">
+                <button mat-menu-item (click)="markInProgress(topic, 25)">25%</button>
+                <button mat-menu-item (click)="markInProgress(topic, 50)">50%</button>
+                <button mat-menu-item (click)="markInProgress(topic, 75)">75%</button>
+                <button mat-menu-item (click)="markComplete(topic)">100% (Complete)</button>
+                <button mat-menu-item (click)="resetTopic(topic)">Reset to 0%</button>
+              </mat-menu>
+
+              <button
+                mat-stroked-button
+                class="action-btn complete-btn"
+                *ngIf="topic.status !== 'COMPLETED'"
+                [disabled]="isUpdating"
+                (click)="markComplete(topic)"
+              >
+                <mat-icon>task_alt</mat-icon>
+                Complete
+              </button>
+
+              <span *ngIf="topic.status === 'COMPLETED'" class="completed-label">
+                <mat-icon class="done-icon">check_circle</mat-icon>
+                Done
+              </span>
+            </ng-container>
+
+            <span *ngIf="!canModify && topic.status === 'COMPLETED'" class="completed-label">
               <mat-icon class="done-icon">check_circle</mat-icon>
               Done
             </span>

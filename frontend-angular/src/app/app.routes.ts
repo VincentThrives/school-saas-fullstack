@@ -426,6 +426,15 @@ export const routes: Routes = [
         data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER] },
       },
 
+      // ── Teacher Subject Assignments (admin/principal) ───
+      {
+        path: 'teacher-assignments',
+        loadComponent: () =>
+          import('./features/teacher-assignments/teacher-assignments.component').then(m => m.TeacherAssignmentsComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+      },
+
       // ── Assignments ─────────────────────────────────────
       {
         path: 'assignments',
