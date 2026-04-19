@@ -398,8 +398,10 @@ export class ApiService {
 
   // ── Dashboard ──────────────────────────────────────────────────────────
 
-  getDashboard(): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${this.API}/dashboard`);
+  getDashboard(academicYearId?: string): Observable<ApiResponse<any>> {
+    let params = new HttpParams();
+    if (academicYearId) params = params.set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<any>>(`${this.API}/dashboard`, { params });
   }
 
   // ── Notifications ──────────────────────────────────────────────────────

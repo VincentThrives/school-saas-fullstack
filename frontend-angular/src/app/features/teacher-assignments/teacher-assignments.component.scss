@@ -157,3 +157,76 @@
     width: 22px;
   }
 }
+
+/* ─── Class Teacher sub-panel in the form dialog ─── */
+.class-teacher-panel {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(212, 168, 67, 0.35);
+  border-radius: 10px;
+  background: rgba(212, 168, 67, 0.06);
+
+  .panel-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    color: #8a6a1d;
+    margin-bottom: 4px;
+
+    .mini { font-size: 18px; width: 18px; height: 18px; color: #b8860b; }
+  }
+
+  .panel-hint {
+    margin: 0 0 10px;
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 0.82rem;
+  }
+}
+
+/* ─── Searchable class-section multi-select ─── */
+.form-dialog .grid .span-2 {
+  grid-column: span 2;
+}
+
+.select-search {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: rgba(0, 0, 0, 0.45);
+  }
+
+  input {
+    flex: 1;
+    border: none;
+    outline: none;
+    padding: 6px 0;
+    font-size: 0.9rem;
+    background: transparent;
+  }
+
+  button[mat-icon-button] {
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  }
+}
+
+.select-empty {
+  padding: 14px 16px;
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 0.85rem;
+  text-align: center;
+}

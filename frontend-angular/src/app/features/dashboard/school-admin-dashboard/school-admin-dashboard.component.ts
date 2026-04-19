@@ -52,18 +52,39 @@ export class SchoolAdminDashboardComponent implements OnInit {
   upcomingEvents: UpcomingEventRow[] = [];
   isLoadingEvents = false;
 
+  /** Current academic year scoping the dashboard data. */
+  currentYearId = '';
+  currentYearLabel = '';
+
   constructor(private apiService: ApiService) {}
 
   ngOnInit(): void {
-    this.loadStats();
-    this.loadUpcomingExams();
-    this.loadUpcomingEvents();
+    // Resolve current academic year first so every widget is year-scoped.
+    this.apiService.getAcademicYears().subscribe({
+      next: (res) => {
+        const list = res?.data || [];
+        const current = list.find((y: any) => y.current) || list[0];
+        if (current) {
+          this.currentYearId = current.academicYearId;
+          this.currentYearLabel = current.label || '';
+        }
+        this.loadStats();
+        this.loadUpcomingExams();
+        this.loadUpcomingEvents();
+      },
+      error: () => {
+        // Even if years fail, still try to load; backend falls back to current year.
+        this.loadStats();
+        this.loadUpcomingExams();
+        this.loadUpcomingEvents();
+      },
+    });
   }
 
   // ── Stat cards ──────────────────────────────────────────────
   private loadStats(): void {
     this.isLoadingStats = true;
-    this.apiService.getDashboard().subscribe({
+    this.apiService.getDashboard(this.currentYearId || undefined).subscribe({
       next: (res) => {
         if (res?.success && res.data) {
           // Backend DTO uses attendanceTodayPercent (camel case); template reads both keys safely.
@@ -83,7 +104,11 @@ export class SchoolAdminDashboardComponent implements OnInit {
     this.isLoadingExams = true;
     this.apiService.getExams().subscribe({
       next: (res) => {
-        const all: any[] = res?.data || [];
+        let all: any[] = res?.data || [];
+        // Restrict to the current academic year if we know it.
+        if (this.currentYearId) {
+          all = all.filter((e: any) => e.academicYearId === this.currentYearId);
+        }
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         this.upcomingExams = all
@@ -107,7 +132,8 @@ export class SchoolAdminDashboardComponent implements OnInit {
   // ── Upcoming Events (live from /api/v1/events) ────────────────
   private loadUpcomingEvents(): void {
     this.isLoadingEvents = true;
-    this.apiService.getEvents().subscribe({
+    const params = this.currentYearId ? { academicYearId: this.currentYearId } : undefined;
+    this.apiService.getEvents(params).subscribe({
       next: (res) => {
         const all: any[] = res?.data || [];
         const today = new Date();

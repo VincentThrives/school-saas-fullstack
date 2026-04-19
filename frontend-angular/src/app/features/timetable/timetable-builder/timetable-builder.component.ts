@@ -22,6 +22,7 @@ import {
   Timetable,
   TimetableDaySchedule,
   TimetablePeriod,
+  TeacherSubjectAssignment,
 } from '../../../core/models';
 
 interface SubjectOption {
@@ -55,6 +56,9 @@ export class TimetableBuilderComponent implements OnInit {
   academicYears: AcademicYear[] = [];
   teachers: Teacher[] = [];
   sections: { sectionId: string; name: string }[] = [];
+
+  /** All teacher-subject assignments for the selected academic year. */
+  private yearAssignments: TeacherSubjectAssignment[] = [];
 
   selectedClassId = '';
   selectedSectionId = '';
@@ -103,6 +107,7 @@ export class TimetableBuilderComponent implements OnInit {
       const current = this.academicYears.find((ay) => ay.current);
       if (current) {
         this.selectedAcademicYearId = current.academicYearId;
+        this.loadYearAssignments();
       }
 
       this.api.getClasses().subscribe((cres) => {
@@ -116,9 +121,20 @@ export class TimetableBuilderComponent implements OnInit {
             this.onClassChange();
             this.loadTimetable();
             this.loadSubjectsForClass();
+            this.loadYearAssignments();
           }
         });
       });
+    });
+  }
+
+  /** Pull all TeacherSubjectAssignment rows for the selected year so the
+   *  per-period Teacher dropdown can narrow by subject + class + section. */
+  private loadYearAssignments(): void {
+    if (!this.selectedAcademicYearId) { this.yearAssignments = []; return; }
+    this.api.getTeacherAssignments({ academicYearId: this.selectedAcademicYearId }).subscribe({
+      next: (res) => { this.yearAssignments = res?.data || []; },
+      error: () => { this.yearAssignments = []; },
     });
   }
 
@@ -137,6 +153,7 @@ export class TimetableBuilderComponent implements OnInit {
     this.schedule = [];
     this.timetable = null;
     this.editMode = false;
+    this.loadYearAssignments();
   }
 
   onClassChange(resetSection = false): void {
@@ -341,19 +358,44 @@ export class TimetableBuilderComponent implements OnInit {
     return t ? `${t.firstName || ''} ${t.lastName || ''}`.trim() || t.employeeId || teacherId : teacherId;
   }
 
+  /**
+   * Teacher dropdown for a period. Narrowing priority:
+   *   1. TeacherSubjectAssignment collection (the canonical year-scoped source)
+   *      — match subject + class, and either section equal or wildcard.
+   *   2. Legacy Teacher.classSubjectAssignments (pre-migration data).
+   *   3. Legacy Teacher.subjectIds (very old data).
+   *
+   * Only returns teachers who actually teach the selected subject. If no
+   * teacher is assigned to the subject yet, returns an empty list (so the
+   * admin knows to set up the assignment first, instead of silently picking
+   * from unrelated teachers).
+   */
   getTeachersForSubject(subjectId: string): any[] {
     if (!subjectId) return this.teachers;
-    const filtered = this.teachers.filter(t => {
-      if (t.classSubjectAssignments?.length) {
-        return t.classSubjectAssignments.some((a: any) =>
-          a.subjectId === subjectId &&
-          a.classId === this.selectedClassId &&
-          a.sectionId === this.selectedSectionId
-        );
-      }
-      return t.subjectIds?.includes(subjectId);
-    });
-    return filtered.length > 0 ? filtered : this.teachers;
+
+    // ── Primary: new TeacherSubjectAssignment collection ────────────
+    const allowedIds = new Set<string>();
+    for (const a of this.yearAssignments) {
+      if (a.status === 'ARCHIVED') continue;
+      if (a.subjectId !== subjectId) continue;
+      if (this.selectedClassId && a.classId !== this.selectedClassId) continue;
+      if (this.selectedSectionId && a.sectionId && a.sectionId !== this.selectedSectionId) continue;
+      if (a.teacherId) allowedIds.add(a.teacherId);
+    }
+    if (allowedIds.size > 0) {
+      return this.teachers.filter(t => allowedIds.has(t.teacherId));
+    }
+
+    // ── Fallback 1: legacy inline field on Teacher ─────────────────
+    const byLegacy = this.teachers.filter(t => (t.classSubjectAssignments || []).some((a: any) =>
+      a.subjectId === subjectId
+      && a.classId === this.selectedClassId
+      && (!a.sectionId || !this.selectedSectionId || a.sectionId === this.selectedSectionId)));
+    if (byLegacy.length > 0) return byLegacy;
+
+    // ── Fallback 2: legacy subjectIds list ────────────────────────
+    const byIds = this.teachers.filter(t => (t.subjectIds || []).includes(subjectId));
+    return byIds;
   }
 
   onPeriodSubjectChange(daySchedule: any, periodIndex: number): void {

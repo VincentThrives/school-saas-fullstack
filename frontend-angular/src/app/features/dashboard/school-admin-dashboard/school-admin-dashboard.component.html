@@ -1,5 +1,8 @@
 <div class="school-admin-dashboard">
-  <app-page-header title="School Dashboard"></app-page-header>
+  <app-page-header
+    title="School Dashboard"
+    [subtitle]="currentYearLabel ? ('Showing data for ' + currentYearLabel) : ''">
+  </app-page-header>
 
   <!-- Stats Grid -->
   <div class="school-admin-dashboard__stats">

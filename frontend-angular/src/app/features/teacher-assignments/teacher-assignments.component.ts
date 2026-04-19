@@ -13,6 +13,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { HttpClient } from '@angular/common/http';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../core/services/api.service';
 import { SubjectService } from '../../core/services/subject.service';
@@ -85,15 +86,62 @@ export class TeacherAssignmentsComponent implements OnInit {
   isSaving = false;
   editingId: string | null = null;
   formTeacherId = '';
+
+  // Create mode: multi-select (arrays). Edit mode: single-value reused.
+  formClassIds: string[] = [];
+  formSectionIds: string[] = [];
+
+  // Single-value fields still used in edit mode + for the Class Teacher picker.
   formClassId = '';
   formSectionId = '';
   formSubjectId = '';
   formRoleClass = false;
   formRoleSubject = true;
 
+  /** When Class Teacher is ticked, the admin must explicitly pick
+   *  one class + one section for that role (independent of the multi-select above). */
+  classTeacherClassId = '';
+  classTeacherSectionId = '';
+
   formClassOptions: SchoolClass[] = [];
   formSectionOptions: SectionLite[] = [];
   formSubjectOptions: { id: string; name: string }[] = [];
+
+  /** Flat list of (class, section) pairs for the multi-select in create mode.
+   *  Values are encoded as "classId::sectionId" so each pair is distinct.
+   *  {@link search} is a pre-lowercased blob so typing "1a" / "1 a" / "a 1" all match. */
+  formClassSectionOptions: {
+    key: string;
+    classId: string;
+    sectionId: string;
+    classLabel: string;
+    sectionLabel: string;
+    label: string;
+    search: string;
+  }[] = [];
+  /** Selected "classId::sectionId" keys. */
+  formClassSectionKeys: string[] = [];
+  /** Search box text for the searchable class-section dropdown. */
+  classSectionSearch = '';
+
+  /** Subject-id → list of class-section keys where that subject exists.
+   *  Built once per (year, classes-loaded) and used to:
+   *    1. Populate the Subject dropdown (keys of this map).
+   *    2. Filter the Classes & Sections dropdown to only pairs that teach
+   *       the currently-picked subject. */
+  private subjectToPairKeys = new Map<string, Set<string>>();
+
+  /** Raw list of Subject rows for the selected academic year. Loaded once
+   *  per year from GET /api/v1/subjects. Primary source for the Subject
+   *  dropdown (the Classes model's inline subjectIds is a secondary hint). */
+  private allSubjectsForYear: any[] = [];
+
+  /** Free-text search inside the Subject dropdown. */
+  subjectSearch = '';
+
+  /** Precomputed sections for the Class Teacher sub-panel. A getter here
+   *  caused infinite change-detection in mat-select. */
+  classTeacherSectionOptions: SectionLite[] = [];
 
   // Delete
   deleteDialogOpen = false;
@@ -109,33 +157,56 @@ export class TeacherAssignmentsComponent implements OnInit {
   constructor(
     private api: ApiService,
     private subjectService: SubjectService,
+    private http: HttpClient,
     private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
-    this.subjectService.loadSubjects();
+    // Force SubjectService to drop its cache + fetch fresh. Without this,
+    // the service serves whatever it loaded on the first page visit and
+    // never picks up subjects the admin adds later in this session.
+    this.subjectService.refreshSubjects();
+
+    // Also fetch subjects directly from the same endpoint the Subjects
+    // sidenav page uses — guarantees the dropdown is populated even if the
+    // shared service hasn't pushed a new value yet.
+    this.loadSubjectsDirect();
+
+    // Then bind to the shared service so future updates from Subjects page
+    // propagate here live.
+    this.subjectService.getSubjects().subscribe((list) => {
+      if (!list || list.length === 0) return;
+      this.applySubjectOptions(list.map(s => ({
+        id: s.subjectId, name: s.name,
+      })));
+    });
     this.api.getClasses().subscribe((res) => {
       this.classes = res.data || [];
       this.recomputeFormClassOptions();
       this.recomputeFilterClassOptions();
+      this.recomputeFormSectionOptions();
     });
     this.api.getAcademicYears().subscribe((res) => {
       this.academicYears = res.data || [];
       const current = this.academicYears.find((ay) => ay.current);
       if (current) this.selectedAcademicYearId = current.academicYearId;
       this.recomputeFilterClassOptions();
+      this.loadSubjectsForYear();
       this.loadAssignments();
     });
     this.loadTeachers();
 
     // Search filter predicate on the table data source.
+    // Matches against teacher name, class, section, subject, AND role labels
+    // (so typing "class teacher" / "subject" filters by role too).
     this.dataSource.filterPredicate = (a: TeacherSubjectAssignment, filter: string) => {
       if (!filter) return true;
       const t = this.teacherName(a.teacherId).toLowerCase();
       const c = this.classLabel(a).toLowerCase();
       const s = this.sectionLabel(a).toLowerCase();
       const subj = this.subjectLabel(a).toLowerCase();
-      return (t + ' ' + c + ' ' + s + ' ' + subj).includes(filter);
+      const roles = this.rolesLabel(a.roles).join(' ').toLowerCase();
+      return (t + ' ' + c + ' ' + s + ' ' + subj + ' ' + roles).includes(filter);
     };
   }
 
@@ -173,7 +244,69 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.searchQuery = '';
     this.recomputeFilterClassOptions();
     this.filterSectionOptions = [];
+    // Rebuild form option lists so the create dialog reflects the new year
+    // next time it opens.
+    this.recomputeFormClassOptions();
+    this.loadSubjectsForYear();
     this.loadAssignments();
+  }
+
+  /** Fetch the canonical Subject rows for the selected academic year.
+   *  The Subjects module is the primary source — not section.subjectIds. */
+  private loadSubjectsForYear(): void {
+    this.allSubjectsForYear = [];
+    if (!this.selectedAcademicYearId) {
+      this.recomputeFormSectionOptions();
+      return;
+    }
+    // The /subjects endpoint returns all rows when classId+academicYearId
+    // aren't both supplied. Pull everything and filter client-side by AY.
+    this.http.get<any>('/api/v1/subjects').subscribe({
+      next: (res: any) => {
+        const all = res?.data || [];
+        this.allSubjectsForYear = all.filter((s: any) =>
+          !s.academicYearId || s.academicYearId === this.selectedAcademicYearId);
+        this.recomputeFormSectionOptions();
+
+        // Also feed the Subject dropdown directly from this response so it
+        // surfaces all subjects the admin configured on the Subjects page —
+        // regardless of whether they were wired to a class yet.
+        this.applySubjectOptions(all
+          .filter((s: any) => !!(s.subjectId || s.id) && !!s.name)
+          .map((s: any) => ({ id: s.subjectId || s.id, name: s.name })));
+      },
+      error: () => {
+        this.allSubjectsForYear = [];
+        this.recomputeFormSectionOptions();
+      },
+    });
+  }
+
+  /** Direct uncached fetch from the same endpoint the Subjects sidenav page
+   *  uses. Populates the Subject dropdown immediately on page open. */
+  private loadSubjectsDirect(): void {
+    this.http.get<any>('/api/v1/subjects').subscribe({
+      next: (res: any) => {
+        const all = res?.data || [];
+        if (all.length > 0) {
+          this.applySubjectOptions(all
+            .filter((s: any) => !!(s.subjectId || s.id) && !!s.name)
+            .map((s: any) => ({ id: s.subjectId || s.id, name: s.name })));
+        }
+      },
+      error: () => { /* SubjectService subscription will fill in the fallback */ },
+    });
+  }
+
+  /** Merge a fresh list of subjects into formSubjectOptions, de-duping by id. */
+  private applySubjectOptions(list: { id: string; name: string }[]): void {
+    if (!list || list.length === 0) return;
+    const byId = new Map<string, string>();
+    for (const existing of this.formSubjectOptions) byId.set(existing.id, existing.name);
+    for (const s of list) if (s.id && s.name) byId.set(s.id, s.name);
+    this.formSubjectOptions = Array.from(byId.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   onFilterClassChange(): void {
@@ -240,28 +373,52 @@ export class TeacherAssignmentsComponent implements OnInit {
     }
     this.editingId = null;
     this.formTeacherId = '';
+    this.formClassIds = [];
+    this.formSectionIds = [];
+    this.formClassSectionKeys = [];
+    this.formClassSectionOptions = [];
+    this.classSectionSearch = '';
+    this.subjectSearch = '';
     this.formClassId = '';
     this.formSectionId = '';
     this.formSubjectId = '';
     this.formRoleClass = false;
     this.formRoleSubject = true;
+    this.classTeacherClassId = '';
+    this.classTeacherSectionId = '';
+    this.classTeacherSectionOptions = [];
     this.recomputeFormClassOptions();
+    // Build the (class × section) list for the whole AY right away — no
+    // dependency on first picking classes, since the classes dropdown is gone.
+    this.recomputeFormSectionOptions();
     this.formSectionOptions = [];
-    this.formSubjectOptions = [];
+    // DO NOT wipe formSubjectOptions here — it's populated by the
+    // SubjectService subscription + direct fetch in ngOnInit. Clearing it
+    // would leave the dropdown empty every time the admin opens the form.
+    // Re-fetch fresh so newly-added Subjects page entries appear.
+    this.loadSubjectsDirect();
     this.formOpen = true;
   }
 
   openEditForm(a: TeacherSubjectAssignment): void {
     this.editingId = a.assignmentId;
     this.formTeacherId = a.teacherId;
+    // In edit mode we stick to single-value. Mirror to the array fields
+    // so templates that read the multi-select still see the same value.
     this.formClassId = a.classId;
+    this.formClassIds = a.classId ? [a.classId] : [];
     this.formSectionId = a.sectionId || '';
+    this.formSectionIds = a.sectionId ? [a.sectionId] : [];
     this.formSubjectId = a.subjectId || '';
     this.formRoleClass = (a.roles || []).includes('CLASS_TEACHER');
     this.formRoleSubject = (a.roles || []).includes('SUBJECT_TEACHER');
+    // When editing a Class Teacher row, pre-fill the class-teacher pickers.
+    this.classTeacherClassId = this.formRoleClass ? a.classId : '';
+    this.classTeacherSectionId = this.formRoleClass ? (a.sectionId || '') : '';
     this.recomputeFormClassOptions();
     this.recomputeFormSectionOptions();
     this.recomputeFormSubjectOptions();
+    this.recomputeClassTeacherSectionOptions();
     this.formOpen = true;
   }
 
@@ -269,6 +426,38 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.formOpen = false;
     this.editingId = null;
   }
+
+  // ── Create-mode (multi) handlers ────────────────────────────────
+
+  onFormClassesChange(): void {
+    this.recomputeFormSectionOptions();
+    this.refreshFormSectionIdsFromKeys();
+    this.formSubjectId = '';
+    this.recomputeFormSubjectOptions();
+  }
+
+  /** Fires when the admin ticks/unticks a class×section pair in create mode.
+   *  Derives `formClassIds` and `formSectionIds` so subject narrowing still
+   *  works off the keys the admin actually picked. */
+  onFormClassSectionsChange(): void {
+    const classIds = new Set<string>();
+    const sectionIds = new Set<string>();
+    for (const key of this.formClassSectionKeys) {
+      const [cId, sId] = key.split('::');
+      if (cId) classIds.add(cId);
+      if (sId) sectionIds.add(sId);
+    }
+    this.formClassIds = Array.from(classIds);
+    this.formSectionIds = Array.from(sectionIds);
+    // Subject is picked FIRST in the new flow — do NOT clear it here.
+  }
+
+  onFormSectionsChange(): void {
+    this.formSubjectId = '';
+    this.recomputeFormSubjectOptions();
+  }
+
+  // ── Edit-mode (single) handlers ────────────────────────────────
 
   onFormClassChange(): void {
     this.formSectionId = '';
@@ -282,6 +471,25 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.recomputeFormSubjectOptions();
   }
 
+  // ── Class-Teacher-role picker handlers ─────────────────────────
+
+  onClassTeacherClassChange(): void {
+    // Section must belong to the newly-picked class.
+    this.classTeacherSectionId = '';
+    this.recomputeClassTeacherSectionOptions();
+  }
+
+  private recomputeClassTeacherSectionOptions(): void {
+    if (!this.classTeacherClassId) { this.classTeacherSectionOptions = []; return; }
+    const cls = this.classes.find(c => c.classId === this.classTeacherClassId);
+    if (!cls || !cls.sections) { this.classTeacherSectionOptions = []; return; }
+    this.classTeacherSectionOptions = cls.sections.map((s: any) => ({
+      sectionId: s.sectionId,
+      name: s.name,
+      subjectIds: s.subjectIds,
+    }));
+  }
+
   /** Strict filter: only classes created for the selected academic year. */
   private recomputeFormClassOptions(): void {
     if (!this.selectedAcademicYearId) {
@@ -293,72 +501,329 @@ export class TeacherAssignmentsComponent implements OnInit {
     );
   }
 
+  /** Build the searchable (class × section) list + the subject catalog.
+   *  Edit mode → single class's sections (for the legacy Section dropdown).
+   *  Create mode → every section of every class in the selected AY, plus
+   *    the subject-to-pair index used for filtering. */
   private recomputeFormSectionOptions(): void {
-    const cls = this.classes.find(c => c.classId === this.formClassId);
-    if (!cls || !cls.sections) { this.formSectionOptions = []; return; }
-    this.formSectionOptions = cls.sections.map((s: any) => ({
-      sectionId: s.sectionId,
-      name: s.name,
-      subjectIds: s.subjectIds,
-    }));
+    if (this.editingId) {
+      // Edit mode retains the original simple list.
+      const cls = this.classes.find(c => c.classId === this.formClassId);
+      if (!cls || !cls.sections) {
+        this.formSectionOptions = [];
+        this.formClassSectionOptions = [];
+        return;
+      }
+      this.formSectionOptions = (cls.sections as any[]).map(s => ({
+        sectionId: s.sectionId, name: s.name, subjectIds: s.subjectIds,
+      }));
+      this.formClassSectionOptions = [];
+      return;
+    }
+
+    // Create mode — one row per (class, section) pair across the whole year.
+    type Pair = {
+      key: string; classId: string; sectionId: string;
+      classLabel: string; sectionLabel: string; label: string; search: string;
+    };
+    const pairs: Pair[] = [];
+
+    // Build the pair grid from classes + their sections.
+    for (const cls of this.formClassOptions) {
+      if (!cls.sections) continue;
+      for (const sec of cls.sections as any[]) {
+        if (!sec.sectionId) continue;
+        const clsName = cls.name || '';
+        const secName = sec.name || '';
+        const label = `${clsName} — ${secName}`;
+        const key = `${cls.classId}::${sec.sectionId}`;
+        const search = [
+          clsName, secName,
+          `${clsName}${secName}`,
+          `${clsName} ${secName}`,
+          `${secName} ${clsName}`,
+          label,
+        ].join(' ').toLowerCase();
+        pairs.push({
+          key, classId: cls.classId, sectionId: sec.sectionId,
+          classLabel: clsName, sectionLabel: secName, label, search,
+        });
+      }
+    }
+
+    // ── Subject → pair-key index, merging BOTH sources ────────────
+    const subjectIndex = new Map<string, Set<string>>();
+
+    // Source 1: canonical Subject rows from the Subjects module.
+    //   Each row IS a (class, subject) record. Every section of that class
+    //   is treated as offering the subject.
+    const classIdToPairKeys = new Map<string, string[]>();
+    for (const p of pairs) {
+      if (!classIdToPairKeys.has(p.classId)) classIdToPairKeys.set(p.classId, []);
+      classIdToPairKeys.get(p.classId)!.push(p.key);
+    }
+    for (const subj of this.allSubjectsForYear) {
+      const sid = subj.subjectId || subj.id;
+      if (!sid || !subj.classId) continue;
+      const classPairKeys = classIdToPairKeys.get(subj.classId) || [];
+      if (classPairKeys.length === 0) continue;
+      if (!subjectIndex.has(sid)) subjectIndex.set(sid, new Set());
+      const bucket = subjectIndex.get(sid)!;
+      for (const k of classPairKeys) bucket.add(k);
+    }
+
+    // Source 2: section.subjectIds (legacy inline config on SchoolClass).
+    for (const cls of this.formClassOptions) {
+      if (!cls.sections) continue;
+      for (const sec of cls.sections as any[]) {
+        if (!sec.sectionId) continue;
+        const key = `${cls.classId}::${sec.sectionId}`;
+        for (const subjectId of (sec.subjectIds || [])) {
+          if (!subjectIndex.has(subjectId)) subjectIndex.set(subjectId, new Set());
+          subjectIndex.get(subjectId)!.add(key);
+        }
+      }
+    }
+
+    // Natural-number sort: "2 — A" before "10 — A".
+    pairs.sort((a, b) => {
+      const byClass = a.classLabel.localeCompare(b.classLabel, undefined, { numeric: true, sensitivity: 'base' });
+      if (byClass !== 0) return byClass;
+      return a.sectionLabel.localeCompare(b.sectionLabel, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    this.formClassSectionOptions = pairs;
+    this.subjectToPairKeys = subjectIndex;
+
+    // Keep only previously-selected keys that still exist.
+    const valid = new Set(pairs.map(p => p.key));
+    this.formClassSectionKeys = this.formClassSectionKeys.filter(k => valid.has(k));
+    this.formSectionOptions = [];
+
+    // Subject dropdown options are populated separately by the
+    // SubjectService subscription in ngOnInit — no need to rebuild here.
   }
 
-  private recomputeFormSubjectOptions(): void {
-    if (!this.formClassId) { this.formSubjectOptions = []; return; }
-    const cls = this.classes.find(c => c.classId === this.formClassId);
-    if (!cls) { this.formSubjectOptions = []; return; }
+  /** Free-text-filtered Subject dropdown options. */
+  get visibleSubjectOptions() {
+    const q = (this.subjectSearch || '').trim().toLowerCase();
+    if (!q) return this.formSubjectOptions;
+    return this.formSubjectOptions.filter(s => s.name.toLowerCase().includes(q));
+  }
+
+  /** Filtered view of the class-section dropdown:
+   *   1. narrow to pairs that teach the currently-selected subject (if any),
+   *   2. then apply the free-text search. */
+  get visibleClassSectionOptions() {
+    let pairs = this.formClassSectionOptions;
+    if (this.formSubjectId) {
+      const allowed = this.subjectToPairKeys.get(this.formSubjectId) || new Set<string>();
+      pairs = pairs.filter(p => allowed.has(p.key));
+    }
+    const q = (this.classSectionSearch || '').trim().toLowerCase();
+    if (!q) return pairs;
+    return pairs.filter(p => p.search.includes(q));
+  }
+
+  labelForKey(key: string): string {
+    const hit = this.formClassSectionOptions.find(p => p.key === key);
+    if (hit) return hit.label;
+    // Fallback: resolve from raw classes (in case options haven't rebuilt yet).
+    const [classId, sectionId] = key.split('::');
+    const cls = this.classes.find(c => c.classId === classId);
+    const sec = (cls?.sections || []).find((s: any) => s.sectionId === sectionId);
+    return cls ? `${cls.name}${(sec as any)?.name ? ' — ' + (sec as any).name : ''}` : key;
+  }
+
+  /** Toggle a pair's selection — used by chip removal + keyboard handlers. */
+  toggleKey(key: string): void {
+    const i = this.formClassSectionKeys.indexOf(key);
+    if (i === -1) this.formClassSectionKeys = [...this.formClassSectionKeys, key];
+    else this.formClassSectionKeys = this.formClassSectionKeys.filter(k => k !== key);
+    this.onFormClassSectionsChange();
+  }
+
+  /** Recompute section-id list from the currently-selected class×section keys. */
+  private refreshFormSectionIdsFromKeys(): void {
     const ids = new Set<string>();
-    (cls.sections || []).forEach((sec: any) => {
-      if (this.formSectionId && sec.sectionId !== this.formSectionId) return;
-      (sec.subjectIds || []).forEach((id: string) => ids.add(id));
-    });
-    this.formSubjectOptions = Array.from(ids).map(id => ({
-      id,
-      name: this.subjectService.getSubjectName(id),
-    }));
+    for (const key of this.formClassSectionKeys) {
+      const parts = key.split('::');
+      if (parts.length === 2 && parts[1]) ids.add(parts[1]);
+    }
+    this.formSectionIds = Array.from(ids);
+  }
+
+  /** Edit mode: leave the Subject dropdown showing the full catalog
+   *  populated by the SubjectService subscription. Don't narrow by
+   *  class/section here — that caused blank dropdowns when the inline
+   *  section.subjectIds wasn't configured. */
+  private recomputeFormSubjectOptions(): void {
+    // No-op: formSubjectOptions is owned by the SubjectService-driven path.
+  }
+
+  /** Create mode: when the admin changes the Subject, prune any previously-
+   *  picked pair that doesn't teach the new subject. */
+  onFormSubjectChange(): void {
+    if (this.editingId) return;
+    if (!this.formSubjectId) return; // showing all pairs
+    const allowed = this.subjectToPairKeys.get(this.formSubjectId) || new Set<string>();
+    this.formClassSectionKeys = this.formClassSectionKeys.filter(k => allowed.has(k));
+    // Keep the derived arrays in sync for the save loop.
+    const classIds = new Set<string>();
+    const sectionIds = new Set<string>();
+    for (const key of this.formClassSectionKeys) {
+      const [cId, sId] = key.split('::');
+      if (cId) classIds.add(cId);
+      if (sId) sectionIds.add(sId);
+    }
+    this.formClassIds = Array.from(classIds);
+    this.formSectionIds = Array.from(sectionIds);
   }
 
   saveForm(): void {
-    if (!this.formTeacherId || !this.formClassId || !this.selectedAcademicYearId) {
-      this.snackBar.open('Select teacher, class and year.', 'Close', { duration: 2500 });
+    if (!this.formTeacherId || !this.selectedAcademicYearId) {
+      this.snackBar.open('Select teacher and academic year.', 'Close', { duration: 2500 });
       return;
     }
-    const roles: TeacherAssignmentRole[] = [];
-    if (this.formRoleClass) roles.push('CLASS_TEACHER');
-    if (this.formRoleSubject) roles.push('SUBJECT_TEACHER');
-    if (roles.length === 0) {
+    if (this.formRoleSubject === false && this.formRoleClass === false) {
       this.snackBar.open('Pick at least one role.', 'Close', { duration: 2500 });
+      return;
+    }
+
+    // ── Edit mode: single row, single class + section ─────────────
+    if (this.editingId) {
+      if (!this.formClassId) {
+        this.snackBar.open('Select a class.', 'Close', { duration: 2500 });
+        return;
+      }
+      if (this.formRoleSubject && !this.formSubjectId) {
+        this.snackBar.open('Subject Teacher role needs a subject.', 'Close', { duration: 2500 });
+        return;
+      }
+      const roles: TeacherAssignmentRole[] = [];
+      if (this.formRoleClass) roles.push('CLASS_TEACHER');
+      if (this.formRoleSubject) roles.push('SUBJECT_TEACHER');
+      const req: CreateTeacherAssignmentRequest = {
+        teacherId: this.formTeacherId,
+        academicYearId: this.selectedAcademicYearId,
+        classId: this.formClassId,
+        sectionId: this.formSectionId || undefined,
+        subjectId: this.formSubjectId || undefined,
+        roles,
+      };
+      this.isSaving = true;
+      this.api.updateTeacherAssignment(this.editingId, req).subscribe({
+        next: () => {
+          this.isSaving = false;
+          this.snackBar.open('Assignment updated', 'Close', { duration: 2000 });
+          this.closeForm();
+          this.loadAssignments();
+        },
+        error: (err) => {
+          this.isSaving = false;
+          this.snackBar.open(err?.error?.message || 'Failed to save assignment', 'Close', { duration: 3000 });
+        },
+      });
+      return;
+    }
+
+    // ── Create mode: multi-select → many assignments ──────────────
+    if (this.formClassIds.length === 0) {
+      this.snackBar.open('Select at least one class.', 'Close', { duration: 2500 });
       return;
     }
     if (this.formRoleSubject && !this.formSubjectId) {
       this.snackBar.open('Subject Teacher role needs a subject.', 'Close', { duration: 2500 });
       return;
     }
+    // When Class Teacher is ticked, the admin MUST choose exactly one class + section
+    // (a class teacher by definition owns a single section).
+    if (this.formRoleClass) {
+      if (!this.classTeacherClassId || !this.classTeacherSectionId) {
+        this.snackBar.open('Pick the class and section for the Class Teacher role.', 'Close', { duration: 3000 });
+        return;
+      }
+    }
 
-    const req: CreateTeacherAssignmentRequest = {
-      teacherId: this.formTeacherId,
-      academicYearId: this.selectedAcademicYearId,
-      classId: this.formClassId,
-      sectionId: this.formSectionId || undefined,
-      subjectId: this.formSubjectId || undefined,
-      roles,
-    };
+    const requests: CreateTeacherAssignmentRequest[] = [];
+    // Build one SUBJECT_TEACHER row per explicitly-picked (class × section) pair.
+    if (this.formRoleSubject) {
+      if (this.formClassSectionKeys.length > 0) {
+        for (const key of this.formClassSectionKeys) {
+          const [classId, sectionId] = key.split('::');
+          if (!classId || !sectionId) continue;
+          requests.push({
+            teacherId: this.formTeacherId,
+            academicYearId: this.selectedAcademicYearId,
+            classId,
+            sectionId,
+            subjectId: this.formSubjectId || undefined,
+            roles: ['SUBJECT_TEACHER'],
+          });
+        }
+      } else {
+        // No section picked at all — apply to each class as "whole class".
+        for (const classId of this.formClassIds) {
+          requests.push({
+            teacherId: this.formTeacherId,
+            academicYearId: this.selectedAcademicYearId,
+            classId,
+            sectionId: undefined,
+            subjectId: this.formSubjectId || undefined,
+            roles: ['SUBJECT_TEACHER'],
+          });
+        }
+      }
+    }
+    // One CLASS_TEACHER row (single class + section), if requested.
+    if (this.formRoleClass) {
+      requests.push({
+        teacherId: this.formTeacherId,
+        academicYearId: this.selectedAcademicYearId,
+        classId: this.classTeacherClassId,
+        sectionId: this.classTeacherSectionId,
+        subjectId: undefined,
+        roles: ['CLASS_TEACHER'],
+      });
+    }
+
+    if (requests.length === 0) {
+      this.snackBar.open('Nothing to save — check class/section selections.', 'Close', { duration: 3000 });
+      return;
+    }
+
     this.isSaving = true;
-    const obs = this.editingId
-      ? this.api.updateTeacherAssignment(this.editingId, req)
-      : this.api.createTeacherAssignment(req);
-    obs.subscribe({
-      next: () => {
-        this.isSaving = false;
-        this.snackBar.open(this.editingId ? 'Assignment updated' : 'Assignment created', 'Close', { duration: 2000 });
-        this.closeForm();
-        this.loadAssignments();
-      },
-      error: (err) => {
-        this.isSaving = false;
-        this.snackBar.open(err?.error?.message || 'Failed to save assignment', 'Close', { duration: 3000 });
-      },
+    let completed = 0;
+    let successCount = 0;
+    const errors: string[] = [];
+    requests.forEach(req => {
+      this.api.createTeacherAssignment(req).subscribe({
+        next: () => {
+          successCount++;
+          this.maybeFinishSave(++completed, requests.length, successCount, errors);
+        },
+        error: (err) => {
+          errors.push(err?.error?.message || 'Save failed');
+          this.maybeFinishSave(++completed, requests.length, successCount, errors);
+        },
+      });
     });
+  }
+
+  private maybeFinishSave(completed: number, total: number, successCount: number, errors: string[]): void {
+    if (completed < total) return;
+    this.isSaving = false;
+    if (errors.length === 0) {
+      this.snackBar.open(`Created ${successCount} assignment${successCount === 1 ? '' : 's'}`,
+        'Close', { duration: 2500 });
+    } else if (successCount > 0) {
+      this.snackBar.open(
+        `Created ${successCount}, ${errors.length} failed. ${errors[0]}`,
+        'Close', { duration: 4000 });
+    } else {
+      this.snackBar.open(errors[0] || 'Failed to create assignments', 'Close', { duration: 3500 });
+    }
+    this.closeForm();
+    this.loadAssignments();
   }
 
   // ── Delete ─────────────────────────────────────────────────────────

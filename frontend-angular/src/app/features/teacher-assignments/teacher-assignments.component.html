@@ -151,22 +151,97 @@
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
+        <!-- Create mode: Subject first (searchable), then Classes & Sections
+             narrow by subject. Subjects come from the same source as the
+             admin "Subjects" sidenav page (SubjectService). -->
+        <mat-form-field appearance="outline" *ngIf="!editingId">
+          <mat-label>Subject</mat-label>
+          <mat-select [(ngModel)]="formSubjectId"
+                      (selectionChange)="onFormSubjectChange()"
+                      (openedChange)="$event ? null : (subjectSearch = '')">
+            <div class="select-search" (click)="$event.stopPropagation()">
+              <mat-icon>search</mat-icon>
+              <input type="text"
+                     placeholder="Search subject…"
+                     [(ngModel)]="subjectSearch"
+                     (click)="$event.stopPropagation()"
+                     (keydown)="$event.stopPropagation()"
+                     autocomplete="off">
+              <button mat-icon-button
+                      *ngIf="subjectSearch"
+                      type="button"
+                      (click)="subjectSearch = ''; $event.stopPropagation()">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+
+            <mat-option value="">No subject (for Class Teacher only)</mat-option>
+            <mat-option *ngFor="let s of visibleSubjectOptions" [value]="s.id">{{ s.name }}</mat-option>
+
+            <div *ngIf="visibleSubjectOptions.length === 0 && subjectSearch" class="select-empty">
+              No matches
+            </div>
+          </mat-select>
+          <mat-hint>Pick the subject first — below list narrows to where it's taught</mat-hint>
+        </mat-form-field>
+
+        <!-- Create mode: ONE searchable multi-select for (class × section) pairs
+             where the selected subject is taught. -->
+        <mat-form-field appearance="outline" class="span-2" *ngIf="!editingId">
+          <mat-label>Classes & Sections</mat-label>
+          <mat-select multiple
+                      [(ngModel)]="formClassSectionKeys"
+                      (selectionChange)="onFormClassSectionsChange()"
+                      (openedChange)="$event ? null : (classSectionSearch = '')">
+            <!-- Sticky search bar inside the panel -->
+            <div class="select-search"
+                 (click)="$event.stopPropagation()">
+              <mat-icon>search</mat-icon>
+              <input type="text"
+                     placeholder="Search class or section…"
+                     [(ngModel)]="classSectionSearch"
+                     (click)="$event.stopPropagation()"
+                     (keydown)="$event.stopPropagation()"
+                     autocomplete="off">
+              <button mat-icon-button
+                      *ngIf="classSectionSearch"
+                      type="button"
+                      (click)="classSectionSearch = ''; $event.stopPropagation()">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+
+            <mat-option *ngFor="let p of visibleClassSectionOptions" [value]="p.key">
+              {{ p.label }}
+            </mat-option>
+
+            <div *ngIf="visibleClassSectionOptions.length === 0" class="select-empty">
+              <ng-container *ngIf="formSubjectId">
+                No class has this subject configured
+              </ng-container>
+              <ng-container *ngIf="!formSubjectId">No matches</ng-container>
+            </div>
+          </mat-select>
+          <mat-hint *ngIf="formSubjectId && formClassSectionKeys.length === 0">
+            Pick one or more class-section pairs where this teacher handles the subject
+          </mat-hint>
+        </mat-form-field>
+
+        <!-- Edit mode: single class + single section + single subject. -->
+        <mat-form-field appearance="outline" *ngIf="editingId">
           <mat-label>Class</mat-label>
           <mat-select [(ngModel)]="formClassId" (selectionChange)="onFormClassChange()">
             <mat-option *ngFor="let c of formClassOptions" [value]="c.classId">{{ c.name }}</mat-option>
           </mat-select>
         </mat-form-field>
-
-        <mat-form-field appearance="outline">
+        <mat-form-field appearance="outline" *ngIf="editingId">
           <mat-label>Section (optional)</mat-label>
           <mat-select [(ngModel)]="formSectionId" [disabled]="!formClassId" (selectionChange)="onFormSectionChange()">
             <mat-option value="">Any / Whole class</mat-option>
             <mat-option *ngFor="let s of formSectionOptions" [value]="s.sectionId">{{ s.name }}</mat-option>
           </mat-select>
         </mat-form-field>
-
-        <mat-form-field appearance="outline">
+        <mat-form-field appearance="outline" *ngIf="editingId">
           <mat-label>Subject</mat-label>
           <mat-select [(ngModel)]="formSubjectId" [disabled]="!formClassId">
             <mat-option value="">No subject (for Class Teacher only)</mat-option>
@@ -179,6 +254,32 @@
         <label class="roles-label">Roles</label>
         <mat-checkbox [(ngModel)]="formRoleClass">Class Teacher</mat-checkbox>
         <mat-checkbox [(ngModel)]="formRoleSubject">Subject Teacher</mat-checkbox>
+      </div>
+
+      <!-- Class Teacher role — requires a specific class + section -->
+      <div class="class-teacher-panel" *ngIf="formRoleClass && !editingId">
+        <div class="panel-title">
+          <mat-icon class="mini">school</mat-icon>
+          Class Teacher assignment
+        </div>
+        <p class="panel-hint">
+          A class teacher owns one section. Pick which class and section this teacher is responsible for.
+        </p>
+        <div class="grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Class</mat-label>
+            <mat-select [(ngModel)]="classTeacherClassId" (selectionChange)="onClassTeacherClassChange()">
+              <mat-option *ngFor="let c of formClassOptions" [value]="c.classId">{{ c.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Section</mat-label>
+            <mat-select [(ngModel)]="classTeacherSectionId" [disabled]="!classTeacherClassId">
+              <mat-option *ngFor="let s of classTeacherSectionOptions" [value]="s.sectionId">{{ s.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
       </div>
 
       <div class="dialog-actions">
