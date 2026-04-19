@@ -30,6 +30,9 @@ import {
   TeacherSubjectAssignment,
   CreateTeacherAssignmentRequest,
   CarryForwardAssignmentsRequest,
+  CarryForwardResult,
+  MyClassStudentsResponse,
+  StudentProfileSummary,
   StudentFeeLedger,
   AppendPaymentRequest,
   UpdateLedgerPaymentRequest,
@@ -104,6 +107,19 @@ export class ApiService {
 
   getStudentById(studentId: string): Observable<ApiResponse<Student>> {
     return this.http.get<ApiResponse<Student>>(`${this.API}/students/${studentId}`);
+  }
+
+  /** Teacher's "My Students" page — one call, backend does all the work. */
+  getMyClassStudents(): Observable<ApiResponse<MyClassStudentsResponse>> {
+    return this.http.get<ApiResponse<MyClassStudentsResponse>>(`${this.API}/students/my-class`);
+  }
+
+  /** Attendance + exam summary for one student for a given academic year. */
+  getStudentProfileSummary(studentId: string, academicYearId?: string): Observable<ApiResponse<StudentProfileSummary>> {
+    let params = new HttpParams();
+    if (academicYearId) params = params.set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<StudentProfileSummary>>(
+      `${this.API}/students/${studentId}/profile-summary`, { params });
   }
 
   createStudent(student: Partial<Student>): Observable<ApiResponse<Student>> {
@@ -214,6 +230,12 @@ export class ApiService {
     let params = new HttpParams().set('classId', classId).set('sectionId', sectionId).set('date', date);
     if (academicYearId) params = params.set('academicYearId', academicYearId);
     return this.http.get<ApiResponse<any[]>>(`${this.API}/attendance/timetable-periods`, { params });
+  }
+
+  /** Returns all attendance batch docs for a class+section+date (day-wise + every period). */
+  getBatchAttendance(classId: string, sectionId: string, date: string): Observable<ApiResponse<any[]>> {
+    const params = new HttpParams().set('sectionId', sectionId).set('date', date);
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/attendance/batch/class/${classId}`, { params });
   }
 
   getClassAttendance(classId: string, sectionId: string, date: string): Observable<ApiResponse<any>> {
@@ -801,8 +823,8 @@ export class ApiService {
     return this.http.delete<ApiResponse<void>>(`${this.API}/teacher-assignments/${assignmentId}`);
   }
 
-  carryForwardTeacherAssignments(req: CarryForwardAssignmentsRequest): Observable<ApiResponse<{ copied: number; fromAcademicYearId: string; toAcademicYearId: string }>> {
-    return this.http.post<ApiResponse<{ copied: number; fromAcademicYearId: string; toAcademicYearId: string }>>(
+  carryForwardTeacherAssignments(req: CarryForwardAssignmentsRequest): Observable<ApiResponse<CarryForwardResult>> {
+    return this.http.post<ApiResponse<CarryForwardResult>>(
       `${this.API}/teacher-assignments/carry-forward`, req);
   }
 

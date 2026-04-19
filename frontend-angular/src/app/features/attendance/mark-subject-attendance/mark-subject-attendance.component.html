@@ -62,15 +62,19 @@
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Class</mat-label>
           <mat-select [(ngModel)]="selectedClassId" [disabled]="!selectedAcademicYearId" (selectionChange)="onClassChange()">
+            <mat-option value="ALL">All Classes</mat-option>
             <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
           </mat-select>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Section</mat-label>
-          <mat-select [(ngModel)]="selectedSectionId" [disabled]="!selectedClassId" (selectionChange)="onSectionOrDateChange()">
+          <mat-select [(ngModel)]="selectedSectionId"
+                      [disabled]="!selectedClassId || selectedClassId === 'ALL'"
+                      (selectionChange)="onSectionOrDateChange()">
             <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">{{ sec.name }}</mat-option>
           </mat-select>
+          <mat-hint *ngIf="selectedClassId === 'ALL'">Showing periods across all classes</mat-hint>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="filter-field" *ngIf="!isTeacherMode">
@@ -95,7 +99,7 @@
 
   <!-- Step 2: Period Cards from Timetable -->
   <div class="periods-section"
-       *ngIf="!isHoliday && (isTeacherMode ? autoLoadAttempted : (selectedClassId && selectedSectionId))">
+       *ngIf="!isHoliday && (isTeacherMode ? autoLoadAttempted : (selectedClassId === 'ALL' || (selectedClassId && selectedSectionId)))">
     <h3 class="section-title">
       <mat-icon>schedule</mat-icon>
       {{ isTeacherMode && !showFilters ? 'Your Periods' : "Today's Periods (from Timetable)" }}
@@ -111,20 +115,30 @@
            [class.marked]="p.marked"
            [class.locked]="isPeriodLocked(idx)"
            (click)="!isPeriodLocked(idx) && selectPeriod(p)">
-        <div class="period-number">Period {{ p.periodNumber }}</div>
+
+        <div class="period-card-top">
+          <div class="period-number">Period {{ p.periodNumber }}</div>
+          <span class="top-marked-pill" *ngIf="p.marked">
+            <mat-icon>check_circle</mat-icon> Marked
+          </span>
+        </div>
+
+        <div class="period-class-line" *ngIf="periodClassLabel(p)">
+          <mat-icon class="small-icon">class</mat-icon>
+          <strong>{{ periodClassLabel(p) }}</strong>
+        </div>
+
         <div class="period-time">{{ p.startTime }} - {{ p.endTime }}</div>
         <div class="period-subject">{{ p.subjectName }}</div>
-        <div class="period-class-pill" *ngIf="isTeacherMode && p.className">
-          <mat-icon class="small-icon">class</mat-icon>
-          {{ p.className }}<span *ngIf="p.sectionName"> · {{ p.sectionName }}</span>
-        </div>
+
         <div class="period-teacher" *ngIf="!isTeacherMode">
           <mat-icon class="small-icon">person</mat-icon>
           {{ p.teacherName || '-' }}
         </div>
+
         <div class="period-status marked-status" *ngIf="p.marked">
-          <mat-icon class="check-icon">check_circle</mat-icon>
-          Marked ({{ p.studentCount }})
+          <mat-icon class="check-icon">edit</mat-icon>
+          {{ p.studentCount }} student{{ p.studentCount === 1 ? '' : 's' }} · click to update
         </div>
         <div class="period-status locked-status" *ngIf="isPeriodLocked(idx) && !p.marked">
           <mat-icon class="lock-icon">lock</mat-icon>
@@ -148,6 +162,10 @@
           <strong>Period {{ selectedPeriod.periodNumber }}: {{ selectedPeriod.subjectName }}</strong>
           <span class="teacher-info" *ngIf="selectedPeriod.className">{{ selectedPeriod.className }}<span *ngIf="selectedPeriod.sectionName"> · {{ selectedPeriod.sectionName }}</span></span>
           <span class="teacher-info" *ngIf="!isTeacherMode">Teacher: {{ selectedPeriod.teacherName || '-' }}</span>
+          <span class="already-marked-chip" *ngIf="isAlreadyMarked">
+            <mat-icon>check_circle</mat-icon>
+            Already marked — editing
+          </span>
         </div>
         <div class="actions-row">
           <div class="quick-actions">
@@ -221,8 +239,8 @@
     <div class="save-section" *ngIf="students.length > 0">
       <button mat-flat-button class="save-btn" (click)="saveAttendance()" [disabled]="isSaving">
         <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
-        <mat-icon *ngIf="!isSaving">save</mat-icon>
-        {{ isSaving ? 'Saving...' : 'Save Attendance' }}
+        <mat-icon *ngIf="!isSaving">{{ isAlreadyMarked ? 'edit' : 'save' }}</mat-icon>
+        {{ isSaving ? 'Saving...' : (isAlreadyMarked ? 'Update Attendance' : 'Save Attendance') }}
       </button>
     </div>
   </div>

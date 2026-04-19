@@ -3,6 +3,8 @@ package com.saas.school.modules.teacher.service;
 import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.modules.academicyear.model.AcademicYear;
 import com.saas.school.modules.academicyear.repository.AcademicYearRepository;
+import com.saas.school.modules.classes.model.SchoolClass;
+import com.saas.school.modules.classes.repository.SchoolClassRepository;
 import com.saas.school.modules.teacher.dto.CarryForwardAssignmentsRequest;
 import com.saas.school.modules.teacher.dto.CreateTeacherAssignmentRequest;
 import com.saas.school.modules.teacher.model.Teacher;
@@ -31,6 +33,7 @@ public class TeacherSubjectAssignmentService {
     @Autowired private TeacherSubjectAssignmentRepository repo;
     @Autowired private TeacherRepository teacherRepo;
     @Autowired private AcademicYearRepository academicYearRepo;
+    @Autowired private SchoolClassRepository schoolClassRepo;
 
     // ── CRUD ─────────────────────────────────────────────────────────
 
@@ -168,49 +171,186 @@ public class TeacherSubjectAssignmentService {
 
     // ── Year rollover ────────────────────────────────────────────────
 
-    public int carryForward(CarryForwardAssignmentsRequest req) {
-        if (req.getFromAcademicYearId() == null || req.getToAcademicYearId() == null) {
-            throw new IllegalArgumentException("fromAcademicYearId and toAcademicYearId are required");
+    public CarryForwardResult carryForward(CarryForwardAssignmentsRequest req) {
+        // ── 1. Validate input ─────────────────────────────────────────
+        if (req.getFromAcademicYearId() == null || req.getFromAcademicYearId().isBlank()
+                || req.getToAcademicYearId() == null || req.getToAcademicYearId().isBlank()) {
+            throw new IllegalArgumentException("Both source and target academic years are required.");
         }
         if (req.getFromAcademicYearId().equals(req.getToAcademicYearId())) {
-            throw new IllegalArgumentException("Source and target academic years must be different");
+            throw new IllegalArgumentException("Source and target academic years must be different.");
+        }
+        AcademicYear fromYear = academicYearRepo.findById(req.getFromAcademicYearId())
+                .orElseThrow(() -> new IllegalArgumentException("Source academic year not found."));
+        AcademicYear toYear = academicYearRepo.findById(req.getToAcademicYearId())
+                .orElseThrow(() -> new IllegalArgumentException("Target academic year not found."));
+
+        // ── 2. Target year MUST have classes — otherwise the copy is pointless ──
+        List<SchoolClass> toClasses = schoolClassRepo.findAll().stream()
+                .filter(c -> req.getToAcademicYearId().equals(c.getAcademicYearId()))
+                .toList();
+        if (toClasses.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "No classes have been created for " + toYear.getLabel() + " yet. "
+                  + "Open the Classes page and create classes for the target year first.");
         }
 
+        // ── 3. Source year must have assignments to copy ──────────────
         List<TeacherSubjectAssignment> source = repo.findByAcademicYearId(req.getFromAcademicYearId());
+        if (source.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "No assignments exist for " + fromYear.getLabel() + " to carry forward.");
+        }
+
+        // ── 4. Build name-based maps so IDs from the old year map to IDs in the new year ──
+        Map<String, SchoolClass> fromClassById = new HashMap<>();
+        for (SchoolClass c : schoolClassRepo.findAll()) {
+            if (req.getFromAcademicYearId().equals(c.getAcademicYearId())) {
+                fromClassById.put(c.getClassId(), c);
+            }
+        }
+        Map<String, SchoolClass> toClassByName = new HashMap<>();
+        for (SchoolClass c : toClasses) {
+            if (c.getName() != null) toClassByName.put(normalize(c.getName()), c);
+        }
+
         Set<String> teacherFilter = req.getTeacherIds() == null ? null : new HashSet<>(req.getTeacherIds());
 
-        int copied = 0;
+        CarryForwardResult result = new CarryForwardResult();
+        result.fromYearLabel = fromYear.getLabel();
+        result.toYearLabel = toYear.getLabel();
+        List<String> warnings = new ArrayList<>();
+
+        // ── 5. Walk each source assignment, remap ids, skip/report missing pieces ──
         for (TeacherSubjectAssignment src : source) {
             if (src.getStatus() == TeacherSubjectAssignment.Status.ARCHIVED) continue;
             if (teacherFilter != null && !teacherFilter.contains(src.getTeacherId())) continue;
+            result.scanned++;
 
+            SchoolClass oldCls = fromClassById.get(src.getClassId());
+            if (oldCls == null || oldCls.getName() == null) {
+                result.skippedMissingClass++;
+                warnings.add("Source class missing for teacher " + src.getTeacherId() + "; skipped.");
+                continue;
+            }
+            SchoolClass newCls = toClassByName.get(normalize(oldCls.getName()));
+            if (newCls == null) {
+                result.skippedNoMatchingClass++;
+                warnings.add("No class named \"" + oldCls.getName() + "\" in " + toYear.getLabel()
+                        + "; skipped " + src.getTeacherId() + ".");
+                continue;
+            }
+
+            // Map section by name.
+            String newSectionId = null;
+            String oldSectionName = null;
+            if (src.getSectionId() != null && oldCls.getSections() != null) {
+                for (SchoolClass.Section s : oldCls.getSections()) {
+                    if (src.getSectionId().equals(s.getSectionId())) {
+                        oldSectionName = s.getName();
+                        break;
+                    }
+                }
+            }
+            if (oldSectionName != null && newCls.getSections() != null) {
+                for (SchoolClass.Section s : newCls.getSections()) {
+                    if (oldSectionName.equalsIgnoreCase(s.getName())) {
+                        newSectionId = s.getSectionId();
+                        break;
+                    }
+                }
+            }
+            if (src.getSectionId() != null && newSectionId == null) {
+                result.skippedNoMatchingSection++;
+                warnings.add("No section \"" + oldSectionName + "\" in class \"" + newCls.getName()
+                        + "\" for " + toYear.getLabel() + "; skipped.");
+                continue;
+            }
+
+            // Subject must exist in the new class's sections (if section exists) or class-level subject list.
+            String newSubjectId = src.getSubjectId();
+            if (newSubjectId != null && newSectionId != null) {
+                final String effectiveSectionId = newSectionId;
+                SchoolClass.Section targetSec = newCls.getSections().stream()
+                        .filter(s -> effectiveSectionId.equals(s.getSectionId()))
+                        .findFirst().orElse(null);
+                if (targetSec != null) {
+                    List<String> subs = targetSec.getSubjectIds();
+                    if (subs == null || !subs.contains(newSubjectId)) {
+                        // Subject id from the old year's section doesn't exist on the new section.
+                        result.skippedNoMatchingSubject++;
+                        warnings.add("Subject not configured on new section for teacher "
+                                + src.getTeacherId() + "; skipped.");
+                        continue;
+                    }
+                }
+            }
+
+            // Dedupe.
             if (req.isSkipExisting()) {
                 Optional<TeacherSubjectAssignment> dup = repo
                         .findByTeacherIdAndAcademicYearIdAndClassIdAndSectionIdAndSubjectId(
                                 src.getTeacherId(), req.getToAcademicYearId(),
-                                src.getClassId(), src.getSectionId(), src.getSubjectId());
-                if (dup.isPresent()) continue;
+                                newCls.getClassId(), newSectionId, newSubjectId);
+                if (dup.isPresent()) {
+                    result.skippedDuplicate++;
+                    continue;
+                }
             }
 
             TeacherSubjectAssignment a = new TeacherSubjectAssignment();
             a.setAssignmentId(UUID.randomUUID().toString());
             a.setTeacherId(src.getTeacherId());
             a.setAcademicYearId(req.getToAcademicYearId());
-            a.setClassId(src.getClassId());
-            a.setSectionId(src.getSectionId());
-            a.setSubjectId(src.getSubjectId());
+            a.setClassId(newCls.getClassId());
+            a.setSectionId(newSectionId);
+            a.setSubjectId(newSubjectId);
             a.setRoles(new HashSet<>(src.getRoles() == null ? Set.of(Role.SUBJECT_TEACHER) : src.getRoles()));
             a.setStatus(TeacherSubjectAssignment.Status.ACTIVE);
             try {
                 repo.save(a);
-                copied++;
+                result.copied++;
             } catch (Exception ex) {
-                logger.warn("carryForward: skipped duplicate for teacher={} class={} subject={} — {}",
-                        src.getTeacherId(), src.getClassId(), src.getSubjectId(), ex.getMessage());
+                result.skippedDuplicate++;
+                logger.warn("carryForward: save race skipped — {}", ex.getMessage());
             }
         }
-        logger.info("carryForward: copied {} assignments from {} → {}", copied,
-                req.getFromAcademicYearId(), req.getToAcademicYearId());
-        return copied;
+
+        result.warnings = warnings;
+        logger.info("carryForward: from={} to={} scanned={} copied={} skipped(class={}, section={}, subject={}, dup={}, missingClass={})",
+                fromYear.getLabel(), toYear.getLabel(),
+                result.scanned, result.copied,
+                result.skippedNoMatchingClass, result.skippedNoMatchingSection,
+                result.skippedNoMatchingSubject, result.skippedDuplicate, result.skippedMissingClass);
+        return result;
+    }
+
+    private static String normalize(String s) {
+        return s == null ? "" : s.trim().toLowerCase();
+    }
+
+    /** Detailed result shape returned to the UI. */
+    public static class CarryForwardResult {
+        public String fromYearLabel;
+        public String toYearLabel;
+        public int scanned;
+        public int copied;
+        public int skippedDuplicate;
+        public int skippedNoMatchingClass;
+        public int skippedNoMatchingSection;
+        public int skippedNoMatchingSubject;
+        public int skippedMissingClass;
+        public List<String> warnings = new ArrayList<>();
+
+        public String getFromYearLabel() { return fromYearLabel; }
+        public String getToYearLabel() { return toYearLabel; }
+        public int getScanned() { return scanned; }
+        public int getCopied() { return copied; }
+        public int getSkippedDuplicate() { return skippedDuplicate; }
+        public int getSkippedNoMatchingClass() { return skippedNoMatchingClass; }
+        public int getSkippedNoMatchingSection() { return skippedNoMatchingSection; }
+        public int getSkippedNoMatchingSubject() { return skippedNoMatchingSubject; }
+        public int getSkippedMissingClass() { return skippedMissingClass; }
+        public List<String> getWarnings() { return warnings; }
     }
 }

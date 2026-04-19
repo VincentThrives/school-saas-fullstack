@@ -578,6 +578,13 @@ export const routes: Routes = [
         data: { roles: [UserRole.TEACHER, UserRole.PRINCIPAL], title: 'My Students' },
       },
       {
+        path: 'my-students/:studentId',
+        loadComponent: () =>
+          import('./features/students/student-detail/student-detail.component').then(m => m.StudentDetailComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.TEACHER, UserRole.PRINCIPAL, UserRole.SCHOOL_ADMIN], title: 'Student Detail' },
+      },
+      {
         path: 'mentoring',
         loadComponent: () =>
           import('./features/placeholder/placeholder.component').then(m => m.PlaceholderComponent),

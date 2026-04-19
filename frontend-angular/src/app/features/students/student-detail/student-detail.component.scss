@@ -1,0 +1,286 @@
+.student-detail-container { padding: 0; }
+
+.back-bar {
+  margin-bottom: 12px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.empty-card {
+  text-align: center;
+  padding: 48px;
+  border-radius: 14px !important;
+
+  .empty-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: rgba(0, 0, 0, 0.2);
+    margin-bottom: 10px;
+  }
+  h3 { margin: 4px 0; }
+  p { color: rgba(0, 0, 0, 0.55); margin-bottom: 16px; }
+}
+
+/* ─── Student header ─── */
+.student-header-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px !important;
+  border-radius: 14px !important;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #fff8e7 0%, #ffffff 60%);
+}
+
+.student-header-left {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.student-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d4a843 0%, #b8860b 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(212, 168, 67, 0.3);
+}
+
+.student-name {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.student-meta {
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+
+  code {
+    background: rgba(212, 168, 67, 0.12);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+}
+
+.student-parent {
+  margin-top: 4px;
+  font-size: 0.82rem;
+  color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  .mini { font-size: 16px; width: 16px; height: 16px; }
+}
+
+/* ─── Attendance ring on the right of header ─── */
+.attendance-ring {
+  min-width: 110px;
+  text-align: center;
+  padding: 14px 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, #fafafa 100%);
+  border: 4px solid #2e7d32;
+
+  .ring-value {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #2e7d32;
+  }
+  .ring-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(0, 0, 0, 0.5);
+  }
+
+  &.pct-warn {
+    border-color: #f9a825;
+    .ring-value { color: #f9a825; }
+  }
+  &.pct-bad {
+    border-color: #d32f2f;
+    .ring-value { color: #d32f2f; }
+  }
+}
+
+/* ─── Tabs ─── */
+.detail-tabs {
+  background: transparent;
+}
+
+.tab-icon {
+  margin-right: 6px;
+  vertical-align: middle;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.tab-content {
+  padding: 16px 0;
+}
+
+/* ─── Stats grid ─── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px !important;
+  border-radius: 12px !important;
+}
+
+.stat-icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+  padding: 8px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.04);
+}
+.stat-present { color: #2e7d32; background: rgba(76, 175, 80, 0.12); }
+.stat-absent  { color: #c62828; background: rgba(244, 67, 54, 0.12); }
+.stat-late    { color: #f57c00; background: rgba(255, 152, 0, 0.12); }
+.stat-total   { color: #1565c0; background: rgba(33, 150, 243, 0.12); }
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.stat-label {
+  font-size: 0.8rem;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.progress-card {
+  padding: 16px 20px !important;
+  border-radius: 12px !important;
+  margin-bottom: 14px;
+
+  .progress-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 0.88rem;
+    color: rgba(0, 0, 0, 0.65);
+  }
+}
+
+.table-card {
+  border-radius: 12px !important;
+  padding: 16px 20px !important;
+  overflow: hidden;
+}
+
+.section-title {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.w-full { width: 100%; }
+
+/* ─── Percentage cell ─── */
+.pct-col {
+  min-width: 180px;
+  text-align: right;
+}
+.pct-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.pct-text {
+  font-weight: 700;
+  min-width: 40px;
+  text-align: right;
+}
+.thin-bar {
+  height: 6px !important;
+  border-radius: 3px;
+  width: 100px;
+}
+
+.pct-good  { color: #2e7d32; }
+.pct-warn  { color: #f9a825; }
+.pct-bad   { color: #d32f2f; }
+
+/* ─── Exam row bits ─── */
+.exam-name {
+  font-weight: 600;
+}
+.exam-type {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.04em;
+}
+.mark-pct {
+  font-weight: 700;
+  margin-left: 4px;
+}
+.muted {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.grade-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: rgba(212, 168, 67, 0.18);
+  color: #8a6a1d;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.status-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.status-pass    { background: rgba(76, 175, 80, 0.15); color: #2e7d32; }
+.status-fail    { background: rgba(244, 67, 54, 0.15); color: #c62828; }
+.status-pending { background: rgba(158, 158, 158, 0.15); color: #555; }
+
+.empty-state {
+  text-align: center;
+  padding: 40px 16px;
+  color: rgba(0, 0, 0, 0.5);
+
+  .empty-icon {
+    font-size: 44px;
+    width: 44px;
+    height: 44px;
+    color: rgba(0, 0, 0, 0.18);
+    margin-bottom: 8px;
+  }
+  p { margin: 0; font-size: 0.9rem; }
+}

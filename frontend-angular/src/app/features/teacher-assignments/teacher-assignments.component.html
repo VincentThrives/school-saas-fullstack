@@ -25,10 +25,13 @@
 
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Class</mat-label>
-        <mat-select [(ngModel)]="filterClassId" (selectionChange)="onFilterClassChange()">
+        <mat-select [(ngModel)]="filterClassId"
+                    [disabled]="filterClassOptions.length === 0"
+                    (selectionChange)="onFilterClassChange()">
           <mat-option value="">All Classes</mat-option>
           <mat-option *ngFor="let c of filterClassOptions" [value]="c.classId">{{ c.name }}</mat-option>
         </mat-select>
+        <mat-hint *ngIf="noClassesForYear">No classes created for this academic year</mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="filter-field" *ngIf="filterClassId">
@@ -65,6 +68,15 @@
       <button mat-icon-button matTooltip="Refresh" (click)="loadAssignments()">
         <mat-icon>refresh</mat-icon>
       </button>
+    </div>
+  </mat-card>
+
+  <!-- Banner when the selected academic year has no classes yet -->
+  <mat-card class="no-classes-banner" *ngIf="noClassesForYear">
+    <mat-icon>info</mat-icon>
+    <div>
+      <strong>No classes in this academic year yet.</strong>
+      Open the <strong>Classes</strong> page and create classes for the selected year before assigning teachers here.
     </div>
   </mat-card>
 

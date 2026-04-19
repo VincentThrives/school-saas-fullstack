@@ -67,6 +67,11 @@ export class TeacherAssignmentsComponent implements OnInit {
   filterClassOptions: SchoolClass[] = [];
   filterSectionOptions: SectionLite[] = [];
 
+  /** True when the selected AY has zero classes — show a hint in the UI. */
+  get noClassesForYear(): boolean {
+    return !!this.selectedAcademicYearId && this.filterClassOptions.length === 0;
+  }
+
   // Full list vs. filtered view
   private allAssignments: TeacherSubjectAssignment[] = [];
 
@@ -193,13 +198,16 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.dataSource.filter = (this.searchQuery || '').trim().toLowerCase();
   }
 
+  /** Strict filter: only classes that belong to the selected academic year.
+   *  If none exist for that year, the dropdown stays empty (no fallback). */
   private recomputeFilterClassOptions(): void {
-    let list = this.classes;
-    if (this.selectedAcademicYearId) {
-      const narrowed = list.filter((c: any) => c.academicYearId === this.selectedAcademicYearId);
-      if (narrowed.length > 0) list = narrowed;
+    if (!this.selectedAcademicYearId) {
+      this.filterClassOptions = [];
+      return;
     }
-    this.filterClassOptions = list;
+    this.filterClassOptions = this.classes.filter(
+      (c: any) => c.academicYearId === this.selectedAcademicYearId,
+    );
   }
 
   private recomputeFilterSectionOptions(): void {
@@ -224,6 +232,12 @@ export class TeacherAssignmentsComponent implements OnInit {
   // ── Form ───────────────────────────────────────────────────────────
 
   openCreateForm(): void {
+    if (this.noClassesForYear) {
+      this.snackBar.open(
+        'No classes exist for this academic year. Create classes first from the Classes page.',
+        'Close', { duration: 4000 });
+      return;
+    }
     this.editingId = null;
     this.formTeacherId = '';
     this.formClassId = '';
@@ -268,13 +282,15 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.recomputeFormSubjectOptions();
   }
 
+  /** Strict filter: only classes created for the selected academic year. */
   private recomputeFormClassOptions(): void {
-    let list = this.classes;
-    if (this.selectedAcademicYearId) {
-      const narrowed = list.filter((c: any) => c.academicYearId === this.selectedAcademicYearId);
-      if (narrowed.length > 0) list = narrowed;
+    if (!this.selectedAcademicYearId) {
+      this.formClassOptions = [];
+      return;
     }
-    this.formClassOptions = list;
+    this.formClassOptions = this.classes.filter(
+      (c: any) => c.academicYearId === this.selectedAcademicYearId,
+    );
   }
 
   private recomputeFormSectionOptions(): void {
@@ -383,6 +399,22 @@ export class TeacherAssignmentsComponent implements OnInit {
       this.snackBar.open('Pick two different academic years.', 'Close', { duration: 2500 });
       return;
     }
+
+    // ── Client-side pre-check ─────────────────────────────────────────
+    // Warn early if the target year has no classes — the backend will reject
+    // it too, but a clear message before the call saves a round trip.
+    const toYearClassCount = this.classes.filter(
+      (c: any) => c.academicYearId === this.carryToYearId,
+    ).length;
+    if (toYearClassCount === 0) {
+      const toLabel = this.academicYears.find(y => y.academicYearId === this.carryToYearId)?.label
+        || 'the target year';
+      this.snackBar.open(
+        `No classes exist in ${toLabel}. Create classes for that year first.`,
+        'Close', { duration: 5000 });
+      return;
+    }
+
     this.isCarrying = true;
     this.api.carryForwardTeacherAssignments({
       fromAcademicYearId: this.carryFromYearId,
@@ -392,14 +424,39 @@ export class TeacherAssignmentsComponent implements OnInit {
       next: (res) => {
         this.isCarrying = false;
         this.closeCarry();
-        const n = res.data?.copied ?? 0;
-        this.snackBar.open(`Copied ${n} assignment(s)`, 'Close', { duration: 3000 });
+        this.showCarryResult(res.data);
         this.loadAssignments();
       },
       error: (err) => {
         this.isCarrying = false;
-        this.snackBar.open(err?.error?.message || 'Carry-forward failed', 'Close', { duration: 3000 });
+        this.snackBar.open(
+          err?.error?.message || 'Carry-forward failed. Please try again.',
+          'Close', { duration: 5000 });
       },
+    });
+  }
+
+  /** Friendly breakdown of what happened during carry-forward. */
+  private showCarryResult(r: any): void {
+    if (!r) {
+      this.snackBar.open('Carry-forward completed.', 'Close', { duration: 3000 });
+      return;
+    }
+    const copied = r.copied ?? 0;
+    const scanned = r.scanned ?? 0;
+    const skippedDup = r.skippedDuplicate ?? 0;
+    const skippedClass = r.skippedNoMatchingClass ?? 0;
+    const skippedSection = r.skippedNoMatchingSection ?? 0;
+    const skippedSubject = r.skippedNoMatchingSubject ?? 0;
+
+    const bits: string[] = [`Copied ${copied} of ${scanned}`];
+    if (skippedDup > 0) bits.push(`${skippedDup} already existed`);
+    if (skippedClass > 0) bits.push(`${skippedClass} had no matching class`);
+    if (skippedSection > 0) bits.push(`${skippedSection} had no matching section`);
+    if (skippedSubject > 0) bits.push(`${skippedSubject} had no matching subject`);
+
+    this.snackBar.open(bits.join(' · '), 'Close', {
+      duration: copied === scanned ? 3500 : 6000,
     });
   }
 

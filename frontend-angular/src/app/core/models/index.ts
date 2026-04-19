@@ -537,6 +537,85 @@ export interface GenerateReportCardRequest {
   studentIds: string[];
 }
 
+// ── My Students (teacher view) ──────────────────────────────────────────
+export interface MyClassStudentsClass {
+  academicYearId?: string;
+  academicYearLabel?: string;
+  classId: string;
+  className?: string;
+  sectionId: string;
+  sectionName?: string;
+  students: Student[];
+}
+
+export interface MyClassStudentsResponse {
+  classTeacher: boolean;
+  reason?: 'NO_PROFILE' | 'NO_CLASS_TEACHER_ROLE' | string;
+  classes: MyClassStudentsClass[];
+}
+
+// ── Student profile summary (detail view) ───────────────────────────────
+export interface StudentProfileInfo {
+  studentId: string;
+  name: string;
+  admissionNumber?: string;
+  rollNumber?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  classId?: string;
+  className?: string;
+  sectionId?: string;
+  sectionName?: string;
+  academicYearId?: string;
+  academicYearLabel?: string;
+  parentName?: string;
+  parentPhone?: string;
+}
+
+export interface AttendanceCounts {
+  present: number;
+  absent: number;
+  late: number;
+  halfDay: number;
+  total: number;
+  percentage: number;
+}
+
+export interface SubjectAttendance {
+  subjectId: string;
+  subjectName: string;
+  present: number;
+  absent: number;
+  late: number;
+  total: number;
+  percentage: number;
+}
+
+export interface AttendanceSummary {
+  overall: AttendanceCounts;
+  bySubject: SubjectAttendance[];
+}
+
+export interface ExamMarkRow {
+  examId: string;
+  examName: string;
+  examType?: string;
+  examDate?: string;
+  subjectId?: string;
+  subjectName?: string;
+  marksObtained?: number;
+  maxMarks: number;
+  passingMarks: number;
+  grade?: string;
+  isPassed?: boolean;
+}
+
+export interface StudentProfileSummary {
+  student: StudentProfileInfo;
+  attendance: AttendanceSummary;
+  exams: ExamMarkRow[];
+}
+
 // ── Teacher Subject Assignment ──────────────────────────────────────────
 export type TeacherAssignmentRole = 'CLASS_TEACHER' | 'SUBJECT_TEACHER';
 export type TeacherAssignmentStatus = 'ACTIVE' | 'ARCHIVED';
@@ -568,6 +647,19 @@ export interface CarryForwardAssignmentsRequest {
   toAcademicYearId: string;
   teacherIds?: string[];
   skipExisting?: boolean;
+}
+
+export interface CarryForwardResult {
+  fromYearLabel: string;
+  toYearLabel: string;
+  scanned: number;
+  copied: number;
+  skippedDuplicate: number;
+  skippedNoMatchingClass: number;
+  skippedNoMatchingSection: number;
+  skippedNoMatchingSubject: number;
+  skippedMissingClass: number;
+  warnings: string[];
 }
 
 // ── Syllabus Tracker ────────────────────────────────────────────────────

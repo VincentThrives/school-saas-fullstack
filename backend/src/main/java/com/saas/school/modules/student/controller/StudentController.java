@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Students")
@@ -33,6 +34,24 @@ public class StudentController {
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
     public ResponseEntity<ApiResponse<StudentDto>> get(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.success(studentService.getStudent(id)));
+    }
+
+    /** One-call endpoint used by the teacher's "My Students" page. */
+    @GetMapping("/my-class")
+    @PreAuthorize("hasAnyRole('TEACHER','PRINCIPAL','SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<MyClassStudentsResponse>> myClassStudents(
+            @AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(ApiResponse.success(studentService.getMyClassStudents(userId)));
+    }
+
+    /** Per-student attendance + exam marks for a given academic year. */
+    @GetMapping("/{id}/profile-summary")
+    @PreAuthorize("hasAnyRole('TEACHER','PRINCIPAL','SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<StudentProfileSummary>> profileSummary(
+            @PathVariable String id,
+            @RequestParam(required = false) String academicYearId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                studentService.getStudentProfileSummary(id, academicYearId)));
     }
 
     @PostMapping

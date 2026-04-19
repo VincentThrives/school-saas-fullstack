@@ -95,6 +95,8 @@ export class MarkSubjectAttendanceComponent implements OnInit {
   isLoading = false;
   isSaving = false;
   studentsLoaded = false;
+  /** True when we loaded pre-existing marks for the currently selected period. */
+  isAlreadyMarked = false;
 
   // Teacher-mode state
   isTeacherMode = false;
@@ -110,6 +112,31 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     { value: 'ABSENT', label: 'Absent', icon: 'cancel', color: '#f44336' },
     { value: 'LATE', label: 'Late', icon: 'schedule', color: '#ff9800' },
   ];
+
+  /** Label for a period card. Looks in three places in priority order:
+   *  1. The period's own stamped className/sectionName.
+   *  2. The classes list resolved by the period's classId/sectionId
+   *     (works for teacher auto-load even when the Timetable didn't carry names).
+   *  3. The currently-selected class+section from the dropdowns.
+   *  Guarantees the pill is filled whenever we know the class/section at all. */
+  periodClassLabel(p: TimetablePeriod): string {
+    if (p.className) {
+      return p.className + (p.sectionName ? ' — ' + p.sectionName : '');
+    }
+    // Resolve from the period's own ids.
+    if (p.classId) {
+      const cls = this.classes.find(c => c.classId === p.classId);
+      if (cls) {
+        const sec = (cls.sections || []).find((s: any) => s.sectionId === p.sectionId) as any;
+        return cls.name + (sec?.name ? ' — ' + sec.name : '');
+      }
+    }
+    // Fall back to the currently-selected class+section (admin path).
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
+    const sec = (cls?.sections || []).find((s: any) => s.sectionId === this.selectedSectionId) as any;
+    if (!cls) return '';
+    return cls.name + (sec?.name ? ' — ' + sec.name : '');
+  }
 
   private readonly DAY_KEYS = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
 
@@ -164,6 +191,13 @@ export class MarkSubjectAttendanceComponent implements OnInit {
           return;
         }
         this.selectedAcademicYearId = current.academicYearId;
+
+        // Load classes in parallel so periodClassLabel() can resolve
+        // className/sectionName from a period's classId/sectionId even when
+        // the Timetable didn't carry those names.
+        this.api.getClasses(this.selectedAcademicYearId).subscribe({
+          next: (res) => { this.classes = res.data || []; this.applyTeacherDayFilter(); },
+        });
 
         this.api.getTeacherTimetable(this.teacherUserId, this.selectedAcademicYearId).subscribe({
           next: (res) => {
@@ -242,6 +276,42 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     this.selectedPeriod = null;
     this.students = [];
     this.studentsLoaded = false;
+    this.isAlreadyMarked = false;
+
+    // Stamp "marked" + "studentCount" on each card by looking at what's saved.
+    this.stampMarkedFlagsOnPeriods();
+  }
+
+  /**
+   * For each unique (classId, sectionId) in the current period list, fetch
+   * the saved attendance for the selected date and stamp `marked` /
+   * `studentCount` on matching cards. One API call per class+section pair.
+   */
+  private stampMarkedFlagsOnPeriods(): void {
+    const dateStr = this.getDateStr();
+    const pairs = new Set<string>();
+    this.timetablePeriods.forEach(p => {
+      if (p.classId && p.sectionId) pairs.add(`${p.classId}::${p.sectionId}`);
+    });
+    pairs.forEach(key => {
+      const [classId, sectionId] = key.split('::');
+      this.api.getBatchAttendance(classId, sectionId, dateStr).subscribe({
+        next: (res) => {
+          const records = res?.data || [];
+          this.timetablePeriods.forEach(p => {
+            if (p.classId !== classId || p.sectionId !== sectionId) return;
+            const match = records.find((r: any) =>
+              r.periodNumber === p.periodNumber
+              && (!r.subjectId || !p.subjectId || r.subjectId === p.subjectId));
+            if (match) {
+              p.marked = true;
+              p.studentCount = (match.entries || []).length;
+            }
+          });
+        },
+        error: () => { /* non-fatal; cards simply won't show "Marked" */ },
+      });
+    });
   }
 
   private getDayKey(date: Date): string {
@@ -289,6 +359,7 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     this.selectedPeriod = null;
     this.students = [];
     this.studentsLoaded = false;
+    this.isAlreadyMarked = false;
     this.classes = [];
     if (this.selectedAcademicYearId) {
       this.loadClasses();
@@ -302,13 +373,133 @@ export class MarkSubjectAttendanceComponent implements OnInit {
   }
 
   onClassChange(): void {
-    const selectedClass = this.classes.find((c) => c.classId === this.selectedClassId);
-    this.sections = selectedClass?.sections || [];
     this.selectedSectionId = '';
     this.timetablePeriods = [];
     this.selectedPeriod = null;
     this.students = [];
     this.studentsLoaded = false;
+    this.isAlreadyMarked = false;
+
+    // Special sentinel: "All Classes" — load periods across every class+section
+    // in the selected academic year, aggregated in one list.
+    if (this.selectedClassId === 'ALL') {
+      this.sections = [];
+      this.loadPeriodsForAllClasses();
+      return;
+    }
+
+    const selectedClass = this.classes.find((c) => c.classId === this.selectedClassId);
+    this.sections = selectedClass?.sections || [];
+  }
+
+  /**
+   * For each (class, section) pair that exists in the selected academic year,
+   * fetch its timetable periods for the chosen date and flatten them into one
+   * list. Each card carries its own classId/sectionId so selectPeriod() scopes
+   * correctly.
+   */
+  private loadPeriodsForAllClasses(): void {
+    this.isLoadingPeriods = true;
+    this.isHoliday = false;
+    this.holidayTitle = '';
+
+    const dateStr = this.getDateStr();
+
+    // First check holiday once — no need to fetch timetables on a holiday.
+    this.api.getHolidays().subscribe({
+      next: (res) => {
+        const holidays = res.data || [];
+        const isHoliday = holidays.some((h: any) => {
+          const s = h.startDate;
+          const e = h.endDate || h.startDate;
+          return dateStr >= s && dateStr <= e;
+        });
+        if (isHoliday) {
+          const match = holidays.find((h: any) => {
+            const s = h.startDate;
+            const e = h.endDate || h.startDate;
+            return dateStr >= s && dateStr <= e;
+          });
+          this.isHoliday = true;
+          this.holidayTitle = match?.title || 'Holiday';
+          this.isLoadingPeriods = false;
+          return;
+        }
+        this.fetchTimetablesAcrossAllClasses(dateStr);
+      },
+      error: () => this.fetchTimetablesAcrossAllClasses(dateStr),
+    });
+  }
+
+  private fetchTimetablesAcrossAllClasses(dateStr: string): void {
+    const pairs: { classId: string; sectionId: string; className: string; sectionName: string }[] = [];
+    for (const cls of this.classes) {
+      for (const sec of (cls.sections || []) as any[]) {
+        if (!sec.sectionId) continue;
+        pairs.push({
+          classId: cls.classId,
+          sectionId: sec.sectionId,
+          className: cls.name,
+          sectionName: sec.name,
+        });
+      }
+    }
+
+    if (pairs.length === 0) {
+      this.timetablePeriods = [];
+      this.isLoadingPeriods = false;
+      return;
+    }
+
+    let completed = 0;
+    const aggregated: TimetablePeriod[] = [];
+
+    pairs.forEach((pair) => {
+      this.api.getTimetablePeriods(pair.classId, pair.sectionId, dateStr, this.selectedAcademicYearId).subscribe({
+        next: (res) => {
+          (res?.data || []).forEach((p: any) => {
+            // In teacher mode, only include periods this teacher actually teaches.
+            // Otherwise "All Classes" would show every period from every
+            // teacher, which is not what a logged-in teacher should see.
+            if (this.isTeacherMode && p.teacherId !== this.teacherUserId) return;
+
+            aggregated.push({
+              periodNumber: p.periodNumber,
+              subjectId: p.subjectId,
+              subjectName: p.subjectName,
+              teacherId: p.teacherId,
+              teacherName: p.teacherName,
+              startTime: p.startTime,
+              endTime: p.endTime,
+              marked: !!p.marked,
+              studentCount: p.studentCount || 0,
+              classId: pair.classId,
+              className: pair.className,
+              sectionId: pair.sectionId,
+              sectionName: pair.sectionName,
+              academicYearId: this.selectedAcademicYearId,
+            });
+          });
+          completed++;
+          if (completed === pairs.length) this.finishAllClassesLoad(aggregated);
+        },
+        error: () => {
+          completed++;
+          if (completed === pairs.length) this.finishAllClassesLoad(aggregated);
+        },
+      });
+    });
+  }
+
+  private finishAllClassesLoad(periods: TimetablePeriod[]): void {
+    periods.sort((a, b) => {
+      if (a.periodNumber !== b.periodNumber) return a.periodNumber - b.periodNumber;
+      const aLabel = `${a.className || ''} ${a.sectionName || ''}`.trim();
+      const bLabel = `${b.className || ''} ${b.sectionName || ''}`.trim();
+      return aLabel.localeCompare(bLabel);
+    });
+    this.timetablePeriods = periods;
+    this.isLoadingPeriods = false;
   }
 
   onSectionOrDateChange(): void {
@@ -317,6 +508,13 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     this.studentsLoaded = false;
     this.isHoliday = false;
     this.holidayTitle = '';
+    this.isAlreadyMarked = false;
+
+    // "All Classes" path — no section filter, just aggregate across everything.
+    if (this.selectedClassId === 'ALL') {
+      this.loadPeriodsForAllClasses();
+      return;
+    }
     if (this.selectedClassId && this.selectedSectionId) {
       this.checkHolidayAndLoad();
     }
@@ -365,10 +563,30 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     this.timetablePeriods = [];
 
     const dateStr = this.getDateStr();
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
+    const sec = (cls?.sections || []).find((s: any) => s.sectionId === this.selectedSectionId) as any;
+    const className = cls?.name;
+    const sectionName = sec?.name;
 
     this.api.getTimetablePeriods(this.selectedClassId, this.selectedSectionId, dateStr, this.selectedAcademicYearId).subscribe({
       next: (res) => {
-        this.timetablePeriods = res.data || [];
+        // Backend doesn't stamp class/section on period data — do it here so
+        // the cards can display them uniformly across all dropdown modes.
+        let data = (res.data || []);
+        // In teacher mode, only show periods this teacher actually teaches.
+        // The backend returns every period for the class+section; we filter
+        // client-side so other teachers' periods (e.g. Hindi) never appear.
+        if (this.isTeacherMode && this.teacherUserId) {
+          data = data.filter((p: any) => p.teacherId === this.teacherUserId);
+        }
+        this.timetablePeriods = data.map((p: any) => ({
+          ...p,
+          classId: this.selectedClassId,
+          sectionId: this.selectedSectionId,
+          className,
+          sectionName,
+          academicYearId: this.selectedAcademicYearId,
+        }));
         this.isLoadingPeriods = false;
       },
       error: () => {
@@ -415,6 +633,7 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     if (!this.selectedClassId || !this.selectedSectionId) return;
 
     this.isLoading = true;
+    this.isAlreadyMarked = false;
     this.api.getStudents(0, 200, { classId: this.selectedClassId, sectionId: this.selectedSectionId }).subscribe({
       next: (res) => {
         const studentList = res.data?.content || [];
@@ -427,12 +646,53 @@ export class MarkSubjectAttendanceComponent implements OnInit {
           remarks: '',
         }));
         this.studentsLoaded = true;
-        this.isLoading = false;
+        // After students load, overlay any previously-saved statuses.
+        this.overlayExistingMarks();
       },
       error: () => {
         this.isLoading = false;
         this.snackBar.open('Failed to load students', 'Close', { duration: 3000 });
       },
+    });
+  }
+
+  /**
+   * If attendance has already been saved for the selected (class, section, date,
+   * periodNumber, subjectId), replace the default PRESENT values with the
+   * saved statuses and flag the UI as "editing an already-marked record".
+   */
+  private overlayExistingMarks(): void {
+    if (!this.selectedPeriod || !this.selectedClassId || !this.selectedSectionId) {
+      this.isLoading = false;
+      return;
+    }
+    const dateStr = this.getDateStr();
+    this.api.getBatchAttendance(this.selectedClassId, this.selectedSectionId, dateStr).subscribe({
+      next: (res) => {
+        const records = res?.data || [];
+        const p = this.selectedPeriod!;
+        const match = records.find((r: any) =>
+          r.periodNumber === p.periodNumber
+          && (!r.subjectId || !p.subjectId || r.subjectId === p.subjectId));
+        if (match && Array.isArray(match.entries) && match.entries.length > 0) {
+          const byId: Record<string, any> = {};
+          match.entries.forEach((e: any) => { byId[e.studentId] = e; });
+          this.students = this.students.map(s => {
+            const existing = byId[s.studentId];
+            if (!existing) return s;
+            return {
+              ...s,
+              status: (existing.status as 'PRESENT' | 'ABSENT' | 'LATE') || s.status,
+              remarks: existing.remarks || s.remarks || '',
+            };
+          });
+          this.isAlreadyMarked = true;
+        } else {
+          this.isAlreadyMarked = false;
+        }
+        this.isLoading = false;
+      },
+      error: () => { this.isLoading = false; },
     });
   }
 

@@ -16,9 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Tag(name = "Teacher Subject Assignments")
 @RestController
@@ -77,13 +75,10 @@ public class TeacherSubjectAssignmentController {
 
     @PostMapping("/carry-forward")
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> carryForward(
+    public ResponseEntity<ApiResponse<TeacherSubjectAssignmentService.CarryForwardResult>> carryForward(
             @RequestBody CarryForwardAssignmentsRequest req) {
-        int n = service.carryForward(req);
-        Map<String, Object> body = new HashMap<>();
-        body.put("copied", n);
-        body.put("fromAcademicYearId", req.getFromAcademicYearId());
-        body.put("toAcademicYearId", req.getToAcademicYearId());
-        return ResponseEntity.ok(ApiResponse.success(body, "Carried forward " + n + " assignments"));
+        TeacherSubjectAssignmentService.CarryForwardResult result = service.carryForward(req);
+        String msg = "Copied " + result.copied + " of " + result.scanned + " assignment(s)";
+        return ResponseEntity.ok(ApiResponse.success(result, msg));
     }
 }

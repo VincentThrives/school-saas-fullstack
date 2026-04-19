@@ -387,3 +387,68 @@ $gold-light: rgba(212, 168, 67, 0.08);
   height: 14px;
   color: #8d6516;
 }
+
+.already-marked-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: rgba(76, 175, 80, 0.12);
+  color: #2e7d32;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* ─── Period card header row ─── */
+.period-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.top-marked-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: rgba(76, 175, 80, 0.14);
+  color: #2e7d32;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+
+  mat-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+  }
+}
+
+.period-class-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: rgba(0, 0, 0, 0.78);
+  margin-bottom: 4px;
+
+  strong { font-weight: 700; }
+  .small-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: #b8860b;
+  }
+}

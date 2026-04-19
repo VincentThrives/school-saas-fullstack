@@ -1,103 +1,75 @@
 <div class="my-students-container">
   <app-page-header
     title="My Students"
-    subtitle="Students in the classes you teach or own as class teacher"
+    subtitle="Students in the class where you are the class teacher"
     [breadcrumbs]="[{ label: 'Dashboard', link: '/dashboard' }, { label: 'My Students' }]">
   </app-page-header>
 
+  <!-- ── Loading ── -->
   <div class="loading-container" *ngIf="isLoading">
     <mat-spinner diameter="36"></mat-spinner>
   </div>
 
-  <mat-card class="empty-card" *ngIf="!isLoading && noProfile">
-    <mat-icon class="empty-icon">person_off</mat-icon>
-    <h3>No employee profile linked</h3>
-    <p>Your login isn't connected to a staff record yet. Ask your school admin to set you up in Employees.</p>
-  </mat-card>
-
-  <mat-card class="empty-card" *ngIf="!isLoading && !noProfile && academicYearOptions.length === 0">
-    <mat-icon class="empty-icon">class</mat-icon>
-    <h3>You're not assigned to any class yet</h3>
-    <p>
-      The school admin hasn't marked you as the class teacher for any class yet,
-      and you aren't a subject teacher either. Once they update that from
-      <strong>Classes</strong>, your students will appear here.
+  <!-- ── Not a class teacher ── -->
+  <mat-card class="empty-card" *ngIf="!isLoading && response && !response.classTeacher">
+    <mat-icon class="empty-icon">school</mat-icon>
+    <h3>You are not a class teacher</h3>
+    <p *ngIf="response.reason === 'NO_PROFILE'">
+      Your login isn't linked to a staff record yet. Ask your school admin to set you up in <strong>Employees</strong>.
+    </p>
+    <p *ngIf="response.reason !== 'NO_PROFILE'">
+      My Students shows students only for classes where you are marked as the
+      <strong>Class Teacher</strong>. Ask your school admin to set you as the Class Teacher
+      for a section on the <strong>Teacher Assignments</strong> page.
     </p>
   </mat-card>
 
-  <ng-container *ngIf="!isLoading && !noProfile && academicYearOptions.length > 0">
-    <mat-card class="filter-card">
-      <div class="filter-row">
-        <mat-form-field appearance="outline" class="filter-field">
-          <mat-label>Academic Year</mat-label>
-          <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onAcademicYearChange()">
-            <mat-option *ngFor="let y of academicYearOptions" [value]="y.academicYearId">
-              {{ y.label }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="filter-field">
-          <mat-label>Class</mat-label>
-          <mat-select [(ngModel)]="selectedClassId"
-                      [disabled]="!selectedAcademicYearId"
-                      (selectionChange)="onClassChange()">
-            <mat-option *ngFor="let c of classOptions" [value]="c.classId">{{ c.name }}</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="filter-field">
-          <mat-label>Section</mat-label>
-          <mat-select [(ngModel)]="selectedSectionId"
-                      [disabled]="!selectedClassId"
-                      (selectionChange)="onSectionChange()">
-            <mat-option *ngFor="let s of sectionOptions" [value]="s.sectionId">
-              {{ s.name }}<small *ngIf="s.role === 'CLASS_TEACHER'"> — Class Teacher</small>
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="filter-field search-field">
-          <mat-label>Search</mat-label>
-          <mat-icon matPrefix>search</mat-icon>
-          <input matInput [(ngModel)]="searchQuery" (ngModelChange)="applySearch()"
-                 placeholder="Name, admission or roll no."
-                 [disabled]="!selectedSectionId || dataSource.data.length === 0" />
-          <button mat-icon-button matSuffix *ngIf="searchQuery"
-                  type="button"
-                  (click)="searchQuery = ''; applySearch()">
-            <mat-icon>close</mat-icon>
-          </button>
-        </mat-form-field>
-
-        <div class="context-chips" *ngIf="selectedMyClass">
-          <span class="chip chip-role" *ngIf="selectedMyClass.role === 'CLASS_TEACHER'">
-            <mat-icon class="mini">school</mat-icon> Class Teacher
-          </span>
-          <span class="chip chip-role alt" *ngIf="selectedMyClass.role === 'SUBJECT_TEACHER'">
-            <mat-icon class="mini">menu_book</mat-icon> Subject Teacher
-          </span>
-        </div>
-      </div>
+  <!-- ── Class teacher view ── -->
+  <ng-container *ngIf="!isLoading && hasClasses">
+    <!-- Class picker (only shown when teacher is class teacher of multiple sections) -->
+    <mat-card class="filter-card" *ngIf="response!.classes.length > 1">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Class</mat-label>
+        <mat-select [(ngModel)]="selectedClassIndex">
+          <mat-option *ngFor="let c of response!.classes; let i = index" [value]="i">
+            {{ classLabel(c) }} ({{ c.students.length }} student{{ c.students.length === 1 ? '' : 's' }})
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
     </mat-card>
 
-    <mat-card class="table-card" *ngIf="selectedSectionId">
+    <!-- Header chip when there's only one class -->
+    <mat-card class="header-card" *ngIf="response!.classes.length === 1 && selectedClass">
+      <div class="header-left">
+        <mat-icon class="header-icon">school</mat-icon>
+        <div>
+          <h3 class="header-title">{{ selectedClass.className }}<span *ngIf="selectedClass.sectionName"> — {{ selectedClass.sectionName }}</span></h3>
+          <span class="header-meta" *ngIf="selectedClass.academicYearLabel">{{ selectedClass.academicYearLabel }}</span>
+        </div>
+      </div>
+      <span class="chip chip-role"><mat-icon class="mini">verified</mat-icon> Class Teacher</span>
+    </mat-card>
+
+    <mat-card class="table-card" *ngIf="selectedClass">
       <div class="table-header">
         <h3>
           Students
-          <span class="count-badge" *ngIf="dataSource.filteredData.length > 0">
-            {{ dataSource.filteredData.length }}<span *ngIf="searchQuery"> of {{ dataSource.data.length }}</span>
+          <span class="count-badge">
+            {{ filteredStudents.length }}<span *ngIf="searchQuery"> of {{ selectedClass.students.length }}</span>
           </span>
         </h3>
+
+        <mat-form-field appearance="outline" class="search-field">
+          <mat-label>Search</mat-label>
+          <mat-icon matPrefix>search</mat-icon>
+          <input matInput [(ngModel)]="searchQuery" placeholder="Name, admission or roll no.">
+          <button mat-icon-button matSuffix *ngIf="searchQuery" type="button" (click)="searchQuery = ''">
+            <mat-icon>close</mat-icon>
+          </button>
+        </mat-form-field>
       </div>
 
-      <div class="loading-container" *ngIf="isLoadingStudents">
-        <mat-spinner diameter="32"></mat-spinner>
-      </div>
-
-      <table mat-table [dataSource]="dataSource" class="students-table"
-             *ngIf="!isLoadingStudents">
-
+      <table mat-table [dataSource]="filteredStudents" class="students-table">
         <ng-container matColumnDef="rollNumber">
           <th mat-header-cell *matHeaderCellDef>Roll No</th>
           <td mat-cell *matCellDef="let s">{{ s.rollNumber || s.admissionNumber || '-' }}</td>
@@ -134,24 +106,16 @@
         </ng-container>
 
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+            class="clickable-row" (click)="openStudent(row)"></tr>
 
         <tr class="mat-row" *matNoDataRow>
           <td class="mat-cell no-data-cell" [attr.colspan]="displayedColumns.length">
-            <ng-container *ngIf="searchQuery">
-              No students matching "<strong>{{ searchQuery }}</strong>"
-            </ng-container>
-            <ng-container *ngIf="!searchQuery">
-              No students in this class &amp; section
-            </ng-container>
+            <ng-container *ngIf="searchQuery">No students matching "<strong>{{ searchQuery }}</strong>"</ng-container>
+            <ng-container *ngIf="!searchQuery">No students in this class &amp; section yet</ng-container>
           </td>
         </tr>
       </table>
-    </mat-card>
-
-    <mat-card class="empty-card subtle" *ngIf="!selectedSectionId">
-      <mat-icon>filter_list</mat-icon>
-      <p>Pick an academic year, class, and section to view your students.</p>
     </mat-card>
   </ng-container>
 </div>

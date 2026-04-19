@@ -1,0 +1,247 @@
+<div class="student-detail-container">
+  <app-page-header
+    [title]="summary?.student?.name || 'Student Detail'"
+    [subtitle]="subtitleText()"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'My Students', link: '/my-students' },
+      { label: summary?.student?.name || 'Detail' }
+    ]">
+  </app-page-header>
+
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <mat-card class="empty-card" *ngIf="!isLoading && notFound">
+    <mat-icon class="empty-icon">person_off</mat-icon>
+    <h3>Student not found</h3>
+    <p>This student may have been removed, or you don't have access.</p>
+    <button mat-stroked-button (click)="back()">
+      <mat-icon>arrow_back</mat-icon> Back to My Students
+    </button>
+  </mat-card>
+
+  <ng-container *ngIf="!isLoading && summary">
+    <!-- Back button bar -->
+    <div class="back-bar">
+      <button mat-stroked-button (click)="back()">
+        <mat-icon>arrow_back</mat-icon> Back to My Students
+      </button>
+    </div>
+
+    <!-- Student header card -->
+    <mat-card class="student-header-card">
+      <div class="student-header-left">
+        <div class="student-avatar">{{ initial() }}</div>
+        <div>
+          <h2 class="student-name">{{ summary.student.name }}</h2>
+          <div class="student-meta">
+            <span *ngIf="summary.student.admissionNumber">
+              Admission: <code>{{ summary.student.admissionNumber }}</code>
+            </span>
+            <span *ngIf="summary.student.rollNumber">
+              · Roll: <code>{{ summary.student.rollNumber }}</code>
+            </span>
+            <span *ngIf="summary.student.gender">· {{ summary.student.gender }}</span>
+            <span *ngIf="summary.student.dateOfBirth">· DOB {{ formatDate(summary.student.dateOfBirth) }}</span>
+          </div>
+          <div class="student-parent" *ngIf="summary.student.parentName || summary.student.parentPhone">
+            <mat-icon class="mini">family_restroom</mat-icon>
+            {{ summary.student.parentName || '—' }}
+            <span *ngIf="summary.student.parentPhone"> · {{ summary.student.parentPhone }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="attendance-ring" [ngClass]="percentClass(summary.attendance.overall.percentage)">
+        <div class="ring-value">{{ summary.attendance.overall.percentage | number:'1.0-0' }}%</div>
+        <div class="ring-label">Attendance</div>
+      </div>
+    </mat-card>
+
+    <mat-tab-group animationDuration="250ms" class="detail-tabs">
+      <!-- ═══ Attendance tab ═══ -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">event_available</mat-icon> Attendance
+        </ng-template>
+
+        <div class="tab-content">
+          <!-- Overall summary cards -->
+          <div class="stats-grid">
+            <mat-card class="stat-card">
+              <mat-icon class="stat-icon stat-present">check_circle</mat-icon>
+              <div>
+                <div class="stat-value">{{ summary.attendance.overall.present }}</div>
+                <div class="stat-label">Present</div>
+              </div>
+            </mat-card>
+            <mat-card class="stat-card">
+              <mat-icon class="stat-icon stat-absent">cancel</mat-icon>
+              <div>
+                <div class="stat-value">{{ summary.attendance.overall.absent }}</div>
+                <div class="stat-label">Absent</div>
+              </div>
+            </mat-card>
+            <mat-card class="stat-card">
+              <mat-icon class="stat-icon stat-late">access_time</mat-icon>
+              <div>
+                <div class="stat-value">{{ summary.attendance.overall.late + summary.attendance.overall.halfDay }}</div>
+                <div class="stat-label">Late / Half-day</div>
+              </div>
+            </mat-card>
+            <mat-card class="stat-card">
+              <mat-icon class="stat-icon stat-total">event</mat-icon>
+              <div>
+                <div class="stat-value">{{ summary.attendance.overall.total }}</div>
+                <div class="stat-label">Total Days</div>
+              </div>
+            </mat-card>
+          </div>
+
+          <!-- Overall progress bar -->
+          <mat-card class="progress-card" *ngIf="summary.attendance.overall.total > 0">
+            <div class="progress-meta">
+              <span>Overall attendance</span>
+              <strong [ngClass]="percentClass(summary.attendance.overall.percentage)">
+                {{ summary.attendance.overall.percentage | number:'1.0-0' }}%
+              </strong>
+            </div>
+            <mat-progress-bar
+              mode="determinate"
+              [value]="summary.attendance.overall.percentage"
+              [color]="percentColor(summary.attendance.overall.percentage)">
+            </mat-progress-bar>
+          </mat-card>
+
+          <!-- Per-subject table -->
+          <mat-card class="table-card" *ngIf="summary.attendance.bySubject.length > 0">
+            <h3 class="section-title">Subject-wise attendance</h3>
+
+            <table mat-table [dataSource]="summary.attendance.bySubject" class="w-full">
+              <ng-container matColumnDef="subjectName">
+                <th mat-header-cell *matHeaderCellDef>Subject</th>
+                <td mat-cell *matCellDef="let r">{{ r.subjectName }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="present">
+                <th mat-header-cell *matHeaderCellDef>Present</th>
+                <td mat-cell *matCellDef="let r">{{ r.present }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="absent">
+                <th mat-header-cell *matHeaderCellDef>Absent</th>
+                <td mat-cell *matCellDef="let r">{{ r.absent }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="total">
+                <th mat-header-cell *matHeaderCellDef>Total</th>
+                <td mat-cell *matCellDef="let r">{{ r.total }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="percentage">
+                <th mat-header-cell *matHeaderCellDef class="pct-col">Percentage</th>
+                <td mat-cell *matCellDef="let r" class="pct-col">
+                  <div class="pct-bar">
+                    <span class="pct-text" [ngClass]="percentClass(r.percentage)">
+                      {{ r.percentage | number:'1.0-0' }}%
+                    </span>
+                    <mat-progress-bar
+                      class="thin-bar"
+                      mode="determinate"
+                      [value]="r.percentage"
+                      [color]="percentColor(r.percentage)">
+                    </mat-progress-bar>
+                  </div>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="subjectColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: subjectColumns;"></tr>
+            </table>
+          </mat-card>
+
+          <div class="empty-state" *ngIf="summary.attendance.overall.total === 0 && summary.attendance.bySubject.length === 0">
+            <mat-icon class="empty-icon">event_busy</mat-icon>
+            <p>No attendance recorded for this student this year yet.</p>
+          </div>
+        </div>
+      </mat-tab>
+
+      <!-- ═══ Exams tab ═══ -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">grading</mat-icon> Exams ({{ summary.exams.length }})
+        </ng-template>
+
+        <div class="tab-content">
+          <mat-card class="table-card" *ngIf="summary.exams.length > 0">
+            <table mat-table [dataSource]="summary.exams" class="w-full">
+              <ng-container matColumnDef="examName">
+                <th mat-header-cell *matHeaderCellDef>Exam</th>
+                <td mat-cell *matCellDef="let e">
+                  <div class="exam-name">{{ e.examName }}</div>
+                  <div class="exam-type" *ngIf="e.examType">{{ e.examType }}</div>
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="examDate">
+                <th mat-header-cell *matHeaderCellDef>Date</th>
+                <td mat-cell *matCellDef="let e">{{ formatDate(e.examDate) }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="subjectName">
+                <th mat-header-cell *matHeaderCellDef>Subject</th>
+                <td mat-cell *matCellDef="let e">{{ e.subjectName || '—' }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="marks">
+                <th mat-header-cell *matHeaderCellDef>Marks</th>
+                <td mat-cell *matCellDef="let e">
+                  <span *ngIf="e.marksObtained != null">
+                    <strong>{{ e.marksObtained }}</strong> / {{ e.maxMarks }}
+                    <span class="mark-pct" [ngClass]="percentClass(markPct(e))">
+                      · {{ markPct(e) }}%
+                    </span>
+                  </span>
+                  <span *ngIf="e.marksObtained == null" class="muted">—</span>
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="grade">
+                <th mat-header-cell *matHeaderCellDef>Grade</th>
+                <td mat-cell *matCellDef="let e">
+                  <span class="grade-chip" *ngIf="e.grade">{{ e.grade }}</span>
+                  <span *ngIf="!e.grade" class="muted">—</span>
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef>Result</th>
+                <td mat-cell *matCellDef="let e">
+                  <span class="status-chip"
+                        [ngClass]="{
+                          'status-pass': markStatus(e) === 'PASSED',
+                          'status-fail': markStatus(e) === 'FAILED',
+                          'status-pending': markStatus(e) === 'PENDING'
+                        }">
+                    {{ markStatus(e) }}
+                  </span>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="examColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: examColumns;"></tr>
+            </table>
+          </mat-card>
+
+          <div class="empty-state" *ngIf="summary.exams.length === 0">
+            <mat-icon class="empty-icon">quiz</mat-icon>
+            <p>No exams scheduled for this student's class this year yet.</p>
+          </div>
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  </ng-container>
+</div>
