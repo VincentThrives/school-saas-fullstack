@@ -507,6 +507,10 @@ public class StudentService {
         StudentProfileSummary.AttendanceCounts overall = out.getOverall();
         java.util.Map<String, StudentProfileSummary.SubjectAttendance> bySubject = new java.util.HashMap<>();
         java.util.Set<String> subjectIds = new java.util.HashSet<>();
+        // For schools that mark per-period instead of whole-day, derive overall
+        // from a per-date roll-up: a day is PRESENT if any period was PRESENT,
+        // else LATE if any was LATE, else HALF_DAY if any, else ABSENT.
+        java.util.Map<String, String> periodDayStatus = new java.util.HashMap<>();
 
         for (StudentsAttendance doc : batches) {
             if (doc.getEntries() == null) continue;
@@ -538,6 +542,19 @@ public class StudentService {
                     case "HALF_DAY":  sa.setLate(sa.getLate() + 1);       break; // fold half into late for subject
                     default: /* ignore */ break;
                 }
+
+                if (doc.getDate() != null) {
+                    String dateKey = doc.getDate().toString();
+                    periodDayStatus.merge(dateKey, status, this::mergeDayStatus);
+                }
+            }
+        }
+
+        // No whole-day records → roll up per-period statuses into the overall counts.
+        if (overall.getTotal() == 0 && !periodDayStatus.isEmpty()) {
+            for (String dayStatus : periodDayStatus.values()) {
+                overall.setTotal(overall.getTotal() + 1);
+                bumpStatus(overall, dayStatus);
             }
         }
 
@@ -561,6 +578,25 @@ public class StudentService {
         list.sort(java.util.Comparator.comparing(a ->
                 a.getSubjectName() == null ? "" : a.getSubjectName().toLowerCase()));
         out.setBySubject(list);
+    }
+
+    /** Pick the "best" status for a day across multiple period entries.
+     *  Priority: PRESENT > LATE > HALF_DAY > ABSENT. Anything unknown loses. */
+    private String mergeDayStatus(String a, String b) {
+        int pa = statusRank(a);
+        int pb = statusRank(b);
+        return pa >= pb ? a : b;
+    }
+
+    private int statusRank(String s) {
+        if (s == null) return -1;
+        switch (s) {
+            case "PRESENT":  return 4;
+            case "LATE":     return 3;
+            case "HALF_DAY": return 2;
+            case "ABSENT":   return 1;
+            default:         return 0;
+        }
     }
 
     private void bumpStatus(StudentProfileSummary.AttendanceCounts c, String status) {

@@ -245,8 +245,12 @@ export class MarkSubjectAttendanceComponent implements OnInit {
   private applyTeacherDayFilter(): void {
     const dayKey = this.getDayKey(this.selectedDate);
     const periods: TimetablePeriod[] = [];
+    const filterClass = this.selectedClassId && this.selectedClassId !== 'ALL' ? this.selectedClassId : null;
+    const filterSection = this.selectedSectionId || null;
 
     for (const tt of this.cachedTeacherTimetables) {
+      if (filterClass && tt.classId !== filterClass) continue;
+      if (filterSection && tt.sectionId !== filterSection) continue;
       const daySched = (tt?.schedule || []).find((d: any) => (d?.dayOfWeek || '').toUpperCase() === dayKey);
       if (!daySched || !daySched.periods) continue;
 
@@ -374,7 +378,6 @@ export class MarkSubjectAttendanceComponent implements OnInit {
 
   onClassChange(): void {
     this.selectedSectionId = '';
-    this.timetablePeriods = [];
     this.selectedPeriod = null;
     this.students = [];
     this.studentsLoaded = false;
@@ -384,12 +387,21 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     // in the selected academic year, aggregated in one list.
     if (this.selectedClassId === 'ALL') {
       this.sections = [];
+      this.timetablePeriods = [];
       this.loadPeriodsForAllClasses();
       return;
     }
 
     const selectedClass = this.classes.find((c) => c.classId === this.selectedClassId);
     this.sections = selectedClass?.sections || [];
+
+    // Teacher mode with cached timetables: re-filter immediately so cards reflect
+    // the new class scope without waiting for a section pick.
+    if (this.isTeacherMode && this.cachedTeacherTimetables.length > 0) {
+      this.applyTeacherDayFilter();
+    } else {
+      this.timetablePeriods = [];
+    }
   }
 
   /**
@@ -513,6 +525,13 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     // "All Classes" path — no section filter, just aggregate across everything.
     if (this.selectedClassId === 'ALL') {
       this.loadPeriodsForAllClasses();
+      return;
+    }
+    // Teacher mode with cached timetables: filter the cache locally instead of
+    // hitting the API. Keeps the date+class+section picks in sync with what
+    // the auto-load already fetched.
+    if (this.isTeacherMode && this.cachedTeacherTimetables.length > 0) {
+      this.applyTeacherDayFilter();
       return;
     }
     if (this.selectedClassId && this.selectedSectionId) {

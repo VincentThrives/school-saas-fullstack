@@ -115,13 +115,14 @@ export class ClassFormComponent implements OnInit {
         if (res.success && res.data) {
           const cls = res.data;
           this.classForm.patchValue({
-            name: cls.name,
+            name: this.parseClassNumber(cls.name),
             academicYearId: cls.academicYearId,
           });
           // Clear and rebuild sections
           this.sections.clear();
           (cls.sections || []).forEach(s => {
             this.sections.push(this.fb.group({
+              sectionId: [s.sectionId || null],
               name: [s.name, Validators.required],
               capacity: [s.capacity, [Validators.required, Validators.min(1)]],
               classTeacherId: [s.classTeacherId || ''],
@@ -187,6 +188,7 @@ export class ClassFormComponent implements OnInit {
 
   addSection(): void {
     const sectionGroup = this.fb.group({
+      sectionId: [null],
       name: ['', Validators.required],
       capacity: [40, [Validators.required, Validators.min(1)]],
       classTeacherId: [''],
@@ -236,6 +238,12 @@ export class ClassFormComponent implements OnInit {
     if (isNaN(num)) return String(value);
     const suffix = this.getOrdinalSuffix(num);
     return `${num}${suffix}`;
+  }
+
+  private parseClassNumber(value: any): number | string {
+    if (value == null) return '';
+    const num = parseInt(String(value), 10);
+    return isNaN(num) ? String(value) : num;
   }
 
   private getOrdinalSuffix(n: number): string {

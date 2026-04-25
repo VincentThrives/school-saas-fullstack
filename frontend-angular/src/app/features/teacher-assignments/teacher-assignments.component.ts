@@ -940,9 +940,9 @@ export class TeacherAssignmentsComponent implements OnInit {
   sectionLabel(a: TeacherSubjectAssignment): string {
     if (!a.sectionId) return '—';
     const cls = this.classes.find(c => c.classId === a.classId);
-    if (!cls || !cls.sections) return a.sectionId;
+    if (!cls || !cls.sections) return '(deleted section)';
     const sec = (cls.sections as any[]).find(s => s.sectionId === a.sectionId);
-    return sec ? sec.name : a.sectionId;
+    return sec ? sec.name : '(deleted section)';
   }
 
   subjectLabel(a: TeacherSubjectAssignment): string {

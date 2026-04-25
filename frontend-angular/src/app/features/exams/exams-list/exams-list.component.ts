@@ -17,8 +17,9 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
-import { SchoolClass, AcademicYear } from '../../../core/models';
+import { SchoolClass, AcademicYear, UserRole } from '../../../core/models';
 
 @Component({
   selector: 'app-exams-list',
@@ -68,8 +69,17 @@ export class ExamsListComponent implements OnInit {
   deleteDialogOpen = false;
   selectedExam: any = null;
 
+  // Teacher-mode scoping: when a teacher is logged in, only exams that match
+  // one of their (classId, sectionId, subjectId) assignment tuples are shown.
+  // If no precise tuples are available, fall back to a subjectId-only match.
+  isTeacherMode = false;
+  private teacherTuples = new Set<string>();
+  private teacherSubjectIds = new Set<string>();
+  private teacherProfileLoaded = false;
+
   constructor(
     private api: ApiService,
+    private auth: AuthService,
     private subjectService: SubjectService,
     private router: Router,
     private dialog: MatDialog,
@@ -77,6 +87,8 @@ export class ExamsListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.isTeacherMode = this.auth.currentRole === UserRole.TEACHER;
+
     this.api.getAcademicYears().subscribe({
       next: (res) => {
         const data = res.data;
@@ -89,6 +101,26 @@ export class ExamsListComponent implements OnInit {
         }
       },
     });
+
+    if (this.isTeacherMode) {
+      // Source of truth for what a teacher teaches lives in the
+      // teacher_subject_assignments collection, NOT on the Teacher document.
+      // Fetch the logged-in teacher's assignments (across all academic years
+      // — the academic-year dropdown above narrows the displayed exams).
+      this.api.getMyTeacherAssignments().subscribe({
+        next: (res) => {
+          const list = (res?.data as any[]) || [];
+          for (const a of list) {
+            if (!a?.subjectId) continue;
+            this.teacherTuples.add(`${a.classId || ''}::${a.sectionId || ''}::${a.subjectId}`);
+            this.teacherSubjectIds.add(a.subjectId);
+          }
+          this.teacherProfileLoaded = true;
+        },
+        error: () => { this.teacherProfileLoaded = true; },
+      });
+    }
+
     this.loadExams();
   }
 
@@ -182,6 +214,15 @@ export class ExamsListComponent implements OnInit {
 
   get filteredExams(): any[] {
     let result = this.exams;
+
+    // Teacher mode: only show exams that match one of the teacher's assignments.
+    // While the profile is still loading we hide everything to avoid leaking
+    // other teachers' subjects through a flash of unfiltered rows.
+    if (this.isTeacherMode) {
+      if (!this.teacherProfileLoaded) return [];
+      result = result.filter(e => this.matchesTeacherScope(e));
+    }
+
     if (this.academicYearFilter) {
       result = result.filter(e => e.academicYearId === this.academicYearFilter);
     }
@@ -195,6 +236,17 @@ export class ExamsListComponent implements OnInit {
       result = result.filter(e => e.subjectId === this.subjectFilter);
     }
     return result;
+  }
+
+  private matchesTeacherScope(exam: any): boolean {
+    if (!exam?.subjectId) return false;
+    if (this.teacherTuples.size > 0) {
+      const key = `${exam.classId || ''}::${exam.sectionId || ''}::${exam.subjectId}`;
+      if (this.teacherTuples.has(key)) return true;
+    }
+    // Fallback: subject-only match (covers older accounts where the precise
+    // class/section assignment list isn't populated on the Teacher document).
+    return this.teacherSubjectIds.has(exam.subjectId);
   }
 
   onPageChange(event: PageEvent): void {
