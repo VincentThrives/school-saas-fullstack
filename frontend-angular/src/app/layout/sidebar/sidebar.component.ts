@@ -250,7 +250,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'My Marks', path: '/my-marks', icon: 'assignment', feature: 'exams' },
         { title: 'MCQ Exams', path: '/mcq/available', icon: 'quiz', feature: 'mcq' },
         { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
-        { title: 'Report Cards', path: '/report-cards', icon: 'description', feature: 'report_cards' },
+        { title: 'My Report Card', path: '/my-report-card', icon: 'description', feature: 'report_cards' },
         // { title: 'My Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
         { title: 'Study Materials', path: '/study-materials', icon: 'library_books', feature: 'content' },
         { title: 'Events', path: '/events', icon: 'event', feature: 'events' },

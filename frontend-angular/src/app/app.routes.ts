@@ -202,6 +202,20 @@ export const routes: Routes = [
         canActivate: [featureGuard],
         data: { feature: 'attendance' },
       },
+      {
+        path: 'my-attendance',
+        loadComponent: () =>
+          import('./features/attendance/my-attendance/my-attendance.component').then(m => m.MyAttendanceComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.STUDENT], feature: 'attendance' },
+      },
+      {
+        path: 'my-report-card',
+        loadComponent: () =>
+          import('./features/report-cards/my-report-card/my-report-card.component').then(m => m.MyReportCardComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.STUDENT], feature: 'report_cards' },
+      },
 
       // ── Exams (feature-gated) ────────────────────────────
       {

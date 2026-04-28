@@ -36,6 +36,25 @@ public class StudentController {
         return ResponseEntity.ok(ApiResponse.success(studentService.getStudent(id)));
     }
 
+    /** Currently logged-in student's own record. Used by student-facing pages
+     *  (timetable, dashboard) to scope themselves to the right class+section. */
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<StudentDto>> me(@AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(ApiResponse.success(studentService.getStudentByUserId(userId)));
+    }
+
+    /** Read-only attendance + exam summary for the logged-in student. */
+    @GetMapping("/me/profile-summary")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<StudentProfileSummary>> meProfileSummary(
+            @AuthenticationPrincipal String userId,
+            @RequestParam(required = false) String academicYearId) {
+        StudentDto me = studentService.getStudentByUserId(userId);
+        return ResponseEntity.ok(ApiResponse.success(
+                studentService.getStudentProfileSummary(me.getStudentId(), academicYearId)));
+    }
+
     /** One-call endpoint used by the teacher's "My Students" page. */
     @GetMapping("/my-class")
     @PreAuthorize("hasAnyRole('TEACHER','PRINCIPAL','SCHOOL_ADMIN')")

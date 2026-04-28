@@ -52,6 +52,7 @@ export class TimetableViewComponent implements OnInit {
   timetable: Timetable | null = null;
   isLoading = false;
   isTeacherView = false;
+  isStudentView = false;
   teacherTimetables: Timetable[] = [];
 
   days: string[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -66,6 +67,7 @@ export class TimetableViewComponent implements OnInit {
   ngOnInit(): void {
     const role = this.auth.currentUser?.role;
     this.isTeacherView = role === UserRole.TEACHER;
+    this.isStudentView = role === UserRole.STUDENT;
 
     this.api.getClasses().subscribe((res) => {
       this.classes = res.data || [];

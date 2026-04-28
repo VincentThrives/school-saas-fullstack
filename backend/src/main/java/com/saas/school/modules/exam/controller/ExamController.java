@@ -72,11 +72,13 @@ public class ExamController {
         return ResponseEntity.ok(ApiResponse.success(examService.getBatchMarks(examId)));
     }
 
-    // Student views own marks
+    // Student views own marks (optionally narrowed to a single academic year).
     @GetMapping("/my-marks")
     public ResponseEntity<ApiResponse<List<ExamMark>>> getMyMarks(
-            @AuthenticationPrincipal String userId) {
-        return ResponseEntity.ok(ApiResponse.success(examService.getStudentMarks(userId)));
+            @AuthenticationPrincipal String userId,
+            @RequestParam(required = false) String academicYearId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                examService.getStudentMarks(userId, academicYearId)));
     }
 
     // Get marks for a specific student (for parents/admin)

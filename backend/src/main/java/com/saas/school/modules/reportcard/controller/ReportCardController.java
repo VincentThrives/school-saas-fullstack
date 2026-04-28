@@ -18,7 +18,7 @@ import java.util.List;
 @Tag(name = "Report Cards")
 @RestController
 @RequestMapping("/api/v1/report-cards")
-@PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
+@PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER','STUDENT')")
 public class ReportCardController {
 
     private static final Logger logger = LoggerFactory.getLogger(ReportCardController.class);
@@ -26,7 +26,46 @@ public class ReportCardController {
     @Autowired
     private ReportCardService reportCardService;
 
+    @Autowired
+    private com.saas.school.modules.student.repository.StudentRepository studentRepository;
+
+    /** Student-self endpoint: resolve their studentId from JWT and return their card. */
+    @GetMapping("/student/me")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<ReportCard>> getMyReportCard(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal String userId,
+            @RequestParam String academicYearId,
+            @RequestParam String examType) {
+        String studentId = resolveOwnStudentId(userId);
+        ReportCard reportCard = reportCardService.generateReportCard(studentId, academicYearId, examType);
+        return ResponseEntity.ok(ApiResponse.success(reportCard));
+    }
+
+    /** Student-self PDF download. */
+    @GetMapping("/student/me/pdf")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<byte[]> getMyReportCardPdf(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal String userId,
+            @RequestParam String academicYearId,
+            @RequestParam String tenantId,
+            @RequestParam String examType) {
+        String studentId = resolveOwnStudentId(userId);
+        ReportCard reportCard = reportCardService.generateReportCard(studentId, academicYearId, examType);
+        byte[] pdfBytes = reportCardService.generateReportCardPdf(reportCard.getId(), tenantId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=report_card_" + studentId + ".pdf")
+                .body(pdfBytes);
+    }
+
+    private String resolveOwnStudentId(String userId) {
+        return studentRepository.findByUserIdAndDeletedAtIsNull(userId)
+                .map(s -> s.getStudentId())
+                .orElseThrow(() -> new com.saas.school.common.exception.ResourceNotFoundException("Student", userId));
+    }
+
     @GetMapping("/student/{studentId}")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
     public ResponseEntity<ApiResponse<ReportCard>> getStudentReportCard(
             @PathVariable String studentId,
             @RequestParam String academicYearId,
@@ -37,6 +76,7 @@ public class ReportCardController {
     }
 
     @GetMapping("/student/{studentId}/pdf")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
     public ResponseEntity<byte[]> getStudentReportCardPdf(
             @PathVariable String studentId,
             @RequestParam String academicYearId,
@@ -52,6 +92,7 @@ public class ReportCardController {
     }
 
     @PostMapping("/class/{classId}/generate")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
     public ResponseEntity<ApiResponse<List<ReportCard>>> generateClassReportCards(
             @PathVariable String classId,
             @RequestParam String academicYearId,
@@ -62,6 +103,7 @@ public class ReportCardController {
     }
 
     @GetMapping("/class/{classId}/pdf")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
     public ResponseEntity<byte[]> downloadAllClassReportCards(
             @PathVariable String classId,
             @RequestParam String academicYearId,

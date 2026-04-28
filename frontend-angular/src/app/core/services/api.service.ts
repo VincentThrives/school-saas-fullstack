@@ -96,6 +96,12 @@ export class ApiService {
 
   // ── Students ───────────────────────────────────────────────────────────
 
+  /** Currently logged-in student's own record. Used by student-facing pages
+   *  (timetable, dashboard) to scope themselves to the right class+section. */
+  getMyStudentProfile(): Observable<ApiResponse<Student>> {
+    return this.http.get<ApiResponse<Student>>(`${this.API}/students/me`);
+  }
+
   getStudents(page = 0, size = 20, params?: { classId?: string; sectionId?: string; search?: string; gender?: string }): Observable<ApiResponse<PaginatedResponse<Student>>> {
     let httpParams = new HttpParams().set('page', page).set('size', size);
     if (params?.classId) httpParams = httpParams.set('classId', params.classId);
@@ -120,6 +126,14 @@ export class ApiService {
     if (academicYearId) params = params.set('academicYearId', academicYearId);
     return this.http.get<ApiResponse<StudentProfileSummary>>(
       `${this.API}/students/${studentId}/profile-summary`, { params });
+  }
+
+  /** Logged-in student's own profile summary (read-only attendance + exams). */
+  getMyProfileSummary(academicYearId?: string): Observable<ApiResponse<StudentProfileSummary>> {
+    let params = new HttpParams();
+    if (academicYearId) params = params.set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<StudentProfileSummary>>(
+      `${this.API}/students/me/profile-summary`, { params });
   }
 
   createStudent(student: Partial<Student>): Observable<ApiResponse<Student>> {
@@ -293,6 +307,18 @@ export class ApiService {
     return this.http.get(url, { responseType: 'blob' });
   }
 
+  /** Logged-in student's own report card for one (year, examType). */
+  getMyReportCard(academicYearId: string, examType: string): Observable<ApiResponse<any>> {
+    const url = `${this.API}/report-cards/student/me?academicYearId=${academicYearId}&examType=${encodeURIComponent(examType)}`;
+    return this.http.get<ApiResponse<any>>(url);
+  }
+
+  /** Logged-in student's own report card PDF download. */
+  downloadMyReportCardPdf(academicYearId: string, tenantId: string, examType: string): Observable<Blob> {
+    const url = `${this.API}/report-cards/student/me/pdf?academicYearId=${academicYearId}&tenantId=${tenantId}&examType=${encodeURIComponent(examType)}`;
+    return this.http.get(url, { responseType: 'blob' });
+  }
+
   // ── Exams ──────────────────────────────────────────────────────────────
 
   getExams(params?: { classId?: string; academicYearId?: string }): Observable<ApiResponse<any[]>> {
@@ -331,8 +357,10 @@ export class ApiService {
   }
 
   // Student marks
-  getMyMarks(): Observable<ApiResponse<any[]>> {
-    return this.http.get<ApiResponse<any[]>>(`${this.API}/exams/my-marks`);
+  getMyMarks(academicYearId?: string): Observable<ApiResponse<any[]>> {
+    let params = new HttpParams();
+    if (academicYearId) params = params.set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/exams/my-marks`, { params });
   }
 
   getStudentExamMarks(studentId: string): Observable<ApiResponse<any[]>> {

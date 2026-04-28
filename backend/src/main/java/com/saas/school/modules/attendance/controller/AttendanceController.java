@@ -26,7 +26,7 @@ public class AttendanceController {
     @Autowired private SubjectRepository subjectRepository;
 
     @GetMapping("/mode")
-    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER','STUDENT','PARENT')")
     public ResponseEntity<ApiResponse<Map<String, String>>> getAttendanceMode() {
         String tenantId = TenantContext.getTenantId();
         TenantContext.clear();

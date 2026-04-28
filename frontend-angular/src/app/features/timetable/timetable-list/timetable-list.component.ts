@@ -57,6 +57,30 @@ export class TimetableListComponent implements OnInit {
       this.router.navigate(['/my-timetable']);
       return;
     }
+    // Students see only their own class+section's timetable, read-only.
+    if (this.authService.currentRole === UserRole.STUDENT) {
+      this.api.getMyStudentProfile().subscribe({
+        next: (res) => {
+          const s = res?.data as any;
+          if (s?.classId && s?.sectionId) {
+            this.router.navigate(['/timetable/view'], {
+              queryParams: {
+                classId: s.classId,
+                sectionId: s.sectionId,
+                academicYearId: s.academicYearId,
+              },
+              replaceUrl: true,
+            });
+          } else {
+            this.snackBar.open('Your class/section is not set yet.', 'Close', { duration: 4000 });
+          }
+        },
+        error: () => {
+          this.snackBar.open('Could not load your profile.', 'Close', { duration: 4000 });
+        },
+      });
+      return;
+    }
     this.loadClasses();
     this.api.getAcademicYears().subscribe((res) => {
       const data = res.data;

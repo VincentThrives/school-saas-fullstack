@@ -86,6 +86,13 @@ public class StudentService {
                 result.getTotalElements(), page, size);
     }
 
+    /** Resolve the currently logged-in student's record by their user id. */
+    public StudentDto getStudentByUserId(String userId) {
+        Student s = studentRepository.findByUserIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student", userId));
+        return toDto(s);
+    }
+
     public StudentDto getStudent(String studentId) {
         return toDto(findStudent(studentId));
     }

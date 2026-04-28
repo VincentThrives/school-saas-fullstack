@@ -23,6 +23,7 @@ public class ExamService {
     @Autowired private ExamMarkRepository markRepository;
     @Autowired private StudentAssessmentsRepository assessmentsRepository;
     @Autowired private AuditService auditService;
+    @Autowired private com.saas.school.modules.student.repository.StudentRepository studentRepository;
 
     public Exam createExam(Exam req) {
         if (req.getSubjectId() == null || req.getSubjectId().isEmpty()) {
@@ -212,8 +213,73 @@ public class ExamService {
 
     // ── Legacy ──
 
-    public List<ExamMark> getStudentMarks(String studentId) {
-        return markRepository.findByStudentId(studentId);
+    public List<ExamMark> getStudentMarks(String studentIdOrUserId) {
+        return getStudentMarks(studentIdOrUserId, null);
+    }
+
+    /**
+     * Returns a unified list of marks for one student, drawn from BOTH the
+     * legacy {@code ExamMark} collection and the newer batch
+     * {@code StudentAssessments} collection.
+     *
+     * <p>The first arg may be either a Student._id (admin/teacher path) or a
+     * User.userId (student-self path) — we try both so {@code /my-marks}
+     * works even though the JWT principal is the user id.</p>
+     *
+     * <p>When {@code academicYearId} is non-null, only marks whose linked exam
+     * belongs to that year are returned.</p>
+     */
+    public List<ExamMark> getStudentMarks(String studentIdOrUserId, String academicYearId) {
+        if (studentIdOrUserId == null || studentIdOrUserId.isBlank()) return List.of();
+
+        // Build the set of (legacy) studentIds that may match. Marks are keyed
+        // by Student._id, but callers sometimes pass a User.userId — resolve
+        // through the student record so both work.
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        ids.add(studentIdOrUserId);
+        studentRepository.findByUserIdAndDeletedAtIsNull(studentIdOrUserId)
+                .ifPresent(s -> ids.add(s.getStudentId()));
+
+        // Optional year filter: load every exam exactly once.
+        java.util.function.Predicate<String> examInYear = examId -> {
+            if (academicYearId == null || academicYearId.isBlank()) return true;
+            return examRepository.findById(examId)
+                    .map(e -> academicYearId.equals(e.getAcademicYearId()))
+                    .orElse(false);
+        };
+
+        List<ExamMark> out = new java.util.ArrayList<>();
+
+        // 1) Legacy ExamMark collection.
+        for (String id : ids) {
+            for (ExamMark m : markRepository.findByStudentId(id)) {
+                if (examInYear.test(m.getExamId())) out.add(m);
+            }
+        }
+
+        // 2) New batch StudentAssessments collection — synthesize ExamMark
+        // rows so the response shape stays the same for the frontend.
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (ExamMark m : out) seen.add(m.getExamId() + "::" + m.getStudentId());
+
+        for (StudentAssessments doc : assessmentsRepository.findAll()) {
+            if (doc.getEntries() == null) continue;
+            if (!examInYear.test(doc.getExamId())) continue;
+            for (StudentAssessments.MarkEntry e : doc.getEntries()) {
+                if (e == null || !ids.contains(e.getStudentId())) continue;
+                String key = doc.getExamId() + "::" + e.getStudentId();
+                if (seen.contains(key)) continue;
+                seen.add(key);
+                ExamMark m = new ExamMark();
+                m.setExamId(doc.getExamId());
+                m.setStudentId(e.getStudentId());
+                m.setMarksObtained(e.getMarksObtained());
+                m.setGrade(e.getGrade());
+                m.setPassed(e.isPassed());
+                out.add(m);
+            }
+        }
+        return out;
     }
 
     public List<Exam> getUpcomingExams() {

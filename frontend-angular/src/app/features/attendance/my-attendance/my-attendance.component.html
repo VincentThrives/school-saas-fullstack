@@ -1,0 +1,76 @@
+<div class="my-attendance">
+  <app-page-header
+    title="My Attendance"
+    subtitle="Read-only view of your attendance for this academic year"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'My Attendance' }
+    ]"
+  ></app-page-header>
+
+  <div class="loading-row" *ngIf="isLoading" style="display:flex;justify-content:center;padding:24px;">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <div class="empty" *ngIf="!isLoading && (notFound || !summary)" style="padding:24px;text-align:center;color:#888;">
+    <mat-icon>info</mat-icon>
+    <p>No attendance data found.</p>
+  </div>
+
+  <ng-container *ngIf="!isLoading && summary">
+    <!-- Overall summary (always shown) -->
+    <mat-card class="summary-card" style="margin-bottom:16px;padding:16px;">
+      <h3 style="margin:0 0 12px;">Overall Attendance</h3>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
+        <div [ngClass]="percentClass(summary.attendance.overall.percentage || 0)" style="font-size:32px;font-weight:600;">
+          {{ summary.attendance.overall.percentage || 0 }}%
+        </div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;">
+          <div><strong>{{ summary.attendance.overall.present || 0 }}</strong> Present</div>
+          <div><strong>{{ summary.attendance.overall.absent || 0 }}</strong> Absent</div>
+          <div><strong>{{ summary.attendance.overall.late || 0 }}</strong> Late / Half-day</div>
+          <div><strong>{{ summary.attendance.overall.total || 0 }}</strong> Total Days</div>
+        </div>
+      </div>
+      <div style="margin-top:8px;color:#888;font-size:12px;">
+        Mode: {{ attendanceMode === 'SUBJECT_WISE' ? 'Subject-wise' : 'Day-wise' }}
+      </div>
+    </mat-card>
+
+    <!-- Subject-wise breakdown (only when mode is SUBJECT_WISE and data exists) -->
+    <mat-card *ngIf="attendanceMode === 'SUBJECT_WISE' && summary.attendance.bySubject?.length" class="subject-card" style="padding:16px;">
+      <h3 style="margin:0 0 12px;">Subject-wise Attendance</h3>
+      <table mat-table [dataSource]="summary.attendance.bySubject" class="subject-table" style="width:100%;">
+        <ng-container matColumnDef="subjectName">
+          <th mat-header-cell *matHeaderCellDef>Subject</th>
+          <td mat-cell *matCellDef="let row">{{ row.subjectName || row.subjectId }}</td>
+        </ng-container>
+        <ng-container matColumnDef="present">
+          <th mat-header-cell *matHeaderCellDef>Present</th>
+          <td mat-cell *matCellDef="let row">{{ row.present }}</td>
+        </ng-container>
+        <ng-container matColumnDef="absent">
+          <th mat-header-cell *matHeaderCellDef>Absent</th>
+          <td mat-cell *matCellDef="let row">{{ row.absent }}</td>
+        </ng-container>
+        <ng-container matColumnDef="total">
+          <th mat-header-cell *matHeaderCellDef>Total</th>
+          <td mat-cell *matCellDef="let row">{{ row.total }}</td>
+        </ng-container>
+        <ng-container matColumnDef="percentage">
+          <th mat-header-cell *matHeaderCellDef>Percentage</th>
+          <td mat-cell *matCellDef="let row" [ngClass]="percentClass(row.percentage)">
+            {{ row.percentage }}%
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="subjectColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: subjectColumns;"></tr>
+      </table>
+    </mat-card>
+
+    <mat-card *ngIf="attendanceMode === 'SUBJECT_WISE' && !summary.attendance.bySubject?.length"
+              style="padding:16px;color:#888;">
+      No subject-wise records yet.
+    </mat-card>
+  </ng-container>
+</div>

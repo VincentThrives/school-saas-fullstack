@@ -1,11 +1,11 @@
 <div class="timetable-view-container">
   <app-page-header
-    [title]="isTeacherView ? 'My Schedule' : 'Class Timetable'"
+    [title]="isStudentView ? 'My Class Timetable' : (isTeacherView ? 'My Schedule' : 'Class Timetable')"
     subtitle="View the weekly class schedule"
     [breadcrumbs]="[
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'Timetables', link: '/timetable' },
-      { label: isTeacherView ? 'My Schedule' : 'View Timetable' }
+      { label: isStudentView ? 'My Class Timetable' : (isTeacherView ? 'My Schedule' : 'View Timetable') }
     ]"
     actionLabel="Download PDF"
     actionIcon="download"
@@ -15,8 +15,8 @@
     (secondaryActionClick)="printTimetable()"
   ></app-page-header>
 
-  <!-- Filter Bar -->
-  <mat-card class="filter-card">
+  <!-- Filter Bar (hidden for students — they only see their own class+section) -->
+  <mat-card class="filter-card" *ngIf="!isStudentView">
     <div class="filter-row">
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Class</mat-label>
