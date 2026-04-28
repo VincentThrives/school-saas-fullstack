@@ -22,7 +22,9 @@ $sidebar-width: 280px;
 }
 
 .sidenav-content {
-  background-color: #FAF8F5;
+  // Use the CSS variable so dark mode can re-theme the page background app-wide
+  // (overridden in body.dark-theme to a near-black value).
+  background-color: var(--content-bg, #FAF8F5);
   transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 

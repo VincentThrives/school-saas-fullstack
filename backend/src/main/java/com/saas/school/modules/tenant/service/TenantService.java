@@ -105,7 +105,10 @@ public class TenantService {
         }
 
         String tenantId = UUID.randomUUID().toString();
-        String dbName   = TenantMongoDbFactory.buildTenantDbName(tenantId);
+        // Short, identifiable per-tenant DB name derived from the subdomain
+        // — e.g. `school_springfield` instead of `school_tenant_<UUID>`.
+        // Stays under Atlas/Render's name length limits.
+        String dbName   = TenantMongoDbFactory.buildTenantDbName(req.getSubdomain(), tenantId);
 
         // Build default feature flags from catalog
         Map<String, Boolean> featureFlags = buildDefaultFeatureFlags(req.getPlan());

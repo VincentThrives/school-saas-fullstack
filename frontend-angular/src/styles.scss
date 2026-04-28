@@ -437,6 +437,39 @@ body.dark-theme {
   background-color: #0A0A0A !important;
   color: #E0E0E0 !important;
 
+  // Flip the layout vars so any surface that reads them (page background,
+  // sidenav content, header bg) gets dark automatically — no per-component
+  // overrides needed.
+  --content-bg: #0D0D0D;
+  --header-bg: #111111;
+  --white: #1A1A1A;
+  --off-white: #1A1A1A;
+  --warm-gray: #1A1A1A;
+  --text-primary: #E0E0E0;
+  --text-secondary: rgba(224, 224, 224, 0.7);
+  --text-disabled: rgba(224, 224, 224, 0.45);
+  --divider: rgba(212, 168, 67, 0.25);
+  --border: rgba(212, 168, 67, 0.18);
+
+  // Page background (Angular CDK mat-sidenav-content).
+  .mat-sidenav-content,
+  .sidenav-content,
+  .mat-drawer-content {
+    background-color: #0D0D0D !important;
+  }
+
+  // Page-header (breadcrumbs, title, subtitle) — hard-coded light-mode
+  // colors override here so the area above the first card is readable.
+  .page-header-container {
+    .page-title { color: #FFFFFF !important; }
+    .page-subtitle { color: rgba(224, 224, 224, 0.75) !important; }
+    .breadcrumb-link { color: rgba(224, 224, 224, 0.75) !important; }
+    .breadcrumb-link:hover { color: #D4A843 !important; }
+    .breadcrumb-text { color: rgba(224, 224, 224, 0.75) !important; }
+    .breadcrumb-current { color: #FFFFFF !important; }
+    .breadcrumb-separator { color: rgba(224, 224, 224, 0.45) !important; }
+  }
+
   .mat-mdc-card,
   .mat-mdc-table {
     background-color: #1A1A1A !important;
@@ -553,6 +586,248 @@ body.dark-theme {
   ::-webkit-scrollbar-thumb {
     background: #444444;
   }
+
+  // ── Filter & data surfaces ────────────────────────────────
+  // Cards/panels declared as plain divs in feature SCSS files (not <mat-card>),
+  // so the .mat-mdc-card override doesn't reach them. Force-flip the common ones.
+  .filter-card,
+  .filters-card,
+  .info-card,
+  .form-card,
+  .table-card,
+  .summary-card,
+  .marks-card,
+  .subject-card,
+  .panel-card,
+  .stat-card,
+  .timetable-display,
+  .timetable-card,
+  .panel,
+  .empty-card {
+    background-color: #1A1A1A !important;
+    color: #E0E0E0 !important;
+    border-color: #333333 !important;
+  }
+
+  .empty-cell {
+    background: #141414 !important;
+  }
+
+  // Timetable colored period cards retain their per-subject pastel — keep
+  // them readable by darkening the text.
+  .period-card { color: #1A1A1A !important; }
+
+  // ── Event / notification row cards ────────────────────────
+  .event-card,
+  .event-card-top,
+  .holiday-card,
+  .holiday-card-left,
+  .holiday-card-info,
+  .template-card,
+  .rule-card,
+  .inbox-item,
+  .timetable-card { background-color: #1A1A1A !important; color: #E0E0E0 !important; border-color: #333 !important; }
+  .event-date-badge,
+  .holiday-date-badge { background-color: rgba(212,168,67,0.12) !important; color: #E0E0E0 !important; }
+  .holiday-title,
+  .holiday-dates,
+  .holiday-description { color: #E0E0E0 !important; }
+  .inbox-item-icon { background-color: rgba(212,168,67,0.12) !important; }
+  .inbox-item-icon mat-icon { color: #E8C97A !important; }
+  .inbox-item-icon .unread-dot { border-color: #1A1A1A !important; }
+  .inbox-item-title,
+  .inbox-item-text,
+  .inbox-item-meta { color: #E0E0E0 !important; }
+
+  // Notification unread / hover variants — flip the cream gradient/highlight
+  // to a subtle gold-tinted dark surface so unread items still pop without
+  // burning the eyes on a dark page.
+  .inbox-item:hover {
+    background: #222222 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+  }
+  .inbox-item.unread {
+    background: linear-gradient(135deg, rgba(212,168,67,0.18) 0%, #1A1A1A 70%) !important;
+    border-color: rgba(212,168,67,0.5) !important;
+  }
+  .inbox-item.unread:hover {
+    background: linear-gradient(135deg, rgba(212,168,67,0.28) 0%, #222222 70%) !important;
+  }
+  .inbox-item-type-chip {
+    background-color: rgba(212,168,67,0.22) !important;
+    color: #E8C97A !important;
+  }
+
+  // ── Mat overlays (dropdowns, autocompletes, menus) ────────
+  // Render an elevated surface with a subtle dark gradient + gold-tinted
+  // border + deeper shadow so the panel clearly lifts off the dark page.
+  .mat-mdc-select-panel,
+  .mat-mdc-autocomplete-panel,
+  .mat-mdc-menu-panel {
+    background: linear-gradient(180deg, #1F1F1F 0%, #161616 100%) !important;
+    color: #E0E0E0 !important;
+    border: 1px solid rgba(212, 168, 67, 0.25) !important;
+    border-radius: 12px !important;
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, 0.55),
+      0 4px 12px rgba(212, 168, 67, 0.12),
+      0 0 0 1px rgba(255, 255, 255, 0.02) inset !important;
+  }
+  .mat-mdc-option,
+  .mat-mdc-option .mdc-list-item__primary-text {
+    color: #E0E0E0 !important;
+  }
+  .mat-mdc-option:hover:not(.mdc-list-item--disabled) {
+    background: linear-gradient(90deg, rgba(212,168,67,0.2) 0%, rgba(212,168,67,0.08) 100%) !important;
+  }
+  .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+    background: linear-gradient(90deg, rgba(212,168,67,0.28) 0%, rgba(212,168,67,0.1) 100%) !important;
+    color: #E8C97A !important;
+  }
+
+  // Tabs body content (e.g. Events page tabs)
+  .mat-mdc-tab-body-content { background-color: transparent !important; }
+
+  // Mat datepicker calendar popup — same elevated treatment as the select panel.
+  .mat-datepicker-content {
+    background: linear-gradient(180deg, #1F1F1F 0%, #161616 100%) !important;
+    color: #E0E0E0 !important;
+    border: 1px solid rgba(212, 168, 67, 0.25) !important;
+    border-radius: 12px !important;
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, 0.55),
+      0 4px 12px rgba(212, 168, 67, 0.12) !important;
+  }
+  .mat-calendar-body-cell-content { color: #E0E0E0 !important; }
+  .mat-calendar-arrow { fill: #E0E0E0 !important; }
+  .mat-calendar-body-selected {
+    background: linear-gradient(135deg, #D4A843 0%, #B8860B 100%) !important;
+    color: #1A1A1A !important;
+  }
+
+  // ── Activate / Deactivate User Modal ──────────────────────
+  // Custom modal in users-list (not a mat-dialog), so neither the global
+  // mat-card override nor the .delete-dialog rule reaches it.
+  .status-modal-card {
+    background: #1f2937 !important;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6) !important;
+
+    &::before { opacity: 0.18 !important; }
+  }
+  .status-modal-title { color: #f9fafb !important; }
+  .status-modal-user {
+    background: rgba(255,255,255,0.04) !important;
+    border-color: #374151 !important;
+  }
+  .status-user-name { color: #f9fafb !important; }
+  .status-user-role { color: #cbd5e1 !important; }
+  .status-modal-effect {
+    background: rgba(220,38,38,0.12) !important;
+    color: #fecaca !important;
+    border-color: rgba(220,38,38,0.35) !important;
+  }
+  .status-modal-card.activating .status-modal-effect {
+    background: rgba(46,125,50,0.18) !important;
+    color: #c8e6c9 !important;
+    border-color: rgba(46,125,50,0.4) !important;
+  }
+  .status-modal-actions { border-top-color: #374151 !important; }
+
+  // ── Generic form/dialog overlays not using mat-dialog ─────
+  // Several feature pages roll their own modal: .form-overlay > .form-dialog.
+  // Force the inner card to dark.
+  .form-overlay .form-dialog,
+  .form-dialog,
+  .modal-card,
+  .dialog-card { background-color: #1A1A1A !important; color: #E0E0E0 !important; box-shadow: 0 24px 60px rgba(0,0,0,0.6) !important; }
+  .form-dialog h3, .modal-card h3, .dialog-card h3 { color: #f9fafb !important; }
+
+  // ── Fees: selected-student strip ──────────────────────────
+  .selected-student-bar { background: #1A1A1A !important; border-color: #333 !important; color: #E0E0E0 !important; }
+  .selected-student-info,
+  .selected-student-name,
+  .selected-student-meta { color: #E0E0E0 !important; }
+
+  // ── Notifications: left rail ──────────────────────────────
+  // .notif-rail is the left-side nav strip; styled white in light theme.
+  .notif-rail { background-color: #1A1A1A !important; border-color: #333 !important; }
+  .notif-rail .rail-item { color: #C0C0C0 !important; }
+  .notif-rail .rail-item:hover { background-color: rgba(212,168,67,0.08) !important; color: #E0E0E0 !important; }
+  .notif-rail .rail-item.active { background: rgba(212,168,67,0.18) !important; color: #E8C97A !important; }
+
+  // ── Report Cards: "Showing: <type>" chip row + Download button ──
+  .context-chip-row .ctx-chip,
+  .context-chip-row mat-chip { background-color: rgba(212,168,67,0.18) !important; color: #E8C97A !important; }
+  // Outlined "Download All PDFs" button in light mode is a white pill.
+  .mat-mdc-outlined-button {
+    color: #E8C97A !important;
+    border-color: rgba(232, 201, 122, 0.4) !important;
+  }
+
+  // ── Exam Results: Top Performers list ─────────────────────
+  // Gold/silver/bronze rows ship with cream/light gradients that look like
+  // stickers on a dark page. Replace with subtle metal-tinted dark gradients
+  // that keep the rank vibe without burning eyes.
+  .topper-item { background: #1A1A1A !important; color: #E0E0E0 !important; }
+  .topper-item.gold {
+    background: linear-gradient(135deg, rgba(212,168,67,0.32) 0%, rgba(212,168,67,0.10) 100%) !important;
+    border: 1px solid rgba(232,201,122,0.5) !important;
+  }
+  .topper-item.silver {
+    background: linear-gradient(135deg, rgba(192,192,192,0.22) 0%, rgba(192,192,192,0.06) 100%) !important;
+    border: 1px solid rgba(192,192,192,0.4) !important;
+  }
+  .topper-item.bronze {
+    background: linear-gradient(135deg, rgba(205,127,50,0.28) 0%, rgba(205,127,50,0.08) 100%) !important;
+    border: 1px solid rgba(205,127,50,0.45) !important;
+  }
+
+  // ── Exam Calendar grid ────────────────────────────────────
+  .calendar-card,
+  .upcoming-card,
+  .exam-item,
+  .calendar-grid,
+  .calendar-day,
+  .weekday-header { background-color: #1A1A1A !important; color: #E0E0E0 !important; border-color: #2A2A2A !important; }
+  .calendar-day .day-num, .calendar-day { color: #C0C0C0 !important; }
+  .calendar-day.today { background: rgba(212,168,67,0.18) !important; }
+  .calendar-day.has-exam { background: rgba(212,168,67,0.10) !important; }
+
+  // ── Fees: Admission # badge / mat-chip variant ────────────
+  // Admission chips inherit a near-white bg from light mode. Tone them down.
+  td .mat-mdc-chip:not([class*="status-"]):not([class*="chip-"]) {
+    background-color: rgba(212,168,67,0.18) !important;
+    color: #E8C97A !important;
+  }
+
+  // ── Header user menu (mat-menu rendered in global CDK overlay) ──
+  // The component-scoped :host-context dark rules don't reach the overlay
+  // panel because it lives outside the component tree. Override globally.
+  .user-menu .user-info .user-name { color: #FFFFFF !important; }
+  .user-menu .user-info .user-email { color: rgba(224, 224, 224, 0.7) !important; }
+  .notification-menu .notif-header strong { color: #E0E0E0 !important; }
+  .notification-menu .notif-header .notif-count { color: #AAAAAA !important; }
+  .notification-menu .notif-empty span { color: #AAAAAA !important; }
+
+  // ── Role chip (Employees / Users tables) ──────────────────
+  // Plain <span class="role-chip"> — light blue pill in light mode that's
+  // invisible against dark cells. Use a tinted dark surface with bright text.
+  .role-chip {
+    background-color: rgba(33, 150, 243, 0.18) !important;
+    color: #90CAF9 !important;
+  }
+}
+
+// Mat overlays render outside body, so the cdk-overlay-container also gets
+// the dark treatment when dark-theme is on. Use :has() so the rule applies
+// while body.dark-theme exists.
+body.dark-theme + .cdk-overlay-container,
+body.dark-theme ~ .cdk-overlay-container,
+body.dark-theme .cdk-overlay-container,
+.cdk-overlay-container:has(.cdk-overlay-pane .mat-mdc-select-panel) {
+  // Best-effort fallback — the rules inside body.dark-theme already handle
+  // the actual panel surfaces, but this keeps the overlay backdrop tinted.
+  .cdk-overlay-backdrop.cdk-overlay-dark-backdrop { background: rgba(0, 0, 0, 0.7); }
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -725,8 +1000,10 @@ body.dark-theme {
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* Dark-mode treatment */
-body.dark-mode {
+/* Dark-mode treatment — applied for both class names since the header
+   toggles `dark-theme` while older selectors used `dark-mode`. */
+body.dark-mode,
+body.dark-theme {
   .delete-overlay { background: rgba(0, 0, 0, 0.65); }
   .delete-dialog {
     background: #1f2937;

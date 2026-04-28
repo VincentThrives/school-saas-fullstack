@@ -122,27 +122,33 @@
       </mat-card-content>
     </mat-card>
 
-    <!-- Available MCQ Exams -->
+    <!-- Events & Holidays -->
     <mat-card class="student-dashboard__panel">
       <mat-card-header>
-        <mat-icon mat-card-avatar class="student-dashboard__panel-icon--secondary">quiz</mat-icon>
-        <mat-card-title>Available MCQ Exams</mat-card-title>
+        <mat-icon mat-card-avatar class="student-dashboard__panel-icon--secondary">event</mat-icon>
+        <mat-card-title>Events &amp; Holidays</mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <mat-list>
-          <mat-list-item *ngFor="let exam of upcomingMcqExams">
+        <mat-list *ngIf="upcomingEvents.length > 0">
+          <mat-list-item *ngFor="let ev of upcomingEvents">
             <div class="student-dashboard__list-item">
               <div class="student-dashboard__item-avatar student-dashboard__item-avatar--secondary">
-                <mat-icon>quiz</mat-icon>
+                <mat-icon>{{ ev.kind === 'holiday' ? 'beach_access' : 'event' }}</mat-icon>
               </div>
               <div class="student-dashboard__item-info">
-                <span class="student-dashboard__item-title">{{ exam.title }}</span>
-                <span class="student-dashboard__item-meta">{{ exam.subjectName }} &bull; {{ exam.duration }} mins</span>
+                <span class="student-dashboard__item-title">{{ ev.title }}</span>
+                <span class="student-dashboard__item-meta">{{ ev.date | date:'dd MMM yyyy' }}</span>
               </div>
-              <span class="student-dashboard__chip student-dashboard__chip--primary">Start</span>
+              <span class="student-dashboard__chip"
+                    [ngClass]="ev.kind === 'holiday' ? 'student-dashboard__chip--warning' : 'student-dashboard__chip--primary'">
+                {{ ev.kind === 'holiday' ? 'Holiday' : 'Event' }}
+              </span>
             </div>
           </mat-list-item>
         </mat-list>
+        <div *ngIf="upcomingEvents.length === 0" style="padding:16px;text-align:center;color:#888;">
+          No upcoming events.
+        </div>
       </mat-card-content>
     </mat-card>
   </div>
