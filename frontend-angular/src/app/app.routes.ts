@@ -210,6 +210,13 @@ export const routes: Routes = [
         data: { roles: [UserRole.STUDENT], feature: 'attendance' },
       },
       {
+        path: 'my-attendance/:subjectId',
+        loadComponent: () =>
+          import('./features/attendance/my-subject-attendance/my-subject-attendance.component').then(m => m.MySubjectAttendanceComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.STUDENT], feature: 'attendance' },
+      },
+      {
         path: 'my-report-card',
         loadComponent: () =>
           import('./features/report-cards/my-report-card/my-report-card.component').then(m => m.MyReportCardComponent),

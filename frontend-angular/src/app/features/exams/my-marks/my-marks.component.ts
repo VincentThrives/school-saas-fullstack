@@ -63,7 +63,7 @@ export class MyMarksComponent implements OnInit {
   examsMap: Record<string, any> = {};
   isLoading = false;
   isYearLoaded = false; // becomes true once the first year load finishes
-  displayedColumns = ['examName', 'subject', 'date', 'marks', 'percentage', 'grade', 'status'];
+  displayedColumns = ['examName', 'examType', 'subject', 'date', 'marks', 'percentage', 'grade', 'status'];
 
   // Filters
   academicYears: AcademicYear[] = [];

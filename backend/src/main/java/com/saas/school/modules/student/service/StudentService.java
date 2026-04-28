@@ -93,6 +93,63 @@ public class StudentService {
         return toDto(s);
     }
 
+    /**
+     * Date-by-date attendance for one subject for the student identified by
+     * {@code userId}. Reads the StudentsAttendance batch collection for the
+     * student's class+section, keeps only batches with the matching subject,
+     * pulls this student's entry from each, and tallies totals.
+     */
+    public SubjectAttendanceDetail getMySubjectAttendanceDetail(String userId, String subjectId) {
+        Student me = studentRepository.findByUserIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student", userId));
+        SubjectAttendanceDetail out = new SubjectAttendanceDetail();
+        out.setSubjectId(subjectId);
+        out.setSubjectName(subjectRepository.findById(subjectId)
+                .map(s -> s.getName()).orElse(subjectId));
+
+        List<com.saas.school.modules.attendance.model.StudentsAttendance> batches =
+                studentsAttendanceRepository.findByClassIdAndSectionIdAndDateBetween(
+                        me.getClassId(), me.getSectionId(),
+                        java.time.LocalDate.of(1970, 1, 1),
+                        java.time.LocalDate.of(2999, 12, 31));
+
+        for (var doc : batches) {
+            if (doc.getEntries() == null) continue;
+            if (subjectId == null || subjectId.isBlank()) continue;
+            if (!subjectId.equals(doc.getSubjectId())) continue;
+
+            var myEntry = doc.getEntries().stream()
+                    .filter(e -> me.getStudentId().equals(e.getStudentId()))
+                    .findFirst().orElse(null);
+            if (myEntry == null) continue;
+
+            String status = myEntry.getStatus() == null ? "" : myEntry.getStatus().toUpperCase();
+            String dateStr = doc.getDate() == null ? "" : doc.getDate().toString();
+            out.getEntries().add(new SubjectAttendanceDetail.DayEntry(
+                    dateStr, doc.getPeriodNumber(), status, myEntry.getRemarks()));
+
+            out.setTotal(out.getTotal() + 1);
+            switch (status) {
+                case "PRESENT":  out.setPresent(out.getPresent() + 1); break;
+                case "ABSENT":   out.setAbsent(out.getAbsent() + 1);   break;
+                case "LATE":     out.setLate(out.getLate() + 1);       break;
+                case "HALF_DAY": out.setLate(out.getLate() + 1);       break;
+                default: /* unknown — counted in total but not in any bucket */ break;
+            }
+        }
+
+        // Newest first.
+        out.getEntries().sort((a, b) -> {
+            int byDate = b.getDate().compareTo(a.getDate());
+            if (byDate != 0) return byDate;
+            return Integer.compare(a.getPeriodNumber(), b.getPeriodNumber());
+        });
+
+        out.setPercentage(out.getTotal() == 0 ? 0
+                : Math.round(((double) out.getPresent() / out.getTotal()) * 10000.0) / 100.0);
+        return out;
+    }
+
     public StudentDto getStudent(String studentId) {
         return toDto(findStudent(studentId));
     }
@@ -557,11 +614,16 @@ public class StudentService {
             }
         }
 
-        // No whole-day records → roll up per-period statuses into the overall counts.
-        if (overall.getTotal() == 0 && !periodDayStatus.isEmpty()) {
-            for (String dayStatus : periodDayStatus.values()) {
-                overall.setTotal(overall.getTotal() + 1);
-                bumpStatus(overall, dayStatus);
+        // No whole-day records → derive overall by summing the per-subject
+        // totals. This is honest: a student who was Absent in 1 of 5 periods
+        // shouldn't show 100%. Earlier we did a day-best merge (PRESENT wins),
+        // which hid every absence on a partially-attended day.
+        if (overall.getTotal() == 0 && !bySubject.isEmpty()) {
+            for (StudentProfileSummary.SubjectAttendance sa : bySubject.values()) {
+                overall.setTotal(overall.getTotal() + sa.getTotal());
+                overall.setPresent(overall.getPresent() + sa.getPresent());
+                overall.setAbsent(overall.getAbsent() + sa.getAbsent());
+                overall.setLate(overall.getLate() + sa.getLate());
             }
         }
 

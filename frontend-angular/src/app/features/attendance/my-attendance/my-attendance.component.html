@@ -63,10 +63,20 @@
             {{ row.percentage }}%
           </td>
         </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <td mat-cell *matCellDef="let row">
+            <button mat-stroked-button color="primary" type="button" (click)="viewSubject(row)">
+              <mat-icon>visibility</mat-icon>
+              View
+            </button>
+          </td>
+        </ng-container>
         <tr mat-header-row *matHeaderRowDef="subjectColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: subjectColumns;"></tr>
       </table>
     </mat-card>
+
 
     <mat-card *ngIf="attendanceMode === 'SUBJECT_WISE' && !summary.attendance.bySubject?.length"
               style="padding:16px;color:#888;">

@@ -1,0 +1,9 @@
+.my-subject-attendance {
+  .pct-good { color: #2e7d32; }
+  .pct-warn { color: #f9a825; }
+  .pct-bad  { color: #c62828; }
+
+  .st-present { background-color: #c8e6c9; color: #2e7d32; }
+  .st-absent  { background-color: #ffcdd2; color: #c62828; }
+  .st-late    { background-color: #fff3cd; color: #f9a825; }
+}

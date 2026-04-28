@@ -65,15 +65,27 @@
       </mat-card-content>
     </mat-card>
 
-    <!-- Attendance Overview -->
+    <!-- Subject-wise Attendance (right-side card) -->
     <mat-card class="student-dashboard__attendance-card">
       <mat-card-header>
-        <mat-card-title>Attendance Overview</mat-card-title>
+        <mat-card-title>Subject-wise Attendance</mat-card-title>
       </mat-card-header>
-      <mat-card-content class="student-dashboard__attendance-content">
-        <div class="student-dashboard__attendance-circle">
-          <span class="student-dashboard__attendance-value">{{ stats.attendancePercentage }}%</span>
-          <span class="student-dashboard__attendance-label">Overall Attendance</span>
+      <mat-card-content>
+        <mat-list *ngIf="subjectAttendance.length > 0">
+          <mat-list-item *ngFor="let s of subjectAttendance">
+            <div class="student-dashboard__list-item" style="width:100%;">
+              <div class="student-dashboard__item-info" style="flex:1;">
+                <span class="student-dashboard__item-title">{{ s.subjectName }}</span>
+                <span class="student-dashboard__item-meta">{{ s.present }}/{{ s.total }} days present</span>
+              </div>
+              <span class="student-dashboard__chip" [ngClass]="pctClass(s.percentage)">
+                {{ s.percentage }}%
+              </span>
+            </div>
+          </mat-list-item>
+        </mat-list>
+        <div *ngIf="subjectAttendance.length === 0" style="padding:16px;text-align:center;color:#888;">
+          No attendance records yet.
         </div>
       </mat-card-content>
     </mat-card>

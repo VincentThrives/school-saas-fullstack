@@ -98,6 +98,14 @@
         </td>
       </ng-container>
 
+      <ng-container matColumnDef="examType">
+        <th mat-header-cell *matHeaderCellDef>Exam Type</th>
+        <td mat-cell *matCellDef="let row">
+          <mat-chip class="exam-type-chip" *ngIf="row.examType">{{ row.examType }}</mat-chip>
+          <span *ngIf="!row.examType">-</span>
+        </td>
+      </ng-container>
+
       <ng-container matColumnDef="subject">
         <th mat-header-cell *matHeaderCellDef>Subject</th>
         <td mat-cell *matCellDef="let row">

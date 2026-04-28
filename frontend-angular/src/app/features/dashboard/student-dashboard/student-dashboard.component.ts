@@ -64,6 +64,8 @@ export class StudentDashboardComponent implements OnInit {
   todaySchedule: ScheduleRow[] = [];
   recentMarks: RecentMarkRow[] = [];
   upcomingMcqExams: McqRow[] = [];
+  /** Per-subject attendance breakdown shown in the right-side dashboard card. */
+  subjectAttendance: { subjectName: string; percentage: number; present: number; total: number }[] = [];
 
   scheduleColumns = ['period', 'time', 'subject', 'teacher', 'room'];
 
@@ -84,6 +86,17 @@ export class StudentDashboardComponent implements OnInit {
       const profile = me?.data as any;
       this.stats.attendancePercentage = (summary?.data as any)?.attendance?.overall?.percentage ?? 0;
       this.stats.unreadNotifications = (unread?.data as any) ?? 0;
+
+      // Subject-wise attendance for the dashboard "Attendance Overview" card
+      const bySubject: any[] = (summary?.data as any)?.attendance?.bySubject || [];
+      this.subjectAttendance = bySubject
+        .map((s) => ({
+          subjectName: s.subjectName || s.subjectId || '-',
+          percentage: s.percentage ?? 0,
+          present: s.present ?? 0,
+          total: s.total ?? 0,
+        }))
+        .sort((a, b) => a.subjectName.localeCompare(b.subjectName));
 
       // Recent marks (top 5 from profile-summary's exams)
       const exams: any[] = (summary?.data as any)?.exams || [];
@@ -143,5 +156,13 @@ export class StudentDashboardComponent implements OnInit {
 
   isGradeA(grade: string): boolean {
     return (grade || '').toString().startsWith('A');
+  }
+
+  /** Color variant for a percentage chip — reuses the existing chip classes
+   *  (success / warning / etc.) declared in the dashboard SCSS. */
+  pctClass(p: number): string {
+    if (p >= 75) return 'student-dashboard__chip--success';
+    if (p >= 60) return 'student-dashboard__chip--primary';
+    return 'student-dashboard__chip--warning';
   }
 }

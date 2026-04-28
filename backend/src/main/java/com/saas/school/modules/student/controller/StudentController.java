@@ -55,6 +55,16 @@ public class StudentController {
                 studentService.getStudentProfileSummary(me.getStudentId(), academicYearId)));
     }
 
+    /** Date-by-date attendance for one subject for the logged-in student. */
+    @GetMapping("/me/attendance/by-subject/{subjectId}")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<SubjectAttendanceDetail>> meSubjectAttendance(
+            @AuthenticationPrincipal String userId,
+            @PathVariable String subjectId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                studentService.getMySubjectAttendanceDetail(userId, subjectId)));
+    }
+
     /** One-call endpoint used by the teacher's "My Students" page. */
     @GetMapping("/my-class")
     @PreAuthorize("hasAnyRole('TEACHER','PRINCIPAL','SCHOOL_ADMIN')")

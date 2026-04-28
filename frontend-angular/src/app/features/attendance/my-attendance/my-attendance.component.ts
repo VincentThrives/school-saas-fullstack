@@ -1,10 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { StudentProfileSummary } from '../../../core/models';
@@ -19,6 +21,7 @@ import { StudentProfileSummary } from '../../../core/models';
     MatProgressSpinnerModule,
     MatProgressBarModule,
     MatIconModule,
+    MatButtonModule,
     PageHeaderComponent,
   ],
   templateUrl: './my-attendance.component.html',
@@ -33,9 +36,12 @@ export class MyAttendanceComponent implements OnInit {
 
   summary: StudentProfileSummary | null = null;
 
-  subjectColumns = ['subjectName', 'present', 'absent', 'total', 'percentage'];
+  subjectColumns = ['subjectName', 'present', 'absent', 'total', 'percentage', 'actions'];
 
-  constructor(private api: ApiService) {}
+  /** When non-null, the View detail panel is shown for this subject. */
+  selectedSubject: any = null;
+
+  constructor(private api: ApiService, private router: Router) {}
 
   ngOnInit(): void {
     // Load mode + summary in parallel
@@ -58,5 +64,11 @@ export class MyAttendanceComponent implements OnInit {
     if (p >= 75) return 'pct-good';
     if (p >= 60) return 'pct-warn';
     return 'pct-bad';
+  }
+
+  /** Open the per-subject detail page (date-by-date breakdown). */
+  viewSubject(row: any): void {
+    if (!row?.subjectId) return;
+    this.router.navigate(['/my-attendance', row.subjectId]);
   }
 }

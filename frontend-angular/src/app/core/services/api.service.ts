@@ -136,6 +136,12 @@ export class ApiService {
       `${this.API}/students/me/profile-summary`, { params });
   }
 
+  /** Date-by-date attendance for one subject for the logged-in student. */
+  getMySubjectAttendance(subjectId: string): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(
+      `${this.API}/students/me/attendance/by-subject/${subjectId}`);
+  }
+
   createStudent(student: Partial<Student>): Observable<ApiResponse<Student>> {
     return this.http.post<ApiResponse<Student>>(`${this.API}/students`, student);
   }
