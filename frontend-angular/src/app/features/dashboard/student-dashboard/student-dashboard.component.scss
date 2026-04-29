@@ -1,6 +1,158 @@
 $gold: #D4A843;
 $gold-dark: #B8860B;
 
+// ── Events & Holidays card ───────────────────────────────
+$eh-event:    #5b8def;
+$eh-event-2:  #2f4ec9;
+$eh-holiday:  #ff7a59;
+$eh-holiday-2:#d94c2b;
+
+.events-holidays-card {
+  .eh-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+  }
+
+  .eh-col {
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 14px;
+    padding: 12px;
+    position: relative;
+    overflow: hidden;
+
+    // Subtle accent gradient strip on the left edge.
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0; left: 0;
+      width: 4px;
+    }
+    &--events::before    { background: linear-gradient(180deg, $eh-event,    $eh-event-2); }
+    &--holidays::before  { background: linear-gradient(180deg, $eh-holiday,  $eh-holiday-2); }
+  }
+
+  .eh-col-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px 4px;
+  }
+
+  .eh-col-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #fff;
+    }
+
+    &--events    { background: linear-gradient(135deg, $eh-event,   $eh-event-2);   box-shadow: 0 4px 10px rgba(91,141,239,0.35); }
+    &--holidays  { background: linear-gradient(135deg, $eh-holiday, $eh-holiday-2); box-shadow: 0 4px 10px rgba(255,122,89,0.35); }
+  }
+
+  .eh-col-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #4a4a4a;
+    flex: 1;
+  }
+
+  .eh-col-count {
+    background: rgba(0,0,0,0.06);
+    color: #555;
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 22px;
+    text-align: center;
+  }
+
+  .eh-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    padding: 8px;
+    border-radius: 10px;
+    transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    cursor: default;
+
+    & + .eh-row { margin-top: 6px; }
+
+    &:hover {
+      transform: translateY(-1px);
+      background-color: rgba(255,255,255,0.7);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+  }
+
+  .eh-date {
+    width: 46px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 0;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+
+    .eh-date-day   { font-size: 18px; font-weight: 800; line-height: 1; }
+    .eh-date-month { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; opacity: 0.85; margin-top: 2px; }
+
+    &--event    { background: linear-gradient(135deg, $eh-event,    $eh-event-2); }
+    &--holiday  { background: linear-gradient(135deg, $eh-holiday,  $eh-holiday-2); }
+  }
+
+  .eh-row-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    flex: 1;
+  }
+  .eh-row-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1a1a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .eh-row-meta {
+    font-size: 11px;
+    color: #777;
+    margin-top: 2px;
+  }
+
+  .eh-empty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 4px;
+    color: #888;
+    font-size: 13px;
+    mat-icon { color: #b0b0b0; font-size: 20px; width: 20px; height: 20px; }
+  }
+}
+
 .student-dashboard {
   &__stats {
     display: grid;

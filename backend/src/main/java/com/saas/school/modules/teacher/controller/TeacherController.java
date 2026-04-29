@@ -67,6 +67,22 @@ public class TeacherController {
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<Teacher>> create(@RequestBody Teacher req) {
         try {
+            // Reject duplicates up front. The DuplicateKeyException catch below
+            // only fires when a Mongo unique index exists on employeeId — which
+            // it doesn't in dev. This explicit check works regardless.
+            if (req.getEmployeeId() == null || req.getEmployeeId().isBlank()) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Employee ID is required"));
+            }
+            if (teacherRepo.existsByEmployeeIdAndDeletedAtIsNull(req.getEmployeeId())) {
+                return ResponseEntity.badRequest().body(
+                        ApiResponse.error("Employee ID '" + req.getEmployeeId() + "' is already in use"));
+            }
+            // DOB is required — the auto-generated User password is `firstName@<birthYear>`,
+            // so an employee with no DOB cannot log in.
+            if (req.getDateOfBirth() == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Date of birth is required"));
+            }
+
             req.setTeacherId(UUID.randomUUID().toString());
             if (req.getEmployeeRole() == null || req.getEmployeeRole().isEmpty()) req.setEmployeeRole("TEACHER");
             req.syncFromAssignments();

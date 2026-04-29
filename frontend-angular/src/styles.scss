@@ -756,8 +756,36 @@ body.dark-theme {
   .notif-rail .rail-item.active { background: rgba(212,168,67,0.18) !important; color: #E8C97A !important; }
 
   // ── Report Cards: "Showing: <type>" chip row + Download button ──
+  // Material chips style their interior via the MDC text-label class, so a
+  // simple `color` on the host doesn't reach the text. Also force the chip
+  // surface var so the gold tint actually shows.
   .context-chip-row .ctx-chip,
-  .context-chip-row mat-chip { background-color: rgba(212,168,67,0.18) !important; color: #E8C97A !important; }
+  .context-chip-row mat-chip {
+    --mdc-chip-elevated-container-color: rgba(212,168,67,0.22) !important;
+    --mdc-chip-label-text-color: #E8C97A !important;
+    background-color: rgba(212,168,67,0.22) !important;
+    color: #E8C97A !important;
+    border: 1px solid rgba(212,168,67,0.5) !important;
+  }
+  .context-chip-row .ctx-chip .mdc-evolution-chip__text-label,
+  .context-chip-row mat-chip .mdc-evolution-chip__text-label,
+  .context-chip-row .ctx-chip mat-icon,
+  .context-chip-row mat-chip mat-icon { color: #E8C97A !important; }
+
+  // Download All PDFs raised button (color="accent") — flat dark fill in
+  // light mode is white-ish; force a visible gold-on-dark treatment.
+  .header-actions .mat-mdc-raised-button {
+    background-color: rgba(212,168,67,0.22) !important;
+    color: #E8C97A !important;
+    border: 1px solid rgba(212,168,67,0.5) !important;
+  }
+  .header-actions .mat-mdc-raised-button:not([disabled]):hover {
+    background-color: rgba(212,168,67,0.32) !important;
+  }
+  .header-actions .mat-mdc-raised-button[disabled] {
+    background-color: rgba(212,168,67,0.10) !important;
+    color: rgba(232,201,122,0.5) !important;
+  }
   // Outlined "Download All PDFs" button in light mode is a white pill.
   .mat-mdc-outlined-button {
     color: #E8C97A !important;
@@ -799,6 +827,87 @@ body.dark-theme {
     background-color: rgba(212,168,67,0.18) !important;
     color: #E8C97A !important;
   }
+
+  // ── Timetable Builder (custom <table>, not mat-table) ─────
+  // The wrapper / scroll container is a plain div with a hard-coded white
+  // background; cells use light borders. Flip everything in dark mode and
+  // make sure the scrollbars stay visible (horizontal one was getting eaten
+  // by the white-on-white wrapper background).
+  .timetable-wrapper {
+    background-color: #1A1A1A !important;
+    border: 1px solid #2A2A2A !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5) !important;
+  }
+  .timetable-scroll {
+    // Force a visible scrollbar even on macOS-style OS settings, so the
+    // user has something to grab when the timetable overflows horizontally.
+    scrollbar-width: thin;
+    scrollbar-color: #444 #1A1A1A;
+  }
+  .timetable-scroll::-webkit-scrollbar { height: 10px; }
+  .timetable-scroll::-webkit-scrollbar-track { background: #1A1A1A; }
+  .timetable-scroll::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+  .timetable-table th,
+  .timetable-table td { border-color: #2A2A2A !important; }
+  .timetable-table .period-time { background: #141414 !important; color: #C0C0C0 !important; }
+  // Period number column: keep the gold accent so the row index pops on dark.
+  .timetable-table .period-number {
+    background: rgba(212,168,67,0.18) !important;
+    color: #E8C97A !important;
+    font-weight: 700 !important;
+  }
+  .timetable-table .lunch-break-row { background: rgba(212,168,67,0.10) !important; }
+  .timetable-table .lunch-cell { color: #E8C97A !important; }
+
+  // ── Events & Holidays dashboard card ──────────────────────
+  .events-holidays-card {
+    .eh-col           { background: rgba(255,255,255,0.04) !important; border-color: rgba(255,255,255,0.08) !important; }
+    .eh-col-title     { color: #C0C0C0 !important; }
+    .eh-col-count     { background: rgba(255,255,255,0.08) !important; color: #C0C0C0 !important; }
+    .eh-row:hover     { background-color: rgba(255,255,255,0.06) !important; box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important; }
+    .eh-row-title     { color: #F1F1F1 !important; }
+    .eh-row-meta      { color: #9a9a9a !important; }
+    .eh-empty         { color: #9a9a9a !important; mat-icon { color: #666 !important; } }
+  }
+
+  // ── Table cell name labels ────────────────────────────────
+  // Several list pages use a custom <div class="user-name|student-name|class-name">
+  // with hard-coded color #1a1a1a in light SCSS. They sit inside <td> so the
+  // global "h1..span" override doesn't reach them. Force a light color.
+  .user-name,
+  .student-name,
+  .class-name,
+  .teacher-name,
+  .employee-name,
+  .name-cell,
+  .user-name-cell .user-name { color: #E0E0E0 !important; }
+
+  // ── Mat icon buttons inside tables ────────────────────────
+  // Default icon color is too dim against dark cells (3-dot menu, edit, etc.).
+  td .mat-mdc-icon-button .mat-icon,
+  .actions-cell .mat-icon,
+  .actions-col .mat-icon { color: #E0E0E0 !important; }
+
+  // ── Academic Years page ───────────────────────────────────
+  // The active-year banner uses a `linear-gradient(..., rgba(gold,0.03), white)`
+  // that ends in white — invisible label on dark mode. Override surface + text.
+  .info-banner {
+    background: linear-gradient(135deg, rgba(212,168,67,0.18) 0%, #1A1A1A 100%) !important;
+    border-color: rgba(212,168,67,0.35) !important;
+  }
+  .info-banner .info-content strong { color: #F5F5F5 !important; }
+  .info-banner .info-content p { color: rgba(224,224,224,0.7) !important; }
+
+  // Custom create-year modal (.dialog-overlay > .dialog-panel)
+  .dialog-panel {
+    background-color: #1A1A1A !important;
+    color: #E0E0E0 !important;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6) !important;
+    border: 1px solid #2A2A2A !important;
+  }
+  .dialog-panel h3 { color: #F5F5F5 !important; }
+  .dialog-panel .dialog-description { color: rgba(224,224,224,0.75) !important; }
+  .dialog-panel .dialog-actions { border-top-color: #333 !important; }
 
   // ── Header user menu (mat-menu rendered in global CDK overlay) ──
   // The component-scoped :host-context dark rules don't reach the overlay

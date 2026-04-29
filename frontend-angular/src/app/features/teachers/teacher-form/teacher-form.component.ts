@@ -84,7 +84,8 @@ export class TeacherFormComponent implements OnInit {
       employeeRole: ['TEACHER', Validators.required],
       qualification: [''],
       specialization: [''],
-      dateOfBirth: [''],
+      // DOB is required — login password is derived from `firstName@<birthYear>`.
+      dateOfBirth: ['', Validators.required],
       joiningDate: [''],
       isClassTeacher: [false],
       classTeacherOfClassId: [''],

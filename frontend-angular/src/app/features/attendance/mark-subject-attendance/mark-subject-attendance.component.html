@@ -26,7 +26,9 @@
         <div class="teacher-banner-right">
           <mat-form-field appearance="outline" class="inline-date-field">
             <mat-label>Date</mat-label>
-            <input matInput [matDatepicker]="teacherPicker" [(ngModel)]="selectedDate" [max]="today" (dateChange)="onTeacherDateChange()">
+            <input matInput [matDatepicker]="teacherPicker" [(ngModel)]="selectedDate"
+                   [min]="yearStart" [max]="yearEnd && yearEnd < today ? yearEnd : today"
+                   (dateChange)="onTeacherDateChange()">
             <mat-datepicker-toggle matIconSuffix [for]="teacherPicker"></mat-datepicker-toggle>
             <mat-datepicker #teacherPicker></mat-datepicker>
           </mat-form-field>
@@ -79,7 +81,9 @@
 
         <mat-form-field appearance="outline" class="filter-field" *ngIf="!isTeacherMode">
           <mat-label>Date</mat-label>
-          <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [max]="today" (dateChange)="onSectionOrDateChange()">
+          <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate"
+                 [min]="yearStart" [max]="yearEnd && yearEnd < today ? yearEnd : today"
+                 (dateChange)="onSectionOrDateChange()">
           <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
           <mat-datepicker #picker></mat-datepicker>
           <mat-hint>Cannot select future dates</mat-hint>
@@ -88,8 +92,24 @@
     </mat-card-content>
   </mat-card>
 
+  <!-- Out-of-academic-year banner (rendered when the picked date sits before
+       startDate or after endDate of the selected year). Suppresses the periods
+       section so a teacher can't mark attendance for dates the year hasn't begun. -->
+  <div class="holiday-banner" *ngIf="isDateOutOfRange" style="background:rgba(244,67,54,0.12);border-color:rgba(244,67,54,0.4);">
+    <mat-icon class="holiday-banner-icon" style="color:#c62828;">event_busy</mat-icon>
+    <div class="holiday-banner-text">
+      <h3 style="color:#c62828;">Date is outside the academic year</h3>
+      <p>
+        Attendance can only be marked between
+        {{ yearStart | date:'dd MMM yyyy' }}
+        and
+        {{ yearEnd | date:'dd MMM yyyy' }}.
+      </p>
+    </div>
+  </div>
+
   <!-- Holiday Banner -->
-  <div class="holiday-banner" *ngIf="isHoliday">
+  <div class="holiday-banner" *ngIf="isHoliday && !isDateOutOfRange">
     <mat-icon class="holiday-banner-icon">beach_access</mat-icon>
     <div class="holiday-banner-text">
       <h3>Holiday - {{ holidayTitle }}</h3>
@@ -99,7 +119,7 @@
 
   <!-- Step 2: Period Cards from Timetable -->
   <div class="periods-section"
-       *ngIf="!isHoliday && (isTeacherMode ? autoLoadAttempted : (selectedClassId === 'ALL' || (selectedClassId && selectedSectionId)))">
+       *ngIf="!isHoliday && !isDateOutOfRange && (isTeacherMode ? autoLoadAttempted : (selectedClassId === 'ALL' || (selectedClassId && selectedSectionId)))">
     <h3 class="section-title">
       <mat-icon>schedule</mat-icon>
       {{ isTeacherMode && !showFilters ? 'Your Periods' : "Today's Periods (from Timetable)" }}

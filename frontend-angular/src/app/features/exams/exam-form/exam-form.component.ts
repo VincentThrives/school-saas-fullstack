@@ -240,19 +240,23 @@ export class ExamFormComponent implements OnInit {
     }
 
     this.isLoadingSubjects = true;
+    const finishWith = (resolved: SubjectItem[]) => {
+      // Fall back to the raw section subjectIds when no Subject row matches —
+      // legacy classes use literal string ids ("kannada", "english"…) that
+      // don't exist in the Subjects collection. This keeps the dropdown
+      // populated regardless.
+      const byId = new Map<string, SubjectItem>();
+      resolved.forEach(s => byId.set(s.subjectId, s));
+      this.subjectsList = subjectIds.map(id => byId.get(id) || ({ subjectId: id, name: id } as SubjectItem));
+      if (this.pendingSubjectId) {
+        this.examForm.patchValue({ subjectId: this.pendingSubjectId });
+        this.pendingSubjectId = null;
+      }
+      this.isLoadingSubjects = false;
+    };
     this.subjectService.getSubjectsByIds(subjectIds).subscribe({
-      next: (subjects) => {
-        this.subjectsList = subjects;
-        if (this.pendingSubjectId) {
-          this.examForm.patchValue({ subjectId: this.pendingSubjectId });
-          this.pendingSubjectId = null;
-        }
-        this.isLoadingSubjects = false;
-      },
-      error: () => {
-        this.subjectsList = [];
-        this.isLoadingSubjects = false;
-      },
+      next: (subjects) => finishWith(subjects),
+      error: () => finishWith([]),
     });
   }
 

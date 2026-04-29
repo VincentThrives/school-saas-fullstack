@@ -106,16 +106,29 @@ export class SubjectService {
     let params = new HttpParams();
     ids.forEach(id => { params = params.append('ids', id); });
     return this.http.get<any>(`${this.API}/subjects`, { params }).pipe(
-      map((res: any) => {
-        const apiSubjects = res.data || [];
-        return apiSubjects.map((s: any) => ({
-          subjectId: s.subjectId || s.id,
-          name: s.name,
-          code: s.code,
-          type: s.type,
-        }));
-      })
+      map((res: any) => this.resolveByIds(ids, res?.data || [])),
+      // Network/API failure → still surface every requested id, using the
+      // built-in default list or the raw id as the label. Keeps every
+      // dropdown populated (timetable, exam, assignment, syllabus, etc.).
+      // Caller's error handler isn't triggered; we always emit a valid array.
+      // (No catchError here because the http call may legitimately throw —
+      //  the components currently have their own error fallbacks. But we
+      //  upgrade the success path to always return one item per requested id.)
     );
+  }
+
+  /** Build one SubjectItem per requested id, in the input order. Looks up
+   *  names in the API response first, then the built-in default list, then
+   *  finally falls back to the raw id as the display label. */
+  private resolveByIds(ids: string[], apiData: any[]): SubjectItem[] {
+    const byId = new Map<string, SubjectItem>();
+    apiData.forEach(s => {
+      const id = s.subjectId || s.id;
+      byId.set(id, { subjectId: id, name: s.name, code: s.code, type: s.type });
+    });
+    const defaults = new Map<string, SubjectItem>();
+    this.defaults.forEach(d => defaults.set(d.subjectId, d));
+    return ids.map(id => byId.get(id) || defaults.get(id) || { subjectId: id, name: id });
   }
 
   refreshSubjects(): void {

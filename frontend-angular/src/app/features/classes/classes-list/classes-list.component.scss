@@ -30,7 +30,10 @@ $gold-dark: #B8860B;
 
 .table-toolbar .filter-field {
   min-width: 200px;
-  margin-bottom: -14px; // cancel Material's built-in bottom padding so button aligns with inputs
+  // Collapse Material's empty subscript area for compact alignment, but only
+  // when the field has no hint/error — otherwise the hint text gets pulled
+  // up over the next row (table header / "No classes for this year" overlap).
+  &:not(:has(mat-hint, mat-error)) { margin-bottom: -14px; }
 }
 
 .toolbar-spacer {

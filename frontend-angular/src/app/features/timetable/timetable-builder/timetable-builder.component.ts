@@ -196,10 +196,19 @@ export class TimetableBuilderComponent implements OnInit {
 
     this.subjectService.getSubjectsByIds(subjectIds).subscribe({
       next: (subjects) => {
-        this.subjects = subjects.map(s => ({ subjectId: s.subjectId, name: s.name }));
+        // Map by id so we can fall back to the raw id when a subject isn't
+        // registered in the Subjects collection (legacy classes use literal
+        // strings like "kannada"/"english" as ids).
+        const byId = new Map<string, string>();
+        subjects.forEach(s => byId.set(s.subjectId, s.name));
+        this.subjects = subjectIds.map(id => ({
+          subjectId: id,
+          name: byId.get(id) || id,
+        }));
       },
       error: () => {
-        this.subjects = [];
+        // Network/API failure — still show the raw ids so the user can pick.
+        this.subjects = subjectIds.map(id => ({ subjectId: id, name: id }));
       },
     });
   }

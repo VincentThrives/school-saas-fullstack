@@ -74,6 +74,9 @@ export class StudentDashboardComponent implements OnInit {
   upcomingMcqExams: McqRow[] = [];
   /** Upcoming events + holidays merged into one chronological list. */
   upcomingEvents: UpcomingEventRow[] = [];
+  /** Same data, split for the two-column "Events & Holidays" card. */
+  upcomingEventsOnly: UpcomingEventRow[] = [];
+  upcomingHolidaysOnly: UpcomingEventRow[] = [];
   /** Per-subject attendance breakdown shown in the right-side dashboard card. */
   subjectAttendance: { subjectName: string; percentage: number; present: number; total: number }[] = [];
 
@@ -185,6 +188,14 @@ export class StudentDashboardComponent implements OnInit {
       combined.sort((a, b) => a.date.localeCompare(b.date));
       this.upcomingEvents = combined.slice(0, 5);
 
+      // Split for the two-column dashboard card. Top 3 each by date.
+      this.upcomingEventsOnly = combined
+        .filter(r => r.kind === 'event')
+        .slice(0, 3);
+      this.upcomingHolidaysOnly = combined
+        .filter(r => r.kind === 'holiday')
+        .slice(0, 3);
+
       // Today's timetable for student's class+section
       if (profile?.classId && profile?.sectionId && profile?.academicYearId) {
         this.api.getTimetable(profile.classId, profile.sectionId, profile.academicYearId).subscribe({
@@ -230,6 +241,29 @@ export class StudentDashboardComponent implements OnInit {
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
+  }
+
+  /** Format an ISO date as "DD" / "MMM" parts for the date badge. */
+  dayPart(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return String(d.getDate()).padStart(2, '0');
+  }
+  monthPart(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
+  }
+  /** "Today" / "Tomorrow" / "In N days" / formatted date for the meta line. */
+  whenLabel(iso: string): string {
+    if (!iso) return '';
+    const today = new Date(); today.setHours(0,0,0,0);
+    const target = new Date(iso); target.setHours(0,0,0,0);
+    const diff = Math.round((target.getTime() - today.getTime()) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Tomorrow';
+    if (diff > 1 && diff <= 7) return `In ${diff} days`;
+    return target.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   /** Color variant for a percentage chip — reuses the existing chip classes

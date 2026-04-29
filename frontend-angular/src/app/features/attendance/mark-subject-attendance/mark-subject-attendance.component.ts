@@ -79,6 +79,13 @@ export class MarkSubjectAttendanceComponent implements OnInit {
   selectedSectionId = '';
   selectedDate: Date = new Date();
   today: Date = new Date();
+  /** Bounds for the date picker — derived from the selected academic year's
+   *  startDate / endDate. Without these, teachers could pick a date before
+   *  the year starts (e.g. last March) and the periods would still load. */
+  yearStart: Date | null = null;
+  yearEnd: Date | null = null;
+  /** True when selectedDate falls outside [yearStart, yearEnd]. */
+  isDateOutOfRange = false;
 
   // Timetable periods for the selected day
   timetablePeriods: TimetablePeriod[] = [];
@@ -191,6 +198,7 @@ export class MarkSubjectAttendanceComponent implements OnInit {
           return;
         }
         this.selectedAcademicYearId = current.academicYearId;
+        this.applyYearBounds();
 
         // Load classes in parallel so periodClassLabel() can resolve
         // className/sectionName from a period's classId/sectionId even when
@@ -326,6 +334,8 @@ export class MarkSubjectAttendanceComponent implements OnInit {
   /** Teacher mode: change date → re-filter cached timetables (no network call). */
   onTeacherDateChange(): void {
     if (!this.isTeacherMode) return;
+    this.checkDateRange();
+    if (this.isDateOutOfRange) return; // banner shown; nothing to load
     this.applyTeacherDayFilter();
     if (this.timetablePeriods.length === 0) {
       this.autoLoadEmpty = true;
@@ -349,13 +359,49 @@ export class MarkSubjectAttendanceComponent implements OnInit {
         const current = this.academicYears.find((y) => y.current);
         if (current) {
           this.selectedAcademicYearId = current.academicYearId;
+          this.applyYearBounds();
           this.loadClasses();
         }
       },
     });
   }
 
+  /** Refresh the [yearStart, yearEnd] bounds + the out-of-range flag from
+   *  the currently selected academic year. Called whenever the year changes
+   *  or after the year list is loaded. */
+  private applyYearBounds(): void {
+    const year = this.academicYears.find(y => y.academicYearId === this.selectedAcademicYearId) as any;
+    this.yearStart = year?.startDate ? new Date(year.startDate) : null;
+    this.yearEnd = year?.endDate ? new Date(year.endDate) : null;
+    this.checkDateRange();
+  }
+
+  /** Set isDateOutOfRange and clear cards if the picked date sits outside
+   *  the current year's bounds. */
+  private checkDateRange(): void {
+    if (!this.selectedDate || (!this.yearStart && !this.yearEnd)) {
+      this.isDateOutOfRange = false;
+      return;
+    }
+    const d = new Date(this.selectedDate); d.setHours(0,0,0,0);
+    const start = this.yearStart ? new Date(this.yearStart) : null;
+    const end = this.yearEnd ? new Date(this.yearEnd) : null;
+    if (start) start.setHours(0,0,0,0);
+    if (end) end.setHours(0,0,0,0);
+    const tooEarly = !!start && d < start;
+    const tooLate = !!end && d > end;
+    this.isDateOutOfRange = tooEarly || tooLate;
+    if (this.isDateOutOfRange) {
+      // Don't surface stale period cards when the date is out of range.
+      this.timetablePeriods = [];
+      this.selectedPeriod = null;
+      this.students = [];
+      this.studentsLoaded = false;
+    }
+  }
+
   onAcademicYearChange(): void {
+    this.applyYearBounds();
     this.selectedClassId = '';
     this.selectedSectionId = '';
     this.sections = [];
@@ -521,6 +567,11 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     this.isHoliday = false;
     this.holidayTitle = '';
     this.isAlreadyMarked = false;
+
+    // Block out-of-year dates up front. The banner is rendered from
+    // isDateOutOfRange — nothing to fetch.
+    this.checkDateRange();
+    if (this.isDateOutOfRange) return;
 
     // "All Classes" path — no section filter, just aggregate across everything.
     if (this.selectedClassId === 'ALL') {

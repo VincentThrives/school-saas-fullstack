@@ -111,12 +111,15 @@ $gold-light: rgba(212, 168, 67, 0.1);
 }
 
 .time-input {
-  width: 55px;
-  padding: 4px;
+  // Wide enough for HH:MM + Chrome's native time-picker clock icon (~20px).
+  // Was 55px which cropped to "10:1" and merged the second digit with the icon.
+  width: 86px;
+  padding: 4px 6px;
   border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 4px;
   font-size: 0.75rem;
   text-align: center;
+  font-variant-numeric: tabular-nums;
 
   &:focus {
     outline: none;
