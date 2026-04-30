@@ -432,6 +432,197 @@ a, button, input, select, textarea {
 .slide-up { animation: slideUp 0.5s ease-out; }
 .scale-in { animation: scaleIn 0.3s ease-out; }
 
+// ──────────────────────────────────────────────────────────
+//  Mobile responsiveness
+// ──────────────────────────────────────────────────────────
+//  Phones / small tablets. The layout shell already swaps the sidebar to
+//  `over` mode via BreakpointObserver — this block fixes the rest of the
+//  app (filter rows, stat grids, two-column dashboards, tables, modals).
+//
+//  Strategy: keep desktop styles as-is, override only what's needed below
+//  the breakpoint. No per-component template changes required for the
+//  pages already using the shared class names below.
+// ──────────────────────────────────────────────────────────
+@media (max-width: 599px) {
+  // Tighter content padding on phones (was 24px / 88px).
+  .content-wrapper {
+    padding: 12px !important;
+    padding-top: 76px !important;
+  }
+
+  // Page header: stack title and actions, full-width buttons.
+  .page-header-container .title-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .page-header-container .actions-section {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .page-header-container .primary-action-btn,
+  .page-header-container .secondary-action-btn { flex: 1 1 auto; }
+
+  // Breadcrumbs: keep only the current page label so we don't wrap.
+  .page-header-container .breadcrumbs .breadcrumb-link,
+  .page-header-container .breadcrumbs .breadcrumb-separator { display: none; }
+
+  // Filter / toolbar rows used across list pages: stack vertically.
+  .filter-row,
+  .filters-row,
+  .table-toolbar,
+  .filters-card .filter-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .filter-field,
+  .filter-card mat-form-field,
+  .filters-card mat-form-field { width: 100% !important; min-width: 0 !important; }
+
+  // Stat grids: 4-up → 2-up (was 4 cols on every dashboard).
+  .student-dashboard__stats,
+  .teacher-dashboard__stats,
+  .summary-grid,
+  .stats-grid,
+  .stat-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  // The stat-card itself is too padded for phones — the icon (56×56) +
+  // 24px×2 card padding pushes the right edge off-screen at 360px.
+  // Tighten everything proportionally so two cards fit cleanly side by side.
+  .stat-card { min-width: 0 !important; }
+  .stat-card .stat-card__content,
+  .stat-card .mat-mdc-card-content { padding: 12px !important; gap: 8px; }
+  .stat-card .stat-card__icon-wrapper { width: 40px !important; height: 40px !important; }
+  .stat-card .stat-card__icon { font-size: 22px !important; width: 22px !important; height: 22px !important; }
+  .stat-card .stat-card__title { font-size: 0.75rem !important; }
+  .stat-card .stat-card__value { font-size: 1.25rem !important; }
+
+  // Two-column main content blocks → single column.
+  .student-dashboard__content,
+  .teacher-dashboard__content,
+  .student-dashboard__bottom-row,
+  .teacher-dashboard__bottom-row,
+  .calendar-layout,
+  .events-holidays-card .eh-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  // Tables: don't hide columns — let users swipe horizontally to reach them.
+  // The wrapping mat-card AND its inner mat-card-content both need overflow
+  // hooks because Material's content wrapper sets its own padding/overflow.
+  .table-card,
+  .mat-mdc-card:has(.mat-mdc-table),
+  .mat-mdc-card:has(.mat-mdc-table) .mat-mdc-card-content {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  // Bigger min-width so every column has room (was 640).
+  .mat-mdc-table { min-width: 880px; }
+  // Subtle visual hint that there's more to the right.
+  .table-card::after,
+  .mat-mdc-card:has(.mat-mdc-table)::after {
+    content: '';
+  }
+
+  // Mat dialog / custom modals — full-width with safe gutter.
+  .mat-mdc-dialog-container .mdc-dialog__surface,
+  .form-overlay .form-dialog,
+  .form-dialog,
+  .modal-card,
+  .dialog-panel,
+  .delete-dialog,
+  .status-modal-card {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px) !important;
+    margin: 12px !important;
+  }
+
+  // Period chips on Mark Subject Attendance — wrap instead of overflow.
+  .period-cards { flex-wrap: wrap !important; }
+  .period-card { flex: 1 1 calc(50% - 12px); min-width: 0 !important; }
+
+  // Notifications page: rail + panel side-by-side → stacked.
+  .notif-layout { grid-template-columns: 1fr !important; }
+  .notif-rail { width: 100% !important; }
+
+  // Fees — student strip's "Back to students" + name should wrap.
+  .selected-student-bar { flex-wrap: wrap; }
+
+  // Header: hide the long school name on phones (avatar + bell are enough).
+  .app-header .school-name { display: none; }
+
+  // Datepicker overlay can overflow on small screens — pin to the viewport.
+  .mat-datepicker-content { max-width: calc(100vw - 24px) !important; }
+
+  // Material chip lists wrap (some pages set them in a flex row).
+  mat-chip-set { flex-wrap: wrap; }
+
+  // ── Phase 3 — per-page polish ────────────────────────────
+  // Timetable Builder: enforce horizontal scroll on the wrapper itself so
+  // the user can swipe; tighten cell padding.
+  .timetable-wrapper { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  .timetable-table { min-width: 880px; }
+  .timetable-table th,
+  .timetable-table td { padding: 6px !important; font-size: 12px !important; }
+  .time-input { width: 78px !important; font-size: 0.7rem !important; }
+
+  // Mark Subject Attendance period cards: comfortable touch targets, wrap.
+  .periods-section .period-cards,
+  .period-cards { display: flex !important; flex-wrap: wrap !important; gap: 10px !important; }
+  .period-cards .period-card { flex: 1 1 calc(50% - 10px); min-width: 0; }
+
+  // Exam Calendar: collapse the side rail under the calendar grid.
+  .calendar-layout { display: block !important; }
+  .calendar-card,
+  .upcoming-card { width: 100% !important; }
+  .calendar-grid { font-size: 12px; }
+  .calendar-day { min-height: 56px; padding: 4px; }
+
+  // Classes list: section/subject chips wrap.
+  .sections-chips,
+  .subjects-chips { flex-wrap: wrap; }
+
+  // Notifications inbox: row text stops overflowing.
+  .inbox-item-title { white-space: normal !important; }
+  .inbox-item-text { white-space: normal !important; }
+
+  // Generic mat-tab labels: smaller so tab strip doesn't overflow.
+  .mat-mdc-tab .mdc-tab__text-label { font-size: 12px !important; }
+
+  // Generic stat-card values: keep prominent but no overflow on tiny screens.
+  .stat-value, .student-dashboard__attendance-value { font-size: 1.5rem !important; }
+}
+
+// Phase 4 — utility classes to hide low-priority columns on small screens.
+// Apply via `class="hide-mobile"` on a column's <th>/<td> (or any element).
+@media (max-width: 599px) {
+  .hide-mobile { display: none !important; }
+  // Tighter cell padding so the remaining columns aren't cramped.
+  .mat-mdc-cell, .mat-mdc-header-cell { padding-left: 10px !important; padding-right: 10px !important; font-size: 13px !important; }
+}
+@media (max-width: 959px) {
+  .hide-tablet { display: none !important; }
+}
+
+// Tablet portrait — between phone and desktop. Loosen a bit.
+@media (min-width: 600px) and (max-width: 959px) {
+  .student-dashboard__stats,
+  .teacher-dashboard__stats,
+  .summary-grid,
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .student-dashboard__content,
+  .teacher-dashboard__content,
+  .calendar-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 // ── Dark Theme ──────────────────────────────────────────
 body.dark-theme {
   background-color: #0A0A0A !important;

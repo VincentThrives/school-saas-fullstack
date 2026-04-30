@@ -99,12 +99,25 @@ public class PerformanceAnalyticsService {
         Map<String, Student> studentMap = students.stream()
                 .collect(Collectors.toMap(Student::getStudentId, s -> s, (a, b) -> a));
 
-        // Build user name map
+        // Build a display-name map. Prefer the Student record's first+last
+        // (canonical, kept in sync when the admin edits the student) and fall
+        // back to the linked User's name only if the student row has none.
+        // Previously we only read the User name — which gets stale because
+        // student edits don't propagate there, so e.g. "Abhi A" rendered as
+        // the User's old "a aa".
         Map<String, String> userNameMap = new HashMap<>();
         for (Student student : students) {
-            userRepository.findByUserIdAndDeletedAtIsNull(student.getUserId())
-                    .ifPresent(u -> userNameMap.put(student.getStudentId(),
-                            u.getFirstName() + " " + u.getLastName()));
+            String studentName = ((student.getFirstName() == null ? "" : student.getFirstName()) + " "
+                    + (student.getLastName() == null ? "" : student.getLastName())).trim();
+            if (studentName.isEmpty()) {
+                studentName = userRepository.findByUserIdAndDeletedAtIsNull(student.getUserId())
+                        .map(u -> ((u.getFirstName() == null ? "" : u.getFirstName()) + " "
+                                + (u.getLastName() == null ? "" : u.getLastName())).trim())
+                        .orElse("");
+            }
+            if (!studentName.isEmpty()) {
+                userNameMap.put(student.getStudentId(), studentName);
+            }
         }
 
         List<ClassRankingDto> rankings;

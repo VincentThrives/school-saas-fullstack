@@ -234,6 +234,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
         { title: 'Report Cards', path: '/report-cards', icon: 'description', feature: 'report_cards' },
         { title: 'Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
+        { title: 'Class Rankings', path: '/analytics/rankings', icon: 'leaderboard', feature: 'analytics' },
         { title: 'PTM', path: '/ptm', icon: 'groups' },
         // { title: 'Study Materials', path: '/study-materials', icon: 'library_books', feature: 'content' },
         // { title: 'Mentoring Notes', path: '/mentoring', icon: 'note' },
