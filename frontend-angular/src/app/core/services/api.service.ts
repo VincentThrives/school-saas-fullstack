@@ -438,6 +438,13 @@ export class ApiService {
     return this.http.get<ApiResponse<any>>(`${this.API}/dashboard`, { params });
   }
 
+  /** Class-wise fee breakdown for the school admin dashboard. */
+  getFeesByClass(academicYearId?: string): Observable<ApiResponse<any[]>> {
+    let params = new HttpParams();
+    if (academicYearId) params = params.set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/dashboard/fees-by-class`, { params });
+  }
+
   // ── Notifications ──────────────────────────────────────────────────────
 
   getNotifications(page = 0, size = 20): Observable<ApiResponse<PaginatedResponse<Notification>>> {

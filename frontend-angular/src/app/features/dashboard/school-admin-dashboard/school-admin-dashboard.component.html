@@ -32,6 +32,74 @@
     ></app-stat-card>
   </div>
 
+  <!-- Pending Fees details card -->
+  <mat-card class="school-admin-dashboard__fees-card" [class.is-clear]="totalPendingAll === 0 && feesByClass.length > 0">
+    <div class="fees-card__header">
+      <div class="fees-card__title-row">
+        <mat-icon class="fees-card__title-icon">payments</mat-icon>
+        <div>
+          <h3 class="fees-card__title">Class-wise Fees</h3>
+          <span class="fees-card__subtitle">
+            {{ currentYearLabel ? currentYearLabel : 'Current year' }} • per-class totals, paid &amp; pending
+          </span>
+        </div>
+      </div>
+      <div class="fees-card__loading" *ngIf="isLoadingFees">
+        <mat-spinner diameter="20"></mat-spinner>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="fees-card__empty" *ngIf="!isLoadingFees && feesByClass.length === 0">
+      <mat-icon>info_outline</mat-icon>
+      <span>No classes configured for this academic year yet.</span>
+    </div>
+
+    <!-- Class-wise table -->
+    <div class="fees-card__table-wrap" *ngIf="!isLoadingFees && feesByClass.length > 0">
+      <table class="fees-card__table">
+        <thead>
+          <tr>
+            <th class="col-class">Class</th>
+            <th class="col-num">Students</th>
+            <th class="col-num">Pending</th>
+            <th class="col-money">Total Fee</th>
+            <th class="col-money">Paid</th>
+            <th class="col-money">Pending Amt</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of feesByClass" [class.row-clear]="row.totalPending === 0">
+            <td class="col-class">{{ row.className }}</td>
+            <td class="col-num">{{ row.studentCount.toLocaleString() }}</td>
+            <td class="col-num">
+              <span class="pending-pill" [class.pill-zero]="row.pendingStudents === 0">
+                {{ row.pendingStudents.toLocaleString() }}
+              </span>
+            </td>
+            <td class="col-money">{{ formatMoney(row.totalDue) }}</td>
+            <td class="col-money paid">{{ formatMoney(row.totalPaid) }}</td>
+            <td class="col-money pending">{{ formatMoney(row.totalPending) }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td class="col-class">Total</td>
+            <td class="col-num">{{ totalStudents.toLocaleString() }}</td>
+            <td class="col-num">
+              <span class="pending-pill" [class.pill-zero]="totalPendingStudents === 0">
+                {{ totalPendingStudents.toLocaleString() }}
+              </span>
+            </td>
+            <td class="col-money">{{ formatMoney(totalDueAll) }}</td>
+            <td class="col-money paid">{{ formatMoney(totalPaidAll) }}</td>
+            <td class="col-money pending">{{ formatMoney(totalPendingAll) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </mat-card>
+
   <!-- Quick Actions & Lists -->
   <div class="school-admin-dashboard__panels">
     <!-- Upcoming Exams -->

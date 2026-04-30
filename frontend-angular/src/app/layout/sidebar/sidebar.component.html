@@ -44,17 +44,52 @@
 
   <!-- Navigation -->
   <nav class="sidebar-nav">
-    <a
-      *ngFor="let item of menuItems"
-      [routerLink]="item.path"
-      routerLinkActive="active-link"
-      [routerLinkActiveOptions]="{ exact: item.path === '/dashboard' || item.path === '/superadmin/dashboard' }"
-      class="nav-item"
-      (click)="onNavClick()"
-    >
-      <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
-      <span class="nav-title">{{ item.title }}</span>
-    </a>
+    <ng-container *ngFor="let item of menuItems">
+      <!-- Leaf item: ordinary link -->
+      <a
+        *ngIf="!item.children"
+        [routerLink]="item.path"
+        routerLinkActive="active-link"
+        [routerLinkActiveOptions]="{ exact: item.path === '/dashboard' || item.path === '/superadmin/dashboard' }"
+        class="nav-item"
+        (click)="onNavClick()"
+      >
+        <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+        <span class="nav-title">{{ item.title }}</span>
+      </a>
+
+      <!-- Group: collapsible header + indented children -->
+      <ng-container *ngIf="item.children && hasVisibleChildren(item)">
+        <button
+          type="button"
+          class="nav-item nav-group-header"
+          [class.expanded]="isGroupOpen(item)"
+          [class.active-link]="isGroupActive(item)"
+          (click)="toggleGroup(item, $event)"
+        >
+          <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+          <span class="nav-title">{{ item.title }}</span>
+          <mat-icon class="nav-chevron">
+            {{ isGroupOpen(item) ? 'expand_less' : 'expand_more' }}
+          </mat-icon>
+        </button>
+
+        <div class="nav-group-children" *ngIf="isGroupOpen(item)">
+          <ng-container *ngFor="let child of item.children">
+            <a
+              *ngIf="isItemVisible(child)"
+              [routerLink]="child.path"
+              routerLinkActive="active-link"
+              class="nav-item nav-child"
+              (click)="onNavClick()"
+            >
+              <mat-icon class="nav-icon">{{ child.icon }}</mat-icon>
+              <span class="nav-title">{{ child.title }}</span>
+            </a>
+          </ng-container>
+        </div>
+      </ng-container>
+    </ng-container>
   </nav>
 
   <!-- User Info at Bottom -->

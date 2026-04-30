@@ -12,6 +12,9 @@ public class DashboardDto {
     private Long totalClasses;
     private Long upcomingExamsCount;
     private Long unreadNotifications;
+    // Fees (year-scoped): students with any outstanding balance + sum of those balances.
+    private Long pendingFeesStudents;
+    private Double pendingFeesAmount;
     // Super Admin
     private Long totalTenants;
     private Long activeTenants;
@@ -85,6 +88,12 @@ public class DashboardDto {
     public void setUnreadNotifications(Long unreadNotifications) {
         this.unreadNotifications = unreadNotifications;
     }
+
+    public Long getPendingFeesStudents() { return pendingFeesStudents; }
+    public void setPendingFeesStudents(Long pendingFeesStudents) { this.pendingFeesStudents = pendingFeesStudents; }
+
+    public Double getPendingFeesAmount() { return pendingFeesAmount; }
+    public void setPendingFeesAmount(Double pendingFeesAmount) { this.pendingFeesAmount = pendingFeesAmount; }
 
     public Long getTotalTenants() {
         return totalTenants;

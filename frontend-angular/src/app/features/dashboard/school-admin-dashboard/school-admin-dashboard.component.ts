@@ -21,6 +21,16 @@ interface UpcomingEventRow {
   type: string;
 }
 
+interface ClassFeeRow {
+  classId: string;
+  className: string;
+  studentCount: number;
+  pendingStudents: number;
+  totalDue: number;
+  totalPaid: number;
+  totalPending: number;
+}
+
 @Component({
   selector: 'app-school-admin-dashboard',
   standalone: true,
@@ -52,6 +62,9 @@ export class SchoolAdminDashboardComponent implements OnInit {
   upcomingEvents: UpcomingEventRow[] = [];
   isLoadingEvents = false;
 
+  feesByClass: ClassFeeRow[] = [];
+  isLoadingFees = false;
+
   /** Current academic year scoping the dashboard data. */
   currentYearId = '';
   currentYearLabel = '';
@@ -71,14 +84,48 @@ export class SchoolAdminDashboardComponent implements OnInit {
         this.loadStats();
         this.loadUpcomingExams();
         this.loadUpcomingEvents();
+        this.loadFeesByClass();
       },
       error: () => {
         // Even if years fail, still try to load; backend falls back to current year.
         this.loadStats();
         this.loadUpcomingExams();
         this.loadUpcomingEvents();
+        this.loadFeesByClass();
       },
     });
+  }
+
+  // ── Class-wise fees ─────────────────────────────────────────
+  private loadFeesByClass(): void {
+    this.isLoadingFees = true;
+    this.apiService.getFeesByClass(this.currentYearId || undefined).subscribe({
+      next: (res) => {
+        this.feesByClass = (res?.data || []) as ClassFeeRow[];
+        this.isLoadingFees = false;
+      },
+      error: () => {
+        this.feesByClass = [];
+        this.isLoadingFees = false;
+      },
+    });
+  }
+
+  // ── Footer totals (computed from feesByClass for the table footer row) ──
+  get totalStudents(): number {
+    return this.feesByClass.reduce((sum, r) => sum + (r.studentCount || 0), 0);
+  }
+  get totalPendingStudents(): number {
+    return this.feesByClass.reduce((sum, r) => sum + (r.pendingStudents || 0), 0);
+  }
+  get totalDueAll(): number {
+    return this.feesByClass.reduce((sum, r) => sum + (r.totalDue || 0), 0);
+  }
+  get totalPaidAll(): number {
+    return this.feesByClass.reduce((sum, r) => sum + (r.totalPaid || 0), 0);
+  }
+  get totalPendingAll(): number {
+    return this.feesByClass.reduce((sum, r) => sum + (r.totalPending || 0), 0);
   }
 
   // ── Stat cards ──────────────────────────────────────────────
@@ -160,6 +207,16 @@ export class SchoolAdminDashboardComponent implements OnInit {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString(undefined, {
       day: '2-digit', month: 'short', year: 'numeric',
+    });
+  }
+
+  /** ₹ formatter — Indian grouping (1,23,456) with no decimals when round. */
+  formatMoney(amount: number): string {
+    const n = Number(amount) || 0;
+    const hasFraction = Math.round(n) !== n;
+    return '₹' + n.toLocaleString('en-IN', {
+      minimumFractionDigits: hasFraction ? 2 : 0,
+      maximumFractionDigits: 2,
     });
   }
 }

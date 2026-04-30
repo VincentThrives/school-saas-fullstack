@@ -265,6 +265,77 @@ $white: #FFFFFF;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+}
+
+// Accordion header (group like "Exams") — looks like a nav item but is a button.
+.nav-group-header {
+  background: transparent;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  // Re-apply nav-item visuals lost when this is a <button>.
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: rgba($white, 0.7);
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  // No bottom margin when expanded — the children block butts up against it
+  // so the whole group reads as one box.
+  margin-bottom: 4px;
+
+  &:hover { background-color: rgba($white, 0.06); color: $white; }
+
+  // When the group is open, fuse it into the children block visually.
+  &.expanded {
+    background: linear-gradient(180deg, rgba(212, 168, 67, 0.15) 0%, rgba(212, 168, 67, 0.06) 100%);
+    color: #E8C97A;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    margin-bottom: 0;
+
+    .nav-icon { color: $gold; }
+  }
+}
+
+.nav-chevron {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: rgba($white, 0.5);
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.nav-group-children {
+  // Distinct gradient background so children clearly belong to the group above.
+  // Continues the gradient from the expanded header for a single visual block.
+  background: linear-gradient(180deg, rgba(212, 168, 67, 0.06) 0%, rgba(212, 168, 67, 0.02) 100%);
+  border-left: 2px solid rgba(212, 168, 67, 0.45);
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  padding: 4px 6px 4px 10px;
+  margin: 0 0 6px 6px;
+}
+
+.nav-child {
+  font-size: 0.825rem;
+  padding-left: 10px;
+  margin-bottom: 2px;
+
+  .nav-icon { font-size: 18px; width: 18px; height: 18px; }
+
+  // Active child stands out clearly inside the tinted children block.
+  &.active-link {
+    background-color: rgba(212, 168, 67, 0.22) !important;
+    color: $gold !important;
+    .nav-icon, .nav-title { color: $gold !important; }
+  }
 }
 
 // Active link

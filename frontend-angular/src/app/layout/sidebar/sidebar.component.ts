@@ -15,10 +15,16 @@ import { UserRole, FeatureKey, User, AcademicYear } from '../../core/models';
 
 interface MenuItem {
   title: string;
+  /** Required for leaf items. Group-only entries leave it as ''. */
   path: string;
   icon: string;
   roles?: UserRole[];
   feature?: FeatureKey;
+  /** When set, this item is rendered as an expandable group (accordion).
+   *  Children themselves can be plain leaves; nested groups are not supported. */
+  children?: MenuItem[];
+  /** Internal state — toggled on click; auto-set true if a child path is active. */
+  expanded?: boolean;
 }
 
 @Component({
@@ -183,36 +189,72 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     if (role === UserRole.SCHOOL_ADMIN || role === UserRole.PRINCIPAL) {
       items.push(
-        { title: 'Users', path: '/users', icon: 'people', roles: [UserRole.SCHOOL_ADMIN] },
-        { title: 'Students', path: '/students', icon: 'school', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
-        { title: 'Bulk Promote', path: '/students/bulk-promote', icon: 'arrow_upward', roles: [UserRole.SCHOOL_ADMIN] },
-        { title: 'Employees', path: '/employees', icon: 'badge', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
-        { title: 'Classes', path: '/classes', icon: 'class', roles: [UserRole.SCHOOL_ADMIN] },
-        { title: 'Subjects', path: '/subjects', icon: 'menu_book', roles: [UserRole.SCHOOL_ADMIN] },
-        { title: 'Academic Years', path: '/academic-years', icon: 'date_range', roles: [UserRole.SCHOOL_ADMIN] },
-        { title: 'Mark Attendance', path: '/attendance', icon: 'event_note', feature: 'attendance' },
-        { title: 'Subject Attendance', path: '/attendance/subject-wise', icon: 'menu_book', feature: 'attendance' },
-        { title: 'Attendance Report', path: '/attendance/report', icon: 'assessment', feature: 'attendance' },
-        { title: 'Subject Report', path: '/attendance/subject-report', icon: 'analytics', feature: 'attendance' },
+        // ── Manage Users group ──
+        {
+          title: 'Manage Users', path: '', icon: 'manage_accounts',
+          children: [
+            { title: 'Students', path: '/students', icon: 'school', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+            { title: 'Bulk Promote', path: '/students/bulk-promote', icon: 'arrow_upward', roles: [UserRole.SCHOOL_ADMIN] },
+            { title: 'Users', path: '/users', icon: 'people', roles: [UserRole.SCHOOL_ADMIN] },
+            { title: 'Employees', path: '/employees', icon: 'badge', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+          ],
+        },
+        // ── Configuration group ──
+        {
+          title: 'Configuration', path: '', icon: 'settings',
+          children: [
+            { title: 'Academic Years', path: '/academic-years', icon: 'date_range', roles: [UserRole.SCHOOL_ADMIN] },
+            { title: 'Subjects', path: '/subjects', icon: 'menu_book', roles: [UserRole.SCHOOL_ADMIN] },
+            { title: 'Classes', path: '/classes', icon: 'class', roles: [UserRole.SCHOOL_ADMIN] },
+            { title: 'Teacher Assignments', path: '/teacher-assignments', icon: 'assignment_ind', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+          ],
+        },
+        // ── Attendance group ──
+        {
+          title: 'Attendance', path: '', icon: 'event_note',
+          children: [
+            { title: 'Mark Attendance', path: '/attendance', icon: 'event_note', feature: 'attendance' },
+            { title: 'Subject Attendance', path: '/attendance/subject-wise', icon: 'menu_book', feature: 'attendance' },
+            { title: 'Attendance Report', path: '/attendance/report', icon: 'assessment', feature: 'attendance' },
+            { title: 'Subject Report', path: '/attendance/subject-report', icon: 'analytics', feature: 'attendance' },
+          ],
+        },
         { title: 'Timetable', path: '/timetable', icon: 'calendar_month', feature: 'timetable' },
-        { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams' },
-        { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams' },
-        { title: 'Exam Types', path: '/exam-types', icon: 'category', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
-        { title: 'MCQ Exams', path: '/mcq', icon: 'quiz', feature: 'mcq' },
-        { title: 'Fee Structure', path: '/fees', icon: 'payment', feature: 'fee', roles: [UserRole.SCHOOL_ADMIN] },
-        { title: 'Fee Payments', path: '/fees/payments', icon: 'receipt_long', feature: 'fee', roles: [UserRole.SCHOOL_ADMIN] },
+        // ── Exams group ──
+        {
+          title: 'Exams', path: '', icon: 'assignment',
+          children: [
+            { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams' },
+            { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams' },
+            { title: 'Exam Types', path: '/exam-types', icon: 'category', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+            { title: 'MCQ Exams', path: '/mcq', icon: 'quiz', feature: 'mcq' },
+          ],
+        },
+        // ── Fees group ──
+        {
+          title: 'Fees', path: '', icon: 'payment',
+          children: [
+            { title: 'Fee Structure', path: '/fees', icon: 'payment', feature: 'fee', roles: [UserRole.SCHOOL_ADMIN] },
+            { title: 'Fee Payments', path: '/fees/payments', icon: 'receipt_long', feature: 'fee', roles: [UserRole.SCHOOL_ADMIN] },
+          ],
+        },
         { title: 'Events', path: '/events', icon: 'event', feature: 'events' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications' },
         // { title: 'WhatsApp', path: '/whatsapp', icon: 'chat', feature: 'whatsapp' },
         // { title: 'ID Cards', path: '/id-cards', icon: 'badge', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
-        { title: 'Report Cards', path: '/report-cards', icon: 'description', feature: 'report_cards' },
         { title: 'Syllabus Tracker', path: '/syllabus', icon: 'menu_book', feature: 'syllabus' },
-        { title: 'Teacher Assignments', path: '/teacher-assignments', icon: 'assignment_ind', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
         // { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
         { title: 'Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
-        { title: 'Class Rankings', path: '/analytics/rankings', icon: 'leaderboard', feature: 'analytics' },
-      //   { title: 'PTM', path: '/ptm', icon: 'groups' },
-        { title: 'Reports', path: '/reports', icon: 'summarize', feature: 'analytics', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+        // ── Results group ──
+        {
+          title: 'Results', path: '', icon: 'leaderboard',
+          children: [
+            { title: 'Class Rankings', path: '/analytics/rankings', icon: 'leaderboard', feature: 'analytics' },
+            { title: 'Reports', path: '/reports', icon: 'summarize', feature: 'analytics', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+            { title: 'Report Cards', path: '/report-cards', icon: 'description', feature: 'report_cards' },
+          ],
+        },
+        //   { title: 'PTM', path: '/ptm', icon: 'groups' },
         // { title: 'Settings', path: '/settings', icon: 'settings', roles: [UserRole.SCHOOL_ADMIN] },
       );
     }
@@ -279,7 +321,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.menuItems = items.filter((item) => this.isItemVisible(item));
   }
 
-  private isItemVisible(item: MenuItem): boolean {
+  /** Public so the template can hide accordion children based on the same
+   *  role + feature + attendance-mode rules used to filter top-level items. */
+  isItemVisible(item: MenuItem): boolean {
     const role = this.authService.currentRole;
     if (item.roles && role && !item.roles.includes(role)) {
       return false;
@@ -302,5 +346,50 @@ export class SidebarComponent implements OnInit, OnDestroy {
       }
     }
     return true;
+  }
+
+  /** True if a group has at least one visible child — drives whether the
+   *  group header is rendered at all. */
+  hasVisibleChildren(item: MenuItem): boolean {
+    return !!item.children && item.children.some(c => this.isItemVisible(c));
+  }
+
+  /** Click handler for the accordion header (group with children).
+   *  We treat `expanded` as a tristate: `undefined` means "follow the URL"
+   *  (auto-open if a child is active), `true`/`false` means "user picked it
+   *  and overrides the URL signal". So clicking the header always toggles —
+   *  even when the user is sitting on one of the child pages.
+   *
+   *  Single-open behavior: opening one group collapses every other group, so
+   *  only one accordion section is expanded at a time. */
+  toggleGroup(item: MenuItem, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const willOpen = !this.isGroupOpen(item);
+    if (willOpen) {
+      // Close every other group (force `false` so URL auto-open doesn't
+      // resurrect them while another accordion is the user's pick).
+      for (const other of this.menuItems) {
+        if (other !== item && other.children) {
+          other.expanded = false;
+        }
+      }
+    }
+    item.expanded = willOpen;
+  }
+
+  /** Whether a group is currently displayed open. Used by both the template
+   *  binding and the toggle handler so the two stay consistent. */
+  isGroupOpen(item: MenuItem): boolean {
+    if (item.expanded === true) return true;
+    if (item.expanded === false) return false;
+    return this.isGroupActive(item);
+  }
+
+  /** Auto-expand a group when one of its children matches the current URL.
+   *  Used by `isGroupOpen` as the default when the user hasn't toggled. */
+  isGroupActive(item: MenuItem): boolean {
+    const current = this.router.url;
+    return !!item.children && item.children.some(c => c.path && current.startsWith(c.path));
   }
 }
