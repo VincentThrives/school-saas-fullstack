@@ -64,7 +64,72 @@ public class TimetableService {
         } else {
             logger.info("Saving timetable id={}", timetable.getTimetableId());
         }
+
+        // Enforce: a teacher cannot be in two classes at the same period+day
+        // within the same academic year. Throws IllegalArgumentException → 400.
+        assertNoTeacherDoubleBooking(timetable);
+
         return timetableRepository.save(timetable);
+    }
+
+    /**
+     * Refuse the save when any teacher in the incoming schedule is already
+     * teaching another class+section at the same {@code dayOfWeek} +
+     * {@code periodNumber} for the same academic year.
+     *
+     * Self (same timetableId or same class+section+year) is excluded so that
+     * editing your own timetable doesn't conflict with itself.
+     */
+    private void assertNoTeacherDoubleBooking(Timetable incoming) {
+        if (incoming.getSchedule() == null || incoming.getAcademicYearId() == null) return;
+
+        // All other timetables for the same academic year.
+        List<Timetable> others = timetableRepository.findByAcademicYearId(incoming.getAcademicYearId());
+        for (Timetable.DaySchedule day : incoming.getSchedule()) {
+            if (day == null || day.getPeriods() == null || day.getDayOfWeek() == null) continue;
+            for (Timetable.Period p : day.getPeriods()) {
+                if (p == null || p.getTeacherId() == null || p.getTeacherId().isBlank()) continue;
+                String teacherId = p.getTeacherId();
+                int periodNumber = p.getPeriodNumber();
+
+                for (Timetable other : others) {
+                    if (other.getTimetableId() != null
+                            && other.getTimetableId().equals(incoming.getTimetableId())) continue;
+                    // Same class + section is also "self" (covers a save where the id wasn't supplied yet).
+                    if (java.util.Objects.equals(other.getClassId(), incoming.getClassId())
+                            && java.util.Objects.equals(other.getSectionId(), incoming.getSectionId())) continue;
+                    if (other.getSchedule() == null) continue;
+
+                    for (Timetable.DaySchedule oDay : other.getSchedule()) {
+                        if (oDay == null || oDay.getPeriods() == null) continue;
+                        if (!day.getDayOfWeek().equalsIgnoreCase(oDay.getDayOfWeek())) continue;
+
+                        for (Timetable.Period op : oDay.getPeriods()) {
+                            if (op == null || op.getTeacherId() == null) continue;
+                            if (!teacherId.equals(op.getTeacherId())) continue;
+                            if (op.getPeriodNumber() != periodNumber) continue;
+
+                            // Double booking found. Build a clear error message.
+                            String teacherLabel = op.getTeacherName() != null && !op.getTeacherName().isBlank()
+                                    ? op.getTeacherName() : "This teacher";
+                            String otherSlot = describeOther(other);
+                            throw new IllegalArgumentException(
+                                    teacherLabel + " is already assigned to " + otherSlot
+                                  + " for period " + periodNumber + " on " + day.getDayOfWeek()
+                                  + ". A teacher can't take two classes at the same period on the same day.");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private String describeOther(Timetable other) {
+        String cls = other.getClassName() != null && !other.getClassName().isBlank()
+                ? other.getClassName() : "another class";
+        String sec = other.getSectionName() != null && !other.getSectionName().isBlank()
+                ? (" — Section " + other.getSectionName()) : "";
+        return cls + sec;
     }
 
     public List<Timetable> getByAcademicYear(String academicYearId) {

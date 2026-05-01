@@ -60,6 +60,10 @@ export class TimetableBuilderComponent implements OnInit {
   /** All teacher-subject assignments for the selected academic year. */
   private yearAssignments: TeacherSubjectAssignment[] = [];
 
+  /** Every other timetable in the same year — used to detect cross-class
+   *  teacher conflicts (same teacher booked at the same day+period elsewhere). */
+  private otherYearTimetables: Timetable[] = [];
+
   selectedClassId = '';
   selectedSectionId = '';
   selectedAcademicYearId = '';
@@ -136,6 +140,42 @@ export class TimetableBuilderComponent implements OnInit {
       next: (res) => { this.yearAssignments = res?.data || []; },
       error: () => { this.yearAssignments = []; },
     });
+    // Fetch every timetable for the year so we can warn the admin when a
+    // teacher pick would double-book the same period+day in another class.
+    this.api.getTimetableList(this.selectedAcademicYearId).subscribe({
+      next: (res) => { this.otherYearTimetables = res?.data || []; },
+      error: () => { this.otherYearTimetables = []; },
+    });
+  }
+
+  /**
+   * If the given teacher is already assigned to the same day+period in
+   * another class+section's timetable for this year, returns a label like
+   * "Class 1 — Section a" describing the conflicting slot. Returns ''
+   * (empty string) when no conflict.
+   *
+   * Same-class+section is excluded so editing your own row doesn't fight itself.
+   */
+  getTeacherConflictLabel(teacherId: string, dayOfWeek: string, periodNumber: number): string {
+    if (!teacherId || !dayOfWeek || !periodNumber) return '';
+    for (const tt of this.otherYearTimetables) {
+      // Skip the timetable being edited (matches by class+section since the
+      // id may be missing on a fresh save).
+      if (tt.classId === this.selectedClassId && tt.sectionId === this.selectedSectionId) continue;
+      if (!tt.schedule) continue;
+      for (const day of tt.schedule) {
+        if (!day || !day.periods) continue;
+        if ((day.dayOfWeek || '').toLowerCase() !== dayOfWeek.toLowerCase()) continue;
+        for (const p of day.periods) {
+          if (!p || p.teacherId !== teacherId) continue;
+          if (p.periodNumber !== periodNumber) continue;
+          const cls = tt.className || 'another class';
+          const sec = tt.sectionName ? ` — Section ${tt.sectionName}` : '';
+          return cls + sec;
+        }
+      }
+    }
+    return '';
   }
 
   /** Classes that belong to the selected academic year. Used to drive the Class dropdown. */
@@ -307,6 +347,22 @@ export class TimetableBuilderComponent implements OnInit {
     if (!this.selectedClassId || !this.selectedSectionId || !this.selectedAcademicYearId) {
       this.snackBar.open('Please select Class, Section and Academic Year', 'OK', { duration: 3000 });
       return;
+    }
+
+    // Pre-check: same teacher booked twice on the same day+period across classes.
+    // The backend rejects this too, but we want a clearer message before the request.
+    for (const day of this.schedule) {
+      for (const p of (day.periods || [])) {
+        if (!p.teacherId) continue;
+        const conflictLabel = this.getTeacherConflictLabel(p.teacherId, day.dayOfWeek, p.periodNumber);
+        if (conflictLabel) {
+          const teacherLabel = this.getTeacherName(p.teacherId);
+          this.snackBar.open(
+            `${teacherLabel} is already teaching ${conflictLabel} for period ${p.periodNumber} on ${day.dayOfWeek}. Pick a different teacher.`,
+            'OK', { duration: 5000 });
+          return;
+        }
+      }
     }
 
     this.isSaving = true;

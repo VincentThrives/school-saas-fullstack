@@ -17,6 +17,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { SchoolClass, AcademicYear } from '../../../core/models';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 interface StudentAttendance {
   studentId: string;
@@ -128,33 +130,56 @@ export class MarkAttendanceComponent implements OnInit {
   loadStudents(): void {
     if (!this.selectedClassId || !this.selectedSectionId) return;
 
-    // Check for holiday first
+    // Check for a holiday first — match against BOTH the dedicated holidays
+    // list AND any event flagged as type=HOLIDAY. Schools sometimes add
+    // single-day closures via the Events page, and we want those to block
+    // attendance the same way as a Holiday-list entry.
     const dateStr = this.formatDate(this.selectedDate);
-    this.api.getHolidays().subscribe({
-      next: (res) => {
-        const holidays = res.data || [];
-        const match = holidays.find((h: any) => {
-          const start = h.startDate;
-          const end = h.endDate || h.startDate;
-          return dateStr >= start && dateStr <= end;
-        });
-        if (match) {
-          this.isHoliday = true;
-          this.holidayTitle = match.title || 'Holiday';
-          this.students = [];
-          this.studentsLoaded = false;
-          this.isLoading = false;
-          return;
-        }
-        this.isHoliday = false;
-        this.holidayTitle = '';
-        this.fetchStudents();
-      },
-      error: () => {
-        this.isHoliday = false;
-        this.fetchStudents();
-      },
+    forkJoin({
+      holidays: this.api.getHolidays().pipe(catchError(() => of({ data: [] as any[] } as any))),
+      events: this.api.getEvents().pipe(catchError(() => of({ data: [] as any[] } as any))),
+    }).subscribe(({ holidays, events }) => {
+      const match = this.findHolidayMatch(dateStr,
+        (holidays?.data as any[]) || [], (events?.data as any[]) || []);
+      if (match) {
+        this.isHoliday = true;
+        this.holidayTitle = match.title;
+        this.students = [];
+        this.studentsLoaded = false;
+        this.isLoading = false;
+        return;
+      }
+      this.isHoliday = false;
+      this.holidayTitle = '';
+      this.fetchStudents();
     });
+  }
+
+  /** Returns the matching holiday/event record (with normalized title) for
+   *  the given ISO date, or null if the day is a working day.
+   *
+   *  Holiday-list entries always count. Event-list entries count only when
+   *  the event is explicitly tagged as a holiday (type/kind === 'HOLIDAY' or
+   *  isHoliday === true) — generic events like "Sports Day" must not block
+   *  attendance. */
+  private findHolidayMatch(dateStr: string, holidays: any[], events: any[]): { title: string } | null {
+    for (const h of holidays) {
+      const start = h.startDate || h.date;
+      const end = h.endDate || start;
+      if (start && dateStr >= start && dateStr <= end) {
+        return { title: h.title || h.name || 'Holiday' };
+      }
+    }
+    for (const e of events) {
+      const isHoliday = e.type === 'HOLIDAY' || e.kind === 'HOLIDAY' || e.isHoliday === true;
+      if (!isHoliday) continue;
+      const start = e.startDate || e.date || e.eventDate;
+      const end = e.endDate || start;
+      if (start && dateStr >= start && dateStr <= end) {
+        return { title: e.title || e.name || 'Holiday' };
+      }
+    }
+    return null;
   }
 
   private fetchStudents(): void {

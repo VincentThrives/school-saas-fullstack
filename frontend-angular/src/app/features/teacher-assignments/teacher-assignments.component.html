@@ -280,6 +280,15 @@
             </mat-select>
           </mat-form-field>
         </div>
+
+        <!-- Conflict banner: another teacher already owns this slot. -->
+        <div class="ct-conflict" *ngIf="existingClassTeacherForSlot">
+          <mat-icon>warning</mat-icon>
+          <span>
+            <strong>{{ existingClassTeacherName }}</strong> is already the Class Teacher for this class &amp; section.
+            Only one Class Teacher is allowed per slot — remove or reassign that one first.
+          </span>
+        </div>
       </div>
 
       <div class="dialog-actions">

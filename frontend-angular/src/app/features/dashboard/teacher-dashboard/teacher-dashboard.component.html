@@ -147,4 +147,71 @@
       </mat-card>
     </div>
   </div>
+
+  <!-- Events & Holidays — same two-column card as the student dashboard -->
+  <mat-card class="teacher-dashboard__panel events-holidays-card" *ngIf="!isLoading">
+    <mat-card-header>
+      <mat-icon mat-card-avatar class="teacher-dashboard__panel-icon">event</mat-icon>
+      <mat-card-title>Events &amp; Holidays</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="eh-grid">
+
+        <!-- Events column -->
+        <section class="eh-col eh-col--events">
+          <header class="eh-col-header">
+            <span class="eh-col-icon eh-col-icon--events"><mat-icon>event</mat-icon></span>
+            <span class="eh-col-title">Events</span>
+            <span class="eh-col-count">{{ upcomingEventsOnly.length }}</span>
+          </header>
+          <ng-container *ngIf="upcomingEventsOnly.length > 0; else noEvents">
+            <div class="eh-row eh-row--event" *ngFor="let ev of upcomingEventsOnly">
+              <div class="eh-date eh-date--event">
+                <span class="eh-date-day">{{ dayPart(ev.date) }}</span>
+                <span class="eh-date-month">{{ monthPart(ev.date) }}</span>
+              </div>
+              <div class="eh-row-body">
+                <div class="eh-row-title">{{ ev.title }}</div>
+                <div class="eh-row-meta">{{ whenLabel(ev.date) }}</div>
+              </div>
+            </div>
+          </ng-container>
+          <ng-template #noEvents>
+            <div class="eh-empty">
+              <mat-icon>event_busy</mat-icon>
+              <span>No upcoming events</span>
+            </div>
+          </ng-template>
+        </section>
+
+        <!-- Holidays column -->
+        <section class="eh-col eh-col--holidays">
+          <header class="eh-col-header">
+            <span class="eh-col-icon eh-col-icon--holidays"><mat-icon>beach_access</mat-icon></span>
+            <span class="eh-col-title">Holidays</span>
+            <span class="eh-col-count">{{ upcomingHolidaysOnly.length }}</span>
+          </header>
+          <ng-container *ngIf="upcomingHolidaysOnly.length > 0; else noHolidays">
+            <div class="eh-row eh-row--holiday" *ngFor="let ev of upcomingHolidaysOnly">
+              <div class="eh-date eh-date--holiday">
+                <span class="eh-date-day">{{ dayPart(ev.date) }}</span>
+                <span class="eh-date-month">{{ monthPart(ev.date) }}</span>
+              </div>
+              <div class="eh-row-body">
+                <div class="eh-row-title">{{ ev.title }}</div>
+                <div class="eh-row-meta">{{ whenLabel(ev.date) }}</div>
+              </div>
+            </div>
+          </ng-container>
+          <ng-template #noHolidays>
+            <div class="eh-empty">
+              <mat-icon>weekend</mat-icon>
+              <span>No upcoming holidays</span>
+            </div>
+          </ng-template>
+        </section>
+
+      </div>
+    </mat-card-content>
+  </mat-card>
 </div>

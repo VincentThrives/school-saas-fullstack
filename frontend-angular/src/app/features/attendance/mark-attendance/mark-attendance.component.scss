@@ -6,6 +6,9 @@ $gold-light: rgba(212, 168, 67, 0.08);
   padding: 0;
 }
 
+// Holiday banner — cream gradient stays in both themes, so the text colors
+// must be locked with !important to survive the global dark-theme heading
+// overrides in styles.scss.
 .holiday-banner {
   margin: 16px 0;
   padding: 24px 32px;
@@ -20,7 +23,7 @@ $gold-light: rgba(212, 168, 67, 0.08);
     font-size: 48px;
     width: 48px;
     height: 48px;
-    color: #E65100;
+    color: #E65100 !important;
   }
 
   .holiday-banner-text {
@@ -28,13 +31,21 @@ $gold-light: rgba(212, 168, 67, 0.08);
       margin: 0 0 4px;
       font-size: 1.3rem;
       font-weight: 700;
-      color: #E65100;
+      color: #E65100 !important;
     }
     p {
       margin: 0;
       font-size: 0.95rem;
-      color: #BF360C;
+      color: #BF360C !important;
     }
+  }
+}
+
+:host-context(body.dark-theme) .holiday-banner {
+  .holiday-banner-icon { color: #E65100 !important; }
+  .holiday-banner-text {
+    h3 { color: #E65100 !important; }
+    p  { color: #BF360C !important; }
   }
 }
 

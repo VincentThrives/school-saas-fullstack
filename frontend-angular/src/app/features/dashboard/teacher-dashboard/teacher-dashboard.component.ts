@@ -42,6 +42,14 @@ interface UpcomingExam {
   subject: string;
 }
 
+interface UpcomingEventRow {
+  id: string;
+  title: string;
+  date: string;       // ISO yyyy-MM-dd
+  kind: 'event' | 'holiday';
+  description?: string;
+}
+
 @Component({
   selector: 'app-teacher-dashboard',
   standalone: true,
@@ -74,6 +82,10 @@ export class TeacherDashboardComponent implements OnInit {
   todaySchedule: ScheduleRow[] = [];
   classesNeedingAttendance: PendingItem[] = [];
   upcomingExams: UpcomingExam[] = [];
+  /** Events column in the bottom Events & Holidays card. */
+  upcomingEventsOnly: UpcomingEventRow[] = [];
+  /** Holidays column in the bottom Events & Holidays card. */
+  upcomingHolidaysOnly: UpcomingEventRow[] = [];
 
   scheduleColumns = ['period', 'time', 'class', 'subject', 'room', 'attendance'];
 
@@ -91,9 +103,95 @@ export class TeacherDashboardComponent implements OnInit {
         const current = years.find(y => y.current) || years[0];
         if (!current) { this.isLoading = false; return; }
         this.loadForYear(current.academicYearId);
+        this.loadEventsAndHolidays(current.academicYearId);
       },
       error: () => { this.isLoading = false; },
     });
+  }
+
+  /** Loads upcoming events + holidays for the current academic year and
+   *  splits them into the two-column "Events & Holidays" card at the bottom
+   *  of the dashboard. Mirrors the student dashboard's logic so behavior is
+   *  consistent across roles. */
+  private loadEventsAndHolidays(academicYearId: string): void {
+    forkJoin({
+      events: this.api.getEvents({ academicYearId }).pipe(catchError(() => of({ data: [] as any[] } as any))),
+      holidays: this.api.getHolidays({ academicYearId }).pipe(catchError(() => of({ data: [] as any[] } as any))),
+    }).subscribe(({ events, holidays }) => {
+      const today = this.todayStr();
+      const eventList: any[] = (events?.data as any[]) || [];
+      const holidayList: any[] = (holidays?.data as any[]) || [];
+
+      // Same dedupe rule as the student dashboard: holidays win over events
+      // when the backend returns the same row from both endpoints.
+      const seenIds = new Set<string>();
+      const seenKey = new Set<string>();
+      const combined: UpcomingEventRow[] = [];
+      const pushIfNew = (row: UpcomingEventRow) => {
+        if (row.id && seenIds.has(row.id)) return;
+        const key = `${row.date}::${(row.title || '').toLowerCase()}`;
+        if (seenKey.has(key)) return;
+        if (row.id) seenIds.add(row.id);
+        seenKey.add(key);
+        combined.push(row);
+      };
+
+      holidayList.forEach((h) => {
+        const date = h.startDate || h.date;
+        if (!date) return;
+        const endDate = h.endDate || date;
+        if (endDate < today) return;
+        pushIfNew({
+          id: h.id || h.holidayId || h.eventId,
+          title: h.title || h.name || 'Holiday',
+          date,
+          kind: 'holiday',
+          description: h.description,
+        });
+      });
+      eventList.forEach((e) => {
+        const date = e.date || e.startDate || e.eventDate;
+        if (!date) return;
+        if (date < today) return;
+        if (e.type === 'HOLIDAY' || e.kind === 'HOLIDAY' || e.isHoliday) return;
+        pushIfNew({
+          id: e.id || e.eventId,
+          title: e.title || e.name || 'Event',
+          date,
+          kind: 'event',
+          description: e.description,
+        });
+      });
+      combined.sort((a, b) => a.date.localeCompare(b.date));
+
+      // Cap each column at 3 entries so the card stays compact, matching
+      // the student dashboard treatment.
+      this.upcomingEventsOnly   = combined.filter(r => r.kind === 'event').slice(0, 3);
+      this.upcomingHolidaysOnly = combined.filter(r => r.kind === 'holiday').slice(0, 3);
+    });
+  }
+
+  /** Format an ISO date as "DD" / "MMM" parts for the date badge. */
+  dayPart(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return String(d.getDate()).padStart(2, '0');
+  }
+  monthPart(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
+  }
+  /** "Today" / "Tomorrow" / "In N days" / formatted date for the meta line. */
+  whenLabel(iso: string): string {
+    if (!iso) return '';
+    const today = new Date(); today.setHours(0,0,0,0);
+    const target = new Date(iso); target.setHours(0,0,0,0);
+    const diff = Math.round((target.getTime() - today.getTime()) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Tomorrow';
+    if (diff > 1 && diff <= 7) return `In ${diff} days`;
+    return target.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   private loadForYear(academicYearId: string): void {

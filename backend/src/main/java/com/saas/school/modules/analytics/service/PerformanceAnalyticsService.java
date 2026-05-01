@@ -220,13 +220,36 @@ public class PerformanceAnalyticsService {
             }
         }
 
-        // Sort by percentage descending and assign ranks
+        // Sort by percentage descending and assign ranks with tie-handling.
         rankings.sort(Comparator.comparingDouble(ClassRankingDto::getPercentage).reversed());
-        for (int i = 0; i < rankings.size(); i++) {
-            rankings.get(i).setRank(i + 1);
-        }
+        assignCompetitionRanks(rankings);
 
         return rankings;
+    }
+
+    /**
+     * Standard competition ranking ("1224"): students with identical
+     * percentages share the same rank, and the next student's rank skips
+     * the tied positions. Two students at 99% both get rank 1; the next
+     * student gets rank 3 (rank 2 is intentionally skipped).
+     *
+     * Assumes the list is already sorted by percentage descending.
+     */
+    private void assignCompetitionRanks(List<ClassRankingDto> rankings) {
+        if (rankings == null || rankings.isEmpty()) return;
+        // First row is always rank 1.
+        rankings.get(0).setRank(1);
+        for (int i = 1; i < rankings.size(); i++) {
+            ClassRankingDto prev = rankings.get(i - 1);
+            ClassRankingDto curr = rankings.get(i);
+            // Compare on a small epsilon so floating-point rounding doesn't
+            // accidentally split a true tie (e.g. 99.0 vs 99.0000000001).
+            if (Math.abs(curr.getPercentage() - prev.getPercentage()) < 0.0001) {
+                curr.setRank(prev.getRank()); // tied → same rank
+            } else {
+                curr.setRank(i + 1);          // distinct → its position (1-indexed)
+            }
+        }
     }
 
     public List<SubjectAnalysisDto> getSubjectAnalysis(String studentId) {
@@ -355,10 +378,11 @@ public class PerformanceAnalyticsService {
         }
 
         rankings.sort(Comparator.comparingDouble(ClassRankingDto::getPercentage).reversed());
+        // Rank the FULL list first so a tied student outside the top-N still
+        // has a consistent rank; then truncate. This avoids two students at
+        // 99% appearing as ranks 1 and 2 in the top-3 widget.
+        assignCompetitionRanks(rankings);
         int limit = Math.min(count, rankings.size());
-        for (int i = 0; i < limit; i++) {
-            rankings.get(i).setRank(i + 1);
-        }
 
         return rankings.subList(0, limit);
     }

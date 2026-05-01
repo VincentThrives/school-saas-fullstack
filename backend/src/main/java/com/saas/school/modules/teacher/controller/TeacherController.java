@@ -9,6 +9,7 @@ import com.saas.school.modules.teacher.repository.TeacherRepository;
 import com.saas.school.modules.user.model.User;
 import com.saas.school.modules.user.model.UserRole;
 import com.saas.school.modules.user.repository.UserRepository;
+import com.saas.school.modules.user.service.UserService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,7 @@ public class TeacherController {
     @Autowired private TeacherRepository teacherRepo;
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private UserService userService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL')")
@@ -108,6 +110,12 @@ public class TeacherController {
         Teacher existing = teacherRepo.findByTeacherIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found"));
 
+        // Snapshot the OLD identity fields BEFORE the patch so we can detect
+        // a real change and resync the linked User's default password
+        // (firstName + "@" + birthYear) below.
+        String oldFirstName = existing.getFirstName();
+        java.time.LocalDate oldDob = existing.getDateOfBirth();
+
         if (req.getFirstName() != null) existing.setFirstName(req.getFirstName());
         if (req.getLastName() != null) existing.setLastName(req.getLastName());
         if (req.getPhone() != null) existing.setPhone(req.getPhone());
@@ -125,7 +133,18 @@ public class TeacherController {
         if (req.getJoiningDate() != null) existing.setJoiningDate(req.getJoiningDate());
         existing.syncFromAssignments();
 
-        return ResponseEntity.ok(ApiResponse.success(teacherRepo.save(existing), "Employee updated"));
+        Teacher saved = teacherRepo.save(existing);
+
+        // If firstName or DOB actually changed, regenerate the linked User's
+        // default password so credentials stay aligned with the profile.
+        boolean firstNameChanged = !java.util.Objects.equals(oldFirstName, saved.getFirstName());
+        boolean dobChanged = !java.util.Objects.equals(oldDob, saved.getDateOfBirth());
+        if (saved.getUserId() != null && (firstNameChanged || dobChanged)) {
+            userService.resyncDefaultPassword(saved.getUserId(), saved.getFirstName(),
+                    saved.getLastName(), saved.getDateOfBirth());
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(saved, "Employee updated"));
     }
 
     @DeleteMapping("/{id}")

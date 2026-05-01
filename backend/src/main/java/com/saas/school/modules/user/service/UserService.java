@@ -135,6 +135,63 @@ public class UserService {
         auditService.log("DELETE_USER", "User", userId, "User soft deleted");
     }
 
+    // ── Default-password sync (used by Student/Teacher update paths) ──
+
+    /**
+     * The auto-create password format: {@code firstName + "@" + birthYear}.
+     * Returns null when either input is missing — caller skips the resync.
+     */
+    public static String defaultPasswordFor(String firstName, java.time.LocalDate dateOfBirth) {
+        if (firstName == null || firstName.isBlank() || dateOfBirth == null) return null;
+        return firstName + "@" + dateOfBirth.getYear();
+    }
+
+    /**
+     * Re-encode the linked User's password using the auto-create rule and
+     * keep the User's display firstName/lastName in sync.
+     *
+     * Called from {@code StudentService.updateStudent} and
+     * {@code TeacherController.update} when the firstName or date-of-birth
+     * fields have actually changed — so the credentials always match what
+     * the admin sees on the profile page.
+     *
+     * Silent no-op when {@code userId} is unknown or the inputs are
+     * insufficient (e.g. DOB unset).
+     */
+    public void resyncDefaultPassword(String userId, String firstName, String lastName,
+                                      java.time.LocalDate dateOfBirth) {
+        if (userId == null) {
+            log.warn("resyncDefaultPassword skipped: userId is null (firstName={}, dob={})",
+                    firstName, dateOfBirth);
+            return;
+        }
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            log.warn("resyncDefaultPassword skipped: no User found for userId={}", userId);
+            return;
+        }
+        String pwd = defaultPasswordFor(firstName, dateOfBirth);
+        if (pwd == null) {
+            log.warn("resyncDefaultPassword skipped: insufficient inputs userId={} firstName={} dob={}",
+                    userId, firstName, dateOfBirth);
+            // Still keep firstName/lastName in sync if those are non-blank.
+            if (firstName != null && !firstName.isBlank()) user.setFirstName(firstName);
+            if (lastName  != null && !lastName.isBlank())  user.setLastName(lastName);
+            userRepository.save(user);
+            return;
+        }
+        user.setPasswordHash(passwordEncoder.encode(pwd));
+        if (firstName != null && !firstName.isBlank()) user.setFirstName(firstName);
+        if (lastName  != null && !lastName.isBlank())  user.setLastName(lastName);
+        userRepository.save(user);
+        // INFO log includes username + email so we can verify the right user
+        // was hit (e.g. employeeId-based logins like "t1" vs the email path).
+        log.info("Default password resynced for userId={} username={} email={} -> new password='{}'",
+                userId, user.getUsername(), user.getEmail(), pwd);
+        auditService.log("RESYNC_PASSWORD", "User", userId,
+                "Default password regenerated after profile edit");
+    }
+
     // ── Bulk Import ────────────────────────────────────────────────
 
     public BulkImportResult bulkImportUsers(MultipartFile file, UserRole role) throws IOException {

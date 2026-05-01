@@ -18,12 +18,18 @@ public class FeeService {
     @Autowired private FeePaymentRepository paymentRepo;
     @Autowired private StudentRepository studentRepo;
     @Autowired private AuditService auditService;
+    @Autowired private StudentFeeLedgerRepository ledgerRepo;
+    @Autowired private StudentFeeLedgerService ledgerService;
 
     // ── Fee Structures ────────────────────────────────────────────
 
     public FeeStructure createStructure(FeeStructure req) {
         req.setFeeStructureId(UUID.randomUUID().toString());
-        return structureRepo.save(req);
+        FeeStructure saved = structureRepo.save(req);
+        // Cascade: any existing ledgers for this (year, class) need their
+        // totalFee snapshot refreshed so the new component is included.
+        refreshLedgersFor(saved.getAcademicYearId(), saved.getClassId());
+        return saved;
     }
 
     public FeeStructure updateStructure(String id, FeeStructure req) {
@@ -33,12 +39,62 @@ public class FeeService {
         if (req.getDueDate() != null) existing.setDueDate(req.getDueDate());
         if (req.getDescription() != null) existing.setDescription(req.getDescription());
         if (req.getFeeType() != null) existing.setFeeType(req.getFeeType());
-        return structureRepo.save(existing);
+        FeeStructure saved = structureRepo.save(existing);
+        // Cascade: refresh every ledger so balance/status reflect the new amount.
+        refreshLedgersFor(saved.getAcademicYearId(), saved.getClassId());
+        return saved;
     }
 
     public void deleteStructure(String id) {
+        FeeStructure existing = structureRepo.findById(id).orElse(null);
         structureRepo.deleteById(id);
         auditService.log("DELETE_FEE_STRUCTURE", "FeeStructure", id, "Fee structure deleted");
+        if (existing != null) {
+            // Cascade: removing a component shrinks every ledger's totalFee.
+            refreshLedgersFor(existing.getAcademicYearId(), existing.getClassId());
+        }
+    }
+
+    /**
+     * Recompute every {@link com.saas.school.modules.fee.model.StudentFeeLedger}
+     * for the given (academicYearId, classId) so its {@code totalFee} matches
+     * the current sum of all FeeStructure rows for that slot.
+     *
+     * Without this, a fee structure edit (e.g. ₹1,00,000 → ₹1,50,000) would
+     * be invisible on the Fees Payments page until each student's ledger was
+     * touched manually — payments still show as PARTIAL of the old total.
+     *
+     * Concession is preserved per-ledger (admins may have granted waivers).
+     * The earliest fee due-date wins.
+     */
+    private void refreshLedgersFor(String academicYearId, String classId) {
+        if (academicYearId == null || classId == null) return;
+
+        // 1) Recompute the canonical per-student fee from the current structures.
+        List<FeeStructure> structures = structureRepo.findByAcademicYearIdAndClassId(academicYearId, classId);
+        double perStudentFee = 0.0;
+        java.time.LocalDate earliestDue = null;
+        String firstStructureId = null;
+        for (FeeStructure fs : structures) {
+            perStudentFee += fs.getAmount();
+            if (firstStructureId == null) firstStructureId = fs.getFeeStructureId();
+            if (fs.getDueDate() != null
+                    && (earliestDue == null || fs.getDueDate().isBefore(earliestDue))) {
+                earliestDue = fs.getDueDate();
+            }
+        }
+
+        // 2) Apply to every ledger for this (year, class).
+        List<StudentFeeLedger> ledgers = ledgerRepo.findByClassIdAndAcademicYearId(classId, academicYearId);
+        for (StudentFeeLedger ledger : ledgers) {
+            ledger.setTotalFee(perStudentFee);
+            if (firstStructureId != null) ledger.setFeeStructureId(firstStructureId);
+            ledger.setDueDate(earliestDue);
+            // recompute() reads totalFee + concession + payments to refresh
+            // totalDue / totalPaid / balance / status atomically.
+            ledgerService.recompute(ledger);
+            ledgerRepo.save(ledger);
+        }
     }
 
     public List<FeeStructure> listStructures(String academicYearId, String classId) {

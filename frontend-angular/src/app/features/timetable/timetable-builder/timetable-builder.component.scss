@@ -164,6 +164,61 @@ $gold-light: rgba(212, 168, 67, 0.1);
   ::ng-deep input.mat-mdc-input-element {
     font-size: 0.75rem;
   }
+
+  // Outline turns red when this teacher pick conflicts with another timetable.
+  &.teacher-conflict {
+    ::ng-deep .mdc-notched-outline__leading,
+    ::ng-deep .mdc-notched-outline__notch,
+    ::ng-deep .mdc-notched-outline__trailing {
+      border-color: #dc2626 !important;
+    }
+    ::ng-deep .mdc-floating-label,
+    ::ng-deep .mat-mdc-select-value-text {
+      color: #dc2626 !important;
+    }
+  }
+}
+
+// Inline warning shown directly under the conflicting teacher dropdown.
+.teacher-conflict-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #dc2626;
+  line-height: 1.2;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: #dc2626;
+    flex-shrink: 0;
+  }
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+:host-context(body.dark-theme) {
+  .cell-field.teacher-conflict {
+    ::ng-deep .mdc-notched-outline__leading,
+    ::ng-deep .mdc-notched-outline__notch,
+    ::ng-deep .mdc-notched-outline__trailing {
+      border-color: #f87171 !important;
+    }
+    ::ng-deep .mdc-floating-label,
+    ::ng-deep .mat-mdc-select-value-text {
+      color: #f87171 !important;
+    }
+  }
+  .teacher-conflict-hint,
+  .teacher-conflict-hint mat-icon { color: #f87171; }
 }
 
 // ── Lunch Break ───────────────────────────────────────────

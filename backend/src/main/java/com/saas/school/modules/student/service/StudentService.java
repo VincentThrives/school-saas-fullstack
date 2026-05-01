@@ -29,6 +29,7 @@ import com.saas.school.modules.teacher.repository.TeacherSubjectAssignmentReposi
 import com.saas.school.modules.user.model.User;
 import com.saas.school.modules.user.model.UserRole;
 import com.saas.school.modules.user.repository.UserRepository;
+import com.saas.school.modules.user.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -54,6 +55,7 @@ public class StudentService {
 
     @Autowired private StudentRepository studentRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private UserService userService;
     @Autowired private AcademicYearRepository academicYearRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private AuditService auditService;
@@ -203,6 +205,11 @@ public class StudentService {
 
     public StudentDto updateStudent(String studentId, UpdateStudentRequest req) {
         Student s = findStudent(studentId);
+        // Snapshot the OLD values that gate the password-resync rule. We need
+        // this BEFORE applying any changes so we can detect a real diff.
+        String oldFirstName = s.getFirstName();
+        java.time.LocalDate oldDob = s.getDateOfBirth();
+
         if (req.getFirstName()     != null) s.setFirstName(req.getFirstName());
         if (req.getLastName()      != null) s.setLastName(req.getLastName());
         if (req.getPhone()         != null) s.setPhone(req.getPhone());
@@ -228,6 +235,17 @@ public class StudentService {
         }
 
         studentRepository.save(s);
+
+        // If firstName or DOB actually changed, regenerate the linked User's
+        // default password (firstName + "@" + birthYear) so the credentials
+        // stay in lockstep with the profile values the admin sees.
+        boolean firstNameChanged = !java.util.Objects.equals(oldFirstName, s.getFirstName());
+        boolean dobChanged = !java.util.Objects.equals(oldDob, s.getDateOfBirth());
+        if (s.getUserId() != null && (firstNameChanged || dobChanged)) {
+            userService.resyncDefaultPassword(s.getUserId(), s.getFirstName(),
+                    s.getLastName(), s.getDateOfBirth());
+        }
+
         auditService.log("UPDATE_STUDENT", "Student", studentId, "Student updated");
         return toDto(s);
     }

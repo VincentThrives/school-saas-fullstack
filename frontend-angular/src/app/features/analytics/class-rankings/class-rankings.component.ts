@@ -255,7 +255,21 @@ export class ClassRankingsComponent implements OnInit {
         }));
 
         aggregated.sort((a, b) => b.percentage - a.percentage);
-        aggregated.forEach((r, i) => r.rank = i + 1);
+        // Standard competition ranking ("1224"): students with identical
+        // percentages share the same rank; the next rank skips the tied
+        // positions. Two students at 75% both get rank 1; the next student
+        // gets rank 3 (rank 2 is skipped). Epsilon comparison guards against
+        // floating-point splitting a real tie.
+        if (aggregated.length > 0) {
+          aggregated[0].rank = 1;
+          for (let i = 1; i < aggregated.length; i++) {
+            const prev = aggregated[i - 1];
+            const curr = aggregated[i];
+            curr.rank = Math.abs(curr.percentage - prev.percentage) < 0.0001
+              ? prev.rank
+              : i + 1;
+          }
+        }
 
         this.rankings = aggregated;
         this.isLoading = false;

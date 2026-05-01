@@ -38,6 +38,16 @@ public class TeacherSubjectAssignmentService {
     // ── CRUD ─────────────────────────────────────────────────────────
 
     public TeacherSubjectAssignment create(CreateTeacherAssignmentRequest req) {
+        // ── A class+section can have only ONE Class Teacher per academic year.
+        //   If the request asks for CLASS_TEACHER and another teacher already
+        //   holds that role for this slot, refuse with a clear message.
+        boolean wantsClassTeacher = req.getRoles() != null && req.getRoles().contains(Role.CLASS_TEACHER);
+        if (wantsClassTeacher) {
+            assertNoOtherClassTeacher(
+                    req.getAcademicYearId(), req.getClassId(), req.getSectionId(),
+                    req.getTeacherId(), null);
+        }
+
         // De-duplicate (teacher, year, class, section, subject)
         Optional<TeacherSubjectAssignment> existing = repo
                 .findByTeacherIdAndAcademicYearIdAndClassIdAndSectionIdAndSubjectId(
@@ -69,12 +79,86 @@ public class TeacherSubjectAssignmentService {
     public TeacherSubjectAssignment update(String assignmentId, CreateTeacherAssignmentRequest req) {
         TeacherSubjectAssignment a = repo.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found: " + assignmentId));
+
+        // Compute the resulting (year, class, section) and roles AFTER the update,
+        // so we can enforce the "one Class Teacher per slot" rule on edits too.
+        String resYearId = req.getAcademicYearId() != null ? req.getAcademicYearId() : a.getAcademicYearId();
+        String resClassId = req.getClassId() != null ? req.getClassId() : a.getClassId();
+        String resSectionId = req.getSectionId() != null ? req.getSectionId() : a.getSectionId();
+        Set<Role> resRoles = req.getRoles() != null
+                ? new HashSet<>(req.getRoles())
+                : (a.getRoles() == null ? new HashSet<>() : new HashSet<>(a.getRoles()));
+
+        if (resRoles.contains(Role.CLASS_TEACHER)) {
+            assertNoOtherClassTeacher(resYearId, resClassId, resSectionId,
+                    a.getTeacherId(), a.getAssignmentId());
+        }
+
         if (req.getClassId() != null) a.setClassId(req.getClassId());
         if (req.getSectionId() != null) a.setSectionId(req.getSectionId());
         if (req.getSubjectId() != null) a.setSubjectId(req.getSubjectId());
         if (req.getAcademicYearId() != null) a.setAcademicYearId(req.getAcademicYearId());
         if (req.getRoles() != null) a.setRoles(new HashSet<>(req.getRoles()));
         return repo.save(a);
+    }
+
+    /**
+     * Throws {@link IllegalArgumentException} (→ 400 with message) if any
+     * other ACTIVE assignment for ({@code yearId}, {@code classId},
+     * {@code sectionId}) already carries the CLASS_TEACHER role for a
+     * different teacher.
+     *
+     * @param ignoreAssignmentId when editing, pass the row being updated so
+     *                           it doesn't conflict with itself.
+     */
+    private void assertNoOtherClassTeacher(String yearId, String classId, String sectionId,
+                                           String requestingTeacherId, String ignoreAssignmentId) {
+        if (yearId == null || classId == null) return; // shape errors handled elsewhere
+        // Pull every assignment for this class+year, then in-memory filter on
+        // section (avoids a separate null-section query path).
+        List<TeacherSubjectAssignment> sameClass = repo.findByClassIdAndAcademicYearId(classId, yearId);
+        for (TeacherSubjectAssignment other : sameClass) {
+            if (other.getStatus() == TeacherSubjectAssignment.Status.ARCHIVED) continue;
+            if (other.getRoles() == null || !other.getRoles().contains(Role.CLASS_TEACHER)) continue;
+            // Same section (treat null == null as a match).
+            if (!Objects.equals(other.getSectionId(), sectionId)) continue;
+            // Skip the row being edited itself.
+            if (ignoreAssignmentId != null && ignoreAssignmentId.equals(other.getAssignmentId())) continue;
+            // Same teacher already has the role → not a conflict, will be merged.
+            if (Objects.equals(other.getTeacherId(), requestingTeacherId)) continue;
+
+            // Conflict — produce a useful message naming the existing class teacher.
+            String existingName = lookupTeacherName(other.getTeacherId());
+            String slotLabel = describeSlot(classId, sectionId);
+            throw new IllegalArgumentException(
+                    slotLabel + " already has a Class Teacher (" + existingName + "). "
+                  + "Remove or reassign that role before adding another Class Teacher.");
+        }
+    }
+
+    /** Best-effort teacher name for error messages — falls back to the id. */
+    private String lookupTeacherName(String teacherId) {
+        if (teacherId == null) return "another teacher";
+        Teacher t = teacherRepo.findByTeacherIdAndDeletedAtIsNull(teacherId).orElse(null);
+        if (t == null) return teacherId;
+        String first = t.getFirstName() == null ? "" : t.getFirstName();
+        String last = t.getLastName() == null ? "" : t.getLastName();
+        String full = (first + " " + last).trim();
+        if (!full.isEmpty()) return full;
+        return t.getEmployeeId() != null ? t.getEmployeeId() : teacherId;
+    }
+
+    /** Pretty "Class X — Section a" for error messages. */
+    private String describeSlot(String classId, String sectionId) {
+        SchoolClass cls = schoolClassRepo.findById(classId).orElse(null);
+        String className = cls != null && cls.getName() != null ? cls.getName() : "This class";
+        String secName = null;
+        if (cls != null && sectionId != null && cls.getSections() != null) {
+            for (SchoolClass.Section s : cls.getSections()) {
+                if (sectionId.equals(s.getSectionId())) { secName = s.getName(); break; }
+            }
+        }
+        return secName != null ? (className + " — Section " + secName) : className;
     }
 
     public void delete(String assignmentId) {

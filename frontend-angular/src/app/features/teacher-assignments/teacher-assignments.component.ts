@@ -479,6 +479,37 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.recomputeClassTeacherSectionOptions();
   }
 
+  /** Returns the existing class-teacher assignment that conflicts with the
+   *  currently-picked (class, section), or null if the slot is free.
+   *
+   *  Used by the template to warn the admin BEFORE they hit Save — the
+   *  backend rejects this case too (single-class-teacher rule), but a
+   *  pre-check is friendlier than a snackbar after a failed save.
+   *  A conflict only exists if a DIFFERENT teacher already holds the role
+   *  for the exact same class + section + year. */
+  get existingClassTeacherForSlot(): TeacherSubjectAssignment | null {
+    if (!this.formRoleClass) return null;
+    if (!this.classTeacherClassId || !this.classTeacherSectionId) return null;
+    if (!this.selectedAcademicYearId) return null;
+    for (const a of this.allAssignments) {
+      if (a.academicYearId !== this.selectedAcademicYearId) continue;
+      if (a.classId !== this.classTeacherClassId) continue;
+      if ((a.sectionId || '') !== this.classTeacherSectionId) continue;
+      if (!(a.roles || []).includes('CLASS_TEACHER')) continue;
+      // Same teacher? Not a conflict — backend will merge.
+      if (a.teacherId === this.formTeacherId) continue;
+      return a;
+    }
+    return null;
+  }
+
+  /** Pretty name of the teacher already assigned to the conflict slot,
+   *  for display in the warning banner. */
+  get existingClassTeacherName(): string {
+    const a = this.existingClassTeacherForSlot;
+    return a ? this.teacherName(a.teacherId) : '';
+  }
+
   private recomputeClassTeacherSectionOptions(): void {
     if (!this.classTeacherClassId) { this.classTeacherSectionOptions = []; return; }
     const cls = this.classes.find(c => c.classId === this.classTeacherClassId);
@@ -740,6 +771,16 @@ export class TeacherAssignmentsComponent implements OnInit {
     if (this.formRoleClass) {
       if (!this.classTeacherClassId || !this.classTeacherSectionId) {
         this.snackBar.open('Pick the class and section for the Class Teacher role.', 'Close', { duration: 3000 });
+        return;
+      }
+      // Pre-check the single-class-teacher rule. The backend enforces this too,
+      // but blocking up front saves a round trip and gives a clearer hint.
+      const conflict = this.existingClassTeacherForSlot;
+      if (conflict) {
+        const slotLabel = `${this.classLabel(conflict)} — Section ${this.sectionLabel(conflict)}`.trim();
+        this.snackBar.open(
+          `${slotLabel} already has ${this.teacherName(conflict.teacherId)} as Class Teacher. Remove that assignment first.`,
+          'Close', { duration: 5000 });
         return;
       }
     }

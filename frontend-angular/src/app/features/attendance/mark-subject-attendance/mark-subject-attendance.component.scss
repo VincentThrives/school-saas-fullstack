@@ -24,6 +24,9 @@ $gold-light: rgba(212, 168, 67, 0.08);
 }
 
 // Holiday banner
+// Cream/orange gradient background stays the same in both light and dark
+// themes, so the text MUST stay dark-orange — !important guards against the
+// global `body.dark-theme` rules in styles.scss that lighten heading text.
 .holiday-banner {
   margin-top: 20px;
   padding: 24px 32px;
@@ -38,7 +41,7 @@ $gold-light: rgba(212, 168, 67, 0.08);
     font-size: 48px;
     width: 48px;
     height: 48px;
-    color: #E65100;
+    color: #E65100 !important;
   }
 
   .holiday-banner-text {
@@ -46,13 +49,24 @@ $gold-light: rgba(212, 168, 67, 0.08);
       margin: 0 0 4px;
       font-size: 1.3rem;
       font-weight: 700;
-      color: #E65100;
+      color: #E65100 !important;
     }
     p {
       margin: 0;
       font-size: 0.95rem;
-      color: #BF360C;
+      color: #BF360C !important;
     }
+  }
+}
+
+// Explicit dark-theme override so the cream banner stays readable even when
+// a higher-specificity dark rule (e.g. `body.dark-theme h3 { color: ... }`)
+// would otherwise repaint the text.
+:host-context(body.dark-theme) .holiday-banner {
+  .holiday-banner-icon { color: #E65100 !important; }
+  .holiday-banner-text {
+    h3 { color: #E65100 !important; }
+    p  { color: #BF360C !important; }
   }
 }
 
