@@ -90,7 +90,27 @@
 
   <!-- Marks Table -->
   <mat-card class="table-card" *ngIf="!isLoading && marks.length > 0">
-    <table mat-table [dataSource]="marks" class="marks-table">
+    <!-- Mobile cards (< 600px) -->
+    <div class="responsive-cards">
+      <div class="r-card" *ngFor="let row of marks">
+        <div class="r-card__header">
+          <span class="r-card__title">{{ row.examName }}</span>
+          <mat-chip [class]="'grade-chip ' + getGradeClass(row.grade)">{{ row.grade }}</mat-chip>
+        </div>
+        <div class="r-card__inline">
+          <span><strong>{{ row.subjectName || row.subjectId }}</strong></span>
+          <span *ngIf="row.examType">{{ row.examType }}</span>
+          <span>{{ row.examDate | date:'dd MMM yyyy' }}</span>
+        </div>
+        <div class="r-card__inline">
+          <span><strong>{{ row.marksObtained }}</strong> / {{ row.maxMarks }}</span>
+          <span><strong>{{ row.percentage }}%</strong></span>
+          <mat-chip [class]="row.passed ? 'pass-chip' : 'fail-chip'">{{ row.passed ? 'Pass' : 'Fail' }}</mat-chip>
+        </div>
+      </div>
+    </div>
+
+    <table mat-table [dataSource]="marks" class="marks-table responsive-table">
       <ng-container matColumnDef="examName">
         <th mat-header-cell *matHeaderCellDef>Exam Name</th>
         <td mat-cell *matCellDef="let row">

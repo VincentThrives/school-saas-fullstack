@@ -157,7 +157,8 @@ export class StudentDashboardComponent implements OnInit {
       };
 
       // Process holidays FIRST so they claim shared entries with the
-      // 'holiday' kind label.
+      // 'holiday' kind label. Past entries are filtered out — the dashboard
+      // card is meant to show what's coming up, not history.
       holidayList.forEach((h) => {
         const date = h.startDate || h.date;
         if (!date) return;
@@ -174,7 +175,8 @@ export class StudentDashboardComponent implements OnInit {
       eventList.forEach((e) => {
         const date = e.date || e.startDate || e.eventDate;
         if (!date) return;
-        if (date < today) return;
+        const endDate = e.endDate || date;
+        if (endDate < today) return;
         // Skip events already claimed as holidays.
         if (e.type === 'HOLIDAY' || e.kind === 'HOLIDAY' || e.isHoliday) return;
         pushIfNew({
@@ -185,6 +187,7 @@ export class StudentDashboardComponent implements OnInit {
           description: e.description,
         });
       });
+      // Soonest first.
       combined.sort((a, b) => a.date.localeCompare(b.date));
       this.upcomingEvents = combined.slice(0, 5);
 
@@ -254,7 +257,9 @@ export class StudentDashboardComponent implements OnInit {
     const d = new Date(iso);
     return d.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
   }
-  /** "Today" / "Tomorrow" / "In N days" / formatted date for the meta line. */
+  /** "Today" / "Tomorrow" / "In N days" / formatted date for the meta line.
+   *  Only handles upcoming dates — the dashboard filters past entries before
+   *  this is called. */
   whenLabel(iso: string): string {
     if (!iso) return '';
     const today = new Date(); today.setHours(0,0,0,0);

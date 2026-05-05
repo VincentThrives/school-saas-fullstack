@@ -80,6 +80,18 @@ export class ApiService {
     return this.http.put<ApiResponse<User>>(`${this.API}/users/${userId}`, user);
   }
 
+  /** Logged-in user's User-level record (works for every role). */
+  getMyUserProfile(): Observable<ApiResponse<User>> {
+    return this.http.get<ApiResponse<User>>(`${this.API}/users/me`);
+  }
+
+  /** Self-service update on the User document. firstName/lastName are
+   *  honored only for SCHOOL_ADMIN by the backend; phone, email,
+   *  profilePhotoUrl are editable for every role. */
+  updateMyUserProfile(payload: Partial<User>): Observable<ApiResponse<User>> {
+    return this.http.put<ApiResponse<User>>(`${this.API}/users/me`, payload);
+  }
+
   deleteUser(userId: string): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.API}/users/${userId}`);
   }
@@ -150,6 +162,12 @@ export class ApiService {
     return this.http.put<ApiResponse<Student>>(`${this.API}/students/${studentId}`, student);
   }
 
+  /** Self-service profile update for the logged-in STUDENT. Whitelisted on
+   *  the backend to phone, email, blood group, address, and parent contact. */
+  updateMyStudentProfile(payload: any): Observable<ApiResponse<Student>> {
+    return this.http.put<ApiResponse<Student>>(`${this.API}/students/me/profile`, payload);
+  }
+
   deleteStudent(studentId: string): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.API}/students/${studentId}`);
   }
@@ -176,6 +194,13 @@ export class ApiService {
   /** Currently logged-in teacher's profile (for My Classes, My Students). */
   getMyTeacherProfile(): Observable<ApiResponse<Teacher>> {
     return this.http.get<ApiResponse<Teacher>>(`${this.API}/employees/me`);
+  }
+
+  /** Self-service profile update for a logged-in TEACHER / PRINCIPAL.
+   *  Whitelisted on the backend to phone, email, qualification,
+   *  specialization, and address. */
+  updateMyEmployeeProfile(payload: any): Observable<ApiResponse<Teacher>> {
+    return this.http.put<ApiResponse<Teacher>>(`${this.API}/employees/me/profile`, payload);
   }
 
   createTeacher(teacher: Partial<Teacher>): Observable<ApiResponse<Teacher>> {

@@ -61,7 +61,24 @@
 
   <!-- Table -->
   <div class="table-card" *ngIf="!isLoading">
-    <table mat-table [dataSource]="dataSource" class="students-table">
+    <!-- Mobile cards (< 600px) -->
+    <div class="responsive-cards">
+      <!-- dataSource is a MatTableDataSource — iterate the underlying array. -->
+      <div class="r-card" *ngFor="let student of dataSource.data">
+        <div class="r-card__header">
+          <span class="r-card__title">{{ student.firstName }} {{ student.lastName }}</span>
+          <span class="r-card__pill">#{{ student.rollNumber || '-' }}</span>
+        </div>
+        <div class="r-card__rows">
+          <div class="row"><label>Admission</label><span class="value">{{ student.admissionNumber }}</span></div>
+          <div class="row"><label>Class</label><span class="value">{{ getClassName(student.classId) }}</span></div>
+          <div class="row" *ngIf="student.gender"><label>Gender</label><span class="value">{{ student.gender }}</span></div>
+          <div class="row" *ngIf="student.parentPhone"><label>Parent</label><span class="value">{{ student.parentName || '—' }} ({{ student.parentPhone }})</span></div>
+        </div>
+      </div>
+    </div>
+
+    <table mat-table [dataSource]="dataSource" class="students-table responsive-table">
 
       <!-- Roll Number Column -->
       <ng-container matColumnDef="rollNumber">

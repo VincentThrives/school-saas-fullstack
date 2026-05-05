@@ -12,6 +12,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { StatCardComponent } from '../../../shared/components/stat-card/stat-card.component';
 import { ApiService } from '../../../core/services/api.service';
@@ -58,6 +60,8 @@ interface StudentSubjectReport {
     MatProgressSpinnerModule,
     MatProgressBarModule,
     MatSnackBarModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
     PageHeaderComponent,
     StatCardComponent,
   ],
@@ -71,8 +75,12 @@ export class SubjectAttendanceReportComponent implements OnInit {
   sections: { name: string; capacity: number; sectionId: string }[] = [];
   selectedClassId = '';
   selectedSectionId = '';
-  startDate = '';
-  endDate = '';
+  // Bound to mat-datepicker — Date objects, not strings. Serialized to
+  // yyyy-MM-dd in formatDateStr() before being sent to the backend.
+  startDate: Date | string = '';
+  endDate: Date | string = '';
+  /** Max selectable date for both pickers — no future dates allowed. */
+  todayForPicker: Date = new Date();
   isLoading = false;
   reportLoaded = false;
 
@@ -92,8 +100,9 @@ export class SubjectAttendanceReportComponent implements OnInit {
     private snackBar: MatSnackBar,
   ) {
     const now = new Date();
-    this.startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    this.endDate = now.toISOString().split('T')[0];
+    // Default range: 1st of current month → today.
+    this.startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    this.endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }
 
   ngOnInit(): void {

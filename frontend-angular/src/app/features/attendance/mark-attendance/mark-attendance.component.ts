@@ -69,6 +69,10 @@ export class MarkAttendanceComponent implements OnInit {
   studentsLoaded = false;
   isHoliday = false;
   holidayTitle = '';
+  // Cached so `dateChange` and `onClassChange` can run a holiday check
+  // synchronously without re-hitting the network on every keystroke.
+  private cachedHolidays: any[] = [];
+  private cachedEvents: any[] = [];
 
   readonly statusOptions = [
     { value: 'PRESENT', label: 'Present', icon: 'check_circle', color: '#4caf50' },
@@ -94,6 +98,7 @@ export class MarkAttendanceComponent implements OnInit {
         if (current) {
           this.selectedAcademicYearId = current.academicYearId;
           this.loadClasses();
+          this.loadHolidayCache();
         }
       },
     });
@@ -108,7 +113,47 @@ export class MarkAttendanceComponent implements OnInit {
     this.classes = [];
     if (this.selectedAcademicYearId) {
       this.loadClasses();
+      this.loadHolidayCache();
     }
+  }
+
+  /** Pull holidays + events for the year once. Subsequent date changes
+   *  match against the cache without another network round-trip. */
+  private loadHolidayCache(): void {
+    forkJoin({
+      holidays: this.api.getHolidays({ academicYearId: this.selectedAcademicYearId }).pipe(
+        catchError(() => of({ data: [] as any[] } as any))),
+      events: this.api.getEvents({ academicYearId: this.selectedAcademicYearId }).pipe(
+        catchError(() => of({ data: [] as any[] } as any))),
+    }).subscribe(({ holidays, events }) => {
+      this.cachedHolidays = (holidays?.data as any[]) || [];
+      this.cachedEvents = (events?.data as any[]) || [];
+      // Re-evaluate the banner the moment the cache lands — handles the case
+      // where the user arrived on the page already pointing at a holiday date.
+      this.refreshHolidayBanner();
+    });
+  }
+
+  /** Synchronous banner refresh against the cache. Called on date change,
+   *  cache load, and any state change that could land on a holiday. */
+  private refreshHolidayBanner(): void {
+    const dateStr = this.formatDate(this.selectedDate);
+    const match = this.findHolidayMatch(dateStr, this.cachedHolidays, this.cachedEvents);
+    if (match) {
+      this.isHoliday = true;
+      this.holidayTitle = match.title;
+      // Hide any previously-loaded student list — banner is the only message now.
+      this.students = [];
+      this.studentsLoaded = false;
+    } else {
+      this.isHoliday = false;
+      this.holidayTitle = '';
+    }
+  }
+
+  /** Date picker (matDatepicker) change handler. */
+  onDateChange(): void {
+    this.refreshHolidayBanner();
   }
 
   loadClasses(): void {

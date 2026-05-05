@@ -110,7 +110,7 @@ public class StudentService {
                 .map(s -> s.getName()).orElse(subjectId));
 
         List<com.saas.school.modules.attendance.model.StudentsAttendance> batches =
-                studentsAttendanceRepository.findByClassIdAndSectionIdAndDateBetween(
+                studentsAttendanceRepository.findByClassIdAndSectionIdAndDateGreaterThanEqualAndDateLessThanEqual(
                         me.getClassId(), me.getSectionId(),
                         java.time.LocalDate.of(1970, 1, 1),
                         java.time.LocalDate.of(2999, 12, 31));
@@ -255,6 +255,31 @@ public class StudentService {
         s.setDeletedAt(Instant.now());
         studentRepository.save(s);
         auditService.log("DELETE_STUDENT", "Student", studentId, "Student soft deleted");
+    }
+
+    /**
+     * Self-service update for the logged-in student. Only fields on
+     * {@link StudentSelfUpdateRequest} are honored — firstName, DOB, class
+     * etc. cannot be changed via this path even if the client sends them
+     * (the DTO simply doesn't expose those fields).
+     *
+     * No password resync hook is needed here: by construction this endpoint
+     * cannot change the firstName/DOB inputs that drive the auto-password.
+     */
+    public StudentDto updateMyProfile(String userId, StudentSelfUpdateRequest req) {
+        StudentDto me = getStudentByUserId(userId);
+        Student s = findStudent(me.getStudentId());
+        if (req.getPhone()       != null) s.setPhone(req.getPhone());
+        if (req.getEmail()       != null) s.setEmail(req.getEmail());
+        if (req.getBloodGroup()  != null) s.setBloodGroup(req.getBloodGroup());
+        if (req.getAddress()     != null) s.setAddress(mapAddress(req.getAddress()));
+        if (req.getParentName()  != null) s.setParentName(req.getParentName());
+        if (req.getParentPhone() != null) s.setParentPhone(req.getParentPhone());
+        if (req.getParentEmail() != null) s.setParentEmail(req.getParentEmail());
+        studentRepository.save(s);
+        auditService.log("PROFILE_SELF_UPDATE", "Student", s.getStudentId(),
+                "Student updated own profile");
+        return toDto(s);
     }
 
     /** Year-end bulk promotion: move all students in classId/sectionId to nextClassId/nextSectionId */
@@ -408,6 +433,7 @@ public class StudentService {
         dto.setParentPhone(s.getParentPhone());
         dto.setParentEmail(s.getParentEmail());
         dto.setSubjectIds(s.getSubjectIds());
+        dto.setAddress(s.getAddress());
         dto.setAcademicRecords(s.getAcademicRecords());
         dto.setCreatedAt(s.getCreatedAt());
         return dto;
@@ -561,7 +587,7 @@ public class StudentService {
         java.time.LocalDate to = ay != null ? ay.getEndDate() : null;
         if (from != null && to != null && student.getClassId() != null && student.getSectionId() != null) {
             List<StudentsAttendance> batches = studentsAttendanceRepository
-                    .findByClassIdAndSectionIdAndDateBetween(student.getClassId(), student.getSectionId(), from, to);
+                    .findByClassIdAndSectionIdAndDateGreaterThanEqualAndDateLessThanEqual(student.getClassId(), student.getSectionId(), from, to);
             aggregateAttendance(batches, studentId, out.getAttendance());
         }
 

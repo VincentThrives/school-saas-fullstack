@@ -104,6 +104,7 @@ public class UserService {
         if (req.getFirstName() != null) user.setFirstName(req.getFirstName());
         if (req.getLastName()  != null) user.setLastName(req.getLastName());
         if (req.getPhone()     != null) user.setPhone(req.getPhone());
+        if (req.getEmail()     != null) user.setEmail(req.getEmail());
         if (req.getProfilePhotoUrl() != null) user.setProfilePhotoUrl(req.getProfilePhotoUrl());
         userRepository.save(user);
         auditService.log("UPDATE_USER", "User", userId, "User profile updated");
@@ -239,8 +240,38 @@ public class UserService {
         return toDto(findUser(userId));
     }
 
+    /**
+     * Self-service profile update. Only fields owned by the User document
+     * itself (phone, email, profilePhoto) and identity fields for users
+     * WITHOUT a linked Student/Teacher record (i.e. admins) are honored.
+     *
+     * Students and teachers cannot change firstName/lastName via this
+     * endpoint — those mutate the auto-password and must go through the
+     * role-specific endpoints (Student/Employee /me/profile) which run
+     * the password-resync hook. We silently ignore the fields here rather
+     * than reject so the FE can send a single payload across roles.
+     */
     public UserDto updateMyProfile(String userId, UpdateUserRequest req) {
-        return updateUser(userId, req);
+        User user = findUser(userId);
+        // Always-safe fields, every role.
+        if (req.getPhone()           != null) user.setPhone(req.getPhone());
+        if (req.getEmail()           != null) user.setEmail(req.getEmail());
+        if (req.getProfilePhotoUrl() != null) user.setProfilePhotoUrl(req.getProfilePhotoUrl());
+
+        // firstName/lastName are editable here ONLY for SCHOOL_ADMIN, who has
+        // no linked Student/Teacher record. Students and teachers must use
+        // their role-specific endpoint (/students/me/profile or
+        // /employees/me/profile) which runs the password-resync hook so the
+        // login password stays in sync with the new firstName.
+        if (user.getRole() == UserRole.SCHOOL_ADMIN) {
+            if (req.getFirstName() != null) user.setFirstName(req.getFirstName());
+            if (req.getLastName()  != null) user.setLastName(req.getLastName());
+        }
+        // Otherwise — silently ignore firstName/lastName for non-admins.
+
+        userRepository.save(user);
+        auditService.log("PROFILE_SELF_UPDATE", "User", userId, "User updated own profile");
+        return toDto(user);
     }
 
     // ── Helpers ───────────────────────────────────────────────────

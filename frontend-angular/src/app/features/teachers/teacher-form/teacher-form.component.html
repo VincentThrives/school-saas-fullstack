@@ -65,14 +65,18 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Date of Birth *</mat-label>
-            <input matInput type="date" formControlName="dateOfBirth" required>
+            <input matInput formControlName="dateOfBirth" [matDatepicker]="dobPicker" [max]="todayForDob" placeholder="dd/mm/yyyy" readonly required>
+            <mat-datepicker-toggle matIconSuffix [for]="dobPicker"></mat-datepicker-toggle>
+            <mat-datepicker #dobPicker startView="multi-year" [startAt]="dobStartAt"></mat-datepicker>
             <mat-hint>Used to generate the initial login password</mat-hint>
             <mat-error>Date of birth is required</mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>Joining Date</mat-label>
-            <input matInput type="date" formControlName="joiningDate">
+            <input matInput formControlName="joiningDate" [matDatepicker]="joinPicker" [max]="todayForDob" placeholder="dd/mm/yyyy" readonly>
+            <mat-datepicker-toggle matIconSuffix [for]="joinPicker"></mat-datepicker-toggle>
+            <mat-datepicker #joinPicker></mat-datepicker>
           </mat-form-field>
 
           <mat-form-field appearance="outline">

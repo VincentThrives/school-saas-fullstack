@@ -69,7 +69,23 @@
         </mat-form-field>
       </div>
 
-      <table mat-table [dataSource]="filteredStudents" class="students-table">
+      <!-- Mobile cards (< 600px) -->
+      <div class="responsive-cards">
+        <div class="r-card" *ngFor="let s of filteredStudents">
+          <div class="r-card__header">
+            <span class="r-card__title">{{ s.firstName }} {{ s.lastName }}</span>
+            <span class="r-card__pill">#{{ s.rollNumber || s.admissionNumber || '-' }}</span>
+          </div>
+          <div class="r-card__rows">
+            <div class="row"><label>Admission</label><span class="value"><code>{{ s.admissionNumber }}</code></span></div>
+            <div class="row"><label>Gender</label><span class="value">{{ s.gender || '—' }}</span></div>
+            <div class="row"><label>Date of birth</label><span class="value">{{ formatDate(s.dateOfBirth) }}</span></div>
+            <div class="row" *ngIf="parentLine(s)"><label>Parent</label><span class="value">{{ parentLine(s) }}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <table mat-table [dataSource]="filteredStudents" class="students-table responsive-table">
         <ng-container matColumnDef="rollNumber">
           <th mat-header-cell *matHeaderCellDef>Roll No</th>
           <td mat-cell *matCellDef="let s">{{ s.rollNumber || s.admissionNumber || '-' }}</td>

@@ -179,3 +179,26 @@ $gold-dark: #B8860B;
   font-size: 0.8125rem;
   font-weight: 600;
 }
+
+// Mobile-card action row: primary button takes the wide slot, Results stays
+// compact, 3-dot menu sits in a fixed 40px tap target. Without this the
+// global utility's `flex: 1 each` would crush the labels and overlap icons.
+.exam-card-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+
+  .primary-action {
+    flex: 1 1 auto;
+    min-width: 140px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  > button:not(.primary-action):not(.more-btn) {
+    flex: 0 0 auto;
+  }
+  .more-btn {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+  }
+}

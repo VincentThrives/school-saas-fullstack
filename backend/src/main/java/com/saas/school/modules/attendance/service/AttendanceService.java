@@ -223,7 +223,10 @@ public class AttendanceService {
 
     public List<StudentsAttendance> getBatchAttendanceRange(
             String classId, String sectionId, LocalDate from, LocalDate to) {
-        return batchRepository.findByClassIdAndSectionIdAndDateBetween(classId, sectionId, from, to);
+        // Inclusive on both ends — see repository note. "May 1 to May 5"
+        // returns records for all five days.
+        return batchRepository.findByClassIdAndSectionIdAndDateGreaterThanEqualAndDateLessThanEqual(
+                classId, sectionId, from, to);
     }
 
     // ── Student summary (from batch model) ──

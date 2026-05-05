@@ -42,7 +42,7 @@
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Date</mat-label>
-          <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [max]="today">
+          <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [max]="today" (dateChange)="onDateChange()">
           <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
           <mat-datepicker #picker></mat-datepicker>
         </mat-form-field>
@@ -51,7 +51,7 @@
           mat-flat-button
           class="load-btn"
           (click)="loadStudents()"
-          [disabled]="!selectedClassId || !selectedSectionId"
+          [disabled]="!selectedClassId || !selectedSectionId || isHoliday"
         >
           <mat-icon>group</mat-icon>
           Load Students
@@ -112,7 +112,33 @@
 
   <!-- Students Table -->
   <mat-card class="table-card" *ngIf="studentsLoaded && !isLoading">
-    <table mat-table [dataSource]="students" class="attendance-table">
+    <!-- Mobile cards (< 600px): each student is a self-contained card with status radios. -->
+    <div class="responsive-cards">
+      <div class="r-card" *ngFor="let student of students">
+        <div class="r-card__header">
+          <div class="r-card__title">
+            <span class="student-avatar" style="margin-right:8px;">{{ student.firstName?.charAt(0) || 'S' }}</span>
+            {{ student.firstName }} {{ student.lastName }}
+          </div>
+          <span class="r-card__pill">#{{ student.rollNumber }}</span>
+        </div>
+        <mat-radio-group [(ngModel)]="student.status" class="status-radio-group">
+          <mat-radio-button
+            *ngFor="let opt of statusOptions"
+            [value]="opt.value"
+            class="status-radio"
+            [class]="'status-' + opt.value.toLowerCase()"
+          >
+            {{ opt.label }}
+          </mat-radio-button>
+        </mat-radio-group>
+        <mat-form-field appearance="outline" class="remarks-field" style="width:100%;">
+          <input matInput [(ngModel)]="student.remarks" placeholder="Add remarks...">
+        </mat-form-field>
+      </div>
+    </div>
+
+    <table mat-table [dataSource]="students" class="attendance-table responsive-table">
       <!-- Roll Number Column -->
       <ng-container matColumnDef="rollNumber">
         <th mat-header-cell *matHeaderCellDef>Roll No</th>

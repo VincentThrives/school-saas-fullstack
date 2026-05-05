@@ -44,7 +44,9 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Date of Birth</mat-label>
-            <input matInput formControlName="dateOfBirth" type="date">
+            <input matInput formControlName="dateOfBirth" [matDatepicker]="dobPicker" [max]="todayForDob" placeholder="dd/mm/yyyy" readonly>
+            <mat-datepicker-toggle matIconSuffix [for]="dobPicker"></mat-datepicker-toggle>
+            <mat-datepicker #dobPicker startView="multi-year" [startAt]="dobStartAt"></mat-datepicker>
             <mat-error>Date of birth is required</mat-error>
           </mat-form-field>
 

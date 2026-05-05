@@ -115,6 +115,10 @@ export class MarkSubjectAttendanceComponent implements OnInit {
   autoLoadAttempted = false;     // true once teacher auto-load has run
   autoLoadEmpty = false;         // true when teacher auto-load returned zero periods for today
   private cachedTeacherTimetables: any[] = [];   // cached to re-filter on date change without re-fetching
+  // Holidays + HOLIDAY-tagged events for the year, cached so the teacher-mode
+  // day filter can flag a holiday synchronously when the user changes date.
+  private cachedHolidays: any[] = [];
+  private cachedEvents: any[] = [];
 
   readonly statusOptions = [
     { value: 'PRESENT', label: 'Present', icon: 'check_circle', color: '#4caf50' },
@@ -209,13 +213,29 @@ export class MarkSubjectAttendanceComponent implements OnInit {
           next: (res) => { this.classes = res.data || []; this.applyTeacherDayFilter(); },
         });
 
+        // Holidays + events cached once per year so date changes don't re-fetch.
+        // Same dual-source rule as the admin flow: a date is a holiday if it's
+        // on the holidays list OR it's an event tagged HOLIDAY.
+        forkJoin({
+          holidays: this.api.getHolidays({ academicYearId: this.selectedAcademicYearId }).pipe(
+            catchError(() => of({ data: [] as any[] } as any))),
+          events: this.api.getEvents({ academicYearId: this.selectedAcademicYearId }).pipe(
+            catchError(() => of({ data: [] as any[] } as any))),
+        }).subscribe(({ holidays, events }) => {
+          this.cachedHolidays = (holidays?.data as any[]) || [];
+          this.cachedEvents = (events?.data as any[]) || [];
+          // Re-run the filter so today's holiday banner appears immediately
+          // even before the timetable response lands.
+          this.applyTeacherDayFilter();
+        });
+
         this.api.getTeacherTimetable(this.teacherUserId, this.selectedAcademicYearId).subscribe({
           next: (res) => {
             this.cachedTeacherTimetables = res.data || [];
             this.applyTeacherDayFilter();
             this.isLoadingPeriods = false;
             this.autoLoadAttempted = true;
-            if (this.timetablePeriods.length === 0) {
+            if (this.timetablePeriods.length === 0 && !this.isHoliday) {
               this.autoLoadEmpty = true;
               this.showFilters = true;          // reveal dropdowns as fallback
               this.loadClassesForFallback();
@@ -253,6 +273,26 @@ export class MarkSubjectAttendanceComponent implements OnInit {
    * Called on initial load and whenever the teacher changes the date.
    */
   private applyTeacherDayFilter(): void {
+    // Holiday check first — same dual-source rule as the admin flow. We use
+    // the cached holidays/events so date changes don't re-hit the network.
+    const dateStr = this.getDateStr();
+    const hMatch = this.findHolidayMatch(dateStr, this.cachedHolidays, this.cachedEvents);
+    if (hMatch) {
+      this.isHoliday = true;
+      this.holidayTitle = hMatch.title;
+      this.timetablePeriods = [];
+      this.selectedPeriod = null;
+      this.students = [];
+      this.studentsLoaded = false;
+      this.isAlreadyMarked = false;
+      // Hide the empty-state fallback so the holiday banner is the only message.
+      this.autoLoadEmpty = false;
+      return;
+    }
+    // Not a holiday — clear the flag and continue with the day-of-week filter.
+    this.isHoliday = false;
+    this.holidayTitle = '';
+
     const dayKey = this.getDayKey(this.selectedDate);
     const periods: TimetablePeriod[] = [];
     const filterClass = this.selectedClassId && this.selectedClassId !== 'ALL' ? this.selectedClassId : null;

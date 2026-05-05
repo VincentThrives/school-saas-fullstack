@@ -70,6 +70,12 @@ export class StudentFormComponent implements OnInit {
     private hostEl: ElementRef<HTMLElement>,
   ) {}
 
+  /** Datepicker bounds: max = today (no future DOB), startAt = ~10 years ago
+   *  so the multi-year view opens near a likely student birth year instead
+   *  of the current decade. */
+  todayForDob: Date = new Date();
+  dobStartAt: Date = new Date(new Date().getFullYear() - 10, 0, 1);
+
   ngOnInit(): void {
     this.studentId = this.route.snapshot.paramMap.get('studentId');
     this.isEditing = !!this.studentId && this.studentId !== 'new';
@@ -248,8 +254,17 @@ export class StudentFormComponent implements OnInit {
     this.isSaving = true;
     const formData = this.studentForm.value;
 
+    // mat-datepicker hands us a JS Date; the backend's LocalDate expects
+    // an ISO "yyyy-MM-dd" string. toISOString() shifts to UTC and can roll
+    // the day back, so build the string from local Y/M/D components.
+    const dob = formData.dateOfBirth;
+    const dobStr = dob instanceof Date
+      ? `${dob.getFullYear()}-${String(dob.getMonth() + 1).padStart(2, '0')}-${String(dob.getDate()).padStart(2, '0')}`
+      : dob;
+
     const payload = {
       ...formData,
+      dateOfBirth: dobStr,
       address: {
         street: formData.street || '',
         city: formData.city || '',

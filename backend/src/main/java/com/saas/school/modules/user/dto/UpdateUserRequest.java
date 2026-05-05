@@ -6,6 +6,7 @@ public class UpdateUserRequest {
     private String lastName;
     private String phone;
     private String profilePhotoUrl;
+    private String email;
 
     public UpdateUserRequest() {
     }
@@ -40,5 +41,13 @@ public class UpdateUserRequest {
 
     public void setProfilePhotoUrl(String profilePhotoUrl) {
         this.profilePhotoUrl = profilePhotoUrl;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 }

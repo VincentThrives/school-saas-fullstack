@@ -41,6 +41,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/dashboard/dashboard/dashboard.component').then(m => m.DashboardComponent),
       },
+
+      // My Profile — single route, role-aware shell delegates to the right
+      // sub-component (Student / Employee / Admin). Available to every
+      // authenticated user; the shell handles the empty-state for
+      // SUPER_ADMIN.
+      {
+        path: 'profile',
+        loadComponent: () =>
+          import('./features/profile/profile-shell/profile-shell.component').then(m => m.ProfileShellComponent),
+      },
       {
         path: 'superadmin/dashboard',
         loadComponent: () =>

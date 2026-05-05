@@ -39,12 +39,16 @@
 
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>From Date</mat-label>
-        <input matInput type="date" [(ngModel)]="startDate">
+        <input matInput [matDatepicker]="fromPicker" [(ngModel)]="startDate" [max]="todayForPicker" placeholder="dd/mm/yyyy" readonly>
+        <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
+        <mat-datepicker #fromPicker></mat-datepicker>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>To Date</mat-label>
-        <input matInput type="date" [(ngModel)]="endDate">
+        <input matInput [matDatepicker]="toPicker" [(ngModel)]="endDate" [max]="todayForPicker" placeholder="dd/mm/yyyy" readonly>
+        <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
+        <mat-datepicker #toPicker></mat-datepicker>
       </mat-form-field>
 
       <button mat-raised-button class="generate-btn" (click)="loadReport()"
@@ -109,7 +113,27 @@
       </mat-form-field>
     </div>
 
-    <table mat-table [dataSource]="filteredStudentReports" class="report-table">
+    <!-- Mobile cards (< 600px) -->
+    <div class="responsive-cards">
+      <div class="r-card" *ngFor="let row of filteredStudentReports">
+        <div class="r-card__header">
+          <span class="r-card__title">{{ row.studentName }}</span>
+          <span class="r-card__big">{{ row.percentage }}%</span>
+        </div>
+        <div class="r-card__inline">
+          <span><strong>Roll</strong> {{ row.rollNumber }}</span>
+          <span *ngIf="row.subjectName"><strong>{{ row.subjectName }}</strong></span>
+        </div>
+        <div class="r-card__inline">
+          <span><strong>{{ row.present }}</strong> Present</span>
+          <span><strong>{{ row.absent }}</strong> Absent</span>
+          <span *ngIf="row.late"><strong>{{ row.late }}</strong> Late</span>
+          <span><strong>{{ row.total }}</strong> Total</span>
+        </div>
+      </div>
+    </div>
+
+    <table mat-table [dataSource]="filteredStudentReports" class="report-table responsive-table">
 
       <ng-container matColumnDef="rollNumber">
         <th mat-header-cell *matHeaderCellDef>Roll No</th>

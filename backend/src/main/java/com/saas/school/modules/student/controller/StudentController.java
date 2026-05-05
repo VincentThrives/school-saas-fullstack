@@ -44,6 +44,18 @@ public class StudentController {
         return ResponseEntity.ok(ApiResponse.success(studentService.getStudentByUserId(userId)));
     }
 
+    /** Self-service profile update for a STUDENT. Whitelisted to phone,
+     *  email, address, blood group, and parent contact — identity fields
+     *  (name, DOB, class, etc.) stay admin-controlled. */
+    @PutMapping("/me/profile")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<StudentDto>> updateMyProfile(
+            @AuthenticationPrincipal String userId,
+            @RequestBody StudentSelfUpdateRequest req) {
+        return ResponseEntity.ok(ApiResponse.success(
+                studentService.updateMyProfile(userId, req), "Profile updated"));
+    }
+
     /** Read-only attendance + exam summary for the logged-in student. */
     @GetMapping("/me/profile-summary")
     @PreAuthorize("hasRole('STUDENT')")

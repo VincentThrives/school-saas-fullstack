@@ -1,0 +1,78 @@
+<div class="profile-page">
+  <app-page-header title="My Profile" subtitle="Your account details"></app-page-header>
+
+  <div class="profile-loading" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <ng-container *ngIf="!isLoading && user">
+    <!-- ─── Account (read-only) ─────────── -->
+    <mat-card class="profile-card">
+      <div class="card-header">
+        <mat-icon class="card-icon">admin_panel_settings</mat-icon>
+        <h3 class="card-title">Account</h3>
+        <span class="card-pill pill-readonly">Read-only</span>
+      </div>
+
+      <div class="identity">
+        <div class="avatar">
+          <img *ngIf="user.profilePhotoUrl" [src]="user.profilePhotoUrl" alt="Profile" />
+          <span *ngIf="!user.profilePhotoUrl">{{ adminInitial }}</span>
+        </div>
+        <div class="identity-grid">
+          <div class="field"><label>Name</label><span>{{ user.firstName }} {{ user.lastName }}</span></div>
+          <div class="field"><label>Username</label><span>{{ user.username || '-' }}</span></div>
+          <div class="field"><label>Role</label><span>{{ prettyRole(user.role) }}</span></div>
+          <div class="field"><label>Created</label><span>{{ formatDateTime(user.createdAt) }}</span></div>
+          <div class="field span-2"><label>Last login</label><span>{{ formatDateTime(user.lastLoginAt) }}</span></div>
+        </div>
+      </div>
+
+      <div class="readonly-hint">
+        <mat-icon>info</mat-icon>
+        <span>Need to change your name? Contact your platform administrator.</span>
+      </div>
+    </mat-card>
+
+    <!-- ─── Personal Details (editable) ─────────── -->
+    <mat-card class="profile-card">
+      <div class="card-header">
+        <mat-icon class="card-icon">person</mat-icon>
+        <h3 class="card-title">Personal Details</h3>
+        <div class="card-actions">
+          <button mat-stroked-button *ngIf="!isEditing" (click)="startEdit()">
+            <mat-icon>edit</mat-icon>
+            Edit
+          </button>
+          <button mat-button *ngIf="isEditing" [disabled]="isSaving" (click)="cancelEdit()">Cancel</button>
+          <button mat-flat-button color="primary" *ngIf="isEditing" [disabled]="isSaving" (click)="save()">
+            {{ isSaving ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Read-only view -->
+      <div class="details-grid" *ngIf="!isEditing">
+        <div class="field"><label>Phone</label><span>{{ user.phone || '-' }}</span></div>
+        <div class="field"><label>Email</label><span>{{ user.email || '-' }}</span></div>
+        <div class="field span-2"><label>Profile Photo URL</label><span>{{ user.profilePhotoUrl || '-' }}</span></div>
+      </div>
+
+      <!-- Edit form -->
+      <div class="details-grid form-grid" *ngIf="isEditing">
+        <mat-form-field appearance="outline">
+          <mat-label>Phone</mat-label>
+          <input matInput [(ngModel)]="edit.phone" inputmode="tel" maxlength="15" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput [(ngModel)]="edit.email" type="email" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Profile Photo URL</mat-label>
+          <input matInput [(ngModel)]="edit.profilePhotoUrl" />
+        </mat-form-field>
+      </div>
+    </mat-card>
+  </ng-container>
+</div>

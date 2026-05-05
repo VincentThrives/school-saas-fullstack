@@ -86,6 +86,9 @@ export class TeacherDashboardComponent implements OnInit {
   upcomingEventsOnly: UpcomingEventRow[] = [];
   /** Holidays column in the bottom Events & Holidays card. */
   upcomingHolidaysOnly: UpcomingEventRow[] = [];
+  /** Attendance mode controls where the Mark Now / Mark buttons route to.
+   *  Resolved from the tenant settings the same way the sidebar does it. */
+  attendanceMode: 'DAY_WISE' | 'SUBJECT_WISE' = 'DAY_WISE';
 
   scheduleColumns = ['period', 'time', 'class', 'subject', 'room', 'attendance'];
 
@@ -97,6 +100,14 @@ export class TeacherDashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Resolve the school's attendance mode so Mark Now / Mark buttons route
+    // to the right page (day-wise vs subject-wise). Falls back to DAY_WISE
+    // on error so the buttons still work.
+    this.api.getAttendanceMode().subscribe({
+      next: (res) => { this.attendanceMode = (res?.data?.mode as any) || 'DAY_WISE'; },
+      error: () => { this.attendanceMode = 'DAY_WISE'; },
+    });
+
     this.api.getAcademicYears().subscribe({
       next: (res) => {
         const years = (res.data as any[]) || [];
@@ -109,10 +120,18 @@ export class TeacherDashboardComponent implements OnInit {
     });
   }
 
-  /** Loads upcoming events + holidays for the current academic year and
+  /** Route the Mark Now / Mark buttons to the page that matches the school's
+   *  attendance mode. The super admin's per-school feature toggle decides
+   *  which UI is exposed; the dashboard buttons should follow suit. */
+  get markAttendanceLink(): string {
+    return this.attendanceMode === 'SUBJECT_WISE' ? '/attendance/subject-wise' : '/attendance';
+  }
+
+  /** Loads UPCOMING events + holidays for the current academic year and
    *  splits them into the two-column "Events & Holidays" card at the bottom
-   *  of the dashboard. Mirrors the student dashboard's logic so behavior is
-   *  consistent across roles. */
+   *  of the dashboard. Past entries are filtered out — the card is meant
+   *  to show what's coming up, not history. Add a future entry on the
+   *  Events page and it'll appear here. */
   private loadEventsAndHolidays(academicYearId: string): void {
     forkJoin({
       events: this.api.getEvents({ academicYearId }).pipe(catchError(() => of({ data: [] as any[] } as any))),
@@ -139,6 +158,7 @@ export class TeacherDashboardComponent implements OnInit {
       holidayList.forEach((h) => {
         const date = h.startDate || h.date;
         if (!date) return;
+        // Multi-day holidays: keep visible until the LAST day passes.
         const endDate = h.endDate || date;
         if (endDate < today) return;
         pushIfNew({
@@ -152,7 +172,9 @@ export class TeacherDashboardComponent implements OnInit {
       eventList.forEach((e) => {
         const date = e.date || e.startDate || e.eventDate;
         if (!date) return;
-        if (date < today) return;
+        // Filter out events that have already passed.
+        const endDate = e.endDate || date;
+        if (endDate < today) return;
         if (e.type === 'HOLIDAY' || e.kind === 'HOLIDAY' || e.isHoliday) return;
         pushIfNew({
           id: e.id || e.eventId,
@@ -162,10 +184,10 @@ export class TeacherDashboardComponent implements OnInit {
           description: e.description,
         });
       });
+      // Soonest first.
       combined.sort((a, b) => a.date.localeCompare(b.date));
 
-      // Cap each column at 3 entries so the card stays compact, matching
-      // the student dashboard treatment.
+      // Cap each column at 3 entries so the card stays compact.
       this.upcomingEventsOnly   = combined.filter(r => r.kind === 'event').slice(0, 3);
       this.upcomingHolidaysOnly = combined.filter(r => r.kind === 'holiday').slice(0, 3);
     });
@@ -182,7 +204,9 @@ export class TeacherDashboardComponent implements OnInit {
     const d = new Date(iso);
     return d.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
   }
-  /** "Today" / "Tomorrow" / "In N days" / formatted date for the meta line. */
+  /** "Today" / "Tomorrow" / "In N days" / formatted date for the meta line.
+   *  Only handles upcoming dates — the dashboard filters past entries before
+   *  this is called. */
   whenLabel(iso: string): string {
     if (!iso) return '';
     const today = new Date(); today.setHours(0,0,0,0);

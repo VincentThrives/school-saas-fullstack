@@ -1,6 +1,33 @@
 $gold: #D4A843;
 $gold-dark: #B8860B;
 
+// Mobile-only select-all bar above the report cards.
+.r-select-all {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(212, 168, 67, 0.08);
+  border: 1px solid rgba(212, 168, 67, 0.25);
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1a1a1a;
+
+  .r-select-count {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: $gold-dark;
+  }
+}
+:host-context(body.dark-theme) .r-select-all {
+  background: rgba(212, 168, 67, 0.12);
+  border-color: rgba(212, 168, 67, 0.3);
+  color: #f0f0f0;
+  .r-select-count { color: #E8C97A; }
+}
+
 .report-card-container {
   padding: 0;
 }

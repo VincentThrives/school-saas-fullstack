@@ -71,6 +71,13 @@ export class TeacherFormComponent implements OnInit {
     private hostEl: ElementRef<HTMLElement>,
   ) {}
 
+  /** Datepicker bounds for DOB / Joining Date.
+   *  - max  = today (no future dates allowed)
+   *  - DOB startAt = ~30 years ago so the multi-year picker opens near a
+   *    plausible employee birth year. */
+  todayForDob: Date = new Date();
+  dobStartAt: Date = new Date(new Date().getFullYear() - 30, 0, 1);
+
   ngOnInit(): void {
     this.teacherId = this.route.snapshot.paramMap.get('teacherId');
     this.isEditing = !!this.teacherId && this.teacherId !== 'new';
@@ -196,13 +203,21 @@ export class TeacherFormComponent implements OnInit {
         zip: formData.zip || '',
       },
     };
-    // Only send dates if they have a value (avoid sending empty string to LocalDate)
-    if (formData.dateOfBirth) {
-      payload.dateOfBirth = formData.dateOfBirth;
-    }
-    if (formData.joiningDate) {
-      payload.joiningDate = formData.joiningDate;
-    }
+    // Only send dates if they have a value (avoid sending empty string to
+    // LocalDate). mat-datepicker hands us a Date object; the backend's
+    // LocalDate expects an ISO "yyyy-MM-dd" string. Build it from local
+    // Y/M/D components — toISOString() shifts to UTC and can roll the day.
+    const fmt = (v: any): string | null => {
+      if (!v) return null;
+      if (v instanceof Date) {
+        return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+      }
+      return v;
+    };
+    const dobStr = fmt(formData.dateOfBirth);
+    const joinStr = fmt(formData.joiningDate);
+    if (dobStr) payload.dateOfBirth = dobStr;
+    if (joinStr) payload.joiningDate = joinStr;
 
     const request$ = this.isEditing && this.teacherId
       ? this.api.updateTeacher(this.teacherId, payload)

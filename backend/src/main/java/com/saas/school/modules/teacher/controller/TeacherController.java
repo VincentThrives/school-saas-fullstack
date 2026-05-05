@@ -65,6 +65,35 @@ public class TeacherController {
         return ResponseEntity.ok(ApiResponse.success(t));
     }
 
+    /** Self-service profile update for an EMPLOYEE. Whitelisted to phone,
+     *  email, qualification, specialization, and address — identity fields
+     *  (name, DOB, employeeId, role, joining date, class assignments) stay
+     *  admin-controlled. */
+    @PutMapping("/me/profile")
+    @PreAuthorize("hasAnyRole('TEACHER','PRINCIPAL')")
+    public ResponseEntity<ApiResponse<Teacher>> updateMyProfile(
+            @AuthenticationPrincipal String userId,
+            @RequestBody com.saas.school.modules.teacher.dto.EmployeeSelfUpdateRequest req) {
+        Teacher t = teacherRepo.findByUserIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No employee profile linked to this user"));
+        if (req.getPhone()          != null) t.setPhone(req.getPhone());
+        if (req.getEmail()          != null) t.setEmail(req.getEmail());
+        if (req.getQualification()  != null) t.setQualification(req.getQualification());
+        if (req.getSpecialization() != null) t.setSpecialization(req.getSpecialization());
+        if (req.getAddress()        != null) {
+            Teacher.Address a = new Teacher.Address();
+            a.setStreet(req.getAddress().getStreet());
+            a.setCity(req.getAddress().getCity());
+            a.setState(req.getAddress().getState());
+            a.setCountry(req.getAddress().getCountry());
+            a.setZip(req.getAddress().getZip());
+            t.setAddress(a);
+        }
+        Teacher saved = teacherRepo.save(t);
+        return ResponseEntity.ok(ApiResponse.success(saved, "Profile updated"));
+    }
+
     @PostMapping
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<Teacher>> create(@RequestBody Teacher req) {

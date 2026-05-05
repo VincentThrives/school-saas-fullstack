@@ -57,7 +57,24 @@
   </mat-card>
 
   <mat-card class="table-card">
-    <table mat-table [dataSource]="rankings" class="rankings-table">
+    <!-- Mobile cards (< 600px) -->
+    <div class="responsive-cards">
+      <div class="r-card" *ngFor="let r of rankings">
+        <div class="r-card__header">
+          <span class="r-card__title">
+            <mat-icon *ngIf="getMedalIcon(r.rank)" [class]="'medal ' + getMedalClass(r.rank)" style="vertical-align:middle;margin-right:4px;">{{ getMedalIcon(r.rank) }}</mat-icon>
+            #{{ r.rank }} &nbsp; {{ r.studentName }}
+          </span>
+          <span class="r-card__big">{{ r.percentage }}%</span>
+        </div>
+        <div class="r-card__inline">
+          <span *ngIf="r.rollNumber"><strong>Roll</strong> {{ r.rollNumber }}</span>
+          <span><strong>Marks</strong> {{ r.obtainedMarks }} / {{ r.totalMarks }}</span>
+        </div>
+      </div>
+    </div>
+
+    <table mat-table [dataSource]="rankings" class="rankings-table responsive-table">
       <!-- Rank -->
       <ng-container matColumnDef="rank">
         <th mat-header-cell *matHeaderCellDef>Rank</th>

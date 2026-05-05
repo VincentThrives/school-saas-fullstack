@@ -318,6 +318,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
       );
     }
 
+    // "My Profile" sits at the bottom of every tenant-side sidebar — common
+    // anchor across roles since it's about the logged-in user, not features.
+    // The /profile route renders a role-aware shell (student/employee/admin).
+    items.push({ title: 'My Profile', path: '/profile', icon: 'person' });
+
     this.menuItems = items.filter((item) => this.isItemVisible(item));
   }
 

@@ -1,0 +1,119 @@
+<div class="profile-page">
+  <app-page-header title="My Profile" subtitle="Your employee record and personal details"></app-page-header>
+
+  <div class="profile-loading" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <ng-container *ngIf="!isLoading && teacher">
+    <!-- ─── Identity (read-only) ─────────── -->
+    <mat-card class="profile-card">
+      <div class="card-header">
+        <mat-icon class="card-icon">badge</mat-icon>
+        <h3 class="card-title">Employee Record</h3>
+        <span class="card-pill pill-readonly">Read-only</span>
+      </div>
+
+      <div class="identity">
+        <div class="avatar">
+          <img *ngIf="user?.profilePhotoUrl" [src]="user!.profilePhotoUrl" alt="Profile" />
+          <span *ngIf="!user?.profilePhotoUrl">{{ teacherInitial }}</span>
+        </div>
+        <div class="identity-grid">
+          <div class="field"><label>Name</label><span>{{ teacher.firstName }} {{ teacher.lastName }}</span></div>
+          <div class="field"><label>Employee ID</label><span>{{ teacher.employeeId || '-' }}</span></div>
+          <div class="field"><label>Date of Birth</label><span>{{ formatDob(teacher.dateOfBirth) }}</span></div>
+          <div class="field"><label>Role</label><span>{{ prettyRole(teacher.employeeRole) }}</span></div>
+          <div class="field"><label>Joining Date</label><span>{{ formatDob(teacher.joiningDate) }}</span></div>
+        </div>
+      </div>
+
+      <div class="readonly-hint">
+        <mat-icon>info</mat-icon>
+        <span>Need to fix your name, date of birth, employee ID, or role? Contact your school admin.</span>
+      </div>
+    </mat-card>
+
+    <!-- ─── Personal Details (editable) ─────────── -->
+    <mat-card class="profile-card">
+      <div class="card-header">
+        <mat-icon class="card-icon">person</mat-icon>
+        <h3 class="card-title">Personal Details</h3>
+        <div class="card-actions">
+          <button mat-stroked-button *ngIf="!isEditing" (click)="startEdit()">
+            <mat-icon>edit</mat-icon>
+            Edit
+          </button>
+          <button mat-button *ngIf="isEditing" [disabled]="isSaving" (click)="cancelEdit()">Cancel</button>
+          <button mat-flat-button color="primary" *ngIf="isEditing" [disabled]="isSaving" (click)="save()">
+            {{ isSaving ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Read-only view -->
+      <div class="details-grid" *ngIf="!isEditing">
+        <div class="field"><label>Phone</label><span>{{ teacher.phone || '-' }}</span></div>
+        <div class="field"><label>Email</label><span>{{ teacher.email || '-' }}</span></div>
+        <div class="field"><label>Qualification</label><span>{{ teacher.qualification || '-' }}</span></div>
+        <div class="field"><label>Specialization</label><span>{{ teacher.specialization || '-' }}</span></div>
+        <div class="field span-2">
+          <label>Address</label>
+          <span *ngIf="teacher.address; else noAddr">
+            {{ teacher.address.street }}<ng-container *ngIf="teacher.address.street && teacher.address.city">, </ng-container>
+            {{ teacher.address.city }}<ng-container *ngIf="teacher.address.city && teacher.address.state">, </ng-container>
+            {{ teacher.address.state }} {{ teacher.address.zip }}<ng-container *ngIf="teacher.address.zip && teacher.address.country">, </ng-container>
+            {{ teacher.address.country }}
+          </span>
+          <ng-template #noAddr><span>-</span></ng-template>
+        </div>
+      </div>
+
+      <!-- Edit form -->
+      <div class="details-grid form-grid" *ngIf="isEditing">
+        <mat-form-field appearance="outline">
+          <mat-label>Phone</mat-label>
+          <input matInput [(ngModel)]="edit.phone" inputmode="tel" maxlength="15" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput [(ngModel)]="edit.email" type="email" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Qualification</mat-label>
+          <input matInput [(ngModel)]="edit.qualification" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Specialization</mat-label>
+          <input matInput [(ngModel)]="edit.specialization" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Profile Photo URL</mat-label>
+          <input matInput [(ngModel)]="edit.profilePhotoUrl" />
+        </mat-form-field>
+
+        <h4 class="subhead">Address</h4>
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Street</mat-label>
+          <input matInput [(ngModel)]="edit.address.street" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>City</mat-label>
+          <input matInput [(ngModel)]="edit.address.city" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>State</mat-label>
+          <input matInput [(ngModel)]="edit.address.state" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Country</mat-label>
+          <input matInput [(ngModel)]="edit.address.country" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Zip / Postal Code</mat-label>
+          <input matInput [(ngModel)]="edit.address.zip" />
+        </mat-form-field>
+      </div>
+    </mat-card>
+  </ng-container>
+</div>
