@@ -12,7 +12,7 @@ const PUBLIC_URLS = [
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   // Skip non-API requests
-  if (!req.url.startsWith('/api')) {
+  if (!req.url.includes('/api')) {
     return next(req);
   }
 
