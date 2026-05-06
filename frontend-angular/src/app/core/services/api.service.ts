@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import {
   ApiResponse,
   PaginatedResponse,
@@ -54,7 +55,9 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  private readonly API = '/api/v1';
+  // Resolved at build time from environment files. Local dev / Netlify use
+  // `/api/v1` (relative); the Capacitor APK build uses an absolute URL.
+  private readonly API = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
 

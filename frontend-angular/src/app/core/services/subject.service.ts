@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { BehaviorSubject, Observable, map, tap } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface SubjectItem {
   subjectId: string;
@@ -11,7 +12,8 @@ export interface SubjectItem {
 
 @Injectable({ providedIn: 'root' })
 export class SubjectService {
-  private readonly API = '/api/v1';
+  // Resolved at build time — see `src/environments/`.
+  private readonly API = environment.apiUrl;
   private subjects$ = new BehaviorSubject<SubjectItem[]>([]);
   private loaded = false;
 

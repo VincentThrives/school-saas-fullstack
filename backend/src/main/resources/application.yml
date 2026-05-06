@@ -47,8 +47,17 @@ app:
     allowed-types: image/jpeg,image/png,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 
   # CORS
+  # Default covers all known frontend origins:
+  #   - localhost:5173/3000/4200 → Vite/CRA/Angular dev servers
+  #   - https://vtschoolsaas.netlify.app → production web deploy on Netlify
+  #   - https://localhost / http://localhost → Capacitor Android WebView
+  #     (the WebView's origin is `https://localhost` on Android with the
+  #     default Capacitor scheme; the http variant covers debug builds and
+  #     iOS simulators).
+  # Render is configured to override this via the CORS_ORIGINS env var —
+  # keep that list in sync with this default whenever a new origin is added.
   cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:4200}
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:4200,https://vtschoolsaas.netlify.app,https://localhost,http://localhost}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
     allowed-headers: "*"
     allow-credentials: true

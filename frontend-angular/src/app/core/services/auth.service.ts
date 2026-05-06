@@ -12,10 +12,12 @@ import {
   User,
   UserRole,
 } from '../models';
+import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly API = '/api/v1';
+  // Resolved at build time — see `src/environments/`.
+  private readonly API = environment.apiUrl;
 
   private accessToken$ = new BehaviorSubject<string | null>(
     localStorage.getItem('accessToken')
