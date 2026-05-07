@@ -76,6 +76,15 @@ app:
     api-version: ${WHATSAPP_API_VERSION:v21.0}
     api-base-url: ${WHATSAPP_API_BASE_URL:https://graph.facebook.com}
 
+# Firebase Cloud Messaging — service account credentials for sending push.
+# Set ONE of these on Render:
+#   FIREBASE_CREDENTIALS_PATH: path to a Secret File (preferred)
+#   FIREBASE_CREDENTIALS_JSON: full JSON content as an env var (fallback)
+# Both empty → push notifications silently disabled at startup.
+firebase:
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+  credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
+
   # Tenant provisioning defaults
   tenant:
     default-max-students: 500

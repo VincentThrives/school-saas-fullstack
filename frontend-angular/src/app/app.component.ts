@@ -1,5 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { AuthService } from './core/services/auth.service';
+import { PushService } from './core/services/push.service';
+import { distinctUntilChanged } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
@@ -8,6 +11,29 @@ import { RouterOutlet } from '@angular/router';
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   title = 'frontend-angular';
+
+  constructor(
+    private auth: AuthService,
+    private push: PushService,
+  ) {}
+
+  ngOnInit(): void {
+    // Push notifications: kick off registration whenever the user is
+    // logged in, deregister on logout. Watching the access token here
+    // keeps PushService decoupled from AuthService (no circular DI).
+    //
+    // PushService internally no-ops on non-native platforms, so the
+    // browser/Netlify build is unaffected by this hook.
+    this.auth.token
+      .pipe(distinctUntilChanged())
+      .subscribe((token) => {
+        if (token) {
+          this.push.init();
+        } else {
+          this.push.unregister();
+        }
+      });
+  }
 }

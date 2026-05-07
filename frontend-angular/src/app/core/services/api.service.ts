@@ -95,6 +95,18 @@ export class ApiService {
     return this.http.put<ApiResponse<User>>(`${this.API}/users/me`, payload);
   }
 
+  /** Register an FCM device token so the backend can push notifications
+   *  to this device. Called by PushService on first launch + every login. */
+  registerDeviceToken(token: string, platform: 'ANDROID' | 'IOS'): Observable<ApiResponse<void>> {
+    return this.http.post<ApiResponse<void>>(`${this.API}/devices/register`, { token, platform });
+  }
+
+  /** Drop a device token from the backend on logout so the previous user
+   *  stops receiving pushes on this device. */
+  unregisterDeviceToken(token: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/devices/me/${encodeURIComponent(token)}`);
+  }
+
   deleteUser(userId: string): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.API}/users/${userId}`);
   }

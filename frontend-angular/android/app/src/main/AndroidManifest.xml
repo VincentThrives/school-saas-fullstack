@@ -38,4 +38,11 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Push notifications: Android 13+ requires explicit user permission to
+         show notifications. The Capacitor plugin prompts for this on first
+         registration. Older versions ignore the declaration but it's
+         harmless. Other FCM-related permissions (RECEIVE, WAKE_LOCK,
+         VIBRATE) are auto-merged from the Firebase library manifest. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

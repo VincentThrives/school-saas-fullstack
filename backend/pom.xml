@@ -154,6 +154,15 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Firebase Admin SDK — for sending Cloud Messaging push notifications.
+             Reads credentials from a service-account JSON file mounted on
+             Render via Secret Files (env var FIREBASE_CREDENTIALS_PATH). -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.4.1</version>
+        </dependency>
     </dependencies>
 
     <build>

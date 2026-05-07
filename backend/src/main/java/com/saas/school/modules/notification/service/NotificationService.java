@@ -1,6 +1,7 @@
 package com.saas.school.modules.notification.service;
 import com.saas.school.modules.notification.model.Notification;
 import com.saas.school.modules.notification.repository.NotificationRepository;
+import com.saas.school.modules.push.service.PushNotificationService;
 import com.saas.school.modules.student.model.Student;
 import com.saas.school.modules.student.repository.StudentRepository;
 import com.saas.school.modules.teacher.model.Teacher;
@@ -30,6 +31,7 @@ public class NotificationService {
     @Autowired private UserRepository userRepository;
     @Autowired private StudentRepository studentRepository;
     @Autowired private TeacherRepository teacherRepository;
+    @Autowired private PushNotificationService pushService;
 
     public Notification send(Notification req, String sentBy) {
         req.setNotificationId(UUID.randomUUID().toString());
@@ -40,6 +42,30 @@ public class NotificationService {
         if (req.getChannel() == Notification.Channel.EMAIL
                 || req.getChannel() == Notification.Channel.BOTH) {
             sendEmailAsync(saved);
+        }
+
+        // Push notifications: fire-and-forget so saving the notification
+        // doesn't wait on Google's API. Sends to every recipient that has
+        // a registered FCM device token; users without the app installed
+        // are silently skipped (zero tokens → no-op).
+        //
+        // Only directly-targeted recipients get pushes for now. Role-/
+        // class-targeted notifications are visible in the in-app list but
+        // don't push (we'd need to expand the targeting list to user IDs
+        // — TODO for v1.1 when role-based push is needed).
+        try {
+            if (saved.getRecipientIds() != null && !saved.getRecipientIds().isEmpty()) {
+                Map<String, String> data = new HashMap<>();
+                data.put("notificationId", saved.getNotificationId());
+                data.put("url", "/notifications");  // tap → open notifications page
+                pushService.sendToUsers(saved.getRecipientIds(),
+                        saved.getTitle() == null ? "New notification" : saved.getTitle(),
+                        saved.getBody() == null ? "" : saved.getBody(),
+                        data);
+            }
+        } catch (Exception e) {
+            // Push must NEVER break notification creation.
+            log.warn("Push send failed (notification still saved): {}", e.getMessage());
         }
         return saved;
     }
