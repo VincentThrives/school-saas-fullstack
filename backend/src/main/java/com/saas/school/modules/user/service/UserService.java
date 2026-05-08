@@ -193,6 +193,134 @@ public class UserService {
                 "Default password regenerated after profile edit");
     }
 
+    /**
+     * Self-service password change. Caller is the logged-in user (any role)
+     * proving knowledge of their current password before setting a new one.
+     *
+     * Distinct from {@link #resyncDefaultPassword} (admin-driven, no
+     * old-password check) and {@link #adminResetPassword} (admin clicks
+     * Reset on a student/employee, password becomes firstName@birthYear).
+     *
+     * Validation:
+     *   - currentPassword must match the stored BCrypt hash
+     *   - newPassword min 6 chars, must contain at least 1 letter and 1 digit
+     *   - newPassword cannot equal currentPassword
+     *
+     * Throws {@link BusinessException} with a user-friendly message on any
+     * failure — handled by the global exception handler into a 400.
+     */
+    public void changeMyPassword(String userId, String currentPassword, String newPassword) {
+        if (userId == null) throw new BusinessException("Not authenticated");
+        if (currentPassword == null || currentPassword.isBlank()) {
+            throw new BusinessException("Current password is required");
+        }
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new BusinessException("New password must be at least 6 characters");
+        }
+        if (currentPassword.equals(newPassword)) {
+            throw new BusinessException("New password must be different from the current password");
+        }
+        // Permissive complexity: at least one letter AND at least one digit.
+        // Schools have parents/students who'll forget anything stricter.
+        boolean hasLetter = newPassword.chars().anyMatch(Character::isLetter);
+        boolean hasDigit  = newPassword.chars().anyMatch(Character::isDigit);
+        if (!hasLetter || !hasDigit) {
+            throw new BusinessException("New password must contain at least one letter and one number");
+        }
+
+        User user = findUser(userId);
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            // Don't leak any other detail — same generic message.
+            throw new BusinessException("Current password is incorrect");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        // Never log the password itself, even for debugging.
+        log.info("Password changed (self-service) for userId={} username={}",
+                userId, user.getUsername());
+        auditService.log("CHANGE_PASSWORD", "User", userId,
+                "User changed own password");
+    }
+
+    /**
+     * Admin-driven reset for a student or employee user. Resolves the
+     * linked Student or Teacher record to compute the default password
+     * ({@code firstName + "@" + birthYear}), encodes it, saves, audits,
+     * and returns the plain-text password to the caller so the admin can
+     * communicate it to the user.
+     *
+     * The plain-text password is returned in the HTTP response only —
+     * never logged, never persisted in plain form.
+     *
+     * Throws {@link BusinessException} when:
+     *   - user not found
+     *   - user has no linked Student or Teacher record (e.g. another admin —
+     *     they don't have a DOB, so the auto-rule can't apply)
+     *   - the linked record is missing firstName or DOB
+     *
+     * Caller (controller) is responsible for the @PreAuthorize check.
+     */
+    public AdminResetPasswordResult adminResetPassword(String targetUserId,
+                                                        String adminUserId,
+                                                        StudentLookup studentLookup,
+                                                        TeacherLookup teacherLookup) {
+        if (targetUserId == null) throw new BusinessException("Target user is required");
+        User user = findUser(targetUserId);
+
+        // Try Student first, then Teacher. If neither, refuse.
+        StudentLookup.Result student = studentLookup.findByUserId(targetUserId);
+        TeacherLookup.Result teacher = teacherLookup.findByUserId(targetUserId);
+
+        String firstName = null;
+        java.time.LocalDate dob = null;
+        String linkedRole = null;
+        if (student != null) {
+            firstName = student.firstName();
+            dob = student.dateOfBirth();
+            linkedRole = "STUDENT";
+        } else if (teacher != null) {
+            firstName = teacher.firstName();
+            dob = teacher.dateOfBirth();
+            linkedRole = "TEACHER";
+        } else {
+            throw new BusinessException(
+                "Cannot reset password: this user is not linked to a student or employee record. "
+              + "Admins manage their own passwords via Change Password.");
+        }
+        if (firstName == null || firstName.isBlank() || dob == null) {
+            throw new BusinessException(
+                "Cannot reset: linked " + linkedRole.toLowerCase()
+              + " record is missing firstName or date of birth. Edit the record and try again.");
+        }
+
+        String newPwd = defaultPasswordFor(firstName, dob);
+        user.setPasswordHash(passwordEncoder.encode(newPwd));
+        userRepository.save(user);
+        log.info("Password admin-reset for userId={} username={} (admin={}, linked={})",
+                targetUserId, user.getUsername(), adminUserId, linkedRole);
+        auditService.log("ADMIN_RESET_PASSWORD", "User", targetUserId,
+                "Admin reset password to default (linked " + linkedRole + ")");
+
+        return new AdminResetPasswordResult(targetUserId, user.getUsername(), newPwd);
+    }
+
+    /** Tiny adapter interfaces so UserService doesn't depend on Student/Teacher
+     *  modules directly — keeps cycles out of the dependency graph and lets
+     *  the controller wire them up. */
+    public interface StudentLookup {
+        Result findByUserId(String userId);
+        record Result(String firstName, java.time.LocalDate dateOfBirth) {}
+    }
+    public interface TeacherLookup {
+        Result findByUserId(String userId);
+        record Result(String firstName, java.time.LocalDate dateOfBirth) {}
+    }
+
+    /** Returned by {@link #adminResetPassword} so the admin sees the new
+     *  plain-text password ONCE in the HTTP response. */
+    public record AdminResetPasswordResult(String userId, String username, String newPassword) {}
+
     // ── Bulk Import ────────────────────────────────────────────────
 
     public BulkImportResult bulkImportUsers(MultipartFile file, UserRole role) throws IOException {

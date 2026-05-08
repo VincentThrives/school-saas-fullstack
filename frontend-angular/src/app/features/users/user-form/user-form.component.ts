@@ -10,10 +10,13 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { scrollToFirstInvalid } from '../../../shared/utils/form-scroll';
 import { ApiService } from '../../../core/services/api.service';
 import { UserRole } from '../../../core/models';
+import { AdminResetConfirmDialogComponent } from './admin-reset-confirm-dialog.component';
 
 @Component({
   selector: 'app-user-form',
@@ -29,6 +32,8 @@ import { UserRole } from '../../../core/models';
     MatSelectModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    MatTabsModule,
+    MatDialogModule,
     PageHeaderComponent,
   ],
   templateUrl: './user-form.component.html',
@@ -40,6 +45,15 @@ export class UserFormComponent implements OnInit {
   userId: string | null = null;
   isLoading = false;
   isSaving = false;
+  /** Toggles the password input between hidden (•••) and plain text. */
+  showPassword = false;
+
+  /** Loaded user record (only populated when editing). Powers the
+   *  Password tab — needed to (a) show name/role, (b) decide whether
+   *  the admin-reset rule applies (only for users linked to a Student
+   *  or Teacher record; another SCHOOL_ADMIN doesn't have a DOB). */
+  loadedUser: any = null;
+  isResettingPassword = false;
 
   roles = [
     { value: UserRole.SCHOOL_ADMIN, label: 'School Admin' },
@@ -56,6 +70,7 @@ export class UserFormComponent implements OnInit {
     private route: ActivatedRoute,
     private snackBar: MatSnackBar,
     private hostEl: ElementRef<HTMLElement>,
+    private dialog: MatDialog,
   ) {}
 
   ngOnInit(): void {
@@ -86,6 +101,7 @@ export class UserFormComponent implements OnInit {
     this.apiService.getUserById(this.userId).subscribe({
       next: (res) => {
         if (res.success && res.data) {
+          this.loadedUser = res.data;
           this.userForm.patchValue({
             email: res.data.email,
             firstName: res.data.firstName,
@@ -100,6 +116,62 @@ export class UserFormComponent implements OnInit {
         this.isLoading = false;
         this.snackBar.open('Failed to load user data', 'Close', { duration: 3000 });
       },
+    });
+  }
+
+  /** True when the admin-reset rule applies — only students and teachers
+   *  have a linked record with a DOB the rule (firstName@birthYear) can
+   *  derive from. SCHOOL_ADMIN / PRINCIPAL must use Change Password. */
+  get canAdminReset(): boolean {
+    const role = this.loadedUser?.role;
+    return role === UserRole.STUDENT || role === UserRole.TEACHER;
+  }
+
+  /** Triggered from the Password tab. Confirm → POST → snackbar with the
+   *  plaintext password so the admin can copy it. The 30-second snackbar
+   *  duration is intentional: long enough for the admin to read out the
+   *  password to a parent on the phone, short enough that the password
+   *  doesn't linger on a shared screen if the admin walks away. */
+  onAdminResetPassword(): void {
+    if (!this.userId || !this.loadedUser || !this.canAdminReset) return;
+    const fullName = `${this.loadedUser.firstName || ''} ${this.loadedUser.lastName || ''}`.trim();
+
+    const confirmRef = this.dialog.open(AdminResetConfirmDialogComponent, {
+      width: '440px',
+      maxWidth: '95vw',
+      data: { name: fullName, username: this.loadedUser.username || this.loadedUser.email },
+    });
+
+    confirmRef.afterClosed().subscribe((confirmed) => {
+      if (!confirmed) return;
+      this.isResettingPassword = true;
+      this.apiService.adminResetPassword(this.userId!).subscribe({
+        next: (res) => {
+          this.isResettingPassword = false;
+          const newPwd = res?.data?.newPassword || '';
+          // Show the password in a long-lived snackbar with a Copy action.
+          // We deliberately avoid logging it anywhere.
+          const ref = this.snackBar.open(
+            `New password: ${newPwd}`,
+            'Copy',
+            { duration: 30000, panelClass: ['pwd-snackbar'] },
+          );
+          ref.onAction().subscribe(() => {
+            navigator.clipboard?.writeText(newPwd).then(
+              () => this.snackBar.open('Password copied to clipboard', 'OK', { duration: 2500 }),
+              () => { /* clipboard blocked — leave the visible value as fallback */ },
+            );
+          });
+        },
+        error: (err) => {
+          this.isResettingPassword = false;
+          this.snackBar.open(
+            err?.error?.message || 'Failed to reset password',
+            'Close',
+            { duration: 5000 },
+          );
+        },
+      });
     });
   }
 

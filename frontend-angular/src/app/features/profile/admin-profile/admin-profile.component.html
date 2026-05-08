@@ -74,5 +74,23 @@
         </mat-form-field>
       </div>
     </mat-card>
+
+    <!-- ─── Security ─────────── -->
+    <mat-card class="profile-card">
+      <div class="card-header">
+        <mat-icon class="card-icon">lock</mat-icon>
+        <h3 class="card-title">Security</h3>
+      </div>
+      <div class="security-row">
+        <div class="security-info">
+          <strong>Password</strong>
+          <span class="security-hint">Change your account password. You'll need to know your current password.</span>
+        </div>
+        <button mat-stroked-button color="primary" (click)="openChangePassword()">
+          <mat-icon>lock_reset</mat-icon>
+          Change Password
+        </button>
+      </div>
+    </mat-card>
   </ng-container>
 </div>

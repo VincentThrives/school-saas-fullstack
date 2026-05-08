@@ -8,11 +8,13 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Subscription, filter } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ApiService } from '../../core/services/api.service';
 import { NotificationBusService } from '../../core/services/notification-bus.service';
 import { User, UserRole } from '../../core/models';
+import { ChangePasswordDialogComponent } from '../../shared/components/change-password-dialog/change-password-dialog.component';
 
 @Component({
   selector: 'app-header',
@@ -27,6 +29,7 @@ import { User, UserRole } from '../../core/models';
     MatBadgeModule,
     MatDividerModule,
     MatTooltipModule,
+    MatDialogModule,
   ],
   templateUrl: './header.component.html',
   styleUrl: './header.component.scss',
@@ -55,6 +58,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     private router: Router,
     private api: ApiService,
     private notificationBus: NotificationBusService,
+    private dialog: MatDialog,
   ) {}
 
   ngOnInit(): void {
@@ -171,6 +175,17 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   navigateToNotifications(): void {
     this.router.navigate(['/notifications']);
+  }
+
+  /** Opens the reusable Change Password dialog. Available to every role
+   *  (including super admin) — the dialog itself talks to /users/me. */
+  openChangePassword(): void {
+    this.dialog.open(ChangePasswordDialogComponent, {
+      width: '420px',
+      maxWidth: '95vw',
+      autoFocus: 'first-tabbable',
+      restoreFocus: true,
+    });
   }
 
   logout(): void {

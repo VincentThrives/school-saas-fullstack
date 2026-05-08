@@ -52,3 +52,108 @@ $gold-dark: #B8860B;
     opacity: 0.6;
   }
 }
+
+// ── Tabs ───────────────────────────────────────────────────
+// Push the form content down a touch from the tab labels — the
+// default 0 padding makes inputs feel glued to the tab strip.
+.tab-pane {
+  padding: 24px 4px 8px;
+}
+
+// ── Password tab ────────────────────────────────────────────
+.password-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.password-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 20px;
+  background: #fff;
+
+  .password-card-header {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+
+    .card-icon {
+      color: #d32f2f;
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
+
+      &.info { color: #1976d2; }
+    }
+
+    h3 {
+      margin: 0 0 4px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #111827;
+    }
+    .card-sub {
+      margin: 0;
+      font-size: 0.875rem;
+      color: #6b7280;
+      line-height: 1.5;
+
+      code {
+        background: #f3f4f6;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 0.85em;
+      }
+    }
+  }
+
+  .password-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 14px;
+
+    .inline-spinner {
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    @media (max-width: 600px) {
+      button { width: 100%; }
+    }
+  }
+}
+
+// ── Reset password snackbar ────────────────────────────────
+// Globally targeted so the panelClass kicks in even though the
+// snackbar renders in cdk-overlay outside this component.
+::ng-deep .pwd-snackbar {
+  .mdc-snackbar__surface {
+    background: #1f2937 !important;
+  }
+  .mdc-snackbar__label {
+    font-family: 'Roboto Mono', ui-monospace, monospace !important;
+    font-size: 0.95rem !important;
+    color: #fde68a !important;
+    letter-spacing: 0.4px;
+  }
+}
+
+// ── Dark theme ─────────────────────────────────────────────
+:host-context(body.dark-theme) {
+  .password-card {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+
+    .password-card-header {
+      h3 { color: #f5f5f5; }
+      .card-sub {
+        color: rgba(255, 255, 255, 0.65);
+        code {
+          background: rgba(255, 255, 255, 0.08);
+          color: #f5f5f5;
+        }
+      }
+    }
+  }
+}

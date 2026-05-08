@@ -95,6 +95,23 @@ export class ApiService {
     return this.http.put<ApiResponse<User>>(`${this.API}/users/me`, payload);
   }
 
+  /** Self-service password change — caller proves they know the current
+   *  password and supplies a new one. Available to every role. Backend
+   *  enforces min-6 + letter + digit + must-differ-from-current. */
+  changeMyPassword(currentPassword: string, newPassword: string): Observable<ApiResponse<void>> {
+    return this.http.post<ApiResponse<void>>(
+      `${this.API}/users/me/change-password`, { currentPassword, newPassword });
+  }
+
+  /** SCHOOL_ADMIN-only override: reset a student's or employee's password
+   *  back to the default (firstName@birthYear). Backend returns the
+   *  plaintext password in the response payload so the admin can copy
+   *  and share it with the user — it's never logged or shown again. */
+  adminResetPassword(userId: string): Observable<ApiResponse<{ userId: string; username: string; newPassword: string }>> {
+    return this.http.post<ApiResponse<{ userId: string; username: string; newPassword: string }>>(
+      `${this.API}/users/${userId}/admin-reset-password`, {});
+  }
+
   /** Register an FCM device token so the backend can push notifications
    *  to this device. Called by PushService on first launch + every login. */
   registerDeviceToken(token: string, platform: 'ANDROID' | 'IOS'): Observable<ApiResponse<void>> {

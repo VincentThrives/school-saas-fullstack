@@ -14,73 +14,146 @@
 
   <mat-card *ngIf="!isLoading" class="form-card">
     <mat-card-content>
-      <form [formGroup]="userForm" (ngSubmit)="onSubmit()">
-        <div class="form-grid">
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>First Name</mat-label>
-            <input matInput formControlName="firstName" placeholder="Enter first name">
-            <mat-error *ngIf="userForm.get('firstName')?.invalid">
-              {{ getErrorMessage('firstName') }}
-            </mat-error>
-          </mat-form-field>
+      <!--
+        When creating a user there's only one tab worth of content (Details).
+        When editing, we add a Password tab so admins can reset a forgotten
+        password without leaving the page.
+      -->
+      <mat-tab-group *ngIf="isEditing" animationDuration="200ms">
+        <mat-tab label="Details">
+          <ng-container *ngTemplateOutlet="detailsForm"></ng-container>
+        </mat-tab>
+        <mat-tab label="Password">
+          <ng-container *ngTemplateOutlet="passwordTab"></ng-container>
+        </mat-tab>
+      </mat-tab-group>
 
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Last Name</mat-label>
-            <input matInput formControlName="lastName" placeholder="Enter last name">
-            <mat-error *ngIf="userForm.get('lastName')?.invalid">
-              {{ getErrorMessage('lastName') }}
-            </mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Email</mat-label>
-            <input matInput formControlName="email" type="email" placeholder="Enter email address">
-            <mat-error *ngIf="userForm.get('email')?.invalid">
-              {{ getErrorMessage('email') }}
-            </mat-error>
-            <mat-hint *ngIf="isEditing">Email cannot be changed</mat-hint>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Phone</mat-label>
-            <input matInput formControlName="phone" placeholder="Enter phone number">
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Role</mat-label>
-            <mat-select formControlName="role">
-              <mat-option *ngFor="let role of roles" [value]="role.value">
-                {{ role.label }}
-              </mat-option>
-            </mat-select>
-            <mat-error *ngIf="userForm.get('role')?.invalid">
-              {{ getErrorMessage('role') }}
-            </mat-error>
-            <mat-hint *ngIf="isEditing">Role cannot be changed</mat-hint>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field" *ngIf="!isEditing">
-            <mat-label>Password</mat-label>
-            <input matInput formControlName="password" type="password" placeholder="Enter password">
-            <mat-error *ngIf="userForm.get('password')?.invalid">
-              {{ getErrorMessage('password') }}
-            </mat-error>
-            <mat-hint>Minimum 8 characters</mat-hint>
-          </mat-form-field>
-        </div>
-
-        <div class="form-actions">
-          <button mat-button type="button" (click)="cancel()">
-            <mat-icon>arrow_back</mat-icon>
-            Cancel
-          </button>
-          <button mat-raised-button class="save-button" type="submit" [disabled]="isSaving">
-            <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
-            <mat-icon *ngIf="!isSaving">save</mat-icon>
-            {{ isEditing ? 'Update User' : 'Create User' }}
-          </button>
-        </div>
-      </form>
+      <ng-container *ngIf="!isEditing">
+        <ng-container *ngTemplateOutlet="detailsForm"></ng-container>
+      </ng-container>
     </mat-card-content>
   </mat-card>
 </div>
+
+<!-- ─── Details form (shared across create + edit) ─────────────── -->
+<ng-template #detailsForm>
+  <form [formGroup]="userForm" (ngSubmit)="onSubmit()" class="tab-pane">
+    <div class="form-grid">
+      <mat-form-field appearance="outline" class="form-field">
+        <mat-label>First Name</mat-label>
+        <input matInput formControlName="firstName" placeholder="Enter first name">
+        <mat-error *ngIf="userForm.get('firstName')?.invalid">
+          {{ getErrorMessage('firstName') }}
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="form-field">
+        <mat-label>Last Name</mat-label>
+        <input matInput formControlName="lastName" placeholder="Enter last name">
+        <mat-error *ngIf="userForm.get('lastName')?.invalid">
+          {{ getErrorMessage('lastName') }}
+        </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="form-field">
+        <mat-label>Email</mat-label>
+        <input matInput formControlName="email" type="email" placeholder="Enter email address">
+        <mat-error *ngIf="userForm.get('email')?.invalid">
+          {{ getErrorMessage('email') }}
+        </mat-error>
+        <mat-hint *ngIf="isEditing">Email cannot be changed</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="form-field">
+        <mat-label>Phone</mat-label>
+        <input matInput formControlName="phone" placeholder="Enter phone number">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="form-field">
+        <mat-label>Role</mat-label>
+        <mat-select formControlName="role">
+          <mat-option *ngFor="let role of roles" [value]="role.value">
+            {{ role.label }}
+          </mat-option>
+        </mat-select>
+        <mat-error *ngIf="userForm.get('role')?.invalid">
+          {{ getErrorMessage('role') }}
+        </mat-error>
+        <mat-hint *ngIf="isEditing">Role cannot be changed</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="form-field" *ngIf="!isEditing">
+        <mat-label>Password</mat-label>
+        <input matInput formControlName="password" [type]="showPassword ? 'text' : 'password'" placeholder="Enter password">
+        <button mat-icon-button matSuffix type="button"
+                (click)="showPassword = !showPassword"
+                [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+                [attr.aria-pressed]="showPassword"
+                tabindex="-1">
+          <mat-icon>{{ showPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        <mat-error *ngIf="userForm.get('password')?.invalid">
+          {{ getErrorMessage('password') }}
+        </mat-error>
+        <mat-hint>Minimum 8 characters</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <div class="form-actions">
+      <button mat-button type="button" (click)="cancel()">
+        <mat-icon>arrow_back</mat-icon>
+        Cancel
+      </button>
+      <button mat-raised-button class="save-button" type="submit" [disabled]="isSaving">
+        <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
+        <mat-icon *ngIf="!isSaving">save</mat-icon>
+        {{ isEditing ? 'Update User' : 'Create User' }}
+      </button>
+    </div>
+  </form>
+</ng-template>
+
+<!-- ─── Password tab (edit-mode only) ─────────────────────────── -->
+<ng-template #passwordTab>
+  <div class="tab-pane password-tab">
+    <!-- Reset to default. Available only for users linked to a Student
+         or Teacher record. For SCHOOL_ADMIN / PRINCIPAL we show a hint
+         pointing to the self-service Change Password flow. -->
+    <div class="password-card" *ngIf="canAdminReset">
+      <div class="password-card-header">
+        <mat-icon class="card-icon">restart_alt</mat-icon>
+        <div>
+          <h3>Reset password to default</h3>
+          <p class="card-sub">
+            Resets to the default rule
+            <code>firstName&#64;birthYear</code>.
+            Use this when the user has forgotten their password.
+          </p>
+        </div>
+      </div>
+      <div class="password-card-actions">
+        <button mat-flat-button color="warn"
+                [disabled]="isResettingPassword"
+                (click)="onAdminResetPassword()">
+          <mat-spinner diameter="18" *ngIf="isResettingPassword" class="inline-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isResettingPassword">lock_reset</mat-icon>
+          {{ isResettingPassword ? 'Resetting…' : 'Reset Password' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="password-card" *ngIf="!canAdminReset">
+      <div class="password-card-header">
+        <mat-icon class="card-icon info">info</mat-icon>
+        <div>
+          <h3>Reset not available for this role</h3>
+          <p class="card-sub">
+            The default-password rule needs a date of birth, which only
+            students and employees have. Ask this user to sign in and use
+            <strong>Change Password</strong> from their account menu.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</ng-template>

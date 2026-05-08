@@ -8,8 +8,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { ChangePasswordDialogComponent } from '../../../shared/components/change-password-dialog/change-password-dialog.component';
 
 @Component({
   selector: 'app-employee-profile',
@@ -24,6 +26,7 @@ import { ApiService } from '../../../core/services/api.service';
     MatInputModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    MatDialogModule,
     PageHeaderComponent,
   ],
   templateUrl: './employee-profile.component.html',
@@ -48,7 +51,18 @@ export class EmployeeProfileComponent implements OnInit {
   constructor(
     private api: ApiService,
     private snackBar: MatSnackBar,
+    private dialog: MatDialog,
   ) {}
+
+  /** Opens the reusable Change Password dialog for the logged-in employee. */
+  openChangePassword(): void {
+    this.dialog.open(ChangePasswordDialogComponent, {
+      width: '420px',
+      maxWidth: '95vw',
+      autoFocus: 'first-tabbable',
+      restoreFocus: true,
+    });
+  }
 
   ngOnInit(): void {
     this.api.getMyTeacherProfile().subscribe({

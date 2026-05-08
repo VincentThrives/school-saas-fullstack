@@ -68,6 +68,13 @@ public class SecurityConfig {
                 // Super Admin only — cannot be accessed with tenant JWT
                 .requestMatchers("/api/v1/super/**").hasRole("SUPER_ADMIN")
 
+                // Self-service password change — any authenticated user
+                // (student, teacher, parent, admin) can rotate their own
+                // password by knowing the current one. MUST come BEFORE
+                // the broader POST /api/v1/users/** rule below, otherwise
+                // the catch-all wins and non-admin users get 403.
+                .requestMatchers(HttpMethod.POST, "/api/v1/users/me/change-password").authenticated()
+
                 // School Admin & above
                 .requestMatchers(HttpMethod.POST, "/api/v1/users/**").hasAnyRole("SCHOOL_ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/v1/users/**").hasRole("SCHOOL_ADMIN")

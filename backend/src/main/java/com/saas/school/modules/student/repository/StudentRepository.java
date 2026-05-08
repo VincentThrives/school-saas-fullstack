@@ -16,6 +16,12 @@ public interface StudentRepository extends MongoRepository<Student, String> {
 
     Page<Student> findByClassIdAndDeletedAtIsNull(String classId, Pageable pageable);
 
+    /** Non-paginated list of students in a class — used by NotificationService
+     *  to expand RecipientType.CLASS into a concrete list of userIds for push.
+     *  Distinct method name from the Page variant above so Spring Data binds
+     *  to the correct return type. */
+    List<Student> findAllByClassIdAndDeletedAtIsNull(String classId);
+
     Page<Student> findByAcademicYearIdAndDeletedAtIsNull(String academicYearId, Pageable pageable);
 
     Optional<Student> findByAdmissionNumberAndDeletedAtIsNull(String admissionNumber);

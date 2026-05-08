@@ -161,6 +161,13 @@ export class AuditLogsComponent implements OnInit, OnDestroy {
       case 'UPDATE': return 'action-orange';
       case 'DELETE': return 'action-red';
       case 'TOGGLE': return 'action-purple';
+      // Password-related actions share the warning palette so an admin
+      // scanning the log can see "something happened to a password" at
+      // a glance — distinct from a normal UPDATE.
+      case 'CHANGE_PASSWORD':
+      case 'ADMIN_RESET_PASSWORD':
+      case 'RESYNC_PASSWORD':
+        return 'action-orange';
       default: return 'action-grey';
     }
   }

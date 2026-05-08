@@ -7,6 +7,7 @@ import com.saas.school.modules.student.repository.StudentRepository;
 import com.saas.school.modules.teacher.model.Teacher;
 import com.saas.school.modules.teacher.repository.TeacherRepository;
 import com.saas.school.modules.user.model.User;
+import com.saas.school.modules.user.model.UserRole;
 import com.saas.school.modules.user.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,16 +50,18 @@ public class NotificationService {
         // a registered FCM device token; users without the app installed
         // are silently skipped (zero tokens → no-op).
         //
-        // Only directly-targeted recipients get pushes for now. Role-/
-        // class-targeted notifications are visible in the in-app list but
-        // don't push (we'd need to expand the targeting list to user IDs
-        // — TODO for v1.1 when role-based push is needed).
+        // Every targeting mode is expanded into a concrete list of userIds
+        // so Compose / Template flows (which use ROLE / CLASS / ALL) push
+        // just like the auto-rule flow (which already uses INDIVIDUAL).
+        // The in-app inbox is unaffected — we only use the expanded list
+        // for FCM, the saved notification keeps its original targeting.
         try {
-            if (saved.getRecipientIds() != null && !saved.getRecipientIds().isEmpty()) {
+            List<String> pushTargets = expandRecipientsForPush(saved);
+            if (!pushTargets.isEmpty()) {
                 Map<String, String> data = new HashMap<>();
                 data.put("notificationId", saved.getNotificationId());
                 data.put("url", "/notifications");  // tap → open notifications page
-                pushService.sendToUsers(saved.getRecipientIds(),
+                pushService.sendToUsers(pushTargets,
                         saved.getTitle() == null ? "New notification" : saved.getTitle(),
                         saved.getBody() == null ? "" : saved.getBody(),
                         data);
@@ -68,6 +71,63 @@ public class NotificationService {
             log.warn("Push send failed (notification still saved): {}", e.getMessage());
         }
         return saved;
+    }
+
+    /**
+     * Resolve a notification's targeting into the concrete list of userIds
+     * that should receive a push:
+     *
+     *   - INDIVIDUAL → use the recipientIds verbatim
+     *   - ROLE       → every active user with that role
+     *   - CLASS      → every student in the class + every teacher linked
+     *                  to the class (class teacher / classIds / per-subject
+     *                  assignments) — matches the in-app inbox visibility
+     *                  rule in {@link #classIdsOf}
+     *   - ALL        → every active (non-deleted) user in the tenant
+     *
+     * Returns an empty list when no targets resolve, which keeps the push
+     * call a no-op rather than crashing on a null payload.
+     */
+    private List<String> expandRecipientsForPush(Notification n) {
+        Set<String> ids = new LinkedHashSet<>();
+        Notification.RecipientType type = n.getRecipientType();
+        // No type set → fall back to whatever recipientIds the caller supplied.
+        if (type == null || type == Notification.RecipientType.INDIVIDUAL) {
+            if (n.getRecipientIds() != null) {
+                n.getRecipientIds().stream().filter(Objects::nonNull).forEach(ids::add);
+            }
+            return new ArrayList<>(ids);
+        }
+        if (type == Notification.RecipientType.ROLE) {
+            String roleStr = n.getRecipientRole();
+            if (roleStr != null && !roleStr.isBlank()) {
+                try {
+                    UserRole role = UserRole.valueOf(roleStr);
+                    userRepository.findAllByRoleAndDeletedAtIsNull(role).stream()
+                            .map(User::getUserId).filter(Objects::nonNull).forEach(ids::add);
+                } catch (IllegalArgumentException ex) {
+                    log.warn("Notification {} targets unknown role '{}' — no push fan-out",
+                            n.getNotificationId(), roleStr);
+                }
+            }
+            return new ArrayList<>(ids);
+        }
+        if (type == Notification.RecipientType.CLASS) {
+            String classId = n.getRecipientClassId();
+            if (classId != null && !classId.isBlank()) {
+                studentRepository.findAllByClassIdAndDeletedAtIsNull(classId).stream()
+                        .map(Student::getUserId).filter(Objects::nonNull).forEach(ids::add);
+                teacherRepository.findAllByAnyClassId(classId).stream()
+                        .map(Teacher::getUserId).filter(Objects::nonNull).forEach(ids::add);
+            }
+            return new ArrayList<>(ids);
+        }
+        if (type == Notification.RecipientType.ALL) {
+            userRepository.findAllByDeletedAtIsNull().stream()
+                    .map(User::getUserId).filter(Objects::nonNull).forEach(ids::add);
+            return new ArrayList<>(ids);
+        }
+        return new ArrayList<>(ids);
     }
 
     /** List notifications visible to the logged-in user (all four targeting modes). */

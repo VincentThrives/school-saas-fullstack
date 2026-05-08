@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends MongoRepository<User, String> {
@@ -14,6 +15,14 @@ public interface UserRepository extends MongoRepository<User, String> {
     Optional<User> findByUsernameAndDeletedAtIsNull(String username);
     Optional<User> findByUserIdAndDeletedAtIsNull(String userId);
     Page<User> findByRoleAndDeletedAtIsNull(UserRole role, Pageable pageable);
+
+    /** All non-deleted users — used by NotificationService when expanding
+     *  RecipientType.ALL into a concrete list of userIds for push. */
+    List<User> findAllByDeletedAtIsNull();
+
+    /** All non-deleted users with the given role — used by NotificationService
+     *  when expanding RecipientType.ROLE into push recipients. */
+    List<User> findAllByRoleAndDeletedAtIsNull(UserRole role);
 
     @Query("{ 'role': ?0, 'isActive': ?1, 'deletedAt': null }")
     Page<User> findByRoleAndIsActive(UserRole role, boolean active, Pageable pageable);
