@@ -20,6 +20,7 @@ import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { NotificationBusService } from '../../../core/services/notification-bus.service';
 import { SchoolClass, UserRole } from '../../../core/models';
+import { PublishResultComponent } from '../publish-result/publish-result.component';
 
 type RecipientType = 'ALL' | 'ROLE' | 'CLASS' | 'INDIVIDUAL';
 
@@ -51,6 +52,7 @@ interface Tab {
     MatTooltipModule,
     MatSnackBarModule,
     PageHeaderComponent,
+    PublishResultComponent,
   ],
   templateUrl: './notifications-page.component.html',
   styleUrl: './notifications-page.component.scss',
@@ -60,6 +62,9 @@ export class NotificationsPageComponent implements OnInit {
   tabs: Tab[] = [];
   activeTab = 'inbox';
   isAdminOrPrincipalOrTeacher = false; // can access Compose / Templates
+  /** Publish Result is admin-curated — only SCHOOL_ADMIN and PRINCIPAL
+   *  can fan out personalised exam results to a class and parents. */
+  isAdminOrPrincipal = false;
 
   // Inbox state
   inbox: any[] = [];
@@ -129,14 +134,24 @@ export class NotificationsPageComponent implements OnInit {
       role === UserRole.SCHOOL_ADMIN ||
       role === UserRole.PRINCIPAL ||
       role === UserRole.TEACHER;
+    this.isAdminOrPrincipal =
+      role === UserRole.SCHOOL_ADMIN || role === UserRole.PRINCIPAL;
 
-    // Everyone can see Inbox. Admins/principals/teachers get the rest.
+    // Everyone can see Inbox. Admins/principals/teachers get Compose/etc.
+    // Publish Result is admin/principal only — sits between Auto Rules
+    // and History so the workflow reads left→right: write → automate →
+    // publish results → look back at what you sent.
     this.tabs = [
       { key: 'inbox',     label: 'Inbox',     icon: 'inbox',     enabled: true },
       ...(this.isAdminOrPrincipalOrTeacher ? [
         { key: 'compose',   label: 'Compose',    icon: 'edit',      enabled: true },
         { key: 'templates', label: 'Templates',  icon: 'bookmarks', enabled: true },
         { key: 'rules',     label: 'Auto Rules', icon: 'bolt',      enabled: true },
+      ] : []),
+      ...(this.isAdminOrPrincipal ? [
+        { key: 'publish',   label: 'Publish Result', icon: 'campaign', enabled: true },
+      ] : []),
+      ...(this.isAdminOrPrincipalOrTeacher ? [
         { key: 'history',   label: 'History',    icon: 'history',   enabled: true },
       ] : []),
     ];

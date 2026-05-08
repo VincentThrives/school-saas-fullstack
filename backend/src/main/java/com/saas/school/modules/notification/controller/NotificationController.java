@@ -1,9 +1,14 @@
 package com.saas.school.modules.notification.controller;
 import com.saas.school.common.response.ApiResponse;
 import com.saas.school.common.response.PageResponse;
+import com.saas.school.modules.notification.dto.PublishResultPreviewResponse;
+import com.saas.school.modules.notification.dto.PublishResultRequest;
+import com.saas.school.modules.notification.dto.PublishResultResponse;
 import com.saas.school.modules.notification.model.Notification;
 import com.saas.school.modules.notification.service.NotificationService;
+import com.saas.school.modules.notification.service.ResultPublicationService;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/notifications")
 public class NotificationController {
     @Autowired private NotificationService notificationService;
+    @Autowired private ResultPublicationService resultPublicationService;
 
     /**
      * Default: notifications visible to the current user (inbox).
@@ -51,5 +57,35 @@ public class NotificationController {
     @GetMapping("/unread-count")
     public ResponseEntity<ApiResponse<Long>> unreadCount(@AuthenticationPrincipal String userId) {
         return ResponseEntity.ok(ApiResponse.success(notificationService.countUnread(userId)));
+    }
+
+    /**
+     * Preview a result publication: counts of recipients, a sample
+     * personalised message, and a banner if the same scope was already
+     * published before. Pure read; doesn't write anything.
+     *
+     * Uses POST so the body shape stays identical to /publish-result and
+     * the front-end can submit the same form for both calls.
+     */
+    @PostMapping("/publish-result/preview")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL')")
+    public ResponseEntity<ApiResponse<PublishResultPreviewResponse>> previewPublishResult(
+            @Valid @RequestBody PublishResultRequest req) {
+        return ResponseEntity.ok(ApiResponse.success(resultPublicationService.preview(req)));
+    }
+
+    /**
+     * Fan out personalised result notifications to every student in the
+     * scope plus their parents. Refuses to overwrite a prior publication
+     * unless {@code republish=true}. SCHOOL_ADMIN / PRINCIPAL only —
+     * teachers can enter marks but not publish results school-wide.
+     */
+    @PostMapping("/publish-result")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL')")
+    public ResponseEntity<ApiResponse<PublishResultResponse>> publishResult(
+            @Valid @RequestBody PublishResultRequest req,
+            @AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                resultPublicationService.publish(req, userId), "Result published"));
     }
 }

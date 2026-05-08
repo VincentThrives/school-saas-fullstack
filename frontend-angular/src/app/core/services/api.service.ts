@@ -53,6 +53,39 @@ import {
   Timetable,
 } from '../models';
 
+/** Scope an admin picks on the Publish Result tab. {@code subjectId} is
+ *  blank/undefined when the publication should cover every subject. */
+export interface PublishResultScope {
+  examType: string;
+  classId: string;
+  sectionId: string;
+  subjectId?: string | null;
+  academicYearId?: string | null;
+}
+
+/** Backend preview response — counts + a sample personalised body. */
+export interface PublishResultPreview {
+  examsCovered: number;
+  studentCount: number;
+  parentCount: number;
+  totalRecipients: number;
+  sampleStudentName: string | null;
+  sampleTitle: string;
+  sampleBody: string;
+  alreadyPublishedAt: string | null;
+  previousPublishCount: number;
+}
+
+/** Backend response after a successful publish. */
+export interface PublishResultResult {
+  examsCovered: number;
+  studentsNotified: number;
+  parentsNotified: number;
+  skippedStudents: number;
+  republished: boolean;
+  publishedAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   // Resolved at build time from environment files. Local dev / Netlify use
@@ -588,6 +621,24 @@ export class ApiService {
       .set('size', size)
       .set('sentByMe', true);
     return this.http.get<ApiResponse<any>>(`${this.API}/notifications`, { params });
+  }
+
+  // ── Publish Result ────────────────────────────────────────────────────
+  // Backend exposes /publish-result for the actual fan-out and a sibling
+  // /publish-result/preview that returns recipient counts + a sample
+  // body so the admin can sanity-check before sending. Both endpoints
+  // accept the same payload shape (we set republish=false on preview).
+
+  previewPublishResult(scope: PublishResultScope): Observable<ApiResponse<PublishResultPreview>> {
+    return this.http.post<ApiResponse<PublishResultPreview>>(
+      `${this.API}/notifications/publish-result/preview`,
+      { ...scope, republish: false });
+  }
+
+  publishResult(scope: PublishResultScope, republish: boolean): Observable<ApiResponse<PublishResultResult>> {
+    return this.http.post<ApiResponse<PublishResultResult>>(
+      `${this.API}/notifications/publish-result`,
+      { ...scope, republish });
   }
 
   // ── WhatsApp ───────────────────────────────────────────────────────────

@@ -1,0 +1,157 @@
+<mat-card class="panel-card pr-card">
+  <div class="panel-header">
+    <div>
+      <h2 class="panel-title">Publish Result</h2>
+      <p class="panel-sub">
+        Send each student's exam result straight to their account and their
+        parents' logins. Pick the scope below — one click sends a personalised
+        notification to every recipient.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Step 1: scope ──────────────────────────────────────── -->
+  <div class="pr-section">
+    <h3 class="pr-section-title">
+      <span class="pr-step">1</span>
+      Pick the scope
+    </h3>
+
+    <div class="pr-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Exam Type</mat-label>
+        <mat-select [(value)]="examType" (valueChange)="onExamTypeChange()" [disabled]="isLoadingExams">
+          <mat-option *ngFor="let t of examTypeOptions" [value]="t">{{ t }}</mat-option>
+        </mat-select>
+        <mat-hint *ngIf="!isLoadingExams && examTypeOptions.length === 0">
+          No exams have been created yet.
+        </mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Class</mat-label>
+        <mat-select [(value)]="classId" (valueChange)="onClassChange()" [disabled]="isLoadingClasses || !examType">
+          <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Section</mat-label>
+        <mat-select [(value)]="sectionId" (valueChange)="onSectionChange()" [disabled]="!classId">
+          <mat-option *ngFor="let s of sections" [value]="s.sectionId">{{ s.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Subject</mat-label>
+        <mat-select [(value)]="subjectId" (valueChange)="onSubjectChange()" [disabled]="!sectionId">
+          <mat-option [value]="''">All subjects (combined)</mat-option>
+          <mat-option *ngFor="let s of subjectOptions" [value]="s.subjectId">{{ s.subjectName }}</mat-option>
+        </mat-select>
+        <mat-hint>Pick "All subjects" to send one notification listing every subject.</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <div class="pr-actions">
+      <button mat-stroked-button color="primary"
+              [disabled]="!scopeReady || isPreviewing"
+              (click)="loadPreview()">
+        <mat-spinner diameter="16" *ngIf="isPreviewing"></mat-spinner>
+        <mat-icon *ngIf="!isPreviewing">visibility</mat-icon>
+        Preview
+      </button>
+    </div>
+
+    <div class="pr-error" *ngIf="previewError">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ previewError }}</span>
+    </div>
+  </div>
+
+  <!-- ── Step 2: preview ────────────────────────────────────── -->
+  <div class="pr-section pr-preview" *ngIf="preview">
+    <h3 class="pr-section-title">
+      <span class="pr-step">2</span>
+      Review what will be sent
+    </h3>
+
+    <!-- Counts strip -->
+    <div class="pr-counts">
+      <div class="pr-count">
+        <mat-icon>school</mat-icon>
+        <div>
+          <strong>{{ preview.studentCount }}</strong>
+          <span>student(s)</span>
+        </div>
+      </div>
+      <div class="pr-count">
+        <mat-icon>family_restroom</mat-icon>
+        <div>
+          <strong>{{ preview.parentCount }}</strong>
+          <span>parent account(s)</span>
+        </div>
+      </div>
+      <div class="pr-count">
+        <mat-icon>assignment</mat-icon>
+        <div>
+          <strong>{{ preview.examsCovered }}</strong>
+          <span>exam(s) covered</span>
+        </div>
+      </div>
+      <div class="pr-count pr-total">
+        <mat-icon>send</mat-icon>
+        <div>
+          <strong>{{ preview.totalRecipients }}</strong>
+          <span>push notification(s)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sample message -->
+    <div class="pr-sample" *ngIf="preview.sampleStudentName">
+      <div class="pr-sample-label">Sample for {{ preview.sampleStudentName }}</div>
+      <div class="pr-sample-title">{{ preview.sampleTitle }}</div>
+      <pre class="pr-sample-body">{{ preview.sampleBody }}</pre>
+    </div>
+
+    <!-- Already-published banner -->
+    <div class="pr-warn" *ngIf="hasPriorPublication">
+      <mat-icon>history</mat-icon>
+      <div>
+        <strong>This scope was already published</strong>
+        <span>
+          Last sent on {{ formatDate(preview.alreadyPublishedAt) }}
+          <ng-container *ngIf="preview.previousPublishCount > 1">
+            ({{ preview.previousPublishCount }} previous publishes)
+          </ng-container>.
+        </span>
+        <mat-checkbox [(ngModel)]="republish" class="pr-republish-toggle">
+          Yes, re-publish anyway
+        </mat-checkbox>
+      </div>
+    </div>
+
+    <!-- Empty state when section has no students -->
+    <div class="pr-warn pr-warn-info" *ngIf="preview.studentCount === 0">
+      <mat-icon>info</mat-icon>
+      <div>
+        <strong>No students to notify</strong>
+        <span>
+          The selected class+section has no enrolled students. Pick a different
+          section or check the student roster.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Step 3: publish ────────────────────────────────────── -->
+  <div class="pr-section pr-publish-row" *ngIf="preview">
+    <button mat-flat-button color="primary"
+            [disabled]="!canPublish"
+            (click)="publish()">
+      <mat-spinner diameter="18" *ngIf="isPublishing" class="pr-inline-spinner"></mat-spinner>
+      <mat-icon *ngIf="!isPublishing">campaign</mat-icon>
+      <span>{{ isPublishing ? 'Publishing…' : (hasPriorPublication ? 'Re-publish Result' : 'Publish Result') }}</span>
+    </button>
+  </div>
+</mat-card>

@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -117,9 +118,14 @@ public class AttendanceService {
                     ? (stu.getFirstName() + (stu.getLastName() != null ? " " + stu.getLastName() : ""))
                     : ("Student " + (stu.getAdmissionNumber() != null ? stu.getAdmissionNumber() : ""));
 
+            // Two date strings on purpose: dateKey stays ISO (used by the
+            // rule engine for idempotency dedupe — must be stable and
+            // machine-readable), friendlyDate is what shows up in the
+            // parent's notification body.
+            String friendlyDate = date.format(DateTimeFormatter.ofPattern("dd MMM yyyy"));
             Map<String, Object> vars = new HashMap<>();
             vars.put("student", name);
-            vars.put("date", dateKey);
+            vars.put("date", friendlyDate);
 
             FirePayload payload = FirePayload.toIndividuals(recipients)
                     .entityId(e.getStudentId())
@@ -127,7 +133,7 @@ public class AttendanceService {
                     .type(Notification.NotificationType.ATTENDANCE)
                     .vars(vars)
                     .fallback("Absent today",
-                            "Dear Parent, " + name + " was marked absent on " + dateKey + ".");
+                            "Dear Parent, " + name + " was marked absent on " + friendlyDate + ".");
             ruleEngine.fire("ABSENCE_ALERT", payload);
         }
     }

@@ -15,6 +15,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
@@ -39,10 +40,13 @@ public class NotificationScheduler {
         log.info("[NotificationScheduler] Exam reminders scan for {}", tomorrow);
         try {
             List<Exam> exams = examRepository.findByExamDate(tomorrow);
+            // Friendly date for the body; the ISO string still goes
+            // into dateKey below so idempotency stays stable.
+            String friendlyDate = tomorrow.format(DateTimeFormatter.ofPattern("dd MMM yyyy"));
             for (Exam e : exams) {
                 Map<String, Object> vars = new HashMap<>();
                 vars.put("subject", e.getSubjectName() != null ? e.getSubjectName() : "Exam");
-                vars.put("date", tomorrow.toString());
+                vars.put("date", friendlyDate);
                 vars.put("time", e.getStartTime() != null ? e.getStartTime() : "");
                 vars.put("examType", e.getExamType() != null ? e.getExamType() : "");
 

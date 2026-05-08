@@ -1,0 +1,214 @@
+// Publish Result tab styles. The wrapper inherits .panel-card styling
+// from the parent notifications-page so it sits flush with the other
+// tab panes; everything else is local.
+
+$gold:        #D4A843;
+$gold-dark:   #B8860B;
+$ink:         #1f2937;
+$muted:       #6b7280;
+$line:        #e5e7eb;
+$warn-bg:     #fef3c7;
+$warn-border: #fcd34d;
+$warn-ink:    #92400e;
+$info-bg:     #e0f2fe;
+$info-ink:    #075985;
+
+.pr-card { padding: 20px 24px; }
+
+.pr-section {
+  padding: 16px 0;
+  border-top: 1px solid $line;
+
+  &:first-of-type { border-top: 0; padding-top: 8px; }
+}
+
+.pr-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: $ink;
+  margin: 0 0 14px;
+}
+
+.pr-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: $gold;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.pr-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 16px;
+
+  @media (max-width: 720px) { grid-template-columns: 1fr; }
+
+  mat-form-field { width: 100%; }
+}
+
+.pr-actions {
+  margin-top: 4px;
+  display: flex;
+  justify-content: flex-end;
+
+  button mat-icon, button mat-spinner { margin-right: 6px; }
+}
+
+.pr-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-top: 10px;
+  background: #fdecea;
+  color: #b71c1c;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+// ── Counts strip ──────────────────────────────────────────
+.pr-counts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+
+  @media (max-width: 720px) { grid-template-columns: repeat(2, 1fr); }
+
+  .pr-count {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: rgba(212, 168, 67, 0.08);
+    border: 1px solid rgba(212, 168, 67, 0.22);
+    border-radius: 8px;
+
+    mat-icon {
+      color: $gold-dark;
+      font-size: 22px;
+      width: 22px; height: 22px;
+    }
+
+    strong {
+      display: block;
+      font-size: 1.1rem;
+      color: $ink;
+      line-height: 1.1;
+    }
+    span {
+      font-size: 0.78rem;
+      color: $muted;
+    }
+
+    &.pr-total {
+      background: rgba(25, 118, 210, 0.08);
+      border-color: rgba(25, 118, 210, 0.22);
+      mat-icon { color: #1976d2; }
+    }
+  }
+}
+
+// ── Sample message preview ────────────────────────────────
+.pr-sample {
+  border: 1px dashed $line;
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: #fafafa;
+
+  .pr-sample-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: $muted;
+    margin-bottom: 6px;
+  }
+
+  .pr-sample-title {
+    font-weight: 700;
+    color: $ink;
+    margin-bottom: 6px;
+  }
+
+  .pr-sample-body {
+    margin: 0;
+    font-family: inherit;
+    font-size: 0.9rem;
+    color: #374151;
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+}
+
+// ── Warning / info banners ────────────────────────────────
+.pr-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-top: 14px;
+  background: $warn-bg;
+  border: 1px solid $warn-border;
+  border-radius: 8px;
+  color: $warn-ink;
+
+  mat-icon {
+    color: $warn-ink;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  strong { display: block; margin-bottom: 2px; }
+  span { display: block; font-size: 0.875rem; line-height: 1.45; }
+
+  .pr-republish-toggle {
+    margin-top: 8px;
+    display: block;
+  }
+
+  &.pr-warn-info {
+    background: $info-bg;
+    border-color: rgba(2, 132, 199, 0.35);
+    color: $info-ink;
+    mat-icon { color: $info-ink; }
+  }
+}
+
+// ── Publish button row ────────────────────────────────────
+.pr-publish-row {
+  display: flex;
+  justify-content: flex-end;
+
+  button {
+    min-width: 200px;
+
+    mat-icon, .pr-inline-spinner { margin-right: 8px; }
+  }
+}
+
+// ── Dark theme ────────────────────────────────────────────
+:host-context(body.dark-theme) {
+  .pr-section { border-top-color: rgba(255, 255, 255, 0.1); }
+  .pr-section-title { color: #f3f4f6; }
+  .pr-counts .pr-count {
+    background: rgba(212, 168, 67, 0.12);
+    border-color: rgba(212, 168, 67, 0.28);
+    strong { color: #f5f5f5; }
+    span { color: rgba(255, 255, 255, 0.65); }
+  }
+  .pr-sample {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.14);
+    .pr-sample-title { color: #f3f4f6; }
+    .pr-sample-body { color: rgba(255, 255, 255, 0.85); }
+    .pr-sample-label { color: rgba(255, 255, 255, 0.5); }
+  }
+}

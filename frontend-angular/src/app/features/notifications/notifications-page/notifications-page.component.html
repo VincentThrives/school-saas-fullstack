@@ -415,6 +415,11 @@
         </mat-card>
       </div>
 
+      <!-- Publish Result tab (admin/principal only — gated in tabs[]) -->
+      <div *ngIf="activeTab === 'publish'">
+        <app-publish-result></app-publish-result>
+      </div>
+
       <!-- History tab -->
       <div *ngIf="activeTab === 'history'">
         <mat-card class="panel-card">

@@ -18,6 +18,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -158,7 +159,13 @@ public class EventController {
         if (saved.isHoliday()) {
             Map<String, Object> vars = new HashMap<>();
             vars.put("title", saved.getTitle() != null ? saved.getTitle() : "Holiday");
-            vars.put("date",  saved.getStartDate() != null ? saved.getStartDate().toString() : "");
+            // Friendly date for the user-facing body (e.g. "08 May 2026"
+            // instead of the ISO "2026-05-08" that LocalDate.toString
+            // produces — that one is fine for storage/keys but ugly in
+            // a parent's notification panel).
+            vars.put("date", saved.getStartDate() != null
+                    ? saved.getStartDate().format(DateTimeFormatter.ofPattern("dd MMM yyyy"))
+                    : "");
             ruleEngine.fire("HOLIDAY_DECLARED", FirePayload.toAll()
                     .entityId(saved.getEventId())
                     .type(Notification.NotificationType.ANNOUNCEMENT)
