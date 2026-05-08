@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">School App</string>
-    <string name="title_activity_main">School App</string>
+    <string name="app_name">NammaSchool</string>
+    <string name="title_activity_main">NammaSchool</string>
     <string name="package_name">com.school.dev</string>
     <string name="custom_url_scheme">com.school.dev</string>
 </resources>

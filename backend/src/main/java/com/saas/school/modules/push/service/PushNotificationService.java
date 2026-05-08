@@ -19,8 +19,10 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Sends Firebase Cloud Messaging push notifications.
@@ -54,31 +56,47 @@ public class PushNotificationService {
     /**
      * Send a push to one user (across all of their registered devices).
      * Most callers will use this — they have the userId, not the tokens.
+     *
+     * Deduplicates tokens before dispatch so a user with stale rows in
+     * device_tokens (left over from reinstall / token rotation) only
+     * receives one notification per physical device.
      */
     @Async
     public void sendToUser(String userId, String title, String body, Map<String, String> data) {
         if (!isEnabled() || userId == null) return;
-        List<DeviceToken> tokens = tokenRepository.findByUserId(userId);
-        if (tokens.isEmpty()) {
+        Set<String> uniqueTokens = new LinkedHashSet<>();
+        for (DeviceToken t : tokenRepository.findByUserId(userId)) {
+            if (t.getToken() != null && !t.getToken().isBlank()) uniqueTokens.add(t.getToken());
+        }
+        if (uniqueTokens.isEmpty()) {
             log.debug("No device tokens registered for user {}, skipping push", userId);
             return;
         }
-        List<String> tokenStrings = new ArrayList<>(tokens.size());
-        for (DeviceToken t : tokens) tokenStrings.add(t.getToken());
-        sendToTokens(tokenStrings, title, body, data);
+        sendToTokens(new ArrayList<>(uniqueTokens), title, body, data);
     }
 
-    /** Send to many users at once (e.g. an admin announcement to all parents). */
+    /**
+     * Send to many users at once (e.g. an admin announcement to all parents).
+     * Tokens are deduplicated globally before dispatch — covers two real
+     * scenarios that previously caused duplicates on the phone:
+     *   (a) the same token appearing under two different userIds (shared
+     *       family device that's been logged in by both parent and child),
+     *   (b) an upstream caller passing the same userId twice in the list.
+     * Either way, each physical device gets exactly one push per send.
+     */
     @Async
     public void sendToUsers(List<String> userIds, String title, String body, Map<String, String> data) {
         if (!isEnabled() || userIds == null || userIds.isEmpty()) return;
-        List<String> allTokens = new ArrayList<>();
+        Set<String> uniqueTokens = new LinkedHashSet<>();
+        Set<String> seenUsers = new java.util.HashSet<>();
         for (String uid : userIds) {
-            tokenRepository.findByUserId(uid)
-                    .forEach(t -> allTokens.add(t.getToken()));
+            if (uid == null || uid.isBlank() || !seenUsers.add(uid)) continue;
+            for (DeviceToken t : tokenRepository.findByUserId(uid)) {
+                if (t.getToken() != null && !t.getToken().isBlank()) uniqueTokens.add(t.getToken());
+            }
         }
-        if (allTokens.isEmpty()) return;
-        sendToTokens(allTokens, title, body, data);
+        if (uniqueTokens.isEmpty()) return;
+        sendToTokens(new ArrayList<>(uniqueTokens), title, body, data);
     }
 
     /**
@@ -89,6 +107,12 @@ public class PushNotificationService {
     public void sendToTokens(List<String> tokens, String title, String body, Map<String, String> data) {
         if (!isEnabled() || tokens == null || tokens.isEmpty()) return;
 
+        // Final dedupe at the wire level — defensive in case a caller
+        // passes the same token twice. FCM treats the same token in one
+        // multicast as two separate sends and the phone shows two
+        // notifications, which is the bug we're guarding against.
+        List<String> deduped = new ArrayList<>(new LinkedHashSet<>(tokens));
+
         Notification notification = Notification.builder()
                 .setTitle(title == null ? "" : title)
                 .setBody(body == null ? "" : body)
@@ -97,8 +121,8 @@ public class PushNotificationService {
         Map<String, String> safeData = data == null ? Collections.emptyMap() : new HashMap<>(data);
 
         // FCM caps multicast at 500 tokens per request.
-        for (int i = 0; i < tokens.size(); i += 500) {
-            List<String> batch = tokens.subList(i, Math.min(i + 500, tokens.size()));
+        for (int i = 0; i < deduped.size(); i += 500) {
+            List<String> batch = deduped.subList(i, Math.min(i + 500, deduped.size()));
             MulticastMessage message = MulticastMessage.builder()
                     .setNotification(notification)
                     .putAllData(safeData)

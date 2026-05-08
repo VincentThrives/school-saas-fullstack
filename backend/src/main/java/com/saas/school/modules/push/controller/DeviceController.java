@@ -13,6 +13,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 /**
  * Endpoints for registering / removing FCM device tokens.
@@ -58,6 +60,31 @@ public class DeviceController {
         }
         tokenRepository.save(existing);
         log.info("Registered device token for user {} (platform={})", userId, existing.getPlatform());
+
+        // Retire stale tokens for this user — left over from a reinstall
+        // or an FCM token rotation where we never got the unregister call.
+        // A token that hasn't been refreshed in 30 days is almost certainly
+        // dead; keeping it around makes pushes fan out to a phantom device
+        // and the user sees the same notification twice.
+        try {
+            Instant cutoff = Instant.now().minus(30, ChronoUnit.DAYS);
+            List<DeviceToken> userTokens = tokenRepository.findByUserId(userId);
+            int removed = 0;
+            for (DeviceToken t : userTokens) {
+                if (t.getToken() == null || t.getToken().equals(req.getToken())) continue;
+                Instant last = t.getLastSeenAt() != null ? t.getLastSeenAt() : t.getCreatedAt();
+                if (last != null && last.isBefore(cutoff)) {
+                    tokenRepository.deleteByToken(t.getToken());
+                    removed++;
+                }
+            }
+            if (removed > 0) log.info("Retired {} stale device token(s) for user {}", removed, userId);
+        } catch (Exception e) {
+            // Cleanup is best-effort — a failure here must not block the
+            // register call (the new token is what the user actually needs).
+            log.warn("Stale-token cleanup failed for user {}: {}", userId, e.getMessage());
+        }
+
         return ResponseEntity.ok(ApiResponse.success(null, "Device registered"));
     }
 

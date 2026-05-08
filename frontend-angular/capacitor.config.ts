@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.school.dev',
-  appName: 'School App',
+  appName: 'NammaSchool',
   webDir: 'dist/frontend-angular/browser'
 };
 
