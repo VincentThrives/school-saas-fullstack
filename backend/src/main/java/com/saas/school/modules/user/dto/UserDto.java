@@ -15,6 +15,17 @@ public class UserDto {
     private String profilePhotoUrl;
     private UserRole role;
 
+    /**
+     * Per-tenant feature flags — drives the frontend's UI gating.
+     * Set only on {@code /users/me} responses (not on list endpoints)
+     * so the calling user's own tenant feature state is known at
+     * login + page-load time.
+     *
+     * Currently carries SMS toggles; will grow as more tenant-gated
+     * features land (WhatsApp, advanced analytics, etc.).
+     */
+    private TenantFeaturesDto tenantFeatures;
+
     // Force JSON key "isActive" / "isLocked" — Jackson would otherwise strip the "is" prefix
     // when it sees the matching getter (isActive()), breaking the Angular UI that expects
     // user.isActive / user.isLocked.
@@ -133,4 +144,7 @@ public class UserDto {
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
+
+    public TenantFeaturesDto getTenantFeatures() { return tenantFeatures; }
+    public void setTenantFeatures(TenantFeaturesDto tenantFeatures) { this.tenantFeatures = tenantFeatures; }
 }

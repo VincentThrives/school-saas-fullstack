@@ -1,61 +1,242 @@
-<div class="school-id-page">
-  <div class="school-id-page__card-wrapper">
-    <mat-card class="school-id-page__card">
-      <mat-card-content class="school-id-page__card-content">
-        <!-- Logo -->
-        <div class="school-id-page__header">
-          <div class="school-id-page__logo">
-            <mat-icon class="school-id-page__logo-icon">school</mat-icon>
-          </div>
-          <h1 class="school-id-page__title">School Management</h1>
-          <p class="school-id-page__subtitle">Enter your school ID to continue</p>
-        </div>
+<div class="lp" #lpRoot>
 
-        <!-- Error Alert -->
-        <div class="school-id-page__alert" *ngIf="errorMessage">
-          <mat-icon>error_outline</mat-icon>
-          <span>{{ errorMessage }}</span>
-        </div>
-
-        <!-- Form -->
-        <form (ngSubmit)="onSubmit()" class="school-id-page__form">
-          <mat-form-field appearance="outline" class="school-id-page__field">
-            <mat-label>School ID</mat-label>
-            <mat-icon matPrefix class="school-id-page__input-icon">school</mat-icon>
-            <input
-              matInput
-              [(ngModel)]="schoolId"
-              name="schoolId"
-              placeholder="e.g., greenwood or SCH-00123"
-              [disabled]="isLoading"
-              autofocus
-            />
-          </mat-form-field>
-
-          <button
-            mat-flat-button
-            type="submit"
-            class="school-id-page__submit-btn"
-            [disabled]="!schoolId.trim() || isLoading"
-          >
-            <span *ngIf="!isLoading">Continue</span>
-            <span *ngIf="isLoading">Finding School...</span>
-            <mat-spinner *ngIf="isLoading" diameter="20" class="school-id-page__spinner"></mat-spinner>
-            <mat-icon *ngIf="!isLoading">arrow_forward</mat-icon>
-          </button>
-        </form>
-
-        <!-- Super Admin Link -->
-        <div class="school-id-page__footer">
-          <p>
-            Are you a Super Admin?
-            <a routerLink="/superadmin" class="school-id-page__link">Login here</a>
-          </p>
-        </div>
-      </mat-card-content>
-    </mat-card>
+  <!-- ───────── Animated background orbs ───────── -->
+  <div class="lp__orbs" aria-hidden="true">
+    <span class="lp__orb lp__orb--1"></span>
+    <span class="lp__orb lp__orb--2"></span>
+    <span class="lp__orb lp__orb--3"></span>
   </div>
 
-  <!-- Decorative bottom line -->
-  <div class="school-id-page__bottom-line"></div>
+  <!-- ───────── Sticky nav ───────── -->
+  <nav class="lp__nav" [class.lp__nav--scrolled]="scrolled">
+    <div class="lp__nav-inner">
+      <a href="#hero" class="lp__brand" (click)="scrollTo($event, 'hero')">
+        <span class="lp__brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3 L21 8 L12 13 L3 8 Z" fill="url(#capGrad)"/>
+            <path d="M6 10 V14 Q6 17 12 17 Q18 17 18 14 V10" stroke="url(#capGrad)" stroke-width="2" fill="none"/>
+            <defs>
+              <linearGradient id="capGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#E8C97A"/>
+                <stop offset="100%" stop-color="#B8860B"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </span>
+        <span class="lp__brand-name">Namma Vidyalaya</span>
+      </a>
+      <div class="lp__nav-links">
+        <a href="#features" (click)="scrollTo($event, 'features')">Features</a>
+        <a href="#how" (click)="scrollTo($event, 'how')">How it Works</a>
+        <a href="#about" (click)="scrollTo($event, 'about')">About</a>
+        <a class="lp__nav-cta" href="#hero" (click)="scrollTo($event, 'hero')">Sign In</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ───────── Hero (functional form lives here) ───────── -->
+  <section id="hero" class="lp__hero" (mousemove)="onHeroMouseMove($event)">
+    <div class="lp__hero-inner">
+      <span class="lp__hero-eyebrow">Multi-tenant school management SaaS</span>
+
+      <h1 class="lp__hero-title">
+        <span class="lp__letter" *ngFor="let ch of titleLetters; let i = index"
+              [style.animation-delay.ms]="i * 50"
+              [class.lp__letter--space]="ch === ' '">
+          {{ ch === ' ' ? ' ' : ch }}
+        </span>
+      </h1>
+
+      <p class="lp__hero-tag">Namma Vidyalaya, reimagined for India.</p>
+
+      <!-- Functional School ID form — preserved from the original component -->
+      <mat-card class="lp__form-card">
+        <mat-card-content class="lp__form-content">
+          <p class="lp__form-prompt">Sign in with your school ID to continue</p>
+
+          <div class="lp__alert" *ngIf="errorMessage">
+            <mat-icon>error_outline</mat-icon>
+            <span>{{ errorMessage }}</span>
+          </div>
+
+          <form (ngSubmit)="onSubmit()" class="lp__form">
+            <mat-form-field appearance="outline" class="lp__field">
+              <mat-label>School ID</mat-label>
+              <mat-icon matPrefix class="lp__field-icon">school</mat-icon>
+              <input
+                matInput
+                [(ngModel)]="schoolId"
+                name="schoolId"
+                placeholder="e.g., greenwood or SCH-00123"
+                [disabled]="isLoading"
+                autofocus
+              />
+            </mat-form-field>
+
+            <button
+              mat-flat-button
+              type="submit"
+              class="lp__submit"
+              [disabled]="!schoolId.trim() || isLoading"
+            >
+              <span *ngIf="!isLoading">Continue</span>
+              <span *ngIf="isLoading">Finding School…</span>
+              <mat-spinner *ngIf="isLoading" diameter="20" class="lp__spinner"></mat-spinner>
+              <mat-icon *ngIf="!isLoading">arrow_forward</mat-icon>
+            </button>
+          </form>
+
+          <p class="lp__form-foot">
+            Are you a Super Admin?
+            <a routerLink="/superadmin" class="lp__link">Login here</a>
+          </p>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Trust strip -->
+      <div class="lp__trust">
+        <span class="lp__pill"><mat-icon>verified</mat-icon> DLT Compliant</span>
+        <span class="lp__pill"><mat-icon>shield</mat-icon> TRAI Approved</span>
+        <span class="lp__pill"><mat-icon>groups</mat-icon> Multi-tenant SaaS</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── Features ───────── -->
+  <section id="features" class="lp__section lp__features">
+    <div class="lp__section-head" data-reveal>
+      <span class="lp__eyebrow">What's inside</span>
+      <h2 class="lp__h2">Everything a modern school needs</h2>
+      <p class="lp__sub">One platform for attendance, exams, communication and compliance — built for Indian schools, parents and teachers.</p>
+    </div>
+
+    <div class="lp__feature-grid">
+      <article class="lp__feature" *ngFor="let f of features; let i = index"
+               data-reveal [style.transition-delay.ms]="i * 60">
+        <div class="lp__feature-ico"><mat-icon>{{ f.icon }}</mat-icon></div>
+        <h3>{{ f.title }}</h3>
+        <p>{{ f.desc }}</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ───────── How it works ───────── -->
+  <section id="how" class="lp__section lp__how">
+    <div class="lp__section-head" data-reveal>
+      <span class="lp__eyebrow">How it works</span>
+      <h2 class="lp__h2">One platform, three audiences</h2>
+      <p class="lp__sub">Every role gets the screens and notifications that matter to them — nothing more, nothing less.</p>
+    </div>
+
+    <div class="lp__how-grid">
+      <div class="lp__how-card" *ngFor="let role of roles; let i = index"
+           data-reveal [style.transition-delay.ms]="i * 80">
+        <div class="lp__how-num">{{ i + 1 }}</div>
+        <h3>{{ role.title }}</h3>
+        <ul>
+          <li *ngFor="let item of role.items"><mat-icon>check_circle</mat-icon>{{ item }}</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── App showcase ───────── -->
+  <section class="lp__section lp__showcase">
+    <div class="lp__section-head" data-reveal>
+      <span class="lp__eyebrow">In your pocket</span>
+      <h2 class="lp__h2">Designed for every phone</h2>
+      <p class="lp__sub">Parents and teachers stay in the loop via the NammaVidyalaya Android app — push notifications, SMS alerts, and the full school inbox.</p>
+    </div>
+
+    <div class="lp__phones">
+      <div class="lp__phone" *ngFor="let phone of phoneScreens; let i = index"
+           data-reveal [style.transition-delay.ms]="i * 100"
+           [attr.data-angle]="phone.angle">
+        <div class="lp__phone-frame">
+          <div class="lp__phone-notch"></div>
+          <div class="lp__phone-screen" [style.background]="phone.bg">
+            <div class="lp__phone-title">{{ phone.title }}</div>
+            <div class="lp__phone-rows">
+              <div class="lp__phone-row" *ngFor="let row of phone.rows">
+                <span class="lp__phone-dot" [style.background]="row.color"></span>
+                <span class="lp__phone-text">{{ row.text }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="lp__phone-label">{{ phone.label }}</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── About ───────── -->
+  <section id="about" class="lp__section lp__about">
+    <div class="lp__about-inner" data-reveal>
+      <span class="lp__eyebrow">About the company</span>
+      <h2 class="lp__h2">Built by <span class="lp__gold">VINCENT THRIVES PRIVATE LIMITED</span></h2>
+      <p class="lp__about-text">
+        Vincent Thrives Private Limited is a software services company registered in India.
+        Namma Vidyalaya is our flagship product — a multi-tenant school management platform
+        that puts attendance, exam results, and parent-school communication on a single,
+        compliant pipe.
+      </p>
+      <p class="lp__about-text">
+        We are a TRAI-registered Principal Entity for transactional SMS under the
+        sender header <strong class="lp__mono">VTPLS</strong>. All school-to-parent messaging
+        flows through approved DLT templates — no surprises, no spam.
+      </p>
+      <a href="https://www.vincentthrives.com" target="_blank" rel="noopener" class="lp__about-cta">
+        Visit www.vincentthrives.com
+        <mat-icon>open_in_new</mat-icon>
+      </a>
+    </div>
+  </section>
+
+  <!-- ───────── Footer ───────── -->
+  <footer class="lp__footer">
+    <div class="lp__footer-inner">
+      <div class="lp__footer-brand">
+        <span class="lp__brand-mark lp__brand-mark--lg">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3 L21 8 L12 13 L3 8 Z" fill="url(#fcap)"/>
+            <path d="M6 10 V14 Q6 17 12 17 Q18 17 18 14 V10" stroke="url(#fcap)" stroke-width="2" fill="none"/>
+            <defs>
+              <linearGradient id="fcap" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#E8C97A"/>
+                <stop offset="100%" stop-color="#B8860B"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </span>
+        <strong>Namma Vidyalaya</strong>
+        <span class="lp__footer-tag">School management, reimagined for India.</span>
+      </div>
+
+      <div class="lp__footer-cols">
+        <div>
+          <span class="lp__footer-heading">Product</span>
+          <a href="#features" (click)="scrollTo($event, 'features')">Features</a>
+          <a href="#how" (click)="scrollTo($event, 'how')">How it works</a>
+          <a href="#hero" (click)="scrollTo($event, 'hero')">Sign in</a>
+        </div>
+        <div>
+          <span class="lp__footer-heading">Company</span>
+          <a href="https://www.vincentthrives.com" target="_blank" rel="noopener">Website</a>
+          <a href="mailto:vincentthrives@gmail.com">Contact</a>
+          <a routerLink="/privacy">Privacy Policy</a>
+        </div>
+        <div>
+          <span class="lp__footer-heading">Compliance</span>
+          <span class="lp__footer-fact">PE: Vincent Thrives Pvt Ltd</span>
+          <span class="lp__footer-fact">Header: VTPLS</span>
+          <span class="lp__footer-fact">DLT Service Implicit</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="lp__footer-bottom">
+      <span>Powered by <strong>VINCENT THRIVES PRIVATE LIMITED</strong></span>
+      <span>© {{ year }} Vincent Thrives Pvt Ltd. All rights reserved.</span>
+    </div>
+  </footer>
 </div>

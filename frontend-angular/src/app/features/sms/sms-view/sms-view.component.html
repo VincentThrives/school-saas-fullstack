@@ -1,0 +1,361 @@
+<div class="sms-view">
+  <app-page-header
+    title="SMS Notifications"
+    subtitle="Track every SMS sent to parents and verify the pipeline.">
+  </app-page-header>
+
+  <!-- ── Status card ─────────────────────────────────────────── -->
+  <mat-card class="sv-status-card">
+    <div class="sv-status-header">
+      <mat-icon>{{ features.smsEnabled() ? 'check_circle' : 'block' }}</mat-icon>
+      <div>
+        <h2>SMS is {{ features.smsEnabled() ? 'enabled' : 'disabled' }} for your school</h2>
+        <p *ngIf="!features.smsEnabled()">
+          Contact platform support to request SMS access:
+          <a href="mailto:vincentthrives&#64;gmail.com">vincentthrives&#64;gmail.com</a>
+        </p>
+        <p *ngIf="features.smsEnabled() && settings">
+          Last updated {{ formatDateTime(settings.updatedAt) }}
+        </p>
+      </div>
+    </div>
+
+    <div class="sv-triggers" *ngIf="features.smsEnabled() && settings">
+      <span class="sv-trigger" [class.sv-trigger--on]="settings.absenceAlertEnabled">
+        <mat-icon>{{ settings.absenceAlertEnabled ? 'check_circle' : 'remove_circle' }}</mat-icon>
+        Absence alerts to parents
+      </span>
+      <span class="sv-trigger" [class.sv-trigger--on]="settings.resultPublishEnabled">
+        <mat-icon>{{ settings.resultPublishEnabled ? 'check_circle' : 'remove_circle' }}</mat-icon>
+        Exam result notifications
+      </span>
+      <span class="sv-trigger" [class.sv-trigger--on]="settings.customNoticeEnabled">
+        <mat-icon>{{ settings.customNoticeEnabled ? 'check_circle' : 'remove_circle' }}</mat-icon>
+        Custom school notices
+      </span>
+    </div>
+
+    <!-- Budget bar -->
+    <div class="sv-budget" *ngIf="features.smsEnabled() && settings">
+      <div class="sv-budget-line">
+        <span>This month: <strong>₹{{ settings.costUsedThisMonth | number:'1.0-2' }}</strong> used</span>
+        <span>Budget: ₹{{ settings.monthlyBudgetInr | number:'1.0-0' }}</span>
+      </div>
+      <div class="sv-budget-bar">
+        <div class="sv-budget-bar-fill"
+             [class]="'sv-budget-bar-fill--' + budgetBarColor"
+             [style.width.%]="budgetUsedPct">
+        </div>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- ── Test SMS card ──────────────────────────────────────── -->
+  <mat-card class="sv-test-card" *ngIf="features.smsEnabled()">
+    <div class="sv-card-head">
+      <mat-icon>sms</mat-icon>
+      <h3>Send a test SMS</h3>
+    </div>
+    <p class="sv-card-sub">
+      Fire a sample Absence Alert to your own phone to verify the SMS pipeline.
+      Real parents are not contacted by this test.
+    </p>
+    <div class="sv-test-row">
+      <mat-form-field appearance="outline" class="sv-test-field">
+        <mat-label>Your mobile number</mat-label>
+        <mat-icon matPrefix>phone</mat-icon>
+        <input matInput [(ngModel)]="testPhone" placeholder="9876543210" maxlength="13"/>
+      </mat-form-field>
+      <button mat-flat-button color="primary"
+              [disabled]="!canSendTest()"
+              (click)="sendTest()">
+        <mat-icon *ngIf="!isSendingTest">send</mat-icon>
+        <mat-spinner *ngIf="isSendingTest" diameter="18" class="sv-inline-spinner"></mat-spinner>
+        {{ isSendingTest ? 'Sending…' : 'Send Test SMS' }}
+      </button>
+    </div>
+  </mat-card>
+
+  <!-- ── Today's absence-alert picker ──────────────────────── -->
+  <!-- Manual replacement for the old auto-on-save SMS. Admin loads
+       today's absent students, reviews, deselects false positives,
+       and fires one SMS per parent. Idempotent: already-sent rows
+       are flagged and skipped automatically. -->
+  <mat-card class="sv-absent-card" *ngIf="features.smsEnabled() && features.absenceAlertSms()">
+    <div class="sv-card-head">
+      <mat-icon>event_busy</mat-icon>
+      <h3>Today's absence alerts</h3>
+    </div>
+    <p class="sv-card-sub">
+      Review absent students and send one SMS per parent. A student absent
+      in multiple periods today gets exactly one SMS. Parents already
+      notified earlier today are skipped automatically.
+    </p>
+
+    <!-- Empty / pre-load state -->
+    <div class="sv-absent-empty" *ngIf="absentToday === null && !isLoadingAbsent">
+      <button mat-flat-button color="primary" (click)="loadAbsentToday()">
+        <mat-icon>refresh</mat-icon>
+        Load today's absent students
+      </button>
+    </div>
+
+    <!-- Loading -->
+    <div class="sv-log-loading" *ngIf="isLoadingAbsent">
+      <mat-spinner diameter="28"></mat-spinner>
+    </div>
+
+    <ng-container *ngIf="absentToday !== null && !isLoadingAbsent">
+      <!-- Summary strip -->
+      <div class="sv-absent-summary" *ngIf="absentToday.length > 0">
+        <span><strong>{{ absentSummary().total }}</strong> absent today</span>
+        <span class="sv-summary-sep">·</span>
+        <span><strong>{{ absentSummary().toSend }}</strong> to notify</span>
+        <span class="sv-summary-sep">·</span>
+        <span><strong>{{ absentSummary().alreadySent }}</strong> already sent</span>
+        <span class="sv-summary-sep" *ngIf="absentSummary().noPhone > 0">·</span>
+        <span *ngIf="absentSummary().noPhone > 0" class="sv-summary-warn">
+          <strong>{{ absentSummary().noPhone }}</strong> missing phone
+        </span>
+      </div>
+
+      <!-- All-present empty state -->
+      <div class="sv-absent-allpresent" *ngIf="absentToday.length === 0">
+        <mat-icon>check_circle</mat-icon>
+        <p>No absent students today, or attendance hasn't been marked yet.</p>
+        <button mat-stroked-button (click)="loadAbsentToday()">
+          <mat-icon>refresh</mat-icon>
+          Refresh
+        </button>
+      </div>
+
+      <!-- The picker table -->
+      <div class="sv-absent-table-wrap" *ngIf="absentToday.length > 0">
+        <table class="sv-absent-table">
+          <thead>
+            <tr>
+              <th class="sv-th-check">
+                <mat-checkbox
+                  [checked]="allAbsentSelected()"
+                  (change)="toggleAllAbsent($event.checked)"
+                  matTooltip="Select all sendable rows">
+                </mat-checkbox>
+              </th>
+              <th>Student</th>
+              <th>Class</th>
+              <th>Parent</th>
+              <th>Absent in</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of absentToday"
+                [class.sv-row--disabled]="!row.hasValidPhone || row.alreadySent">
+              <td>
+                <mat-checkbox
+                  [checked]="isAbsentSelected(row.studentId)"
+                  [disabled]="!row.hasValidPhone"
+                  (change)="toggleAbsentSelected(row.studentId, $event.checked)">
+                </mat-checkbox>
+              </td>
+              <td>
+                <div class="sv-student-cell">
+                  <strong>{{ row.studentName }}</strong>
+                  <code *ngIf="row.admissionNumber">{{ row.admissionNumber }}</code>
+                </div>
+              </td>
+              <td>{{ row.classLabel || '—' }}</td>
+              <td>
+                <div class="sv-parent-cell">
+                  <span *ngIf="row.parentName">{{ row.parentName }}</span>
+                  <code *ngIf="row.parentPhoneMasked">{{ row.parentPhoneMasked }}</code>
+                  <span *ngIf="!row.hasValidPhone" class="sv-warn-text">No phone</span>
+                </div>
+              </td>
+              <td>{{ absentLabel(row) }}</td>
+              <td>
+                <span class="sv-chip" [class.sv-chip-sent]="row.alreadySent"
+                                      [class.sv-chip-pending]="!row.alreadySent && row.hasValidPhone"
+                                      [class.sv-chip-blocked]="!row.hasValidPhone">
+                  <ng-container *ngIf="row.alreadySent">Already sent</ng-container>
+                  <ng-container *ngIf="!row.alreadySent && row.hasValidPhone">Pending</ng-container>
+                  <ng-container *ngIf="!row.hasValidPhone">No phone</ng-container>
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Action row -->
+      <div class="sv-absent-actions" *ngIf="absentToday.length > 0">
+        <button mat-stroked-button (click)="loadAbsentToday()" [disabled]="isLoadingAbsent">
+          <mat-icon>refresh</mat-icon>
+          Refresh list
+        </button>
+        <button mat-flat-button color="primary"
+                [disabled]="!canSendAbsent()"
+                (click)="sendAbsentToday()">
+          <mat-icon *ngIf="!isSendingAbsent">send</mat-icon>
+          <mat-spinner *ngIf="isSendingAbsent" diameter="18" class="sv-inline-spinner"></mat-spinner>
+          {{ isSendingAbsent
+              ? 'Sending…'
+              : 'Send SMS to ' + selectedAbsentIds.size + ' selected' }}
+        </button>
+      </div>
+    </ng-container>
+  </mat-card>
+
+  <!-- ── Custom-notice broadcast card ──────────────────────── -->
+  <!-- Only shown when the trigger is enabled on the tenant. Lets the
+       school admin compose a one-off SMS to a chosen audience without
+       leaving this page. -->
+  <mat-card class="sv-broadcast-card" *ngIf="features.smsEnabled() && features.customNoticeSms()">
+    <div class="sv-card-head">
+      <mat-icon>campaign</mat-icon>
+      <h3>Send a custom message</h3>
+    </div>
+    <p class="sv-card-sub">
+      Broadcast an SMS to parents or staff. Real recipients receive it.
+      Each delivery costs about ₹0.25 against your monthly budget — choose
+      the audience carefully.
+    </p>
+
+    <!-- Audience picker — multi-select via checkboxes. The fan-out is
+         the union of every ticked audience, deduped by phone downstream. -->
+    <div class="sv-broadcast-audience">
+      <label class="sv-broadcast-label">Send to (pick one or more)</label>
+      <div class="sv-checkbox-group">
+        <mat-checkbox
+          [checked]="isAudience('ALL_STUDENTS')"
+          (change)="toggleAudience('ALL_STUDENTS', $event.checked)">
+          All students' parents
+        </mat-checkbox>
+        <mat-checkbox
+          [checked]="isAudience('ALL_EMPLOYEES')"
+          (change)="toggleAudience('ALL_EMPLOYEES', $event.checked)">
+          All teachers &amp; staff
+        </mat-checkbox>
+        <mat-checkbox
+          [checked]="isAudience('ALL')"
+          (change)="toggleAudience('ALL', $event.checked)">
+          Everyone (students + staff)
+        </mat-checkbox>
+        <mat-checkbox
+          [checked]="isAudience('CLASS')"
+          (change)="toggleAudience('CLASS', $event.checked)">
+          Particular class
+        </mat-checkbox>
+      </div>
+    </div>
+
+    <!-- Class dropdown — only when CLASS is among the picked audiences -->
+    <mat-form-field appearance="outline" class="sv-class-field" *ngIf="isAudience('CLASS')">
+      <mat-label>Class</mat-label>
+      <mat-select [(value)]="broadcastClassId" [disabled]="isLoadingClasses">
+        <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+      </mat-select>
+      <mat-hint *ngIf="isLoadingClasses">Loading classes…</mat-hint>
+      <mat-hint *ngIf="!isLoadingClasses && classes.length === 0">
+        No classes found — create one under Academic before broadcasting.
+      </mat-hint>
+    </mat-form-field>
+
+    <!-- Message body -->
+    <mat-form-field appearance="outline" class="sv-broadcast-body">
+      <mat-label>Message</mat-label>
+      <textarea matInput
+                rows="4"
+                [(ngModel)]="broadcastMessage"
+                [maxlength]="BROADCAST_MAX"
+                placeholder="e.g. School will remain closed on 14 May due to heavy rain. - Vincent Thrives Pvt Ltd"></textarea>
+      <mat-hint align="end"
+                [class.sv-broadcast-counter--near]="broadcastMessage.length > BROADCAST_MAX * 0.85">
+        {{ broadcastMessage.length }} / {{ BROADCAST_MAX }}
+      </mat-hint>
+    </mat-form-field>
+
+    <div class="sv-broadcast-actions">
+      <button mat-flat-button color="primary"
+              [disabled]="!canSendBroadcast()"
+              (click)="sendBroadcast()">
+        <mat-icon *ngIf="!isSendingBroadcast">send</mat-icon>
+        <mat-spinner *ngIf="isSendingBroadcast" diameter="18" class="sv-inline-spinner"></mat-spinner>
+        {{ isSendingBroadcast ? 'Sending…' : 'Send broadcast' }}
+      </button>
+    </div>
+  </mat-card>
+
+  <!-- ── Audit log table ────────────────────────────────────── -->
+  <mat-card class="sv-log-card">
+    <div class="sv-card-head">
+      <mat-icon>history</mat-icon>
+      <h3>SMS audit log</h3>
+      <button mat-icon-button (click)="loadLogs()" [disabled]="isLoadingLogs"
+              class="sv-refresh" matTooltip="Refresh">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+
+    <div class="sv-log-loading" *ngIf="isLoadingLogs">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+
+    <div class="sv-log-empty" *ngIf="!isLoadingLogs && logs.length === 0">
+      <mat-icon>inbox</mat-icon>
+      <p>No SMS sent yet. New sends will appear here.</p>
+    </div>
+
+    <div class="sv-log-table-wrap" *ngIf="!isLoadingLogs && logs.length > 0">
+      <table mat-table [dataSource]="logs" class="sv-log-table">
+
+        <ng-container matColumnDef="createdAt">
+          <th mat-header-cell *matHeaderCellDef>Sent at</th>
+          <td mat-cell *matCellDef="let row">{{ formatDateTime(row.createdAt) }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="trigger">
+          <th mat-header-cell *matHeaderCellDef>Trigger</th>
+          <td mat-cell *matCellDef="let row">{{ triggerLabel(row.trigger) }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="recipientPhone">
+          <th mat-header-cell *matHeaderCellDef>Recipient</th>
+          <td mat-cell *matCellDef="let row">
+            <code>{{ row.recipientPhone || '—' }}</code>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="sv-chip" [class]="statusClass(row.status)">
+              {{ row.status }}
+            </span>
+            <span class="sv-chip-tip" *ngIf="row.errorMessage" [matTooltip]="row.errorMessage">
+              <mat-icon>info</mat-icon>
+            </span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="cost">
+          <th mat-header-cell *matHeaderCellDef>Cost</th>
+          <td mat-cell *matCellDef="let row">
+            ₹{{ row.costInr | number:'1.2-2' }}
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="logColumns"></tr>
+        <tr mat-row *matRowDef="let r; columns: logColumns"></tr>
+      </table>
+
+      <mat-paginator
+        [length]="totalLogs"
+        [pageSize]="pageSize"
+        [pageIndex]="pageIndex"
+        [pageSizeOptions]="[10, 25, 50, 100]"
+        (page)="onPageChange($event)">
+      </mat-paginator>
+    </div>
+  </mat-card>
+</div>

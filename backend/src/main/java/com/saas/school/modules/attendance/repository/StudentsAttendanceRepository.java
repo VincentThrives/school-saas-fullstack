@@ -13,6 +13,13 @@ public interface StudentsAttendanceRepository extends MongoRepository<StudentsAt
     // Single day — all periods
     List<StudentsAttendance> findByClassIdAndSectionIdAndDate(String classId, String sectionId, LocalDate date);
 
+    /** Every attendance batch for a given date across the whole tenant.
+     *  Used by SmsService.listAbsentToday to walk all of today's marks
+     *  and surface absent students for the manual-SMS picker. Returns
+     *  every period + section + class, hence the service-level dedupe
+     *  by studentId. */
+    List<StudentsAttendance> findByDate(LocalDate date);
+
     // Single day + specific period (upsert lookup)
     Optional<StudentsAttendance> findByClassIdAndSectionIdAndDateAndPeriodNumber(
             String classId, String sectionId, LocalDate date, int periodNumber);

@@ -16,6 +16,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { TenantFeatureService } from '../../../core/services/tenant-feature.service';
 import { SchoolClass, AcademicYear } from '../../../core/models';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -84,6 +85,7 @@ export class MarkAttendanceComponent implements OnInit {
   constructor(
     private api: ApiService,
     private snackBar: MatSnackBar,
+    public features: TenantFeatureService,
   ) {}
 
   ngOnInit(): void {
@@ -290,7 +292,16 @@ export class MarkAttendanceComponent implements OnInit {
       .subscribe({
         next: () => {
           this.isSaving = false;
-          this.snackBar.open('Attendance saved successfully', 'Close', { duration: 3000 });
+          // If SMS is live for this tenant AND the absence-alert trigger
+          // is enabled AND there were absentees, mention the SMS dispatch
+          // in the success message so the teacher knows parents will be
+          // notified. Otherwise just confirm the save.
+          const absentCount = this.summary.absent;
+          const showSms = this.features.absenceAlertSms() && absentCount > 0;
+          const msg = showSms
+            ? `Attendance saved. SMS dispatched to parents of ${absentCount} absent student${absentCount === 1 ? '' : 's'}.`
+            : 'Attendance saved successfully';
+          this.snackBar.open(msg, 'Close', { duration: showSms ? 5000 : 3000 });
         },
         error: (err) => {
           this.isSaving = false;

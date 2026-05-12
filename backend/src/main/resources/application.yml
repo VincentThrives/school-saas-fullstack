@@ -111,6 +111,29 @@ management:
     health:
       show-details: when-authorized
 
+# ── SMS module configuration ──────────────────────────────────────────
+# All real values come from environment variables on Render. The
+# global kill-switch (SMS_ENABLED) keeps the feature dormant until
+# you've registered DLT templates + MSG91 auth key. Even when enabled
+# globally, each tenant must be opted in by the SUPER_ADMIN — defence
+# in depth so a missing env var or wrong toggle can't accidentally
+# fire SMS or block expected ones.
+sms:
+  enabled: ${SMS_ENABLED:false}
+  cost-per-sms-inr: ${SMS_COST_PER_INR:0.25}
+  retry:
+    max-attempts: ${SMS_RETRY_MAX:3}
+    backoff-ms: ${SMS_RETRY_BACKOFF_MS:1000}
+  msg91:
+    auth-key: ${MSG91_AUTH_KEY:}
+    sender-id: ${MSG91_SENDER_ID:VTPLS}
+    base-url: ${MSG91_BASE_URL:https://api.msg91.com/api/v5}
+    templates:
+      absence-alert:   ${MSG91_TPL_ABSENCE_ALERT:}
+      result-combined: ${MSG91_TPL_RESULT_COMBINED:}
+      result-single:   ${MSG91_TPL_RESULT_SINGLE:}
+      custom-notice:   ${MSG91_TPL_CUSTOM_NOTICE:}
+
 ---
 # Test profile
 spring:

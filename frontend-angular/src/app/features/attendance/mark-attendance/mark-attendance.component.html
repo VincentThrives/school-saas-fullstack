@@ -192,6 +192,18 @@
     </div>
   </mat-card>
 
+  <!-- SMS-will-be-sent banner. Only renders when:
+       a) Tenant has SMS enabled, b) Absence-alert trigger is on, and
+       c) At least one student is currently marked absent. -->
+  <div class="sms-pre-banner"
+       *ngIf="features.absenceAlertSms() && studentsLoaded && summary.absent > 0">
+    <mat-icon>sms</mat-icon>
+    <span>
+      Parents of <strong>{{ summary.absent }}</strong>
+      absent student{{ summary.absent === 1 ? '' : 's' }} will receive an SMS alert when you save.
+    </span>
+  </div>
+
   <!-- Save Button -->
   <div class="save-section" *ngIf="studentsLoaded && students.length > 0">
     <button

@@ -1,0 +1,431 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+$gold-light: #E8C97A;
+
+.sms-view {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+// ── Status card ─────────────────────────────────────────────────
+.sv-status-card { padding: 24px; border-radius: 12px; }
+.sv-status-header {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+
+  mat-icon {
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
+    color: $gold-dark;
+    flex-shrink: 0;
+  }
+  h2 {
+    margin: 0 0 4px;
+    font-size: 1.2rem;
+    color: #1a1a1a;
+  }
+  p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.9rem;
+    a { color: $gold-dark; }
+  }
+}
+
+.sv-triggers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.sv-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  color: #6b7280;
+  font-size: 0.88rem;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: #9ca3af;
+  }
+  &--on {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #16a34a;
+    mat-icon { color: #16a34a; }
+  }
+}
+
+// ── Budget bar ──────────────────────────────────────────────────
+.sv-budget {
+  margin-top: 4px;
+}
+.sv-budget-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-bottom: 6px;
+  strong { color: #1a1a1a; font-weight: 700; }
+}
+.sv-budget-bar {
+  width: 100%;
+  height: 8px;
+  background: #f3f4f6;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.sv-budget-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+
+  &--ok       { background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%); }
+  &--warn     { background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%); }
+  &--critical { background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); }
+}
+
+// ── Generic card header ────────────────────────────────────────
+.sv-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+
+  mat-icon { color: $gold-dark; }
+  h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    flex: 1;
+  }
+}
+.sv-card-sub {
+  margin: 0 0 18px;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+// ── Today's absence picker card ────────────────────────────────
+// Sits below the Test SMS card and above the broadcast card. Visually
+// matches the other cards but adds a tabular picker with checkboxes
+// for the admin to review who gets an SMS today.
+.sv-absent-card {
+  padding: 24px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sv-absent-empty {
+  padding: 8px 0 4px;
+  button { font-weight: 700; mat-icon { margin-right: 6px; } }
+}
+.sv-absent-allpresent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  color: #6b7280;
+  mat-icon { color: #16a34a; font-size: 32px; width: 32px; height: 32px; }
+  p { margin: 0; }
+}
+.sv-absent-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 0.92rem;
+  color: #6b7280;
+  margin-bottom: 4px;
+  strong { color: #1a1a1a; font-weight: 700; }
+  .sv-summary-sep { color: #d1d5db; }
+  .sv-summary-warn strong { color: #d97706; }
+}
+.sv-absent-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+.sv-absent-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+
+  th, td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 0.92rem;
+    vertical-align: middle;
+  }
+  th {
+    color: #6b7280;
+    font-weight: 600;
+    font-size: 0.78rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: #fafafa;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .sv-th-check { width: 44px; }
+  tbody tr:hover { background: #fafafa; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(212, 168, 67, 0.1);
+    color: #B8860B;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.80em;
+  }
+}
+.sv-row--disabled td { color: #9ca3af; }
+.sv-row--disabled code { opacity: 0.55; }
+.sv-student-cell, .sv-parent-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  strong { font-weight: 600; color: #1a1a1a; }
+}
+.sv-warn-text {
+  color: #d97706;
+  font-style: italic;
+  font-size: 0.85em;
+}
+.sv-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.sv-chip-sent     { background: rgba(22, 163, 74, 0.12); color: #16a34a; }
+.sv-chip-pending  { background: rgba(212, 168, 67, 0.18); color: #B8860B; }
+.sv-chip-blocked  { background: rgba(220, 38, 38, 0.12); color: #dc2626; }
+.sv-absent-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+
+  button {
+    height: 44px;
+    font-weight: 700;
+    mat-icon { margin-right: 6px; }
+  }
+}
+
+// ── Broadcast / custom-notice card ─────────────────────────────
+// Sits between the Test SMS card and the audit log. Visually identical
+// to the surrounding cards so it reads as part of the same surface,
+// just with extra form controls and a different action verb.
+.sv-broadcast-card {
+  padding: 24px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sv-broadcast-audience {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+.sv-broadcast-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #6b7280;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.sv-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  // Checkboxes wrap nicely on narrow screens; on wide ones they line up
+  // horizontally so the picker stays compact.
+  mat-checkbox { line-height: 1.4; }
+}
+.sv-class-field {
+  width: 100%;
+  max-width: 360px;
+}
+.sv-broadcast-body {
+  width: 100%;
+  textarea { resize: vertical; min-height: 92px; }
+}
+.sv-broadcast-counter--near {
+  color: #d97706;       // amber once you're near the cap
+  font-weight: 600;
+}
+.sv-broadcast-actions {
+  display: flex;
+  justify-content: flex-end;
+
+  button {
+    height: 48px;
+    padding: 0 24px;
+    font-weight: 700;
+    mat-icon { margin-right: 6px; }
+  }
+}
+
+// ── Test SMS card ──────────────────────────────────────────────
+.sv-test-card { padding: 24px; border-radius: 12px; }
+.sv-test-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+
+  .sv-test-field {
+    flex: 1;
+    max-width: 320px;
+  }
+  button {
+    height: 52px;
+    padding: 0 24px;
+    font-weight: 700;
+
+    mat-icon { margin-right: 6px; }
+  }
+  @media (max-width: 600px) {
+    flex-direction: column;
+    .sv-test-field { max-width: 100%; }
+    button { width: 100%; }
+  }
+}
+.sv-inline-spinner {
+  display: inline-block;
+  margin-right: 6px;
+}
+
+// ── Audit log card ─────────────────────────────────────────────
+.sv-log-card { padding: 24px; border-radius: 12px; }
+.sv-refresh {
+  color: #6b7280;
+  &:hover { color: $gold-dark; }
+}
+.sv-log-loading {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
+}
+.sv-log-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 40px 24px;
+  color: #6b7280;
+  mat-icon {
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
+    color: #9ca3af;
+  }
+}
+
+.sv-log-table-wrap {
+  overflow-x: auto;
+}
+.sv-log-table {
+  width: 100%;
+  min-width: 720px;
+
+  th {
+    color: #6b7280;
+    font-weight: 600;
+    font-size: 0.78rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  td {
+    color: #1a1a1a;
+    font-size: 0.9rem;
+  }
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.86em;
+    color: #1f2937;
+  }
+}
+
+.sv-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+
+  &.st-sent      { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
+  &.st-delivered { background: rgba(34, 197, 94, 0.12);  color: #16a34a; }
+  &.st-failed    { background: rgba(239, 68, 68, 0.12);  color: #b91c1c; }
+  &.st-skipped   { background: rgba(245, 158, 11, 0.12); color: #b45309; }
+  &.st-pending   { background: rgba(107, 114, 128, 0.12); color: #6b7280; }
+}
+.sv-chip-tip {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 4px;
+  cursor: help;
+  mat-icon { font-size: 16px; width: 16px; height: 16px; color: #9ca3af; }
+}
+
+// ── Dark theme ─────────────────────────────────────────────────
+:host-context(body.dark-theme) {
+  .sv-status-card, .sv-test-card, .sv-broadcast-card, .sv-absent-card, .sv-log-card {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .sv-absent-table {
+    th { background: rgba(255, 255, 255, 0.04); color: rgba(255, 255, 255, 0.6); border-bottom-color: rgba(255, 255, 255, 0.12); }
+    td { color: #f5f5f5; border-bottom-color: rgba(255, 255, 255, 0.08); }
+    tbody tr:hover { background: rgba(255, 255, 255, 0.04); }
+    code { background: rgba(212, 168, 67, 0.18); color: #f6c969; }
+  }
+  .sv-absent-table-wrap { border-color: rgba(255, 255, 255, 0.12); }
+  .sv-row--disabled td { color: rgba(255, 255, 255, 0.45); }
+  .sv-absent-summary strong { color: #f5f5f5; }
+  .sv-student-cell strong, .sv-parent-cell strong { color: #f5f5f5; }
+  .sv-broadcast-label { color: rgba(255, 255, 255, 0.5); }
+  .sv-status-header h2, .sv-card-head h3 { color: #f5f5f5; }
+  .sv-status-header p, .sv-card-sub, .sv-log-empty, .sv-budget-line {
+    color: rgba(255, 255, 255, 0.6);
+  }
+  .sv-budget-bar { background: rgba(255, 255, 255, 0.08); }
+  .sv-trigger {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.6);
+    mat-icon { color: rgba(255, 255, 255, 0.45); }
+    &--on {
+      background: rgba(34, 197, 94, 0.18);
+      border-color: rgba(34, 197, 94, 0.4);
+      color: #4ade80;
+      mat-icon { color: #4ade80; }
+    }
+  }
+  .sv-log-table th { color: rgba(255, 255, 255, 0.6); }
+  .sv-log-table td { color: #f5f5f5; }
+  .sv-log-table code { color: rgba(255, 255, 255, 0.85); }
+  .sv-budget-line strong { color: #f5f5f5; }
+}

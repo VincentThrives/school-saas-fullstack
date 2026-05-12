@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 import { featureGuard } from './core/guards/feature.guard';
+import { smsFeatureGuard } from './core/guards/sms-feature.guard';
 import { UserRole } from './core/models';
 
 export const routes: Routes = [
@@ -706,6 +707,26 @@ export const routes: Routes = [
           import('./features/placeholder/placeholder.component').then(m => m.PlaceholderComponent),
         canActivate: [roleGuard],
         data: { roles: [UserRole.SUPER_ADMIN], title: 'Super Admin Settings' },
+      },
+      {
+        // Super Admin's SMS Control Panel — toggle SMS per tenant,
+        // set budgets, view platform-wide usage. Restricted via roleGuard
+        // so only SUPER_ADMIN can reach it.
+        path: 'superadmin/sms',
+        loadComponent: () =>
+          import('./features/super-admin/sms-control/sms-control.component').then(m => m.SmsControlComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SUPER_ADMIN], title: 'SMS Control' },
+      },
+      {
+        // Tenant SMS view (read-only settings status + audit log + test send).
+        // smsFeatureGuard redirects to /dashboard if Super Admin has SMS
+        // disabled for this tenant — making the whole feature invisible.
+        path: 'settings/sms',
+        loadComponent: () =>
+          import('./features/sms/sms-view/sms-view.component').then(m => m.SmsViewComponent),
+        canActivate: [smsFeatureGuard],
+        data: { title: 'SMS Notifications' },
       },
     ],
   },

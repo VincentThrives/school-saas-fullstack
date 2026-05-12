@@ -75,6 +75,15 @@ export interface TenantPublicInfo {
   status: string;
 }
 
+// Per-tenant feature toggles attached to /users/me response.
+// Used by TenantFeatureService to gate UI (sidebar, SMS pages, badges).
+export interface TenantFeatures {
+  smsEnabled: boolean;
+  smsAbsenceAlertEnabled: boolean;
+  smsResultPublishEnabled: boolean;
+  smsCustomNoticeEnabled: boolean;
+}
+
 // User
 export interface User {
   userId: string;
@@ -89,6 +98,10 @@ export interface User {
   isLocked: boolean;
   lastLoginAt?: string;
   createdAt?: string;
+
+  /** Feature flags scoped to the current user's tenant. Populated only
+   *  on /users/me (own profile), not on user-list endpoints. */
+  tenantFeatures?: TenantFeatures;
 }
 
 // Student

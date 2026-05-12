@@ -1,0 +1,189 @@
+<div class="sms-control">
+  <app-page-header
+    title="SMS Control"
+    subtitle="Enable SMS notifications per tenant. All changes save instantly.">
+  </app-page-header>
+
+  <!-- Summary strip -->
+  <div class="sc-summary">
+    <div class="sc-summary__card">
+      <mat-icon>school</mat-icon>
+      <div>
+        <strong>{{ totalEnabled }}</strong>
+        <span>SMS-enabled tenants</span>
+      </div>
+    </div>
+    <div class="sc-summary__card">
+      <mat-icon>account_balance_wallet</mat-icon>
+      <div>
+        <strong>₹{{ totalUsedThisMonth | number:'1.0-2' }}</strong>
+        <span>used this month (all tenants)</span>
+      </div>
+    </div>
+    <div class="sc-summary__card">
+      <mat-icon>group</mat-icon>
+      <div>
+        <strong>{{ tenants.length }}</strong>
+        <span>total tenants</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="sc-filters">
+    <mat-form-field appearance="outline" class="sc-search">
+      <mat-label>Search tenant</mat-label>
+      <mat-icon matPrefix>search</mat-icon>
+      <input matInput [(ngModel)]="searchQuery" placeholder="tenant id..."/>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="sc-filter">
+      <mat-label>Show</mat-label>
+      <select matNativeControl [(ngModel)]="filterMode">
+        <option value="all">All tenants</option>
+        <option value="enabled">SMS-enabled only</option>
+        <option value="disabled">SMS-disabled only</option>
+      </select>
+    </mat-form-field>
+
+    <button mat-stroked-button (click)="load()" [disabled]="isLoading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+
+    <button mat-flat-button color="primary" (click)="openEnableDialog()">
+      <mat-icon>add</mat-icon>
+      Enable for tenant
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div class="sc-loading" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <!-- Empty state -->
+  <div class="sc-empty" *ngIf="!isLoading && filtered.length === 0">
+    <mat-icon>info</mat-icon>
+    <p *ngIf="tenants.length === 0">No tenants have SMS settings yet. Click below to enable SMS for your first school.</p>
+    <p *ngIf="tenants.length > 0">No tenants match your filter.</p>
+    <button mat-flat-button color="primary" (click)="openEnableDialog()" *ngIf="tenants.length === 0">
+      <mat-icon>add</mat-icon>
+      Enable for tenant
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="sc-table-wrap" *ngIf="!isLoading && filtered.length > 0">
+    <table mat-table [dataSource]="filtered" class="sc-table">
+
+      <!-- Tenant column — show the school name as the primary label,
+           with the UUID as a small monospace subtitle for support / API
+           debugging. Falls back to the UUID alone if the name lookup
+           failed (e.g. tenant was deleted but settings row persists). -->
+      <ng-container matColumnDef="tenantId">
+        <th mat-header-cell *matHeaderCellDef>Tenant</th>
+        <td mat-cell *matCellDef="let t">
+          <div class="sc-tenant-cell">
+            <strong>{{ displayName(t.tenantId) }}</strong>
+            <code>{{ t.tenantId }}</code>
+          </div>
+        </td>
+      </ng-container>
+
+      <!-- Master toggle -->
+      <ng-container matColumnDef="enabled">
+        <th mat-header-cell *matHeaderCellDef>SMS</th>
+        <td mat-cell *matCellDef="let t">
+          <mat-slide-toggle
+            [checked]="t.enabled"
+            [disabled]="saving.has(t.tenantId)"
+            (change)="patch(t, { enabled: $event.checked })">
+          </mat-slide-toggle>
+        </td>
+      </ng-container>
+
+      <!-- Absence trigger -->
+      <ng-container matColumnDef="absenceAlert">
+        <th mat-header-cell *matHeaderCellDef>Absence</th>
+        <td mat-cell *matCellDef="let t">
+          <mat-checkbox
+            [checked]="t.absenceAlertEnabled"
+            [disabled]="!t.enabled || saving.has(t.tenantId)"
+            (change)="patch(t, { absenceAlertEnabled: $event.checked })">
+          </mat-checkbox>
+        </td>
+      </ng-container>
+
+      <!-- Result trigger -->
+      <ng-container matColumnDef="resultPublish">
+        <th mat-header-cell *matHeaderCellDef>Results</th>
+        <td mat-cell *matCellDef="let t">
+          <mat-checkbox
+            [checked]="t.resultPublishEnabled"
+            [disabled]="!t.enabled || saving.has(t.tenantId)"
+            (change)="patch(t, { resultPublishEnabled: $event.checked })">
+          </mat-checkbox>
+        </td>
+      </ng-container>
+
+      <!-- Custom trigger -->
+      <ng-container matColumnDef="customNotice">
+        <th mat-header-cell *matHeaderCellDef>Custom</th>
+        <td mat-cell *matCellDef="let t">
+          <mat-checkbox
+            [checked]="t.customNoticeEnabled"
+            [disabled]="!t.enabled || saving.has(t.tenantId)"
+            (change)="patch(t, { customNoticeEnabled: $event.checked })">
+          </mat-checkbox>
+        </td>
+      </ng-container>
+
+      <!-- Budget -->
+      <ng-container matColumnDef="budget">
+        <th mat-header-cell *matHeaderCellDef>Budget / month (₹)</th>
+        <td mat-cell *matCellDef="let t">
+          <input class="sc-budget-input" type="number" min="0" step="100"
+                 [value]="t.monthlyBudgetInr"
+                 [disabled]="!t.enabled || saving.has(t.tenantId)"
+                 (change)="saveBudget(t, $any($event.target).value)"/>
+        </td>
+      </ng-container>
+
+      <!-- Usage -->
+      <ng-container matColumnDef="usage">
+        <th mat-header-cell *matHeaderCellDef>Used this month</th>
+        <td mat-cell *matCellDef="let t">
+          <span class="sc-usage" [class.sc-usage--near]="t.costUsedThisMonth >= t.monthlyBudgetInr * 0.8">
+            ₹{{ t.costUsedThisMonth | number:'1.0-2' }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Updated at -->
+      <ng-container matColumnDef="updatedAt">
+        <th mat-header-cell *matHeaderCellDef>Last updated</th>
+        <td mat-cell *matCellDef="let t">{{ formatDate(t.updatedAt) }}</td>
+      </ng-container>
+
+      <!-- Row actions — delete removes the settings row entirely. Distinct
+           from flipping master toggle off (which keeps the row). -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="sc-actions-th">Actions</th>
+        <td mat-cell *matCellDef="let t" class="sc-actions-cell">
+          <button mat-icon-button
+                  class="sc-delete-btn"
+                  matTooltip="Delete SMS settings"
+                  [disabled]="saving.has(t.tenantId)"
+                  (click)="onDelete(t)">
+            <mat-icon>delete_outline</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+          [class.sc-row--disabled]="!row.enabled"></tr>
+    </table>
+  </div>
+</div>

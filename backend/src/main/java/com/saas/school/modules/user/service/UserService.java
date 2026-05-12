@@ -5,6 +5,8 @@ import com.saas.school.common.exception.BusinessException;
 import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.common.response.PageResponse;
 import com.saas.school.config.mongodb.TenantContext;
+import com.saas.school.modules.sms.model.TenantSmsSettings;
+import com.saas.school.modules.sms.repository.CentralTenantSmsSettingsStore;
 import com.saas.school.modules.user.dto.*;
 import com.saas.school.modules.user.model.User;
 import com.saas.school.modules.user.model.UserRole;
@@ -35,6 +37,10 @@ public class UserService {
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private AuditService auditService;
+    /** Reads from the central DB so tenant admins see the same row the
+     *  Super Admin writes. Required=false keeps the user module healthy
+     *  in environments where the SMS module is excluded. */
+    @Autowired(required = false) private CentralTenantSmsSettingsStore tenantSmsSettingsRepository;
 
     // ── List / Search ──────────────────────────────────────────────
 
@@ -365,7 +371,35 @@ public class UserService {
     // ── My Profile ────────────────────────────────────────────────
 
     public UserDto getMyProfile(String userId) {
-        return toDto(findUser(userId));
+        UserDto dto = toDto(findUser(userId));
+        // Attach per-tenant feature flags so the frontend can gate UI
+        // (e.g. hide the SMS section entirely when SMS is disabled for
+        // this school). Computed only on /me — list endpoints don't
+        // need it. Falls back to defaults if no settings doc exists.
+        dto.setTenantFeatures(currentTenantFeatures());
+        return dto;
+    }
+
+    /** Builds the {@link TenantFeaturesDto} for the current request's
+     *  tenant. Used by {@link #getMyProfile} and could be reused by
+     *  any future endpoint that needs to expose feature flags. */
+    private TenantFeaturesDto currentTenantFeatures() {
+        // The SMS repo is wired with required=false so this module
+        // still works in environments where the SMS module is removed
+        // — gracefully returns "all off" instead of crashing.
+        if (tenantSmsSettingsRepository == null) {
+            return new TenantFeaturesDto(false, false, false, false);
+        }
+        String tenantId = TenantContext.getTenantId();
+        TenantSmsSettings s = tenantSmsSettingsRepository.findByTenantId(tenantId).orElse(null);
+        if (s == null) {
+            return new TenantFeaturesDto(false, false, false, false);
+        }
+        return new TenantFeaturesDto(
+                s.isEnabled(),
+                s.isAbsenceAlertEnabled(),
+                s.isResultPublishEnabled(),
+                s.isCustomNoticeEnabled());
     }
 
     /**

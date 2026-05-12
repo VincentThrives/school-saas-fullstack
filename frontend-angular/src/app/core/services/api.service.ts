@@ -86,6 +86,102 @@ export interface PublishResultResult {
   publishedAt: string;
 }
 
+// ── SMS module DTOs ───────────────────────────────────────────────────
+
+/** Per-tenant SMS configuration. Returned by both tenant + super admin
+ *  endpoints (same shape, different mutate permissions). */
+export interface TenantSmsSettingsDto {
+  tenantId: string;
+  enabled: boolean;
+  absenceAlertEnabled: boolean;
+  resultPublishEnabled: boolean;
+  customNoticeEnabled: boolean;
+  monthlyBudgetInr: number;
+  costUsedThisMonth: number;
+  costMonth?: string;
+  notifyAdminOnFailure: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+/** Body for PUT /super/sms/tenants/{tenantId} — every field optional,
+ *  only present ones get applied so the UI can do per-toggle patches. */
+export interface UpdateTenantSmsSettingsRequest {
+  enabled?: boolean;
+  absenceAlertEnabled?: boolean;
+  resultPublishEnabled?: boolean;
+  customNoticeEnabled?: boolean;
+  monthlyBudgetInr?: number;
+  notifyAdminOnFailure?: boolean;
+}
+
+/** One value of the audience picker. Multi-select — the broadcast goes
+ *  to the UNION of every picked audience, deduped by phone downstream. */
+export type SmsBroadcastAudience = 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' | 'CLASS';
+
+/** Body for POST /api/v1/sms/custom-notice — the school-admin broadcast.
+ *  At least one audience required; classId is only used when 'CLASS' is
+ *  among the chosen audiences. Message is the free-text body, capped at
+ *  300 chars so it fits inside the DLT-approved template body. */
+export interface SendCustomNoticeRequest {
+  audiences: SmsBroadcastAudience[];
+  classId?: string;
+  message: string;
+}
+
+/** Ack returned from /sms/custom-notice — used to show
+ *  "queued to N recipients across audiences X, Y" in the success
+ *  snackbar. recipientCount is post-userId-dedupe; phone-level dedupe
+ *  may trim slightly further before the actual SMS goes out. */
+export interface SendCustomNoticeResponse {
+  audiences: string[];
+  recipientCount: number;
+  dispatchedAt: string;
+}
+
+/** One row in the "Send today's absent SMS" picker. The backend lists
+ *  every student marked ABSENT in any of today's attendance batches,
+ *  deduped by studentId. `alreadySent` is pre-set by the backend when
+ *  an SMS audit row already exists for this student today (so the UI
+ *  pre-unchecks them and shows a badge). */
+export interface AbsentTodayDto {
+  studentId: string;
+  studentName: string;
+  admissionNumber?: string;
+  classLabel?: string;
+  parentName?: string;
+  parentPhoneMasked?: string;
+  absentPeriods: number[];
+  dayWise: boolean;
+  hasValidPhone: boolean;
+  alreadySent: boolean;
+}
+
+/** Ack from POST /sms/send-absent-today — three counters so the snackbar
+ *  can be specific about what happened. */
+export interface SendAbsentTodayResponse {
+  queued: number;
+  skippedAlreadySent: number;
+  skippedNoPhone: number;
+  dispatchedAt: string;
+}
+
+/** Row in the SMS audit log table. */
+export interface SmsAuditLogDto {
+  id: string;
+  tenantId: string;
+  trigger: 'ABSENCE_ALERT' | 'RESULT_COMBINED' | 'RESULT_SINGLE' | 'CUSTOM_NOTICE';
+  recipientPhone: string;       // masked for tenant view, full for super admin
+  recipientRole?: string;
+  body?: string;
+  status: 'PENDING' | 'SENT' | 'DELIVERED' | 'FAILED' | 'SKIPPED';
+  errorMessage?: string;
+  costInr: number;
+  createdAt: string;
+  sentAt?: string;
+  deliveredAt?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   // Resolved at build time from environment files. Local dev / Netlify use
@@ -621,6 +717,87 @@ export class ApiService {
       .set('size', size)
       .set('sentByMe', true);
     return this.http.get<ApiResponse<any>>(`${this.API}/notifications`, { params });
+  }
+
+  // ── SMS Notifications (tenant-side, read-only) ────────────────────────
+  /** Tenant's own SMS settings — read-only for school admin. */
+  getMySmsSettings(): Observable<ApiResponse<TenantSmsSettingsDto>> {
+    return this.http.get<ApiResponse<TenantSmsSettingsDto>>(`${this.API}/sms/settings`);
+  }
+
+  /** Paginated SMS audit log for the current tenant. Phone numbers are
+   *  masked in the response — admins see enough to identify the parent
+   *  without exposing full phones in screenshots. */
+  getMySmsAuditLogs(page = 0, size = 25): Observable<ApiResponse<PaginatedResponse<SmsAuditLogDto>>> {
+    const params = new HttpParams().set('page', page).set('size', size);
+    return this.http.get<ApiResponse<PaginatedResponse<SmsAuditLogDto>>>(
+      `${this.API}/sms/audit-logs`, { params });
+  }
+
+  /** Test SMS to admin's own phone. Bypasses trigger-enabled check but
+   *  still respects tenant-enabled + budget. */
+  sendTestSms(phone: string): Observable<ApiResponse<SmsAuditLogDto>> {
+    return this.http.post<ApiResponse<SmsAuditLogDto>>(`${this.API}/sms/test`, { phone });
+  }
+
+  /** Broadcast a custom SMS to a chosen audience. The backend fans out
+   *  async — this Observable resolves once the queue accepts the batch
+   *  (not when delivery completes). Watch the audit log for delivery
+   *  status row by row. Returns the post-dedupe recipient count so the
+   *  UI can confirm the audience size in the success message. */
+  sendCustomNoticeSms(req: SendCustomNoticeRequest): Observable<ApiResponse<SendCustomNoticeResponse>> {
+    return this.http.post<ApiResponse<SendCustomNoticeResponse>>(
+      `${this.API}/sms/custom-notice`, req);
+  }
+
+  /** Build the picker for the "Send today's absent SMS" flow. Returns
+   *  every student absent in any attendance batch today, deduped by
+   *  studentId, with class label + masked parent phone + already-sent
+   *  flag for idempotency display. */
+  listAbsentToday(): Observable<ApiResponse<AbsentTodayDto[]>> {
+    return this.http.get<ApiResponse<AbsentTodayDto[]>>(`${this.API}/sms/absent-today`);
+  }
+
+  /** Send absence-alert SMS for the picked studentIds. The backend
+   *  idempotency-guards against rows already sent today, so a
+   *  double-click is safe — it won't re-send. Returns the three
+   *  counters (queued / alreadySent / noPhone) for snackbar feedback. */
+  sendAbsentTodaySms(studentIds: string[]): Observable<ApiResponse<SendAbsentTodayResponse>> {
+    return this.http.post<ApiResponse<SendAbsentTodayResponse>>(
+      `${this.API}/sms/send-absent-today`, { studentIds });
+  }
+
+  // ── SMS Notifications (super admin — full control) ────────────────────
+  /** List every tenant with their SMS config — drives the super admin table. */
+  getAllTenantSmsSettings(): Observable<ApiResponse<TenantSmsSettingsDto[]>> {
+    return this.http.get<ApiResponse<TenantSmsSettingsDto[]>>(`${this.API}/super/sms/tenants`);
+  }
+
+  /** One tenant's SMS config — for the per-tenant edit drawer. */
+  getTenantSmsSettings(tenantId: string): Observable<ApiResponse<TenantSmsSettingsDto>> {
+    return this.http.get<ApiResponse<TenantSmsSettingsDto>>(
+      `${this.API}/super/sms/tenants/${tenantId}`);
+  }
+
+  /** Patch a tenant's SMS settings. Only fields present in the payload
+   *  are applied — supports per-checkbox toggles without resending all. */
+  updateTenantSmsSettings(
+    tenantId: string,
+    patch: UpdateTenantSmsSettingsRequest,
+  ): Observable<ApiResponse<TenantSmsSettingsDto>> {
+    return this.http.put<ApiResponse<TenantSmsSettingsDto>>(
+      `${this.API}/super/sms/tenants/${tenantId}`, patch);
+  }
+
+  /** Hard-delete a tenant's SMS settings row. Distinct from "set enabled
+   *  to false" — DELETE removes the document so the tenant returns to the
+   *  default "no SMS settings exist" state. Used by the Super Admin to
+   *  off-board a school or clean up orphaned rows whose tenant was
+   *  already deleted. Idempotent — backend returns 200 even if the row
+   *  didn't exist. */
+  deleteTenantSmsSettings(tenantId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(
+      `${this.API}/super/sms/tenants/${tenantId}`);
   }
 
   // ── Publish Result ────────────────────────────────────────────────────

@@ -1,0 +1,227 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.sms-control {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+}
+
+// ── Summary cards ──────────────────────────────────────────────
+.sc-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+
+  @media (max-width: 720px) { grid-template-columns: 1fr; }
+}
+.sc-summary__card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+  mat-icon {
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+    color: $gold-dark;
+  }
+  strong {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1.1;
+  }
+  span {
+    font-size: 0.85rem;
+    color: #6b7280;
+  }
+}
+
+// ── Filters row ────────────────────────────────────────────────
+.sc-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+
+  .sc-search { flex: 1; min-width: 240px; }
+  .sc-filter { width: 220px; }
+
+  button {
+    height: 44px;
+    border-radius: 8px;
+    mat-icon { margin-right: 4px; }
+  }
+}
+
+// ── Loading + empty states ────────────────────────────────────
+.sc-loading {
+  display: flex; justify-content: center; padding: 48px 0;
+}
+.sc-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 60px 24px;
+  background: #fafafa;
+  border: 1px dashed #d1d5db;
+  border-radius: 10px;
+  color: #6b7280;
+
+  mat-icon { font-size: 32px; width: 32px; height: 32px; color: $gold; }
+  p { margin: 0; max-width: 380px; text-align: center; }
+}
+
+// ── Table ─────────────────────────────────────────────────────
+.sc-table-wrap {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.sc-table {
+  width: 100%;
+  min-width: 900px;
+
+  th {
+    color: #6b7280;
+    font-weight: 600;
+    font-size: 0.78rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: #fafafa;
+  }
+  td {
+    color: #1a1a1a;
+    font-size: 0.92rem;
+    vertical-align: middle;
+  }
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(212, 168, 67, 0.1);
+    color: $gold-dark;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+}
+.sc-row--disabled td {
+  color: #9ca3af;
+  code { opacity: 0.6; }
+}
+
+// Tenant cell — primary line is the school name, sub-line is the raw
+// tenantId in monospace for support / API debugging. Stacked so the
+// table reads naturally even with long names.
+.sc-tenant-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 220px;
+
+  strong {
+    font-weight: 600;
+    color: #1a1a1a;
+    font-size: 0.95rem;
+    line-height: 1.2;
+  }
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: #9ca3af;
+    background: transparent;
+    padding: 0;
+    line-height: 1.2;
+  }
+}
+.sc-row--disabled .sc-tenant-cell {
+  strong { color: #9ca3af; }
+}
+
+:host-context(body.dark-theme) .sc-tenant-cell {
+  strong { color: #f5f5f5; }
+  code   { color: rgba(255, 255, 255, 0.4); }
+}
+
+.sc-budget-input {
+  width: 100px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.92rem;
+  text-align: right;
+  font-family: inherit;
+  color: inherit;
+  background: #fff;
+
+  &:focus {
+    outline: none;
+    border-color: $gold;
+    box-shadow: 0 0 0 3px rgba(212, 168, 67, 0.2);
+  }
+  &:disabled {
+    background: #f3f4f6;
+    color: #9ca3af;
+  }
+}
+
+.sc-usage {
+  font-variant-numeric: tabular-nums;
+  color: #6b7280;
+  &--near { color: #d97706; font-weight: 600; }
+}
+
+// Actions column — sized snug so the trash icon doesn't push the row taller
+// than the toggle/checkbox rows. Keep the column compact and right-aligned
+// so it reads as "row commands" rather than data.
+.sc-actions-th,
+.sc-actions-cell {
+  width: 80px;
+  text-align: center;
+}
+.sc-delete-btn {
+  color: #9ca3af;
+  transition: color 0.15s ease;
+  &:hover:not([disabled]) { color: #dc2626; }   // red-600 on hover
+  &:focus-visible        { color: #dc2626; outline: none; }
+}
+
+// ── Dark theme ─────────────────────────────────────────────────
+:host-context(body.dark-theme) {
+  .sc-summary__card {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+    strong { color: #f5f5f5; }
+    span { color: rgba(255, 255, 255, 0.6); }
+  }
+  .sc-table-wrap {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+  .sc-table {
+    th { background: rgba(255, 255, 255, 0.04); color: rgba(255, 255, 255, 0.6); }
+    td { color: #f5f5f5; }
+  }
+  .sc-empty {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.6);
+  }
+  .sc-budget-input {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #f5f5f5;
+  }
+  .sc-delete-btn {
+    color: rgba(255, 255, 255, 0.45);
+    &:hover:not([disabled]) { color: #f87171; }    // red-400 in dark mode
+    &:focus-visible        { color: #f87171; }
+  }
+}

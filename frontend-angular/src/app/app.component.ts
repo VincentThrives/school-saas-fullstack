@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
 import { PushService } from './core/services/push.service';
+import { TenantFeatureService } from './core/services/tenant-feature.service';
 import { distinctUntilChanged } from 'rxjs/operators';
 
 @Component({
@@ -17,6 +18,7 @@ export class AppComponent implements OnInit {
   constructor(
     private auth: AuthService,
     private push: PushService,
+    private features: TenantFeatureService,
   ) {}
 
   ngOnInit(): void {
@@ -26,13 +28,23 @@ export class AppComponent implements OnInit {
     //
     // PushService internally no-ops on non-native platforms, so the
     // browser/Netlify build is unaffected by this hook.
+    //
+    // We also hydrate TenantFeatureService here — when a token appears
+    // (fresh login or page reload with stored token) we fetch /users/me
+    // so the per-tenant SMS flags are ready before any guard or UI
+    // template reads them. When the token disappears (logout), the
+    // feature flags are reset to defaults (everything off).
     this.auth.token
       .pipe(distinctUntilChanged())
       .subscribe((token) => {
         if (token) {
           this.push.init();
+          // Best-effort fetch — if it fails (no network, expired token,
+          // etc.) the feature flags stay at safe defaults.
+          this.features.refresh().subscribe({ error: () => { /* swallow */ } });
         } else {
           this.push.unregister();
+          this.features.resetToDefaults();
         }
       });
   }

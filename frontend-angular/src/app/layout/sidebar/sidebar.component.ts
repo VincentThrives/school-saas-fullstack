@@ -11,6 +11,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { Subject, takeUntil } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ApiService } from '../../core/services/api.service';
+import { TenantFeatureService } from '../../core/services/tenant-feature.service';
 import { UserRole, FeatureKey, User, AcademicYear } from '../../core/models';
 
 interface MenuItem {
@@ -60,7 +61,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
   constructor(
     public authService: AuthService,
     private apiService: ApiService,
-    private router: Router
+    private router: Router,
+    public features: TenantFeatureService,
   ) {}
 
   ngOnInit(): void {
@@ -176,6 +178,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'Dashboard', path: '/superadmin/dashboard', icon: 'dashboard' },
         { title: 'Tenants', path: '/superadmin/tenants', icon: 'business' },
         { title: 'Feature Management', path: '/superadmin/features', icon: 'toggle_on' },
+        { title: 'SMS Control', path: '/superadmin/sms', icon: 'sms' },
         { title: 'Templates', path: '/superadmin/templates', icon: 'bookmark' },
         { title: 'Audit Logs', path: '/superadmin/audit-logs', icon: 'description' },
         { title: 'Settings', path: '/superadmin/settings', icon: 'settings' },
@@ -240,6 +243,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
         },
         { title: 'Events', path: '/events', icon: 'event', feature: 'events' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications' },
+        // SMS Notifications — only visible when Super Admin has enabled
+        // SMS for this tenant. TenantFeatureService.smsEnabled() is a
+        // signal that re-evaluates on every change-detection pass, so
+        // the menu item appears/disappears within seconds of a toggle
+        // (plus a page reload). The smsFeatureGuard re-enforces this
+        // at route entry as defence in depth.
+        ...(this.features.smsEnabled() ? [
+          { title: 'SMS Notifications', path: '/settings/sms', icon: 'sms' } as MenuItem,
+        ] : []),
         // { title: 'WhatsApp', path: '/whatsapp', icon: 'chat', feature: 'whatsapp' },
         // { title: 'ID Cards', path: '/id-cards', icon: 'badge', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
         { title: 'Syllabus Tracker', path: '/syllabus', icon: 'menu_book', feature: 'syllabus' },

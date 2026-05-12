@@ -4,13 +4,17 @@ import com.saas.school.common.audit.AuditService;
 import com.saas.school.modules.attendance.dto.*;
 import com.saas.school.modules.attendance.model.StudentsAttendance;
 import com.saas.school.modules.attendance.repository.StudentsAttendanceRepository;
+import com.saas.school.modules.classes.model.SchoolClass;
 import com.saas.school.modules.classes.model.Subject;
+import com.saas.school.modules.classes.repository.SchoolClassRepository;
 import com.saas.school.modules.classes.repository.SubjectRepository;
 import com.saas.school.modules.event.model.SchoolEvent;
 import com.saas.school.modules.event.repository.SchoolEventRepository;
 import com.saas.school.modules.notification.model.Notification;
 import com.saas.school.modules.notification.service.NotificationRuleEngine;
 import com.saas.school.modules.notification.service.NotificationRuleEngine.FirePayload;
+import com.saas.school.modules.sms.model.SmsTrigger;
+import com.saas.school.modules.sms.service.SmsService;
 import com.saas.school.modules.student.model.Student;
 import com.saas.school.modules.student.repository.StudentRepository;
 import com.saas.school.modules.teacher.model.Teacher;
@@ -36,10 +40,12 @@ public class AttendanceService {
     @Autowired private StudentsAttendanceRepository batchRepository;
     @Autowired private TimetableRepository timetableRepository;
     @Autowired private SubjectRepository subjectRepository;
+    @Autowired private SchoolClassRepository schoolClassRepository;
     @Autowired private TeacherRepository teacherRepository;
     @Autowired private SchoolEventRepository eventRepository;
     @Autowired private StudentRepository studentRepository;
     @Autowired private NotificationRuleEngine ruleEngine;
+    @Autowired private SmsService smsService;
     @Autowired private AuditService auditService;
 
     // ── Batch attendance (1 document per class+section+date+period) ──
@@ -98,13 +104,22 @@ public class AttendanceService {
                         + " period=" + period + " students=" + entries.size());
 
         // Fire ABSENCE_ALERT for each absent student. Idempotent per (studentId, date).
-        fireAbsenceAlerts(entries, req.getDate());
+        // Pass the whole record so the SMS body can include class + subject
+        // context (var2 = class name, var3 = date + subject) rather than
+        // placeholder text.
+        fireAbsenceAlerts(record, req.getDate());
         return record;
     }
 
-    private void fireAbsenceAlerts(List<StudentsAttendance.StudentEntry> entries, LocalDate date) {
-        if (entries == null || date == null) return;
+    private void fireAbsenceAlerts(StudentsAttendance batch, LocalDate date) {
+        if (batch == null || batch.getEntries() == null || date == null) return;
+        List<StudentsAttendance.StudentEntry> entries = batch.getEntries();
         String dateKey = date.toString();
+
+        // Pre-resolve class + subject names ONCE per batch (not per student)
+        // so we don't hammer Mongo for every absence in the same period.
+        String classLabel = resolveClassLabel(batch.getClassId(), batch.getSectionId());
+        String subjectLabel = resolveSubjectLabel(batch.getSubjectId());
         for (var e : entries) {
             if (!"ABSENT".equalsIgnoreCase(e.getStatus())) continue;
             Student stu = studentRepository.findByStudentIdAndDeletedAtIsNull(e.getStudentId()).orElse(null);
@@ -135,6 +150,24 @@ public class AttendanceService {
                     .fallback("Absent today",
                             "Dear Parent, " + name + " was marked absent on " + friendlyDate + ".");
             ruleEngine.fire("ABSENCE_ALERT", payload);
+
+            // SMS dispatch was intentionally REMOVED from this loop.
+            //
+            // Old behaviour: every attendance save fanned out SMS immediately.
+            // A teacher saving 6 periods caused 6 SMS bursts; a parent of a
+            // child absent in 3 periods got 3 SMSes the same day. Costly
+            // and spammy.
+            //
+            // New behaviour: SMS is sent ONLY when the school admin clicks
+            // "Send today's absence alerts" on the SMS Notifications page.
+            // That endpoint (POST /api/v1/sms/send-absent-today) walks
+            // today's absences, dedupes by student, idempotency-guards
+            // via the audit log, and fires one SMS per parent for the day.
+            //
+            // FCM push above STILL fires immediately on save — push is
+            // free, instant, and good UX for parents using the app.
+            log.debug("Marked absent (no SMS — manual dispatch only): studentId={} class={} date={} subject={}",
+                    e.getStudentId(), classLabel, friendlyDate, subjectLabel);
         }
     }
 
@@ -250,5 +283,60 @@ public class AttendanceService {
         summary.setHalfDay(0);
         summary.setAttendancePercentage(0);
         return summary;
+    }
+
+    // ── SMS variable helpers ──────────────────────────────────────
+
+    /**
+     * Builds a human-friendly class label for the absence-alert var2 slot,
+     * e.g. {@code "Class 10-A"}. The SchoolClass document holds the class
+     * name and a list of sections; section name is appended when we can
+     * locate the section by id. Returns {@code null} when neither piece
+     * resolves so the caller falls back to a safe placeholder rather than
+     * sending a blank variable.
+     */
+    private String resolveClassLabel(String classId, String sectionId) {
+        if (classId == null || classId.isBlank()) return null;
+        try {
+            SchoolClass sc = schoolClassRepository.findById(classId).orElse(null);
+            if (sc == null) return null;
+            String className = sc.getName() != null ? sc.getName().trim() : "";
+            String sectionName = null;
+            if (sectionId != null && sc.getSections() != null) {
+                for (SchoolClass.Section sec : sc.getSections()) {
+                    if (sec != null && sectionId.equals(sec.getSectionId())) {
+                        sectionName = sec.getName();
+                        break;
+                    }
+                }
+            }
+            if (className.isEmpty() && sectionName == null) return null;
+            if (sectionName == null || sectionName.isBlank()) return className;
+            if (className.isEmpty()) return "Section " + sectionName;
+            return className + "-" + sectionName;
+        } catch (Exception e) {
+            log.warn("resolveClassLabel failed for classId={} sectionId={}: {}",
+                    classId, sectionId, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Returns the subject's display name for the absence-alert var3 slot,
+     * or {@code null} when the attendance batch has no subject (day-wise
+     * marking) or the subject doc isn't found. Caller appends to the date.
+     */
+    private String resolveSubjectLabel(String subjectId) {
+        if (subjectId == null || subjectId.isBlank()) return null;
+        try {
+            Subject sub = subjectRepository.findById(subjectId).orElse(null);
+            if (sub == null) return null;
+            String name = sub.getName();
+            return (name == null || name.isBlank()) ? null : name.trim();
+        } catch (Exception e) {
+            log.warn("resolveSubjectLabel failed for subjectId={}: {}",
+                    subjectId, e.getMessage());
+            return null;
+        }
     }
 }
