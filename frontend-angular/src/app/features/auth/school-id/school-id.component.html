@@ -37,9 +37,8 @@
   <!-- ───────── Hero (functional form lives here) ───────── -->
   <section id="hero" class="lp__hero" (mousemove)="onHeroMouseMove($event)">
     <div class="lp__hero-inner">
-      <span class="lp__hero-eyebrow">Multi-tenant school management SaaS</span>
 
-      <h1 class="lp__hero-title">
+      <h1 class="lp__hero-title" style="display:none;">
         <span class="lp__letter" *ngFor="let ch of titleLetters; let i = index"
               [style.animation-delay.ms]="i * 50"
               [class.lp__letter--space]="ch === ' '">
@@ -47,11 +46,12 @@
         </span>
       </h1>
 
-      <p class="lp__hero-tag">Namma Vidyalaya, reimagined for India.</p>
-
-      <!-- Functional School ID form — preserved from the original component -->
+      <!-- Functional School ID form — preserved from the original component.
+           Tagline moved INSIDE the card as the headline so the card reads
+           as a self-contained branded panel on the dark hero. -->
       <mat-card class="lp__form-card">
         <mat-card-content class="lp__form-content">
+          <p class="lp__form-tag">Namma Vidyalaya</p>
           <p class="lp__form-prompt">Sign in with your school ID to continue</p>
 
           <div class="lp__alert" *ngIf="errorMessage">
@@ -93,8 +93,10 @@
         </mat-card-content>
       </mat-card>
 
-      <!-- Trust strip -->
-      <div class="lp__trust">
+      <!-- Trust strip — hidden so the login card stays the sole content
+           of the hero and centers cleanly on the viewport. Compliance
+           pills still live further down the landing page. -->
+      <div class="lp__trust" style="display:none;">
         <span class="lp__pill"><mat-icon>verified</mat-icon> DLT Compliant</span>
         <span class="lp__pill"><mat-icon>shield</mat-icon> TRAI Approved</span>
         <span class="lp__pill"><mat-icon>groups</mat-icon> Multi-tenant SaaS</span>

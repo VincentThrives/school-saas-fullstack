@@ -152,7 +152,13 @@ $card-hover:  rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 130px 24px 80px;
+  // Tighter top padding now that the eyebrow + animated title were
+  // removed; the card itself carries the visual weight, so the hero
+  // can collapse closer to the navbar and the form sits vertically
+  // centered on most screens. 90px keeps the sticky nav from
+  // overlapping the card top on small heights.
+  padding: 90px 24px 48px;
+  @media (max-width: 540px) { padding: 72px 16px 32px; }
 }
 .lp__hero-inner {
   width: 100%;
@@ -210,42 +216,106 @@ $card-hover:  rgba(255, 255, 255, 0.06);
 }
 
 // ── Functional form card ────────────────────────────────────────
+// White card that sits on the dark hero — bright, highlighted, draws
+// the eye immediately. Heavy gold-tinted glow + subtle gold ring
+// borrow the brand colour without overwhelming. All in-card text
+// switches to dark ink so it stays legible against white.
 .lp__form-card {
-  background: $card !important;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid $line;
-  border-radius: 16px !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(212, 168, 67, 0.06);
+  background: #ffffff !important;
+  border: 1px solid rgba(212, 168, 67, 0.45);
+  border-radius: 18px !important;
+  // Layered shadow: a soft dark drop for depth on the hero bg, and
+  // a wide gold halo that makes the card feel "lit" against the
+  // dark page. The :before pseudo below adds a subtle outer aura.
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(212, 168, 67, 0.20),
+    0 0 40px rgba(212, 168, 67, 0.18);
   max-width: 520px;
   margin: 0 auto 32px;
   opacity: 0;
   animation: fadeUp 0.7s ease 0.85s forwards;
+  position: relative;
+  overflow: visible;
+
+  // Outer aura — a wider, softer gold ring behind the card for the
+  // "highlighted" feel. Pointer-events off so it never blocks input.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -14px;
+    border-radius: 24px;
+    background: radial-gradient(closest-side, rgba(212, 168, 67, 0.22), transparent 70%);
+    filter: blur(8px);
+    z-index: -1;
+    pointer-events: none;
+  }
 }
 .lp__form-content {
-  padding: 28px !important;
-  @media (max-width: 540px) { padding: 20px !important; }
+  padding: 32px !important;
+  @media (max-width: 540px) { padding: 22px !important; }
+}
+// In-card brand headline — sits above the prompt. The card's hero
+// title: bold, large, dark gold to tie back to the page accent. This
+// is the only big text in the card now (after the standalone tagline
+// was removed), so it carries the brand presence.
+.lp__form-tag {
+  margin: 0 0 6px;
+  color: $gold-dark;
+  font-size: clamp(1.7rem, 4.5vw, 2.2rem);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-align: center;
+  line-height: 1.15;
 }
 .lp__form-prompt {
-  margin: 0 0 18px;
-  color: $ink-muted;
+  margin: 0 0 20px;
+  color: #4b5563;            // slate-600 — readable on white
   font-size: 0.95rem;
+  font-weight: 500;
   text-align: center;
 }
 .lp__alert {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 14px; margin-bottom: 14px;
-  background: rgba(220, 38, 38, 0.12);
-  border: 1px solid rgba(220, 38, 38, 0.32);
-  color: #fca5a5;
+  background: #fef2f2;          // light red bg, legible on white
+  border: 1px solid #fecaca;
+  color: #b91c1c;               // red-700
   border-radius: 10px;
   font-size: 0.9rem;
-  mat-icon { color: #fca5a5; }
+  mat-icon { color: #dc2626; }
 }
 .lp__form { display: flex; flex-direction: column; gap: 14px; }
-.lp__field { width: 100%; }
+.lp__field {
+  width: 100%;
+
+  // The mat-form-field's child text + outline need explicit overrides
+  // because the dark global theme paints them white otherwise. Without
+  // these the input would look invisible inside a white card.
+  ::ng-deep {
+    .mat-mdc-text-field-wrapper { background: #fff; }
+    .mdc-notched-outline__leading,
+    .mdc-notched-outline__notch,
+    .mdc-notched-outline__trailing { border-color: rgba(0, 0, 0, 0.18) !important; }
+    .mdc-text-field--focused .mdc-notched-outline__leading,
+    .mdc-text-field--focused .mdc-notched-outline__notch,
+    .mdc-text-field--focused .mdc-notched-outline__trailing {
+      border-color: #{$gold-dark} !important;
+      border-width: 2px !important;
+    }
+    .mat-mdc-floating-label,
+    .mdc-floating-label { color: #6b7280 !important; }
+    .mdc-text-field--focused .mat-mdc-floating-label,
+    .mdc-text-field--focused .mdc-floating-label { color: #{$gold-dark} !important; }
+    input.mat-mdc-input-element {
+      color: #111827 !important;     // gray-900
+      caret-color: #{$gold-dark} !important;
+    }
+    input::placeholder { color: #9ca3af !important; }
+  }
+}
 .lp__field-icon {
-  color: $gold-light;
+  color: $gold-dark !important;     // darker gold for contrast on white
   margin-right: 8px;
 }
 .lp__submit {
@@ -260,24 +330,24 @@ $card-hover:  rgba(255, 255, 255, 0.06);
 
   &:hover:not([disabled]) {
     transform: translateY(-1px);
-    box-shadow: 0 12px 32px rgba(212, 168, 67, 0.42);
+    box-shadow: 0 12px 32px rgba(212, 168, 67, 0.55);
   }
   &[disabled] {
-    background: rgba(255, 255, 255, 0.1) !important;
-    color: $ink-dim !important;
+    background: #f3f4f6 !important;   // light gray — visible on white
+    color: #9ca3af !important;
   }
 }
 .lp__spinner ::ng-deep circle { stroke: #0D0D0D !important; }
 .lp__form-foot {
-  margin: 16px 0 0;
+  margin: 18px 0 0;
   text-align: center;
-  color: $ink-muted;
+  color: #6b7280;            // gray-500 for the muted label on white
   font-size: 0.875rem;
 }
 .lp__link {
-  color: $gold-light;
+  color: $gold-dark;          // dark gold reads well on white
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
   margin-left: 4px;
   &:hover { text-decoration: underline; }
 }
