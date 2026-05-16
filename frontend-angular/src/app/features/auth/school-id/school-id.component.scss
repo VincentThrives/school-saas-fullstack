@@ -761,3 +761,68 @@ $card-hover:  rgba(255, 255, 255, 0.06);
     text-align: center;
   }
 }
+
+// Mobile-only "Powered by" credit pinned to the bottom of the screen.
+// Hidden on desktop (the full landing footer already carries this).
+// position: fixed anchors to the viewport rather than the hero
+// container — so the credit always sits at the screen bottom on a
+// phone regardless of how the card flexes vertically. Tiny font,
+// muted ink, gold company name. Pointer-events left default so the
+// admin can't accidentally trigger unintended behaviour by tapping it.
+.lp__mobile-credit {
+  display: none;
+}
+@media (max-width: 768px) {
+  .lp__mobile-credit {
+    display: block;
+    position: fixed;
+    left: 0; right: 0;
+    bottom: 14px;
+    text-align: center;
+    color: $ink-dim;
+    font-size: 0.72rem;
+    letter-spacing: 0.5px;
+    margin: 0;
+    padding: 0 16px;
+    z-index: 5;
+    // Doesn't catch taps — purely decorative. Keeps the keyboard's
+    // overlay from feeling janky if a user focuses the input.
+    pointer-events: none;
+    strong {
+      color: $gold-light;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+    }
+  }
+}
+
+// ── Mobile-only view: login card + minimal nav ────────────────
+// On phones (and the Capacitor APK, which is always phone-width) we
+// strip everything that isn't directly part of the sign-in flow:
+//
+//   - All marketing sections below the hero (features, how, showcase,
+//     about, footer) — they're useful on a desktop pitch landing page
+//     but redundant on the phone where the user just wants to log in.
+//   - The nav menu links (Features / How it Works / About / Sign In)
+//     — they scroll to sections that no longer exist on mobile, so
+//     they'd just produce dead taps.
+//
+// The brand logo + name on the left stays. The hero (with the login
+// card) becomes the entire page. Marketing content reappears the
+// moment the viewport crosses 768px, so a tablet or rotated phone
+// still gets the full landing experience.
+@media (max-width: 768px) {
+  .lp__nav-links {
+    display: none !important;
+  }
+  .lp__features,
+  .lp__how,
+  .lp__showcase,
+  .lp__about,
+  .lp__footer {
+    display: none !important;
+  }
+  // Hero already has its own mobile padding tuning above; the page
+  // collapses to a single screen: nav-brand at top, login card
+  // centered, nothing below. Clean, focused, app-like.
+}
