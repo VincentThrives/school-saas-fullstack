@@ -1,0 +1,69 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2A3D8F"/>
+      <stop offset="100%" stop-color="#1B2660"/>
+    </linearGradient>
+    <linearGradient id="cap" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFD15C"/>
+      <stop offset="100%" stop-color="#F5A623"/>
+    </linearGradient>
+    <linearGradient id="pageL" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E8ECFA"/>
+    </linearGradient>
+    <linearGradient id="pageR" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F4F6FD"/>
+      <stop offset="100%" stop-color="#D8DEF4"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0B112E" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- rounded background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- subtle inner glow ring -->
+  <circle cx="256" cy="236" r="180" fill="#3A4FB0" opacity="0.30"/>
+
+  <!-- open book -->
+  <g filter="url(#soft)">
+    <!-- left page -->
+    <path d="M256 188
+             C214 162 168 158 120 168
+             L120 330
+             C168 320 214 324 256 350 Z" fill="url(#pageL)"/>
+    <!-- right page -->
+    <path d="M256 188
+             C298 162 344 158 392 168
+             L392 330
+             C344 320 298 324 256 350 Z" fill="url(#pageR)"/>
+    <!-- spine -->
+    <rect x="250" y="186" width="12" height="166" rx="6" fill="#C2C9E6"/>
+    <!-- page lines -->
+    <g stroke="#B9C1E0" stroke-width="7" stroke-linecap="round">
+      <line x1="150" y1="206" x2="226" y2="218"/>
+      <line x1="150" y1="236" x2="226" y2="248"/>
+      <line x1="150" y1="266" x2="226" y2="278"/>
+      <line x1="286" y1="218" x2="362" y2="206"/>
+      <line x1="286" y1="248" x2="362" y2="236"/>
+      <line x1="286" y1="278" x2="362" y2="266"/>
+    </g>
+  </g>
+
+  <!-- graduation cap -->
+  <g filter="url(#soft)">
+    <!-- mortarboard -->
+    <path d="M256 92 L388 150 L256 208 L124 150 Z" fill="url(#cap)"/>
+    <!-- cap underside / band -->
+    <path d="M210 170 L210 214 C210 234 302 234 302 214 L302 170 L256 190 Z" fill="#E08A12"/>
+    <!-- button -->
+    <circle cx="256" cy="150" r="13" fill="#FFE49A"/>
+    <!-- tassel cord -->
+    <path d="M256 150 C322 156 344 158 344 188 L344 236" fill="none" stroke="#FFE49A" stroke-width="7" stroke-linecap="round"/>
+    <!-- tassel -->
+    <path d="M344 236 l-12 30 h24 Z" fill="#FFE49A"/>
+    <circle cx="344" cy="236" r="8" fill="#FFE49A"/>
+  </g>
+</svg>
