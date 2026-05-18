@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">Namma Vidyalaya</string>
     <string name="title_activity_main">Namma Vidyalaya</string>
-    <string name="package_name">com.school.dev</string>
-    <string name="custom_url_scheme">com.school.dev</string>
+    <string name="package_name">com.nammavidyalaya.app</string>
+    <string name="custom_url_scheme">com.nammavidyalaya.app</string>
 </resources>

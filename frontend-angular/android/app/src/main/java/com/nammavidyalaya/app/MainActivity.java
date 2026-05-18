@@ -1,4 +1,4 @@
-package com.school.dev;
+package com.nammavidyalaya.app;
 
 import com.getcapacitor.BridgeActivity;
 
