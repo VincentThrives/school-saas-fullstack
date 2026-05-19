@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "719143167148",
+    "project_id": "nammaschool-vt1121",
+    "storage_bucket": "nammaschool-vt1121.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:719143167148:android:aa83846ba8ae63cffeab09",
+        "android_client_info": {
+          "package_name": "com.nammavidyalaya.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCM0CWqRZYpwsHsgYj7-MuUAJ4TZMj3Kd8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:719143167148:android:0fb9ded586cb7df8feab09",
+        "android_client_info": {
+          "package_name": "com.school.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCM0CWqRZYpwsHsgYj7-MuUAJ4TZMj3Kd8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
