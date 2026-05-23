@@ -26,6 +26,25 @@
     },
     {
       "client_info": {
+        "mobilesdk_app_id": "1:719143167148:android:9dda21190e7e1dadfeab09",
+        "android_client_info": {
+          "package_name": "com.nammavidyalaya.app.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCM0CWqRZYpwsHsgYj7-MuUAJ4TZMj3Kd8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:719143167148:android:0fb9ded586cb7df8feab09",
         "android_client_info": {
           "package_name": "com.school.dev"

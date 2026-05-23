@@ -42,6 +42,17 @@ android {
             }
         }
     }
+    flavorDimensions 'env'
+    productFlavors {
+        prod {
+            dimension 'env'
+        }
+        staging {
+            dimension 'env'
+            applicationIdSuffix '.staging'
+            versionNameSuffix '-staging'
+        }
+    }
 }
 
 repositories {
