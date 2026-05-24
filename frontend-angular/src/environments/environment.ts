@@ -1,12 +1,11 @@
 /**
  * Local development environment.
  *
- * Used by `ng serve`. The relative `/api/v1` path is rewritten by
- * `proxy.conf.json` to forward to the local Spring Boot backend on
- * port 8080. Don't put an absolute URL here — it would defeat the proxy
- * and trigger CORS errors against the dev backend.
+ * Used by `ng serve`. The backend must be running on port 8080 — the
+ * Spring Boot CorsConfig must list http://localhost:4200 in CORS_ORIGINS
+ * for the dev server to call it cross-origin.
  */
 export const environment = {
   production: false,
-  apiUrl: '/api/v1',
+  apiUrl: 'http://localhost:8080/api/v1',
 };
