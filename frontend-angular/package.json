@@ -7,8 +7,6 @@
     "build": "ng build",
     "build:prod": "ng build --configuration=production",
     "build:staging": "ng build --configuration=staging",
-    "build:app:prod": "ng build --configuration=app-prod",
-    "build:app:staging": "ng build --configuration=app-staging",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
