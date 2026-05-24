@@ -1,13 +1,13 @@
 /**
- * Production web build for Netlify.
+ * Web build — PRODUCTION (Netlify).
  *
- * Built with `ng build --configuration=production`. The relative `/api/v1`
- * works because Netlify is configured to proxy/redirect those requests to
- * the Render backend (or because the deployed frontend lives on the same
- * origin). If the Netlify proxy ever stops working, switch this to the
- * absolute URL — same value as `environment.app.ts`.
+ * Built with `ng build --configuration=production` and deployed to the
+ * prod Netlify site that serves https://www.nammavidyalaya.com. Same
+ * origin as the API host, so the request is same-origin and Netlify's
+ * /api/* proxy forwards to the prod Render backend. Backend's
+ * CORS_ORIGINS must list https://www.nammavidyalaya.com.
  */
 export const environment = {
   production: true,
-  apiUrl: '/api/v1',
+  apiUrl: 'https://www.nammavidyalaya.com/api/v1',
 };
