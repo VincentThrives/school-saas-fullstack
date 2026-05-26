@@ -1,11 +1,12 @@
 /**
- * Web build — STAGING (Netlify).
+ * Web + APK build — STAGING.
  *
- * Built with `ng build --configuration=staging` and deployed to the
- * staging Netlify site that serves https://staging.nammavidyalaya.com.
- * Same origin as the API host, so the request is same-origin and
- * Netlify's /api/* proxy forwards to the staging Render backend.
- * Backend's CORS_ORIGINS must list https://staging.nammavidyalaya.com.
+ * Used by `ng build --configuration=staging` for both the staging
+ * Netlify site (https://staging.nammavidyalaya.com) and the staging
+ * APK flavor. apiUrl points directly at the staging Render backend,
+ * bypassing the Netlify /api/* proxy. Backend's CORS_ORIGINS must
+ * list https://staging.nammavidyalaya.com and https://localhost
+ * (APK WebView).
  */
 export const environment = {
   production: false,
