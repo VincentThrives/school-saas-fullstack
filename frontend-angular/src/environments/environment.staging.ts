@@ -9,5 +9,5 @@
  */
 export const environment = {
   production: false,
-  apiUrl: 'https://staging.nammavidyalaya.com/api/v1',
+  apiUrl: 'https://samplesaas.onrender.com/api/v1',
 };
