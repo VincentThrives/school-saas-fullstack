@@ -762,31 +762,31 @@ $card-hover:  rgba(255, 255, 255, 0.06);
   }
 }
 
-// Mobile-only "Powered by" credit pinned to the bottom of the screen.
+// Mobile-only "Powered by" credit shown beneath the login card.
 // Hidden on desktop (the full landing footer already carries this).
-// position: fixed anchors to the viewport rather than the hero
-// container — so the credit always sits at the screen bottom on a
-// phone regardless of how the card flexes vertically. Tiny font,
-// muted ink, gold company name. Pointer-events left default so the
-// admin can't accidentally trigger unintended behaviour by tapping it.
+//
+// Previously this was `position: fixed; bottom: 14px` which anchored
+// to the visual viewport. That broke on devices with on-screen
+// keyboards (Samsung S26 etc.) — when the keyboard opened, the
+// shrunken viewport pulled the credit up over the form, overlapping
+// the Continue button and "Login here" link.
+//
+// Switched to in-flow positioning: the credit now sits naturally
+// below the card with breathing room. When the keyboard opens, it
+// just gets pushed off-screen with the rest of the below-the-fold
+// content — no overlap. Tiny font, muted ink, gold company name.
 .lp__mobile-credit {
   display: none;
 }
 @media (max-width: 768px) {
   .lp__mobile-credit {
     display: block;
-    position: fixed;
-    left: 0; right: 0;
-    bottom: 14px;
+    margin: 32px auto 16px;
+    padding: 0 16px;
     text-align: center;
     color: $ink-dim;
     font-size: 0.72rem;
     letter-spacing: 0.5px;
-    margin: 0;
-    padding: 0 16px;
-    z-index: 5;
-    // Doesn't catch taps — purely decorative. Keeps the keyboard's
-    // overlay from feeling janky if a user focuses the input.
     pointer-events: none;
     strong {
       color: $gold-light;
