@@ -226,29 +226,49 @@ $gold-dark: #B8860B;
   }
 }
 
-// ── Create-Subject dialog: roomy, scrollable, preset-driven layout ───
+// ── Create-Subject dialog: sticky header/footer, scrolling body ──────
+// Built so the title + Save/Cancel are always visible no matter how
+// tall the form gets (custom mode with multiple components can push
+// it past viewport height on small laptops).
 .dialog-panel.subject-dialog {
-  width: min(640px, 96vw);
-  max-height: 92vh;
-  overflow-y: auto;
-  padding: 24px;
+  // Override base .dialog-panel sizing — base sets max-width: 480px which
+  // is too narrow for a form with side-by-side fields.
+  width: min(620px, 96vw) !important;
+  max-width: 620px !important;
+  max-height: 88vh;
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; // children handle their own scrolling
 
+  // Sticky title bar — always pinned at the top of the panel.
   .dialog-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 4px;
-    h3 { margin: 0; }
+    padding: 18px 24px 4px;
+    flex: 0 0 auto;
+    h3 { margin: 0; font-size: 18px; font-weight: 600; }
   }
 
   .dialog-description {
     color: rgba(0,0,0,0.6);
     font-size: 13px;
-    margin: 0 0 16px;
+    margin: 0;
+    padding: 0 24px 16px;
+    flex: 0 0 auto;
     em { color: rgba(0,0,0,0.75); font-style: normal; font-weight: 600; }
   }
 
-  .subject-form { display: flex; flex-direction: column; gap: 12px; }
+  // Scrollable body — wraps the reactive form.
+  .subject-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 4px 24px 12px;
+    overflow-y: auto;
+    flex: 1 1 auto;
+  }
 
   .form-row {
     display: flex;
@@ -347,11 +367,24 @@ $gold-dark: #B8860B;
     }
   }
 
+  // Sticky action bar — always pinned at the bottom of the panel.
   .dialog-actions {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    margin-top: 8px;
+    padding: 14px 24px;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    background: rgba(0,0,0,0.015);
+    flex: 0 0 auto;
+  }
+
+  // Tighter form-field density inside the modal so 6+ fields don't
+  // crowd a small laptop screen. Angular Material's default outline
+  // appearance is generous; we trim the vertical padding a touch.
+  mat-form-field.mat-mdc-form-field {
+    .mdc-text-field--outlined {
+      --mdc-outlined-text-field-container-height: 48px;
+    }
   }
 }
 
