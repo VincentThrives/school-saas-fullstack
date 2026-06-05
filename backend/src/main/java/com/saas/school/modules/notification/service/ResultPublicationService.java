@@ -2,6 +2,8 @@ package com.saas.school.modules.notification.service;
 
 import com.saas.school.common.audit.AuditService;
 import com.saas.school.common.exception.BusinessException;
+import com.saas.school.modules.classes.model.Subject;
+import com.saas.school.modules.classes.repository.SubjectRepository;
 import com.saas.school.modules.exam.model.Exam;
 import com.saas.school.modules.exam.model.ExamMark;
 import com.saas.school.modules.exam.model.StudentAssessments;
@@ -56,6 +58,7 @@ public class ResultPublicationService {
     @Autowired private NotificationService notificationService;
     @Autowired private ResultPublicationRepository publicationRepository;
     @Autowired private AuditService auditService;
+    @Autowired private SubjectRepository subjectRepository;
 
     // ── Public API ─────────────────────────────────────────────
 
@@ -324,9 +327,19 @@ public class ResultPublicationService {
         }
 
         // Combined report — one bullet per subject + a totals line.
-        double totalObtained = 0;
-        int totalMax = 0;
-        // Sort by subject name for consistent ordering across recipients.
+        // For hybrid subjects (Physics with Theory + Practical, English
+        // with Theory + Internal), exams belonging to the same subject are
+        // collapsed into a single bullet that shows the per-component
+        // breakdown plus the subject total. Parents see one line per
+        // subject regardless of how many components it has.
+        //
+        // Grouping happens by (subjectId, subjectName). The component
+        // label is pulled from the Subject's component config when
+        // available; otherwise we fall back to the exam's own componentKey.
+
+        // 1) Bucket the student's exam marks by subject.
+        Map<String, List<MarkRow>> rowsBySubject = new LinkedHashMap<>();
+        Map<String, String> nameBySubject = new HashMap<>();
         List<ExamMark> sorted = new ArrayList<>(studentMarks);
         sorted.sort(Comparator.comparing(m -> {
             Exam e = examById.get(m.getExamId());
@@ -335,17 +348,59 @@ public class ResultPublicationService {
         for (ExamMark m : sorted) {
             Exam ex = examById.get(m.getExamId());
             if (ex == null) continue;
-            int max = ex.getMaxMarks();
+            String subjectId = ex.getSubjectId() == null ? ("unknown:" + m.getExamId()) : ex.getSubjectId();
             String subjectName = ex.getSubjectName() == null || ex.getSubjectName().isBlank()
                     ? "Subject" : ex.getSubjectName();
-            String grade = m.getGrade() == null || m.getGrade().isBlank() ? "—" : m.getGrade();
-            b.append("• ").append(subjectName).append(": ")
-             .append(formatMarks(m.getMarksObtained()))
-             .append("/").append(max)
-             .append(" (").append(grade).append(")\n");
-            totalObtained += m.getMarksObtained() == null ? 0 : m.getMarksObtained();
-            totalMax += max;
+            nameBySubject.putIfAbsent(subjectId, subjectName);
+            rowsBySubject.computeIfAbsent(subjectId, k -> new ArrayList<>())
+                    .add(new MarkRow(ex, m));
         }
+
+        // 2) Per-subject render — fetch Subject for component labels (best effort).
+        double totalObtained = 0;
+        int totalMax = 0;
+        for (Map.Entry<String, List<MarkRow>> e : rowsBySubject.entrySet()) {
+            String subjectId = e.getKey();
+            List<MarkRow> rows = e.getValue();
+            String subjectName = nameBySubject.get(subjectId);
+            Subject subject = subjectRepository.findById(subjectId).orElse(null);
+
+            double subjectObtained = 0;
+            int subjectMax = 0;
+            boolean multipleComponents = rows.size() > 1;
+            StringBuilder parts = new StringBuilder();
+            for (MarkRow r : rows) {
+                int max = r.exam.getMaxMarks();
+                double obtained = r.mark.getMarksObtained() == null ? 0 : r.mark.getMarksObtained();
+                subjectObtained += obtained;
+                subjectMax += max;
+
+                if (multipleComponents) {
+                    String compLabel = resolveComponentLabel(subject, r.exam.getComponentKey());
+                    if (parts.length() > 0) parts.append(", ");
+                    parts.append(compLabel).append(" ")
+                         .append(formatMarks(obtained)).append("/").append(max);
+                }
+            }
+            String grade = rows.size() == 1
+                    ? (rows.get(0).mark.getGrade() == null || rows.get(0).mark.getGrade().isBlank()
+                            ? "—" : rows.get(0).mark.getGrade())
+                    : "";
+
+            b.append("• ").append(subjectName).append(": ");
+            if (multipleComponents) {
+                b.append(parts).append(", Total ")
+                 .append(formatMarks(subjectObtained)).append("/").append(subjectMax)
+                 .append("\n");
+            } else {
+                b.append(formatMarks(subjectObtained)).append("/").append(subjectMax)
+                 .append(" (").append(grade).append(")\n");
+            }
+
+            totalObtained += subjectObtained;
+            totalMax += subjectMax;
+        }
+
         if (totalMax > 0) {
             double pct = (totalObtained / totalMax) * 100.0;
             b.append("Total: ").append(formatMarks(totalObtained))
@@ -353,6 +408,30 @@ public class ResultPublicationService {
              .append(String.format(" (%.1f%%)", pct));
         }
         return b.toString();
+    }
+
+    /** Tuple pairing an exam with its mark for grouping purposes. */
+    private static class MarkRow {
+        final Exam exam;
+        final ExamMark mark;
+        MarkRow(Exam e, ExamMark m) { this.exam = e; this.mark = m; }
+    }
+
+    /**
+     * Look up a friendly label for an exam's componentKey by checking the
+     * Subject's component list. Falls back to a title-cased version of the
+     * key, or "Component" if the key itself is missing.
+     */
+    private String resolveComponentLabel(Subject subject, String componentKey) {
+        if (subject != null && componentKey != null) {
+            Subject.Component c = subject.componentByKey(componentKey);
+            if (c != null && c.getLabel() != null && !c.getLabel().isBlank()) {
+                return c.getLabel();
+            }
+        }
+        if (componentKey == null || componentKey.isBlank()) return "Component";
+        // "practical" -> "Practical"; "internal" -> "Internal"; etc.
+        return Character.toUpperCase(componentKey.charAt(0)) + componentKey.substring(1).toLowerCase();
     }
 
     private String formatMarks(Double v) {
