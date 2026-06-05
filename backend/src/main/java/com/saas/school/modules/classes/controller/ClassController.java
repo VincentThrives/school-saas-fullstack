@@ -97,8 +97,96 @@ public class ClassController {
     @PostMapping("/subjects")
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<Subject>> createSubject(@RequestBody Subject req) {
+        validateSubject(req);
         req.setSubjectId(UUID.randomUUID().toString());
+        if (req.getPassRule() == null) req.setPassRule(Subject.PassRule.PER_COMPONENT);
+        defaultComponentValues(req);
         return ResponseEntity.ok(ApiResponse.success(subjectRepo.save(req), "Created"));
+    }
+
+    @PutMapping("/subjects/{subjectId}")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<Subject>> updateSubject(
+            @PathVariable String subjectId,
+            @RequestBody Subject req) {
+        validateSubject(req);
+        Subject existing = subjectRepo.findById(subjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subject not found"));
+        existing.setName(req.getName());
+        existing.setCode(req.getCode());
+        existing.setClassId(req.getClassId());
+        existing.setAcademicYearId(req.getAcademicYearId());
+        existing.setPassRule(req.getPassRule() == null ? Subject.PassRule.PER_COMPONENT : req.getPassRule());
+        existing.setComponents(req.getComponents());
+        defaultComponentValues(existing);
+        return ResponseEntity.ok(ApiResponse.success(subjectRepo.save(existing), "Updated"));
+    }
+
+    // ── Subject validation helpers ─────────────────────────────────
+
+    /**
+     * Reject malformed subjects up front so the rest of the system
+     * can assume every Subject in the DB has at least one component
+     * with sensible marks and a unique component key.
+     */
+    private void validateSubject(Subject req) {
+        if (req.getName() == null || req.getName().isBlank()) {
+            throw new IllegalArgumentException("Subject name is required");
+        }
+        if (req.getClassId() == null || req.getClassId().isBlank()) {
+            throw new IllegalArgumentException("classId is required");
+        }
+        if (req.getAcademicYearId() == null || req.getAcademicYearId().isBlank()) {
+            throw new IllegalArgumentException("academicYearId is required");
+        }
+        List<Subject.Component> comps = req.getComponents();
+        if (comps == null || comps.isEmpty()) {
+            throw new IllegalArgumentException("Subject must have at least one component");
+        }
+        java.util.Set<String> seenKeys = new java.util.HashSet<>();
+        for (Subject.Component c : comps) {
+            if (c.getKey() == null || c.getKey().isBlank()) {
+                throw new IllegalArgumentException("Each component must have a key");
+            }
+            if (!seenKeys.add(c.getKey())) {
+                throw new IllegalArgumentException("Duplicate component key: " + c.getKey());
+            }
+            if (c.getLabel() == null || c.getLabel().isBlank()) {
+                throw new IllegalArgumentException("Component '" + c.getKey() + "' must have a label");
+            }
+            if (c.getMaxMarks() == null || c.getMaxMarks() < 0) {
+                throw new IllegalArgumentException("Component '" + c.getKey() + "' maxMarks must be >= 0");
+            }
+            if (c.getPassMarks() == null || c.getPassMarks() < 0 || c.getPassMarks() > c.getMaxMarks()) {
+                throw new IllegalArgumentException(
+                        "Component '" + c.getKey() + "' passMarks must be between 0 and maxMarks");
+            }
+            if (c.getAssessmentMode() == null) {
+                throw new IllegalArgumentException(
+                        "Component '" + c.getKey() + "' must specify an assessmentMode");
+            }
+            // internalSchedule only meaningful for INTERNAL mode; ignore otherwise.
+            if (c.getAssessmentMode() == Subject.AssessmentMode.INTERNAL
+                    && c.getInternalSchedule() == null) {
+                // Default to PER_TERM rather than rejecting — matches CBSE behaviour
+                // and the form's default. defaultComponentValues() applies it.
+            }
+        }
+    }
+
+    /**
+     * Fill in defaults Mongo would otherwise persist as null. Keeps
+     * downstream services from having to null-check the schedule on
+     * every INTERNAL component.
+     */
+    private void defaultComponentValues(Subject subject) {
+        if (subject.getComponents() == null) return;
+        for (Subject.Component c : subject.getComponents()) {
+            if (c.getAssessmentMode() == Subject.AssessmentMode.INTERNAL
+                    && c.getInternalSchedule() == null) {
+                c.setInternalSchedule(Subject.InternalSchedule.PER_TERM);
+            }
+        }
     }
 
     @DeleteMapping("/subjects/{subjectId}")

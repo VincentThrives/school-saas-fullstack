@@ -367,33 +367,21 @@ public class SyllabusService {
                     .ifPresent(ay -> syllabus.setAcademicYearLabel(ay.getLabel()));
         }
 
-        // Teacher resolution: teacher caller → themselves. Admin → pull from Subject.teacherAssignments,
-        // and if that's empty, scan all teachers for a matching classSubjectAssignment.
+        // Teacher resolution: teacher caller → themselves. Admin → scan all
+        // teachers for a matching classSubjectAssignment.
+        //
+        // Subject.teacherAssignments used to be the primary lookup path; with
+        // the component-based Subject refactor that field is gone — teacher
+        // ownership now lives entirely in Teacher.classSubjectAssignments
+        // (and TeacherSubjectAssignment for richer queries). The fallback
+        // scan below already handled the case where the old field was empty,
+        // so it's now the only path.
         if (callerTeacher != null) {
             syllabus.setTeacherId(callerTeacher.getTeacherId());
             User user = userRepository.findById(callerTeacher.getUserId()).orElse(null);
             if (user != null) syllabus.setTeacherName(user.getFirstName() + " " + user.getLastName());
         } else if (syllabus.getSubjectId() != null && (syllabus.getTeacherId() == null || syllabus.getTeacherId().isBlank())) {
-            subjectRepository.findById(syllabus.getSubjectId()).ifPresent(subj -> {
-                if (subj.getTeacherAssignments() != null && !subj.getTeacherAssignments().isEmpty()) {
-                    String matchTeacherId = null;
-                    for (Subject.TeacherAssignment ta : subj.getTeacherAssignments()) {
-                        if (syllabus.getSectionId() == null || syllabus.getSectionId().isBlank()
-                                || syllabus.getSectionId().equals(ta.getSectionId())) {
-                            matchTeacherId = ta.getTeacherId();
-                            break;
-                        }
-                    }
-                    if (matchTeacherId != null) {
-                        syllabus.setTeacherId(matchTeacherId);
-                        teacherRepository.findByTeacherIdAndDeletedAtIsNull(matchTeacherId).ifPresent(t -> {
-                            userRepository.findById(t.getUserId()).ifPresent(u ->
-                                syllabus.setTeacherName(u.getFirstName() + " " + u.getLastName()));
-                        });
-                    }
-                }
-            });
-            // Fallback #2: scan every teacher for a matching assignment.
+            // Scan every teacher for a matching assignment.
             if (syllabus.getTeacherId() == null || syllabus.getTeacherId().isBlank()) {
                 try {
                     for (Teacher t : teacherRepository.findAll()) {
