@@ -3,11 +3,53 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { BehaviorSubject, Observable, map, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
+export type AssessmentMode = 'EXAM' | 'INTERNAL';
+export type InternalSchedule = 'PER_TERM' | 'PER_YEAR';
+export type PassRule = 'PER_COMPONENT' | 'COMBINED';
+
+/**
+ * One slice of a subject — Theory, Practical, Internal Assessment,
+ * Project, etc. Each component carries its own marks scheme,
+ * attendance toggle and assessment mode.
+ */
+export interface SubjectComponent {
+  /** Stable machine key. Lowercase, e.g. "theory", "practical". */
+  key: string;
+  /** Human-readable label shown on the report card. */
+  label: string;
+  maxMarks: number;
+  passMarks: number;
+  /** Off for IA / Project components — they're not class-based. */
+  trackAttendance: boolean;
+  assessmentMode: AssessmentMode;
+  /** Only meaningful when assessmentMode = INTERNAL. Defaults to PER_TERM. */
+  internalSchedule?: InternalSchedule;
+}
+
 export interface SubjectItem {
   subjectId: string;
   name: string;
   code?: string;
+  /** @deprecated Old flat type field. New shape uses {@link components} below. */
   type?: string;
+  classId?: string;
+  academicYearId?: string;
+  passRule?: PassRule;
+  /** Empty for legacy single-component subjects fetched in the old shape. */
+  components?: SubjectComponent[];
+}
+
+/**
+ * Payload shape for POST /subjects + PUT /subjects/{id}.
+ * Mirrors the backend Subject document.
+ */
+export interface CreateOrUpdateSubject {
+  name: string;
+  code?: string;
+  classId: string;
+  academicYearId: string;
+  passRule?: PassRule;
+  components: SubjectComponent[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -47,12 +89,7 @@ export class SubjectService {
       next: (res) => {
         const apiSubjects = res.data || [];
         if (apiSubjects.length > 0) {
-          this.subjects$.next(apiSubjects.map((s: any) => ({
-            subjectId: s.subjectId || s.id,
-            name: s.name,
-            code: s.code,
-            type: s.type,
-          })));
+          this.subjects$.next(apiSubjects.map((s: any) => this.toSubjectItem(s)));
         } else {
           this.subjects$.next(this.defaults);
         }
@@ -63,6 +100,26 @@ export class SubjectService {
         this.loaded = true;
       },
     });
+  }
+
+  /**
+   * Normalise an API subject document into a SubjectItem. Handles both
+   * the new component-shaped subjects and any legacy single-type rows
+   * that still sit in old tenants' databases — those get their {@code
+   * type} preserved on the deprecated field but no {@code components}
+   * list, so downstream code can fall back to old behaviour.
+   */
+  private toSubjectItem(s: any): SubjectItem {
+    return {
+      subjectId: s.subjectId || s.id,
+      name: s.name,
+      code: s.code,
+      type: s.type,
+      classId: s.classId,
+      academicYearId: s.academicYearId,
+      passRule: s.passRule,
+      components: Array.isArray(s.components) ? s.components : undefined,
+    };
   }
 
   getSubjects(): Observable<SubjectItem[]> {
@@ -93,12 +150,7 @@ export class SubjectService {
     return this.http.get<any>(`${this.API}/subjects`, { params }).pipe(
       map((res: any) => {
         const apiSubjects = res.data || [];
-        return apiSubjects.map((s: any) => ({
-          subjectId: s.subjectId || s.id,
-          name: s.name,
-          code: s.code,
-          type: s.type,
-        }));
+        return apiSubjects.map((s: any) => this.toSubjectItem(s));
       })
     );
   }
@@ -138,8 +190,14 @@ export class SubjectService {
     this.loadSubjects();
   }
 
-  createSubject(subject: { name: string; code?: string; type?: string }): Observable<any> {
+  createSubject(subject: CreateOrUpdateSubject): Observable<any> {
     return this.http.post<any>(`${this.API}/subjects`, subject).pipe(
+      tap(() => this.refreshSubjects())
+    );
+  }
+
+  updateSubject(subjectId: string, subject: CreateOrUpdateSubject): Observable<any> {
+    return this.http.put<any>(`${this.API}/subjects/${subjectId}`, subject).pipe(
       tap(() => this.refreshSubjects())
     );
   }

@@ -225,3 +225,73 @@ $gold-dark: #B8860B;
     opacity: 0.6;
   }
 }
+
+// ── Larger Create-Subject dialog for the component-rich form ─────────
+.dialog-panel.subject-dialog {
+  width: min(880px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+
+  .subject-form { display: flex; flex-direction: column; gap: 16px; }
+
+  .block-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(0,0,0,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .pass-rule-block .pass-rule-radios {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .components-block {
+    .block-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .component-card {
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      background: rgba(0,0,0,0.015);
+    }
+    .component-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      .component-index {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(0,0,0,0.6);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 4px;
+      .toggle-hint {
+        font-size: 12px;
+        color: rgba(0,0,0,0.55);
+      }
+    }
+  }
+}
+
+// Compact chip style for the new "Hybrid" / multi-component summary in the list.
+.type-chip.type-hybrid {
+  background: rgba(135, 99, 191, 0.12);
+  color: #6c3eb8;
+}

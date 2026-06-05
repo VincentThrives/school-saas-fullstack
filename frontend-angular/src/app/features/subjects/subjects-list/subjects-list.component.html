@@ -53,12 +53,12 @@
         </td>
       </ng-container>
 
-      <!-- Type Column -->
-      <ng-container matColumnDef="type">
-        <th mat-header-cell *matHeaderCellDef>Type</th>
+      <!-- Summary Column (component makeup) -->
+      <ng-container matColumnDef="summary">
+        <th mat-header-cell *matHeaderCellDef>Components</th>
         <td mat-cell *matCellDef="let subject">
-          <span class="type-chip" [ngClass]="getTypeClass(subject.type)">
-            {{ getTypeLabel(subject.type) }}
+          <span class="type-chip" [ngClass]="summaryClass(subject)">
+            {{ summarise(subject) }}
           </span>
         </td>
       </ng-container>
@@ -90,41 +90,133 @@
     </table>
   </div>
 
-  <!-- Create Subject Dialog -->
+  <!-- Create Subject Dialog (reactive form, supports 1-N components) -->
   <div class="dialog-overlay" *ngIf="createDialogOpen" (click)="closeCreateDialog()">
-    <div class="dialog-panel" (click)="$event.stopPropagation()">
+    <div class="dialog-panel subject-dialog" (click)="$event.stopPropagation()">
       <h3>Add New Subject</h3>
-      <p class="dialog-description">Create a new subject. It will be available across all modules including exams, timetable, and assignments.</p>
+      <p class="dialog-description">
+        Configure the subject's components. Most subjects have one
+        component (Theory). Use <strong>Add component</strong> for
+        Theory + Practical, Theory + Internal Assessment, or any other
+        multi-component setup.
+      </p>
 
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Subject Name</mat-label>
-        <input matInput [(ngModel)]="newName" placeholder="e.g., Mathematics">
-      </mat-form-field>
-
-      <div class="form-row">
-        <mat-form-field appearance="outline">
-          <mat-label>Subject Code (optional)</mat-label>
-          <input matInput [(ngModel)]="newCode" placeholder="e.g., MATH-101">
+      <form [formGroup]="form" class="subject-form">
+        <!-- Identity row -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Subject Name</mat-label>
+          <input matInput formControlName="name" placeholder="e.g., PUC II Physics">
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Type</mat-label>
-          <mat-select [(ngModel)]="newType">
-            <mat-option value="THEORY">Theory</mat-option>
-            <mat-option value="PRACTICAL">Practical</mat-option>
-            <mat-option value="ELECTIVE">Elective</mat-option>
-          </mat-select>
-        </mat-form-field>
-      </div>
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Subject Code (optional)</mat-label>
+            <input matInput formControlName="code" placeholder="e.g., PHY-101">
+          </mat-form-field>
 
-      <div class="dialog-actions">
-        <button mat-button (click)="closeCreateDialog()">Cancel</button>
-        <button mat-raised-button class="create-button"
-                (click)="createSubject()"
-                [disabled]="isCreating || !newName.trim()">
-          {{ isCreating ? 'Creating...' : 'Create Subject' }}
-        </button>
-      </div>
+          <mat-form-field appearance="outline">
+            <mat-label>Class</mat-label>
+            <mat-select formControlName="classId">
+              <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Academic Year</mat-label>
+            <mat-select formControlName="academicYearId">
+              <mat-option *ngFor="let y of academicYears" [value]="y.academicYearId">{{ y.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Pass rule -->
+        <div class="pass-rule-block">
+          <label class="block-label">Pass rule</label>
+          <mat-radio-group formControlName="passRule" class="pass-rule-radios">
+            <mat-radio-button value="PER_COMPONENT">Pass each component separately (CBSE/ICSE default)</mat-radio-button>
+            <mat-radio-button value="COMBINED">Pass on combined total only</mat-radio-button>
+          </mat-radio-group>
+        </div>
+
+        <!-- Components -->
+        <div class="components-block" formArrayName="components">
+          <div class="block-header">
+            <label class="block-label">Components</label>
+            <button mat-stroked-button type="button" (click)="addComponent()">
+              <mat-icon>add</mat-icon>
+              Add component
+            </button>
+          </div>
+
+          <div class="component-card" *ngFor="let g of components.controls; let i = index" [formGroupName]="i">
+            <div class="component-card-header">
+              <span class="component-index">Component {{ i + 1 }}</span>
+              <button mat-icon-button type="button" *ngIf="components.length > 1"
+                      matTooltip="Remove" (click)="removeComponent(i)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Label</mat-label>
+                <input matInput formControlName="label" placeholder="Theory">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Key (lowercase, no spaces)</mat-label>
+                <input matInput formControlName="key" placeholder="theory">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Assessment Mode</mat-label>
+                <mat-select formControlName="assessmentMode">
+                  <mat-option value="EXAM">Exam (marks from one or more exams)</mat-option>
+                  <mat-option value="INTERNAL">Internal Assessment (single number per term)</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Max Marks</mat-label>
+                <input matInput type="number" formControlName="maxMarks" min="0">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Pass Marks</mat-label>
+                <input matInput type="number" formControlName="passMarks" min="0">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" *ngIf="g.get('assessmentMode')?.value === 'INTERNAL'">
+                <mat-label>Internal Schedule</mat-label>
+                <mat-select formControlName="internalSchedule">
+                  <mat-option value="PER_TERM">Per term</mat-option>
+                  <mat-option value="PER_YEAR">Per academic year</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <div class="toggle-row">
+              <mat-slide-toggle formControlName="trackAttendance">
+                Track attendance for this component
+              </mat-slide-toggle>
+              <span class="toggle-hint">
+                Off for Internal Assessment / Project / Discipline-style components
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dialog-actions">
+          <button mat-button type="button" (click)="closeCreateDialog()">Cancel</button>
+          <button mat-raised-button type="button" class="create-button"
+                  (click)="createSubject()"
+                  [disabled]="isCreating">
+            {{ isCreating ? 'Creating...' : 'Create Subject' }}
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 
