@@ -17,6 +17,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { SubjectService } from '../../../core/services/subject.service';
 import { SchoolClass, AcademicYear, UserRole } from '../../../core/models';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -92,6 +93,18 @@ export class MarkSubjectAttendanceComponent implements OnInit {
   // Timetable periods for the selected day
   timetablePeriods: TimetablePeriod[] = [];
   selectedPeriod: TimetablePeriod | null = null;
+
+  /**
+   * Attendance-tracked components on the currently-selected period's
+   * subject. Populated whenever {@code selectedPeriod} changes.
+   *
+   * <p>Empty / single-entry → no picker shown; backend auto-fills the
+   * only component. Two or more entries → picker is shown above the
+   * student grid and the teacher must choose Theory / Practical /
+   * whatever before saving.
+   */
+  componentChoices: Array<{ key: string; label: string }> = [];
+  selectedComponentKey: string | null = null;
   isLoadingPeriods = false;
 
   // Holiday check
@@ -156,6 +169,7 @@ export class MarkSubjectAttendanceComponent implements OnInit {
   constructor(
     private api: ApiService,
     private authService: AuthService,
+    private subjectService: SubjectService,
     private snackBar: MatSnackBar,
   ) {}
 
@@ -726,7 +740,31 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     if (period.classId) this.selectedClassId = period.classId;
     if (period.sectionId) this.selectedSectionId = period.sectionId;
     if (period.academicYearId) this.selectedAcademicYearId = period.academicYearId;
+    this.refreshComponentChoices(period.subjectId);
     this.loadStudents();
+  }
+
+  /**
+   * Load the attendance-tracked components for the period's subject.
+   * Sets up {@link componentChoices} (for the picker) and pre-selects
+   * the first attendance-tracked component so saveAttendance() always
+   * has a value to send.
+   *
+   * <p>Single-component subjects keep selectedComponentKey at null —
+   * the backend auto-fills, and the picker stays hidden.
+   */
+  private refreshComponentChoices(subjectId: string): void {
+    this.componentChoices = [];
+    this.selectedComponentKey = null;
+    if (!subjectId) return;
+    this.subjectService.getSubjectsByIds([subjectId]).subscribe(subs => {
+      const subject = subs[0];
+      const attended = (subject?.components || []).filter(c => c.trackAttendance);
+      if (attended.length > 1) {
+        this.componentChoices = attended.map(c => ({ key: c.key, label: c.label }));
+        this.selectedComponentKey = attended[0].key;
+      }
+    });
   }
 
   isPeriodLocked(index: number): boolean {
@@ -843,12 +881,18 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     this.isSaving = true;
     const dateStr = this.getDateStr();
 
+    // For multi-component subjects (Hybrid Physics, English with IA, etc.)
+    // we send the user-picked componentKey so the backend distinguishes
+    // Theory attendance from Practical attendance for the same period.
+    // For single-component subjects we leave it undefined; the backend
+    // auto-fills from the only component.
     this.api.markAttendance({
       classId: this.selectedClassId,
       sectionId: this.selectedSectionId,
       academicYearId: this.selectedAcademicYearId,
       date: dateStr,
       subjectId: this.selectedPeriod.subjectId,
+      componentKey: this.selectedComponentKey ?? undefined,
       teacherId: this.selectedPeriod.teacherId,
       periodNumber: this.selectedPeriod.periodNumber,
       entries: this.students.map((s) => ({

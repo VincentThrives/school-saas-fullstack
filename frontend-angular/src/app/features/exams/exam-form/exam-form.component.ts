@@ -58,6 +58,11 @@ export class ExamFormComponent implements OnInit {
   subjectsList: SubjectItem[] = [];
   examTypes: any[] = [];
 
+  /** EXAM-mode components on the currently-selected subject. Empty for
+   *  legacy single-type subjects (no components configured) and for
+   *  subjects whose only component is EXAM mode (we hide the picker). */
+  componentChoices: Array<{ key: string; label: string }> = [];
+
   private pendingSubjectId: string | null = null;
   private pendingClassId: string | null = null;
 
@@ -83,6 +88,10 @@ export class ExamFormComponent implements OnInit {
       sectionId: ['', Validators.required],
       subjectId: ['', Validators.required],
       subjectName: [''],
+      // componentKey is required only when the chosen subject has more
+      // than one EXAM-mode component. We toggle the validator
+      // dynamically in the subjectId valueChanges handler below.
+      componentKey: [''],
       examDate: [null, Validators.required],
       startTime: [''],
       endTime: [''],
@@ -91,10 +100,16 @@ export class ExamFormComponent implements OnInit {
       description: [''],
     });
 
-    // Auto-set subjectName when subjectId changes
+    // Auto-set subjectName + manage componentKey when subjectId changes.
+    // For multi-component subjects (Hybrid Physics, English with IA, etc.)
+    // we expose a Component dropdown filtered to EXAM-mode components
+    // and require selection. For single-component subjects we silently
+    // pre-fill from the only component and clear the validator so the
+    // form stays valid without admin interaction.
     this.examForm.get('subjectId')?.valueChanges.subscribe((value) => {
       const sub = this.subjectsList.find(s => s.subjectId === value);
       this.examForm.get('subjectName')?.setValue(sub?.name || value || '');
+      this.refreshComponentChoices(sub);
     });
 
     // Load exam types for the picker; auto-fill maxMarks from the catalog when empty/default
@@ -322,5 +337,30 @@ export class ExamFormComponent implements OnInit {
 
   cancel(): void {
     this.router.navigate(['/exams']);
+  }
+
+  /**
+   * Re-populate the Component dropdown based on the chosen subject.
+   *
+   * <p>If the subject has 0 or 1 EXAM-mode components we hide the
+   * dropdown (legacy / simple subjects) and clear the validator. If it
+   * has 2+ EXAM-mode components we expose them and require selection.
+   *
+   * <p>INTERNAL-mode components are filtered out — they don't get exam
+   * records, so picking one would always fail backend validation.
+   */
+  private refreshComponentChoices(subject: SubjectItem | undefined): void {
+    const exam = subject?.components?.filter(c => c.assessmentMode === 'EXAM') ?? [];
+    const ctrl = this.examForm.get('componentKey');
+    if (exam.length > 1) {
+      this.componentChoices = exam.map(c => ({ key: c.key, label: c.label }));
+      ctrl?.setValidators([Validators.required]);
+    } else {
+      this.componentChoices = [];
+      ctrl?.clearValidators();
+      // Auto-fill from the only component (or clear if there are none).
+      ctrl?.setValue(exam[0]?.key ?? '');
+    }
+    ctrl?.updateValueAndValidity({ emitEvent: false });
   }
 }

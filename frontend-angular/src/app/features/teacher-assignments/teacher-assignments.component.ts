@@ -95,6 +95,16 @@ export class TeacherAssignmentsComponent implements OnInit {
   formClassId = '';
   formSectionId = '';
   formSubjectId = '';
+  /**
+   * componentKey for SUBJECT_TEACHER assignments. Set when the chosen
+   * subject has multiple components — e.g. one teacher owns "theory"
+   * on PUC II Physics while another owns "practical". Null for
+   * single-component subjects and CLASS_TEACHER-only rows; the
+   * backend auto-fills or ignores accordingly.
+   */
+  formComponentKey: string | null = null;
+  /** Components on the currently-chosen subject (for the picker). */
+  formComponentChoices: Array<{ key: string; label: string }> = [];
   formRoleClass = false;
   formRoleSubject = true;
 
@@ -410,6 +420,9 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.formSectionId = a.sectionId || '';
     this.formSectionIds = a.sectionId ? [a.sectionId] : [];
     this.formSubjectId = a.subjectId || '';
+    this.formComponentKey = a.componentKey || null;
+    // Repopulate the picker so the edit form shows the right options.
+    this.refreshFormComponentChoices();
     this.formRoleClass = (a.roles || []).includes('CLASS_TEACHER');
     this.formRoleSubject = (a.roles || []).includes('SUBJECT_TEACHER');
     // When editing a Class Teacher row, pre-fill the class-teacher pickers.
@@ -695,6 +708,9 @@ export class TeacherAssignmentsComponent implements OnInit {
    *  picked pair that doesn't teach the new subject. */
   onFormSubjectChange(): void {
     if (this.editingId) return;
+    // Refresh component choices regardless of whether the subject is set —
+    // clearing the subject also clears the component selection.
+    this.refreshFormComponentChoices();
     if (!this.formSubjectId) return; // showing all pairs
     const allowed = this.subjectToPairKeys.get(this.formSubjectId) || new Set<string>();
     this.formClassSectionKeys = this.formClassSectionKeys.filter(k => allowed.has(k));
@@ -708,6 +724,25 @@ export class TeacherAssignmentsComponent implements OnInit {
     }
     this.formClassIds = Array.from(classIds);
     this.formSectionIds = Array.from(sectionIds);
+  }
+
+  /**
+   * Repopulate {@link formComponentChoices} from the chosen subject's
+   * component list. The picker is shown when there are 2+ components;
+   * with 1 or 0 components we hide it and leave componentKey null so
+   * the backend auto-fills.
+   */
+  private refreshFormComponentChoices(): void {
+    this.formComponentKey = null;
+    this.formComponentChoices = [];
+    if (!this.formSubjectId) return;
+    this.subjectService.getSubjectsByIds([this.formSubjectId]).subscribe(subs => {
+      const sub = subs[0];
+      const comps = sub?.components ?? [];
+      if (comps.length > 1) {
+        this.formComponentChoices = comps.map(c => ({ key: c.key, label: c.label }));
+      }
+    });
   }
 
   saveForm(): void {
@@ -798,6 +833,7 @@ export class TeacherAssignmentsComponent implements OnInit {
             classId,
             sectionId,
             subjectId: this.formSubjectId || undefined,
+            componentKey: this.formComponentKey || undefined,
             roles: ['SUBJECT_TEACHER'],
           });
         }
@@ -810,6 +846,7 @@ export class TeacherAssignmentsComponent implements OnInit {
             classId,
             sectionId: undefined,
             subjectId: this.formSubjectId || undefined,
+            componentKey: this.formComponentKey || undefined,
             roles: ['SUBJECT_TEACHER'],
           });
         }

@@ -93,6 +93,20 @@
             <mat-hint *ngIf="subjectDisabled">Select class first</mat-hint>
             <mat-error>Subject is required</mat-error>
           </mat-form-field>
+
+          <!-- Component picker — only shown for subjects with 2+ EXAM components
+               (Hybrid Physics, Computer Science with Theory + Lab + Project, etc.).
+               Hidden for plain Theory-only subjects so the form stays simple. -->
+          <mat-form-field appearance="outline" *ngIf="componentChoices.length > 0">
+            <mat-label>Component *</mat-label>
+            <mat-select formControlName="componentKey">
+              <mat-option *ngFor="let c of componentChoices" [value]="c.key">
+                {{ c.label }}
+              </mat-option>
+            </mat-select>
+            <mat-hint>Which slice of the subject this exam scores</mat-hint>
+            <mat-error>Component is required for multi-component subjects</mat-error>
+          </mat-form-field>
         </div>
 
         <mat-divider></mat-divider>

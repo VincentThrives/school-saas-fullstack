@@ -187,6 +187,22 @@
             Already marked — editing
           </span>
         </div>
+
+        <!-- Component picker — only shown for multi-component subjects where
+             both portions track attendance (e.g. PUC II Physics has Theory
+             + Practical, both attendance-tracked). For single-component
+             subjects the picker stays hidden and the backend auto-fills. -->
+        <div class="component-picker" *ngIf="componentChoices.length > 0">
+          <mat-form-field appearance="outline" class="component-select">
+            <mat-label>Component</mat-label>
+            <mat-select [(value)]="selectedComponentKey">
+              <mat-option *ngFor="let c of componentChoices" [value]="c.key">
+                {{ c.label }}
+              </mat-option>
+            </mat-select>
+            <mat-hint>Which portion of the subject this period is for</mat-hint>
+          </mat-form-field>
+        </div>
         <div class="actions-row">
           <div class="quick-actions">
             <button mat-stroked-button class="mark-all-btn" (click)="markAllPresent()">

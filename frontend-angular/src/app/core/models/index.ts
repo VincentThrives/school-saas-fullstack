@@ -640,6 +640,12 @@ export interface TeacherSubjectAssignment {
   classId: string;
   sectionId?: string;
   subjectId?: string;
+  /**
+   * Which component of the subject the teacher owns — e.g. "theory"
+   * or "practical" on a hybrid subject. Null / undefined for
+   * single-component subjects and for CLASS_TEACHER-only assignments.
+   */
+  componentKey?: string;
   roles: TeacherAssignmentRole[];
   status: TeacherAssignmentStatus;
   createdAt?: string;
@@ -652,6 +658,8 @@ export interface CreateTeacherAssignmentRequest {
   classId: string;
   sectionId?: string;
   subjectId?: string;
+  /** Required when the subject has multiple components and the role is SUBJECT_TEACHER. */
+  componentKey?: string;
   roles: TeacherAssignmentRole[];
 }
 
