@@ -544,6 +544,25 @@ export interface ReportCardMark {
   grade: string;
 }
 
+/**
+ * One slice of a subject's report card row — only present for
+ * subjects with multiple components. The report card view groups
+ * these under the parent SubjectGrade with a per-component sub-table
+ * and a combined total row.
+ */
+export interface ReportCardComponentGrade {
+  key: string;
+  label: string;
+  marksObtained: number;
+  maxMarks: number;
+  passMarks: number;
+  passed: boolean;
+  /** Null when the component isn't attendance-tracked (Internal / Project). */
+  attendancePercentage?: number | null;
+  /** "EXAM" or "INTERNAL" — surfaces the source on the report. */
+  assessmentMode?: 'EXAM' | 'INTERNAL';
+}
+
 export interface GenerateReportCardRequest {
   classId: string;
   academicYearId: string;
