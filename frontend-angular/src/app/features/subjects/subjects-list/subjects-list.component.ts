@@ -15,6 +15,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatRadioModule } from '@angular/material/radio';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { SubjectService, SubjectItem, SubjectComponent, CreateOrUpdateSubject } from '../../../core/services/subject.service';
 import { ApiService } from '../../../core/services/api.service';
@@ -40,6 +41,7 @@ import { ApiService } from '../../../core/services/api.service';
     MatSlideToggleModule,
     MatDividerModule,
     MatRadioModule,
+    MatAutocompleteModule,
     PageHeaderComponent,
   ],
   templateUrl: './subjects-list.component.html',
@@ -178,6 +180,40 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
   customiseComponents = false;
 
   /**
+   * Type-ahead suggestions for the Subject Name field. These are NOT
+   * pre-loaded as actual subjects in the DB — they only seed the
+   * autocomplete dropdown so admins typing common Indian-board
+   * subjects get one-click selection. Anything the admin types that
+   * isn't in this list is accepted verbatim.
+   */
+  readonly subjectNameSuggestions = [
+    'Mathematics', 'English', 'Hindi', 'Kannada', 'Sanskrit', 'Tamil', 'Telugu',
+    'Science', 'Physics', 'Chemistry', 'Biology', 'Social Studies', 'History',
+    'Geography', 'Civics', 'Economics', 'Computer Science', 'Information Technology',
+    'EVS', 'Physical Education', 'Art & Craft', 'Music', 'Moral Science',
+    'General Knowledge', 'Yoga', 'Drawing',
+  ];
+
+  /** Filtered subset shown in the autocomplete panel as the admin types. */
+  filteredNameSuggestions: string[] = [];
+
+  /**
+   * Recompute the autocomplete options based on current input.
+   * Plain case-insensitive "starts-with OR contains" match, capped
+   * to 8 hits so the panel stays compact.
+   */
+  filterNameSuggestions(): void {
+    const v = (this.form?.get('name')?.value || '').toLowerCase().trim();
+    if (!v) {
+      this.filteredNameSuggestions = this.subjectNameSuggestions.slice(0, 8);
+      return;
+    }
+    this.filteredNameSuggestions = this.subjectNameSuggestions
+      .filter(s => s.toLowerCase().includes(v))
+      .slice(0, 8);
+  }
+
+  /**
    * Build the reactive form. Starts with the THEORY preset selected so
    * the simplest case ("just a Theory subject") is one click — type
    * any name, pick class/year, hit Create.
@@ -300,6 +336,7 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
 
   openCreateDialog(): void {
     this.buildForm();
+    this.filterNameSuggestions();
     this.createDialogOpen = true;
   }
 

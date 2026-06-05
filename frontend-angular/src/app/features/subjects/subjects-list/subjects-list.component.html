@@ -112,7 +112,16 @@
         <div class="form-row">
           <mat-form-field appearance="outline" class="grow">
             <mat-label>Subject Name</mat-label>
-            <input matInput formControlName="name" placeholder="e.g., PUC II Physics">
+            <!-- Autocomplete offers Indian-board defaults but doesn't lock the input —
+                 the admin can type any name and it's saved verbatim. -->
+            <input matInput formControlName="name"
+                   placeholder="Start typing — Mathematics, Physics, ..."
+                   [matAutocomplete]="nameAuto"
+                   (input)="filterNameSuggestions()"
+                   (focus)="filterNameSuggestions()">
+            <mat-autocomplete #nameAuto="matAutocomplete">
+              <mat-option *ngFor="let s of filteredNameSuggestions" [value]="s">{{ s }}</mat-option>
+            </mat-autocomplete>
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Code (optional)</mat-label>
