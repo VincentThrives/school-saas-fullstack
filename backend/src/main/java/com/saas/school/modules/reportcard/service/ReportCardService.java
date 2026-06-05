@@ -174,27 +174,17 @@ public class ReportCardService {
             }
         }
 
-        // Standard subjects list
+        // Build the subject-name lookup from the real Subject collection
+        // rather than a hardcoded list — every school configures its own
+        // subjects, so a baked-in catalog would only mislead report cards
+        // for any subject the school hasn't named after one of these
+        // common Indian-board patterns.
         Map<String, String> allSubjects = new java.util.LinkedHashMap<>();
-        allSubjects.put("kannada", "Kannada");
-        allSubjects.put("english", "English");
-        allSubjects.put("hindi", "Hindi");
-        allSubjects.put("math", "Mathematics");
-        allSubjects.put("maths", "Mathematics");
-        allSubjects.put("science", "Science");
-        allSubjects.put("social", "Social Science");
-        allSubjects.put("history", "History");
-        allSubjects.put("geography", "Geography");
-        allSubjects.put("physics", "Physics");
-        allSubjects.put("chemistry", "Chemistry");
-        allSubjects.put("biology", "Biology");
-        allSubjects.put("computer", "Computer Science");
-        allSubjects.put("sanskrit", "Sanskrit");
-        allSubjects.put("evs", "EVS");
-        allSubjects.put("pe", "Physical Education");
-        allSubjects.put("art", "Art & Craft");
-        allSubjects.put("music", "Music");
-        allSubjects.put("moral", "Moral Science");
+        for (Subject s : subjectRepository.findAll()) {
+            if (s.getSubjectId() != null && s.getName() != null) {
+                allSubjects.put(s.getSubjectId(), s.getName());
+            }
+        }
 
         // Aggregate marks per subject from exams
         Map<String, Double> subjectMarksObtained = new HashMap<>();

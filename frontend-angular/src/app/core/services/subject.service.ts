@@ -59,28 +59,6 @@ export class SubjectService {
   private subjects$ = new BehaviorSubject<SubjectItem[]>([]);
   private loaded = false;
 
-  // Default subjects as fallback
-  private defaults: SubjectItem[] = [
-    { subjectId: 'kannada', name: 'Kannada' },
-    { subjectId: 'english', name: 'English' },
-    { subjectId: 'hindi', name: 'Hindi' },
-    { subjectId: 'math', name: 'Mathematics' },
-    { subjectId: 'science', name: 'Science' },
-    { subjectId: 'social', name: 'Social Science' },
-    { subjectId: 'history', name: 'History' },
-    { subjectId: 'geography', name: 'Geography' },
-    { subjectId: 'physics', name: 'Physics' },
-    { subjectId: 'chemistry', name: 'Chemistry' },
-    { subjectId: 'biology', name: 'Biology' },
-    { subjectId: 'computer', name: 'Computer Science' },
-    { subjectId: 'sanskrit', name: 'Sanskrit' },
-    { subjectId: 'evs', name: 'EVS' },
-    { subjectId: 'pe', name: 'Physical Education' },
-    { subjectId: 'art', name: 'Art & Craft' },
-    { subjectId: 'music', name: 'Music' },
-    { subjectId: 'moral', name: 'Moral Science' },
-  ];
-
   constructor(private http: HttpClient) {}
 
   loadSubjects(): void {
@@ -88,15 +66,13 @@ export class SubjectService {
     this.http.get<any>(`${this.API}/subjects`).subscribe({
       next: (res) => {
         const apiSubjects = res.data || [];
-        if (apiSubjects.length > 0) {
-          this.subjects$.next(apiSubjects.map((s: any) => this.toSubjectItem(s)));
-        } else {
-          this.subjects$.next(this.defaults);
-        }
+        this.subjects$.next(apiSubjects.map((s: any) => this.toSubjectItem(s)));
         this.loaded = true;
       },
       error: () => {
-        this.subjects$.next(this.defaults);
+        // No fallback to a baked-in subject list — let consumers show an
+        // empty state instead of misleading defaults.
+        this.subjects$.next([]);
         this.loaded = true;
       },
     });
@@ -129,11 +105,11 @@ export class SubjectService {
 
   getSubjectsList(): SubjectItem[] {
     if (!this.loaded) this.loadSubjects();
-    return this.subjects$.value.length > 0 ? this.subjects$.value : this.defaults;
+    return this.subjects$.value;
   }
 
   getSubjectName(subjectId: string): string {
-    const subjects = this.subjects$.value.length > 0 ? this.subjects$.value : this.defaults;
+    const subjects = this.subjects$.value;
     const found = subjects.find(s => s.subjectId === subjectId || s.subjectId === subjectId?.toLowerCase());
     if (found) return found.name;
     // Fallback lookup for old IDs
@@ -161,28 +137,22 @@ export class SubjectService {
     ids.forEach(id => { params = params.append('ids', id); });
     return this.http.get<any>(`${this.API}/subjects`, { params }).pipe(
       map((res: any) => this.resolveByIds(ids, res?.data || [])),
-      // Network/API failure → still surface every requested id, using the
-      // built-in default list or the raw id as the label. Keeps every
-      // dropdown populated (timetable, exam, assignment, syllabus, etc.).
-      // Caller's error handler isn't triggered; we always emit a valid array.
-      // (No catchError here because the http call may legitimately throw —
-      //  the components currently have their own error fallbacks. But we
-      //  upgrade the success path to always return one item per requested id.)
+      // For ids that the API didn't return, we surface a SubjectItem with
+      // raw id as the label (rather than dropping it). Keeps dropdowns
+      // populated even when a referenced subject was deleted upstream.
     );
   }
 
   /** Build one SubjectItem per requested id, in the input order. Looks up
-   *  names in the API response first, then the built-in default list, then
-   *  finally falls back to the raw id as the display label. */
+   *  names in the API response first; missing ids fall back to the raw id
+   *  as the display label. */
   private resolveByIds(ids: string[], apiData: any[]): SubjectItem[] {
     const byId = new Map<string, SubjectItem>();
     apiData.forEach(s => {
       const id = s.subjectId || s.id;
-      byId.set(id, { subjectId: id, name: s.name, code: s.code, type: s.type });
+      byId.set(id, this.toSubjectItem(s));
     });
-    const defaults = new Map<string, SubjectItem>();
-    this.defaults.forEach(d => defaults.set(d.subjectId, d));
-    return ids.map(id => byId.get(id) || defaults.get(id) || { subjectId: id, name: id });
+    return ids.map(id => byId.get(id) || ({ subjectId: id, name: id } as SubjectItem));
   }
 
   refreshSubjects(): void {
