@@ -4,7 +4,9 @@ import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.modules.academicyear.model.AcademicYear;
 import com.saas.school.modules.academicyear.repository.AcademicYearRepository;
 import com.saas.school.modules.classes.model.SchoolClass;
+import com.saas.school.modules.classes.model.Subject;
 import com.saas.school.modules.classes.repository.SchoolClassRepository;
+import com.saas.school.modules.classes.repository.SubjectRepository;
 import com.saas.school.modules.teacher.dto.CarryForwardAssignmentsRequest;
 import com.saas.school.modules.teacher.dto.CreateTeacherAssignmentRequest;
 import com.saas.school.modules.teacher.model.Teacher;
@@ -34,6 +36,7 @@ public class TeacherSubjectAssignmentService {
     @Autowired private TeacherRepository teacherRepo;
     @Autowired private AcademicYearRepository academicYearRepo;
     @Autowired private SchoolClassRepository schoolClassRepo;
+    @Autowired private SubjectRepository subjectRepo;
 
     // ── CRUD ─────────────────────────────────────────────────────────
 
@@ -48,11 +51,17 @@ public class TeacherSubjectAssignmentService {
                     req.getTeacherId(), null);
         }
 
-        // De-duplicate (teacher, year, class, section, subject)
+        // Resolve componentKey based on the parent subject's shape. For hybrid
+        // subjects this lets the same (teacher, year, class, section, subject)
+        // hold two rows — one per component — without colliding on the unique
+        // index.
+        String resolvedComponentKey = resolveComponentKeyForAssignment(req);
+
+        // De-duplicate (teacher, year, class, section, subject, component)
         Optional<TeacherSubjectAssignment> existing = repo
-                .findByTeacherIdAndAcademicYearIdAndClassIdAndSectionIdAndSubjectId(
+                .findByTeacherIdAndAcademicYearIdAndClassIdAndSectionIdAndSubjectIdAndComponentKey(
                         req.getTeacherId(), req.getAcademicYearId(),
-                        req.getClassId(), req.getSectionId(), req.getSubjectId());
+                        req.getClassId(), req.getSectionId(), req.getSubjectId(), resolvedComponentKey);
         if (existing.isPresent()) {
             // Merge roles onto existing row instead of throwing.
             TeacherSubjectAssignment a = existing.get();
@@ -71,9 +80,44 @@ public class TeacherSubjectAssignmentService {
         a.setClassId(req.getClassId());
         a.setSectionId(req.getSectionId());
         a.setSubjectId(req.getSubjectId());
+        a.setComponentKey(resolvedComponentKey);
         a.setRoles(req.getRoles() == null ? Set.of(Role.SUBJECT_TEACHER) : new HashSet<>(req.getRoles()));
         a.setStatus(TeacherSubjectAssignment.Status.ACTIVE);
         return repo.save(a);
+    }
+
+    /**
+     * Validate and auto-fill the componentKey on a teacher assignment
+     * based on the parent subject's component list.
+     *
+     * <p>Class-Teacher-only roles (no subject) skip this; component
+     * makes no sense for class teachers. Single-component subjects
+     * auto-fill from the only component so older clients still work.
+     * Multi-component subjects require the caller to specify one.
+     */
+    private String resolveComponentKeyForAssignment(CreateTeacherAssignmentRequest req) {
+        // No subject (CLASS_TEACHER-only assignment) → componentKey doesn't apply.
+        if (req.getSubjectId() == null || req.getSubjectId().isBlank()) {
+            return null;
+        }
+        Subject subject = subjectRepo.findById(req.getSubjectId()).orElse(null);
+        if (subject == null || subject.getComponents() == null || subject.getComponents().isEmpty()) {
+            // Subject in old shape or unknown — pass through whatever the caller sent.
+            return req.getComponentKey();
+        }
+        if (subject.getComponents().size() == 1) {
+            return subject.getComponents().get(0).getKey();
+        }
+        if (req.getComponentKey() == null || req.getComponentKey().isBlank()) {
+            throw new IllegalArgumentException(
+                    "Subject '" + subject.getName() + "' has multiple components; componentKey is required.");
+        }
+        Subject.Component target = subject.componentByKey(req.getComponentKey());
+        if (target == null) {
+            throw new IllegalArgumentException(
+                    "Component '" + req.getComponentKey() + "' not found on subject '" + subject.getName() + "'.");
+        }
+        return target.getKey();
     }
 
     public TeacherSubjectAssignment update(String assignmentId, CreateTeacherAssignmentRequest req) {
@@ -99,6 +143,17 @@ public class TeacherSubjectAssignmentService {
         if (req.getSubjectId() != null) a.setSubjectId(req.getSubjectId());
         if (req.getAcademicYearId() != null) a.setAcademicYearId(req.getAcademicYearId());
         if (req.getRoles() != null) a.setRoles(new HashSet<>(req.getRoles()));
+        // Re-resolve componentKey if subject changed OR componentKey was sent;
+        // otherwise leave the existing value. Either way the resolver checks
+        // the subject's current component list for validity.
+        if (req.getSubjectId() != null || req.getComponentKey() != null) {
+            // Build a synthetic request reflecting the post-update state so the
+            // resolver sees the right subject + caller's componentKey choice.
+            CreateTeacherAssignmentRequest synthetic = new CreateTeacherAssignmentRequest();
+            synthetic.setSubjectId(a.getSubjectId());
+            synthetic.setComponentKey(req.getComponentKey() != null ? req.getComponentKey() : a.getComponentKey());
+            a.setComponentKey(resolveComponentKeyForAssignment(synthetic));
+        }
         return repo.save(a);
     }
 
@@ -370,12 +425,13 @@ public class TeacherSubjectAssignmentService {
                 }
             }
 
-            // Dedupe.
+            // Dedupe (includes componentKey so per-component assignments for the
+            // same subject don't collide with each other).
             if (req.isSkipExisting()) {
                 Optional<TeacherSubjectAssignment> dup = repo
-                        .findByTeacherIdAndAcademicYearIdAndClassIdAndSectionIdAndSubjectId(
+                        .findByTeacherIdAndAcademicYearIdAndClassIdAndSectionIdAndSubjectIdAndComponentKey(
                                 src.getTeacherId(), req.getToAcademicYearId(),
-                                newCls.getClassId(), newSectionId, newSubjectId);
+                                newCls.getClassId(), newSectionId, newSubjectId, src.getComponentKey());
                 if (dup.isPresent()) {
                     result.skippedDuplicate++;
                     continue;
@@ -389,6 +445,7 @@ public class TeacherSubjectAssignmentService {
             a.setClassId(newCls.getClassId());
             a.setSectionId(newSectionId);
             a.setSubjectId(newSubjectId);
+            a.setComponentKey(src.getComponentKey()); // carry forward as-is
             a.setRoles(new HashSet<>(src.getRoles() == null ? Set.of(Role.SUBJECT_TEACHER) : src.getRoles()));
             a.setStatus(TeacherSubjectAssignment.Status.ACTIVE);
             try {

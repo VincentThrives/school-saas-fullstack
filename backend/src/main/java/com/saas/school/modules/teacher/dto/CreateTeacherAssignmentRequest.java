@@ -11,6 +11,14 @@ public class CreateTeacherAssignmentRequest {
     private String classId;
     private String sectionId;
     private String subjectId;
+    /**
+     * Which component of the subject this teacher teaches — used for
+     * subjects with multiple components (Hybrid theory/practical,
+     * theory + internal assessment, etc.). Auto-filled for
+     * single-component subjects; required for multi-component
+     * subjects when the role is SUBJECT_TEACHER.
+     */
+    private String componentKey;
     private Set<TeacherSubjectAssignment.Role> roles;
 
     public CreateTeacherAssignmentRequest() {
@@ -30,6 +38,9 @@ public class CreateTeacherAssignmentRequest {
 
     public String getSubjectId() { return subjectId; }
     public void setSubjectId(String subjectId) { this.subjectId = subjectId; }
+
+    public String getComponentKey() { return componentKey; }
+    public void setComponentKey(String componentKey) { this.componentKey = componentKey; }
 
     public Set<TeacherSubjectAssignment.Role> getRoles() { return roles; }
     public void setRoles(Set<TeacherSubjectAssignment.Role> roles) { this.roles = roles; }

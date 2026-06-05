@@ -20,8 +20,8 @@ import java.util.Set;
  * field is required here.
  */
 @Document(collection = "teacher_subject_assignments")
-@CompoundIndex(name = "teacher_year_class_section_subject_idx",
-        def = "{'teacherId':1,'academicYearId':1,'classId':1,'sectionId':1,'subjectId':1}",
+@CompoundIndex(name = "teacher_year_class_section_subject_component_idx",
+        def = "{'teacherId':1,'academicYearId':1,'classId':1,'sectionId':1,'subjectId':1,'componentKey':1}",
         unique = true)
 public class TeacherSubjectAssignment {
 
@@ -33,6 +33,17 @@ public class TeacherSubjectAssignment {
     private String classId;
     private String sectionId;    // optional — null means whole class
     private String subjectId;    // optional — null when role is CLASS_TEACHER only
+
+    /**
+     * Which component of the subject this teacher owns — e.g. one row
+     * with {@code componentKey = "theory"} and another with
+     * {@code componentKey = "practical"} means the same teacher takes
+     * both portions of a hybrid subject. Required when the subject
+     * has more than one component and the role is SUBJECT_TEACHER.
+     * Null for CLASS_TEACHER assignments and for single-component
+     * subjects.
+     */
+    private String componentKey;
 
     private Set<Role> roles = new HashSet<>();
     private Status status = Status.ACTIVE;
@@ -65,6 +76,9 @@ public class TeacherSubjectAssignment {
 
     public String getSubjectId() { return subjectId; }
     public void setSubjectId(String subjectId) { this.subjectId = subjectId; }
+
+    public String getComponentKey() { return componentKey; }
+    public void setComponentKey(String componentKey) { this.componentKey = componentKey; }
 
     public Set<Role> getRoles() { return roles; }
     public void setRoles(Set<Role> roles) { this.roles = roles == null ? new HashSet<>() : roles; }
