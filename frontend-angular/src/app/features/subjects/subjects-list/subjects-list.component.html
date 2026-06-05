@@ -91,7 +91,10 @@
   </div>
 
   <!-- Create Subject Dialog (preset-driven; FormArray hidden behind a toggle) -->
-  <div class="dialog-overlay" *ngIf="createDialogOpen" (click)="closeCreateDialog()">
+  <!-- The #dialogOverlay ref is grabbed in ngAfterViewChecked and the
+       element is moved to document.body so it can escape the parent's
+       transform-induced containing block. -->
+  <div #dialogOverlay class="dialog-overlay" *ngIf="createDialogOpen" (click)="closeCreateDialog()">
     <div class="dialog-panel subject-dialog" (click)="$event.stopPropagation()">
       <div class="dialog-head">
         <h3>Add Subject</h3>
@@ -255,7 +258,7 @@
   </div>
 
   <!-- Delete Confirmation Dialog -->
-  <div class="dialog-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
+  <div #deleteOverlay class="dialog-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
     <div class="dialog-panel" (click)="$event.stopPropagation()">
       <h3>Delete Subject</h3>
       <p>Are you sure you want to delete <strong>{{ selectedSubject?.name }}</strong>? This action cannot be undone.</p>

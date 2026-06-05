@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, AfterViewChecked, ElementRef, ViewChild, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
@@ -45,7 +45,19 @@ import { ApiService } from '../../../core/services/api.service';
   templateUrl: './subjects-list.component.html',
   styleUrl: './subjects-list.component.scss',
 })
-export class SubjectsListComponent implements OnInit {
+export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestroy {
+  /**
+   * The dialog overlay element. We need a handle so we can move it to
+   * {@code document.body} as soon as it's rendered — the dialog lives
+   * inside {@code mat-sidenav-content}, whose {@code translate3d}
+   * transform creates a containing block that traps {@code
+   * position: fixed} children. Moving the overlay to body lets it
+   * actually cover the viewport including the app header.
+   */
+  @ViewChild('dialogOverlay') dialogOverlay?: ElementRef<HTMLElement>;
+  @ViewChild('deleteOverlay') deleteOverlay?: ElementRef<HTMLElement>;
+  private movedCreateToBody = false;
+  private movedDeleteToBody = false;
   // Renamed "type" column to "summary" — shows component count + makeup
   // so the same column works for legacy single-type subjects AND new
   // component-shaped subjects.
@@ -70,6 +82,32 @@ export class SubjectsListComponent implements OnInit {
     private fb: FormBuilder,
     private snackBar: MatSnackBar,
   ) {}
+
+  ngAfterViewChecked(): void {
+    // Hoist dialog overlays to <body> the first time they appear,
+    // escaping mat-sidenav-content's transform context that traps
+    // position:fixed children. *ngIf destroys the element on close,
+    // so the body-attached copy goes with it.
+    if (this.createDialogOpen && this.dialogOverlay && !this.movedCreateToBody) {
+      document.body.appendChild(this.dialogOverlay.nativeElement);
+      this.movedCreateToBody = true;
+    } else if (!this.createDialogOpen) {
+      this.movedCreateToBody = false;
+    }
+    if (this.deleteDialogOpen && this.deleteOverlay && !this.movedDeleteToBody) {
+      document.body.appendChild(this.deleteOverlay.nativeElement);
+      this.movedDeleteToBody = true;
+    } else if (!this.deleteDialogOpen) {
+      this.movedDeleteToBody = false;
+    }
+  }
+
+  ngOnDestroy(): void {
+    // If the component is torn down while a dialog was open, make
+    // sure we don't leak the body-attached node.
+    this.dialogOverlay?.nativeElement?.remove();
+    this.deleteOverlay?.nativeElement?.remove();
+  }
 
   ngOnInit(): void {
     this.loadSubjects();
