@@ -1,0 +1,41 @@
+.internal-marks-page {
+  padding: 20px;
+
+  .selector-card { margin-bottom: 16px; }
+
+  .selector-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  .schedule-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: rgba(0,0,0,0.65);
+    margin: 10px 0 4px;
+
+    mat-icon { font-size: 18px; height: 18px; width: 18px; }
+  }
+
+  .actions-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+  }
+
+  .marks-card {
+    .marks-table { width: 100%; }
+    .mark-field, .remarks-field { width: 100%; }
+    .mark-field { max-width: 120px; }
+    .muted { color: rgba(0,0,0,0.5); font-weight: 400; }
+  }
+
+  .save-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+}

@@ -271,6 +271,17 @@ export const routes: Routes = [
         canActivate: [featureGuard],
         data: { feature: 'exams' },
       },
+      {
+        // Internal-assessment marks for components configured as
+        // assessmentMode = INTERNAL (project, assignment, observation).
+        // Lives alongside the regular exam marks route — same module,
+        // different storage path on the backend.
+        path: 'internal-marks',
+        loadComponent: () =>
+          import('./features/exams/internal-marks/internal-marks.component').then(m => m.InternalMarksComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'exams' },
+      },
 
       // ── Student Marks ─────────────────────────────────────
       {
