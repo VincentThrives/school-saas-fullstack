@@ -28,6 +28,14 @@ public class MarkAttendanceRequest {
     private String teacherId;
     private int periodNumber;
 
+    /**
+     * Which component of the subject this attendance is for —
+     * "theory" or "practical" on a hybrid subject, for example.
+     * Required when the subject has multiple components that track
+     * attendance; auto-filled for single-component subjects.
+     */
+    private String componentKey;
+
     public MarkAttendanceRequest() {
     }
 
@@ -96,6 +104,14 @@ public class MarkAttendanceRequest {
 
     public void setPeriodNumber(int periodNumber) {
         this.periodNumber = periodNumber;
+    }
+
+    public String getComponentKey() {
+        return componentKey;
+    }
+
+    public void setComponentKey(String componentKey) {
+        this.componentKey = componentKey;
     }
 
     public static class AttendanceEntry {

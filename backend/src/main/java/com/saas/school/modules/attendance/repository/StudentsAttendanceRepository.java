@@ -24,6 +24,16 @@ public interface StudentsAttendanceRepository extends MongoRepository<StudentsAt
     Optional<StudentsAttendance> findByClassIdAndSectionIdAndDateAndPeriodNumber(
             String classId, String sectionId, LocalDate date, int periodNumber);
 
+    /**
+     * Upsert lookup including componentKey — used for hybrid subjects
+     * where Theory and Practical share a date + period slot. Mongo's
+     * derived-query null handling: passing null for componentKey
+     * matches rows where the field is absent (day-wise records),
+     * which is the desired behaviour for legacy day-wise upserts.
+     */
+    Optional<StudentsAttendance> findByClassIdAndSectionIdAndDateAndPeriodNumberAndComponentKey(
+            String classId, String sectionId, LocalDate date, int periodNumber, String componentKey);
+
     // Date range — for reports.
     //
     // Inclusive on BOTH ends ($gte / $lte). Auto-derived method names like

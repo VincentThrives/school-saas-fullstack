@@ -48,6 +48,55 @@ public class AttendanceService {
     @Autowired private SmsService smsService;
     @Autowired private AuditService auditService;
 
+    // ── Component-key resolution ────────────────────────────────────
+
+    /**
+     * Pick the componentKey for an attendance request, validating the
+     * caller's input against the subject's component list.
+     *
+     * <p>Rules:
+     * <ul>
+     *   <li>No {@code subjectId} on the request (day-wise marking) → return null.</li>
+     *   <li>Subject has one component → ignore caller's componentKey;
+     *       auto-fill from the only component. Keeps older clients
+     *       working unchanged.</li>
+     *   <li>Subject has multiple components → caller MUST send a
+     *       componentKey matching one of them, AND that component must
+     *       have {@code trackAttendance=true}. INTERNAL-mode
+     *       components are silently allowed if their
+     *       trackAttendance is true (rare but possible).</li>
+     * </ul>
+     */
+    private String resolveComponentKeyForAttendance(MarkAttendanceRequest req) {
+        if (req.getSubjectId() == null || req.getSubjectId().isBlank()) {
+            return null;
+        }
+        Subject subject = subjectRepository.findById(req.getSubjectId()).orElse(null);
+        if (subject == null || subject.getComponents() == null || subject.getComponents().isEmpty()) {
+            // Subject in old shape (no components) or unknown — fall back to
+            // whatever the caller sent rather than blocking. Lets the rest of
+            // the system surface the real "subject not found" error.
+            return req.getComponentKey();
+        }
+        if (subject.getComponents().size() == 1) {
+            return subject.getComponents().get(0).getKey();
+        }
+        if (req.getComponentKey() == null || req.getComponentKey().isBlank()) {
+            throw new IllegalArgumentException(
+                    "Subject '" + subject.getName() + "' has multiple components; componentKey is required.");
+        }
+        Subject.Component target = subject.componentByKey(req.getComponentKey());
+        if (target == null) {
+            throw new IllegalArgumentException(
+                    "Component '" + req.getComponentKey() + "' not found on subject '" + subject.getName() + "'.");
+        }
+        if (!target.isTrackAttendance()) {
+            throw new IllegalArgumentException(
+                    "Component '" + target.getLabel() + "' is not attendance-tracked.");
+        }
+        return target.getKey();
+    }
+
     // ── Batch attendance (1 document per class+section+date+period) ──
 
     public StudentsAttendance markBatchAttendance(MarkAttendanceRequest req, String markedBy) {
@@ -67,10 +116,17 @@ public class AttendanceService {
 
         int period = req.getPeriodNumber();  // 0 for day-wise
 
-        // Upsert: find existing or create new
+        // Resolve the target component on the subject (if subjectId is given).
+        // For a hybrid subject like PUC II Physics, the same date + period slot
+        // can host two rows — one for Theory, one for Practical — distinguished
+        // by componentKey. Auto-fill the key for single-component subjects so
+        // older clients that don't send it keep working.
+        String resolvedComponentKey = resolveComponentKeyForAttendance(req);
+
+        // Upsert: find existing or create new (includes componentKey now)
         Optional<StudentsAttendance> existing = batchRepository
-                .findByClassIdAndSectionIdAndDateAndPeriodNumber(
-                        req.getClassId(), req.getSectionId(), req.getDate(), period);
+                .findByClassIdAndSectionIdAndDateAndPeriodNumberAndComponentKey(
+                        req.getClassId(), req.getSectionId(), req.getDate(), period, resolvedComponentKey);
 
         StudentsAttendance record;
         if (existing.isPresent()) {
@@ -84,6 +140,7 @@ public class AttendanceService {
             record.setDate(req.getDate());
             record.setPeriodNumber(period);
             record.setSubjectId(req.getSubjectId());
+            record.setComponentKey(resolvedComponentKey);
             record.setTeacherId(req.getTeacherId());
         }
 

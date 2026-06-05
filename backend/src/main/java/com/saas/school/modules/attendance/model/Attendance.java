@@ -12,7 +12,14 @@ import java.time.LocalDate;
 
 @Document(collection = "attendance")
 @CompoundIndexes({
-    @CompoundIndex(name = "student_date_subject", def = "{'studentId':1,'date':1,'subjectId':1}")
+    // componentKey lets the same student/date/subject have separate rows
+    // for the "theory" and "practical" portions of a hybrid subject —
+    // needed for PUC-style subjects where Theory and Practical have
+    // their own classes and independently-tracked attendance.
+    @CompoundIndex(
+        name = "student_date_subject_component",
+        def = "{'studentId':1,'date':1,'subjectId':1,'componentKey':1,'periodNumber':1}"
+    )
 })
 public class Attendance {
     @Id
@@ -27,6 +34,17 @@ public class Attendance {
     private String remarks;
     private String subjectId;
     private String subjectName;
+
+    /**
+     * Which {@code Subject.Component} this attendance row belongs to.
+     *
+     * <p>Required when the subject has more than one component AND
+     * that component is configured with {@code trackAttendance=true}.
+     * Auto-filled for single-component subjects so older clients
+     * continue to work.
+     */
+    private String componentKey;
+
     private int periodNumber;
 
     @CreatedDate
@@ -152,6 +170,14 @@ public class Attendance {
 
     public void setPeriodNumber(int periodNumber) {
         this.periodNumber = periodNumber;
+    }
+
+    public String getComponentKey() {
+        return componentKey;
+    }
+
+    public void setComponentKey(String componentKey) {
+        this.componentKey = componentKey;
     }
 
     public Instant getCreatedAt() {

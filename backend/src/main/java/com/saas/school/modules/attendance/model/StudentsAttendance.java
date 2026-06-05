@@ -13,8 +13,12 @@ import java.util.List;
 
 @Document(collection = "students_attendance")
 @CompoundIndexes({
-    @CompoundIndex(name = "class_section_date_period",
-        def = "{'classId':1,'sectionId':1,'date':1,'periodNumber':1}", unique = true)
+    // Component key in the unique key lets the same (class, section,
+    // date, period) host separate attendance records for the "theory"
+    // and "practical" portions of a hybrid subject. periodNumber is
+    // typically 0 for day-wise marking and 1-8 for subject-wise.
+    @CompoundIndex(name = "class_section_date_period_component",
+        def = "{'classId':1,'sectionId':1,'date':1,'periodNumber':1,'componentKey':1}", unique = true)
 })
 public class StudentsAttendance {
     @Id
@@ -25,6 +29,13 @@ public class StudentsAttendance {
     private LocalDate date;
     private int periodNumber;       // 0 = day-wise, 1-8 = period/subject-wise
     private String subjectId;       // null for day-wise
+    /**
+     * Which component on the subject this batch refers to. Auto-filled
+     * to the only component for single-component subjects, required
+     * for multi-component subjects whose target component has
+     * trackAttendance=true. Null for day-wise (subjectId is null too).
+     */
+    private String componentKey;
     private String teacherId;       // from timetable
     private List<StudentEntry> entries;
     private String markedBy;
@@ -60,6 +71,9 @@ public class StudentsAttendance {
 
     public String getSubjectId() { return subjectId; }
     public void setSubjectId(String subjectId) { this.subjectId = subjectId; }
+
+    public String getComponentKey() { return componentKey; }
+    public void setComponentKey(String componentKey) { this.componentKey = componentKey; }
 
     public String getTeacherId() { return teacherId; }
     public void setTeacherId(String teacherId) { this.teacherId = teacherId; }
