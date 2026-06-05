@@ -90,43 +90,76 @@
     </table>
   </div>
 
-  <!-- Create Subject Dialog (reactive form, supports 1-N components) -->
+  <!-- Create Subject Dialog (preset-driven; FormArray hidden behind a toggle) -->
   <div class="dialog-overlay" *ngIf="createDialogOpen" (click)="closeCreateDialog()">
     <div class="dialog-panel subject-dialog" (click)="$event.stopPropagation()">
-      <h3>Add New Subject</h3>
+      <div class="dialog-head">
+        <h3>Add Subject</h3>
+        <button mat-icon-button (click)="closeCreateDialog()" matTooltip="Close">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
       <p class="dialog-description">
-        Configure the subject's components. Most subjects have one
-        component (Theory). Use <strong>Add component</strong> for
-        Theory + Practical, Theory + Internal Assessment, or any other
-        multi-component setup.
+        Pick the subject type. The components fill in automatically — flip on
+        <em>Customise</em> only if you need to tweak labels / marks.
       </p>
 
       <form [formGroup]="form" class="subject-form">
         <!-- Identity row -->
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Subject Name</mat-label>
-          <input matInput formControlName="name" placeholder="e.g., PUC II Physics">
-        </mat-form-field>
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="grow">
+            <mat-label>Subject Name</mat-label>
+            <input matInput formControlName="name" placeholder="e.g., PUC II Physics">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Code (optional)</mat-label>
+            <input matInput formControlName="code" placeholder="PHY-101">
+          </mat-form-field>
+        </div>
 
         <div class="form-row">
-          <mat-form-field appearance="outline">
-            <mat-label>Subject Code (optional)</mat-label>
-            <input matInput formControlName="code" placeholder="e.g., PHY-101">
-          </mat-form-field>
-
           <mat-form-field appearance="outline">
             <mat-label>Class</mat-label>
             <mat-select formControlName="classId">
               <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
             </mat-select>
           </mat-form-field>
-
           <mat-form-field appearance="outline">
             <mat-label>Academic Year</mat-label>
             <mat-select formControlName="academicYearId">
               <mat-option *ngFor="let y of academicYears" [value]="y.academicYearId">{{ y.label }}</mat-option>
             </mat-select>
           </mat-form-field>
+        </div>
+
+        <!-- Subject type preset — the main choice. Selecting one fills in
+             the components automatically; admin doesn't need to think
+             about Theory/Practical individually for the common cases. -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Subject Type</mat-label>
+          <mat-select formControlName="subjectType">
+            <mat-option *ngFor="let p of subjectTypePresets" [value]="p.value">
+              {{ p.label }}
+            </mat-option>
+          </mat-select>
+          <mat-hint *ngIf="currentPreset()">{{ currentPreset()!.description }}</mat-hint>
+        </mat-form-field>
+
+        <!-- Preset summary chips — shows what got auto-added. -->
+        <div class="preset-summary" *ngIf="!customiseComponents">
+          <span class="block-label">Components</span>
+          <div class="preset-chips">
+            <span class="preset-chip" *ngFor="let g of components.controls">
+              <mat-icon>{{ g.get('assessmentMode')?.value === 'INTERNAL' ? 'assignment' : 'edit_note' }}</mat-icon>
+              <strong>{{ g.get('label')?.value }}</strong>
+              <span class="chip-meta">{{ g.get('maxMarks')?.value }} marks</span>
+              <span class="chip-meta" *ngIf="g.get('trackAttendance')?.value">· attendance</span>
+            </span>
+          </div>
+          <button mat-button type="button" class="customise-btn" (click)="customiseComponents = true">
+            <mat-icon>tune</mat-icon>
+            Customise components
+          </button>
         </div>
 
         <!-- Pass rule -->
@@ -138,10 +171,11 @@
           </mat-radio-group>
         </div>
 
-        <!-- Components -->
-        <div class="components-block" formArrayName="components">
+        <!-- Advanced: full FormArray editor. Only shown when Customise is on
+             or the admin picked the CUSTOM preset. -->
+        <div class="components-block" formArrayName="components" *ngIf="customiseComponents">
           <div class="block-header">
-            <label class="block-label">Components</label>
+            <label class="block-label">Customise components</label>
             <button mat-stroked-button type="button" (click)="addComponent()">
               <mat-icon>add</mat-icon>
               Add component
@@ -164,15 +198,15 @@
               </mat-form-field>
 
               <mat-form-field appearance="outline">
-                <mat-label>Key (lowercase, no spaces)</mat-label>
+                <mat-label>Key</mat-label>
                 <input matInput formControlName="key" placeholder="theory">
               </mat-form-field>
 
               <mat-form-field appearance="outline">
                 <mat-label>Assessment Mode</mat-label>
                 <mat-select formControlName="assessmentMode">
-                  <mat-option value="EXAM">Exam (marks from one or more exams)</mat-option>
-                  <mat-option value="INTERNAL">Internal Assessment (single number per term)</mat-option>
+                  <mat-option value="EXAM">Exam</mat-option>
+                  <mat-option value="INTERNAL">Internal Assessment</mat-option>
                 </mat-select>
               </mat-form-field>
             </div>
@@ -202,7 +236,7 @@
                 Track attendance for this component
               </mat-slide-toggle>
               <span class="toggle-hint">
-                Off for Internal Assessment / Project / Discipline-style components
+                Off for Internal Assessment / Project components
               </span>
             </div>
           </div>

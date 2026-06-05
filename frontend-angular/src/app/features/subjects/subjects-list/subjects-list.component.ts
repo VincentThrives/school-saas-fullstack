@@ -80,11 +80,69 @@ export class SubjectsListComponent implements OnInit {
   // ── Form construction ──────────────────────────────────────────────
 
   /**
-   * Build the reactive form with a FormArray of components.
-   *
-   * Starts with one default Theory component so the "create a simple
-   * subject" path stays one-click. Admin clicks "Add component" to
-   * append a Practical / Internal / Project block when needed.
+   * Subject-type presets — these are what the admin actually picks
+   * from the dropdown. Each preset declares the components that get
+   * auto-created when the type is selected, so the admin never has
+   * to think about the FormArray for the 95% case. Power users can
+   * flip on "Customise components" to edit the array directly.
+   */
+  readonly subjectTypePresets: Array<{
+    value: string;
+    label: string;
+    description: string;
+    components: ReturnType<SubjectsListComponent['presetComponent']>[];
+    suggestedPassRule: 'PER_COMPONENT' | 'COMBINED';
+  }> = [
+    {
+      value: 'THEORY',
+      label: 'Theory only',
+      description: 'One paper. Most subjects in primary classes.',
+      suggestedPassRule: 'PER_COMPONENT',
+      components: [this.presetComponent('theory', 'Theory', 100, 35, true, 'EXAM')],
+    },
+    {
+      value: 'PRACTICAL',
+      label: 'Practical only',
+      description: 'Lab / activity-based subject with attendance.',
+      suggestedPassRule: 'PER_COMPONENT',
+      components: [this.presetComponent('practical', 'Practical', 100, 35, true, 'EXAM')],
+    },
+    {
+      value: 'THEORY_PRACTICAL',
+      label: 'Theory + Practical (Hybrid)',
+      description: 'PUC sciences, Computer Science — both with attendance.',
+      suggestedPassRule: 'PER_COMPONENT',
+      components: [
+        this.presetComponent('theory',    'Theory',    70, 28, true, 'EXAM'),
+        this.presetComponent('practical', 'Practical', 30, 12, true, 'EXAM'),
+      ],
+    },
+    {
+      value: 'THEORY_INTERNAL',
+      label: 'Theory + Internal Assessment',
+      description: '10th English / Hindi style. IA marks from assignments, no attendance.',
+      suggestedPassRule: 'PER_COMPONENT',
+      components: [
+        this.presetComponent('theory',   'Theory',              80, 27, true,  'EXAM'),
+        this.presetComponent('internal', 'Internal Assessment', 20, 7,  false, 'INTERNAL', 'PER_TERM'),
+      ],
+    },
+    {
+      value: 'CUSTOM',
+      label: 'Custom (advanced)',
+      description: 'Build the component list manually — projects, oral viva, etc.',
+      suggestedPassRule: 'PER_COMPONENT',
+      components: [this.presetComponent('theory', 'Theory', 100, 35, true, 'EXAM')],
+    },
+  ];
+
+  /** Set true to expose the raw FormArray of components for editing. */
+  customiseComponents = false;
+
+  /**
+   * Build the reactive form. Starts with the THEORY preset selected so
+   * the simplest case ("just a Theory subject") is one click — type
+   * any name, pick class/year, hit Create.
    */
   private buildForm(): void {
     this.form = this.fb.group({
@@ -92,9 +150,46 @@ export class SubjectsListComponent implements OnInit {
       code: [''],
       classId: ['', Validators.required],
       academicYearId: ['', Validators.required],
+      subjectType: ['THEORY', Validators.required],
       passRule: ['PER_COMPONENT', Validators.required],
       components: this.fb.array([this.buildComponentGroup('theory', 'Theory', 100, 35, true, 'EXAM')]),
     });
+    // Keep components array in sync whenever the admin picks a different preset.
+    this.form.get('subjectType')?.valueChanges.subscribe(v => this.applyPreset(v));
+    this.customiseComponents = false;
+  }
+
+  /** Lightweight description of a component used to seed presets. */
+  private presetComponent(
+    key: string, label: string, maxMarks: number, passMarks: number,
+    trackAttendance: boolean, assessmentMode: 'EXAM' | 'INTERNAL',
+    internalSchedule: 'PER_TERM' | 'PER_YEAR' = 'PER_TERM',
+  ) {
+    return { key, label, maxMarks, passMarks, trackAttendance, assessmentMode, internalSchedule };
+  }
+
+  /**
+   * Rebuild the components FormArray from the selected preset. The
+   * admin can still flip on "Customise components" afterwards to edit
+   * the values; this just gets them to a sensible starting shape.
+   */
+  applyPreset(value: string): void {
+    const preset = this.subjectTypePresets.find(p => p.value === value);
+    if (!preset) return;
+    this.form.get('passRule')?.setValue(preset.suggestedPassRule, { emitEvent: false });
+    while (this.components.length) this.components.removeAt(0);
+    for (const c of preset.components) {
+      this.components.push(this.buildComponentGroup(
+        c.key, c.label, c.maxMarks, c.passMarks, c.trackAttendance, c.assessmentMode, c.internalSchedule));
+    }
+    // Auto-open customise for CUSTOM so the user immediately sees the editor.
+    this.customiseComponents = value === 'CUSTOM';
+  }
+
+  /** Returns the current preset descriptor for hint text in the dialog. */
+  currentPreset() {
+    const v = this.form?.get('subjectType')?.value;
+    return this.subjectTypePresets.find(p => p.value === v) || null;
   }
 
   private buildComponentGroup(
@@ -184,7 +279,9 @@ export class SubjectsListComponent implements OnInit {
     }
     // Component-level sanity check beyond per-field validators:
     // passMarks must be <= maxMarks, and component keys must be unique.
-    const v = this.form.value as CreateOrUpdateSubject;
+    // subjectType is a UI-only preset selector and isn't sent to the backend.
+    const raw = this.form.value as any;
+    const { subjectType, ...v }: { subjectType?: string } & CreateOrUpdateSubject = raw;
     const keys = new Set<string>();
     for (const c of v.components) {
       if (c.passMarks > c.maxMarks) {
