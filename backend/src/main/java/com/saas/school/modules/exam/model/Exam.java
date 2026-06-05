@@ -16,6 +16,20 @@ public class Exam {
     private String classId;
     private String sectionId;
     private String subjectId;
+    /**
+     * Which {@code Subject.Component} this exam scores.
+     *
+     * <p>Required when the subject has more than one component (e.g. a
+     * PUC II Physics subject with separate "theory" and "practical"
+     * components — an exam belongs to one or the other). Null is
+     * acceptable for single-component subjects, where the only
+     * component is unambiguous.
+     *
+     * <p>An exam can never be created against an INTERNAL-mode
+     * component — those marks come from
+     * {@code ComponentInternalMark}, not from Exam records.
+     */
+    private String componentKey;
     private String academicYearId;
     private int maxMarks;
     private int passingMarks;
@@ -95,6 +109,14 @@ public class Exam {
 
     public void setSubjectId(String subjectId) {
         this.subjectId = subjectId;
+    }
+
+    public String getComponentKey() {
+        return componentKey;
+    }
+
+    public void setComponentKey(String componentKey) {
+        this.componentKey = componentKey;
     }
 
     public String getAcademicYearId() {

@@ -7,6 +7,8 @@ import com.saas.school.modules.exam.dto.EnterMarksRequest;
 import com.saas.school.modules.exam.model.Exam;
 import com.saas.school.modules.exam.model.ExamMark;
 import com.saas.school.modules.exam.model.StudentAssessments;
+import com.saas.school.modules.classes.model.Subject;
+import com.saas.school.modules.classes.repository.SubjectRepository;
 import com.saas.school.modules.exam.repository.ExamMarkRepository;
 import com.saas.school.modules.exam.repository.ExamRepository;
 import com.saas.school.modules.exam.repository.StudentAssessmentsRepository;
@@ -24,6 +26,7 @@ public class ExamService {
     @Autowired private StudentAssessmentsRepository assessmentsRepository;
     @Autowired private AuditService auditService;
     @Autowired private com.saas.school.modules.student.repository.StudentRepository studentRepository;
+    @Autowired private SubjectRepository subjectRepository;
 
     public Exam createExam(Exam req) {
         if (req.getSubjectId() == null || req.getSubjectId().isEmpty()) {
@@ -32,9 +35,63 @@ public class ExamService {
         if (req.getClassId() == null || req.getClassId().isEmpty()) {
             throw new IllegalArgumentException("Class is required");
         }
+        validateComponent(req);
         req.setExamId(UUID.randomUUID().toString());
         req.setStatus(Exam.ExamStatus.SCHEDULED);
         return examRepository.save(req);
+    }
+
+    /**
+     * Validates the exam's {@code componentKey} against the parent
+     * subject's component list.
+     *
+     * <p>Rules:
+     * <ul>
+     *   <li>If the subject has a single component, {@code componentKey} is
+     *       auto-filled from that component (so older clients which don't
+     *       send the field still work).</li>
+     *   <li>If the subject has multiple components, the request MUST
+     *       carry a {@code componentKey} that resolves to an existing
+     *       component.</li>
+     *   <li>The referenced component MUST be in {@code EXAM} assessment
+     *       mode — INTERNAL components don't go through Exam records;
+     *       their marks come from ComponentInternalMark.</li>
+     * </ul>
+     */
+    private void validateComponent(Exam req) {
+        Subject subject = subjectRepository.findById(req.getSubjectId()).orElse(null);
+        if (subject == null) {
+            // Subject not found — let downstream code surface the resource error.
+            // We don't want to mask the real cause with a component-key complaint.
+            return;
+        }
+        List<Subject.Component> comps = subject.getComponents();
+        if (comps == null || comps.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Subject '" + subject.getName() + "' has no components configured.");
+        }
+
+        if (comps.size() == 1) {
+            // Single-component subject — componentKey is optional; auto-fill.
+            if (req.getComponentKey() == null || req.getComponentKey().isBlank()) {
+                req.setComponentKey(comps.get(0).getKey());
+            }
+        } else if (req.getComponentKey() == null || req.getComponentKey().isBlank()) {
+            throw new IllegalArgumentException(
+                    "Subject '" + subject.getName() + "' has multiple components; componentKey is required.");
+        }
+
+        Subject.Component target = subject.componentByKey(req.getComponentKey());
+        if (target == null) {
+            throw new IllegalArgumentException(
+                    "Component '" + req.getComponentKey() + "' does not exist on subject '"
+                            + subject.getName() + "'.");
+        }
+        if (target.getAssessmentMode() == Subject.AssessmentMode.INTERNAL) {
+            throw new IllegalArgumentException(
+                    "Component '" + target.getLabel() + "' is INTERNAL — its marks come from the "
+                            + "Internal Marks form, not an exam.");
+        }
     }
 
     public Exam getExamById(String examId) {
@@ -46,6 +103,10 @@ public class ExamService {
         Exam exam = getExamById(examId);
         if (exam.isMarksLocked()) {
             throw new BusinessException("Cannot edit exam — marks are locked.");
+        }
+        // Re-validate component if the subject (or component) is being changed.
+        if (req.getSubjectId() != null && !req.getSubjectId().isBlank()) {
+            validateComponent(req);
         }
         req.setExamId(examId);
         req.setStatus(exam.getStatus());
