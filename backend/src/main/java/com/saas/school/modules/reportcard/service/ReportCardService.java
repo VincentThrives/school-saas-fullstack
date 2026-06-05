@@ -16,10 +16,14 @@ import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.modules.attendance.model.Attendance;
 import com.saas.school.modules.attendance.repository.AttendanceRepository;
 import com.saas.school.modules.classes.model.SchoolClass;
+import com.saas.school.modules.classes.model.Subject;
 import com.saas.school.modules.classes.repository.SchoolClassRepository;
+import com.saas.school.modules.classes.repository.SubjectRepository;
+import com.saas.school.modules.exam.model.ComponentInternalMark;
 import com.saas.school.modules.exam.model.Exam;
 import com.saas.school.modules.exam.model.ExamMark;
 import com.saas.school.modules.exam.model.StudentAssessments;
+import com.saas.school.modules.exam.repository.ComponentInternalMarkRepository;
 import com.saas.school.modules.exam.repository.ExamMarkRepository;
 import com.saas.school.modules.exam.repository.ExamRepository;
 import com.saas.school.modules.exam.repository.StudentAssessmentsRepository;
@@ -81,6 +85,12 @@ public class ReportCardService {
 
     @Autowired
     private TenantRepository tenantRepository;
+
+    @Autowired
+    private SubjectRepository subjectRepository;
+
+    @Autowired
+    private ComponentInternalMarkRepository internalMarkRepository;
 
     @Autowired
     private com.saas.school.modules.academicyear.repository.AcademicYearRepository academicYearRepository;
@@ -249,23 +259,48 @@ public class ReportCardService {
         // Use subjects from exams (not all standard subjects — only show subjects with data)
         Map<String, String> subjectNames = subjectNamesFromExams.isEmpty() ? allSubjects : subjectNamesFromExams;
 
+        // Pre-fetch this student's internal marks once (for INTERNAL-mode components).
+        // Spans the whole year — we filter per (subject, component) in the loop.
+        List<ComponentInternalMark> allInternalMarks =
+                internalMarkRepository.findByStudentIdAndAcademicYearId(studentId, academicYearId);
+
         for (String subjectId : subjectNames.keySet()) {
             double obtained = subjectMarksObtained.getOrDefault(subjectId, 0.0);
             double max = subjectMaxMarks.getOrDefault(subjectId, 0.0);
-            double pct = max > 0 ? (obtained / max) * 100 : 0;
             boolean isAbsent = absentSubjectIds.contains(subjectId);
+
+            // Try to enrich with per-component breakdown. For component-shaped
+            // subjects this also overrides obtained/max with the component sum,
+            // so internal marks (which live outside the Exam table) get included
+            // in the subject total.
+            Subject subject = subjectRepository.findById(subjectId).orElse(null);
+            List<ReportCard.ComponentGrade> componentGrades = null;
+            boolean subjectPassed = !isAbsent;
+            if (subject != null && subject.getComponents() != null && !subject.getComponents().isEmpty()) {
+                ComponentAggregate agg = aggregateComponents(
+                        subject, studentId, academicYearId, exams, examMarksMap, allInternalMarks);
+                componentGrades = agg.componentGrades;
+                obtained = agg.totalObtained;
+                max = agg.totalMax;
+                subjectPassed = !isAbsent && agg.subjectPassed;
+            }
+
+            double pct = max > 0 ? (obtained / max) * 100 : 0;
             String grade = isAbsent ? "—" : calculateGrade(pct);
 
             // Skip subjects with no configured max
             if (max <= 0) continue;
 
             ReportCard.SubjectGrade sg = new ReportCard.SubjectGrade();
+            sg.setSubjectId(subjectId);
             // Use proper name from allSubjects map, fallback to exam name
             sg.setSubjectName(allSubjects.getOrDefault(subjectId, subjectNames.get(subjectId)));
             sg.setMarksObtained(obtained);
             sg.setMaxMarks(max);
             sg.setGrade(grade);
             sg.setAbsent(isAbsent);
+            sg.setPassed(subjectPassed);
+            sg.setComponents(componentGrades);
             subjectGrades.add(sg);
 
             totalMarks += obtained;
@@ -552,6 +587,138 @@ public class ReportCardService {
         if (percentage >= 50) return "C";
         if (percentage >= 40) return "D";
         return "F";
+    }
+
+    // ── Per-component aggregation helpers ─────────────────────────────
+
+    /** Bundles the per-component breakdown plus rolled-up subject totals. */
+    private static class ComponentAggregate {
+        List<ReportCard.ComponentGrade> componentGrades = new ArrayList<>();
+        double totalObtained;
+        double totalMax;
+        boolean subjectPassed;
+    }
+
+    /**
+     * Build per-component grades for a given subject and student.
+     *
+     * <p>For EXAM components: walk the supplied exam list, sum marks
+     * where {@code exam.subjectId == subject.id} and
+     * {@code exam.componentKey} matches (or is null on a
+     * single-component subject).
+     *
+     * <p>For INTERNAL components: pull from the pre-fetched internal
+     * marks list, sum across terms / pick the single year-scoped row.
+     *
+     * <p>Subject pass/fail is computed using the subject's
+     * {@code passRule}:
+     * <ul>
+     *   <li>{@code PER_COMPONENT}: subject passes iff every component passes
+     *   <li>{@code COMBINED}: subject passes iff total obtained &gt;= total pass marks
+     * </ul>
+     */
+    private ComponentAggregate aggregateComponents(
+            Subject subject,
+            String studentId,
+            String academicYearId,
+            List<Exam> exams,
+            Map<String, Double> examMarksByExamId,
+            List<ComponentInternalMark> allInternalMarks) {
+        ComponentAggregate out = new ComponentAggregate();
+        Subject.PassRule passRule = subject.getPassRule() == null
+                ? Subject.PassRule.PER_COMPONENT
+                : subject.getPassRule();
+        double sumPassMarks = 0;
+        boolean everyComponentPassed = true;
+
+        for (Subject.Component comp : subject.getComponents()) {
+            ReportCard.ComponentGrade cg = new ReportCard.ComponentGrade();
+            cg.setKey(comp.getKey());
+            cg.setLabel(comp.getLabel());
+            cg.setMaxMarks(comp.getMaxMarks() == null ? 0 : comp.getMaxMarks());
+            cg.setPassMarks(comp.getPassMarks() == null ? 0 : comp.getPassMarks());
+            cg.setAssessmentMode(comp.getAssessmentMode() == null ? "EXAM" : comp.getAssessmentMode().name());
+
+            double obtained = 0;
+            if (comp.getAssessmentMode() == Subject.AssessmentMode.INTERNAL) {
+                // Sum INTERNAL marks for this (subject, component). For
+                // PER_TERM components this sums across terms; for PER_YEAR
+                // it's a single row.
+                for (ComponentInternalMark m : allInternalMarks) {
+                    if (!subject.getSubjectId().equals(m.getSubjectId())) continue;
+                    if (!comp.getKey().equals(m.getComponentKey())) continue;
+                    if (m.getMarksObtained() != null) obtained += m.getMarksObtained();
+                }
+            } else {
+                // EXAM mode — match exams by componentKey. For single-component
+                // subjects exam.componentKey may be null (legacy clients);
+                // treat null as a match in that case.
+                boolean isSingleComponent = subject.getComponents().size() == 1;
+                for (Exam exam : exams) {
+                    if (!subject.getSubjectId().equals(exam.getSubjectId())) continue;
+                    String examCk = exam.getComponentKey();
+                    boolean componentMatches = comp.getKey().equals(examCk)
+                            || (isSingleComponent && (examCk == null || examCk.isBlank()));
+                    if (!componentMatches) continue;
+                    Double m = examMarksByExamId.get(exam.getExamId());
+                    if (m != null) obtained += m;
+                }
+            }
+            cg.setMarksObtained(obtained);
+            boolean componentPassed = obtained >= cg.getPassMarks();
+            cg.setPassed(componentPassed);
+
+            // Per-component attendance % for trackAttendance components.
+            if (comp.isTrackAttendance()) {
+                cg.setAttendancePercentage(calculateComponentAttendance(
+                        studentId, academicYearId, subject.getSubjectId(), comp.getKey()));
+            }
+
+            out.componentGrades.add(cg);
+            out.totalObtained += obtained;
+            out.totalMax += cg.getMaxMarks();
+            sumPassMarks += cg.getPassMarks();
+            if (!componentPassed) everyComponentPassed = false;
+        }
+
+        if (passRule == Subject.PassRule.PER_COMPONENT) {
+            out.subjectPassed = everyComponentPassed;
+        } else {
+            out.subjectPassed = out.totalObtained >= sumPassMarks;
+        }
+        return out;
+    }
+
+    /**
+     * Per-component attendance % for the given student. Walks Attendance
+     * rows tagged with the matching {@code subjectId + componentKey} for
+     * the academic year. Returns null when there are no records (so the
+     * UI can show "—" instead of misleadingly displaying 0%).
+     */
+    private Double calculateComponentAttendance(
+            String studentId, String academicYearId, String subjectId, String componentKey) {
+        // Pull this student's attendance over a wide date window, then filter
+        // in-memory by subject + component. The wide window covers any
+        // reasonable academic year shape (Indian school years run Jun–Apr).
+        LocalDate from = LocalDate.now().minusYears(2);
+        LocalDate to = LocalDate.now().plusDays(1);
+        List<Attendance> rows = attendanceRepository.findByStudentIdAndDateBetween(studentId, from, to);
+        if (rows == null || rows.isEmpty()) return null;
+        int total = 0;
+        int present = 0;
+        for (Attendance a : rows) {
+            if (!academicYearId.equals(a.getAcademicYearId())) continue;
+            if (!subjectId.equals(a.getSubjectId())) continue;
+            String aCk = a.getComponentKey();
+            // Treat null componentKey as a match for the only component (legacy rows).
+            if (!componentKey.equals(aCk) && aCk != null) continue;
+            total++;
+            if (a.getStatus() == Attendance.Status.PRESENT || a.getStatus() == Attendance.Status.LATE) {
+                present++;
+            }
+        }
+        if (total == 0) return null;
+        return Math.round((present * 1000.0 / total)) / 10.0;
     }
 
     /**

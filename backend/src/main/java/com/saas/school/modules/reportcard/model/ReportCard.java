@@ -178,13 +178,33 @@ public class ReportCard {
 
     // ── Nested types ──────────────────────────────────────────────
 
+    /**
+     * One row per subject on the report card. For single-component
+     * subjects the {@code components} list has exactly one entry and
+     * the totals on this row equal that component's marks; the UI can
+     * render it as a compact one-line row. For multi-component
+     * subjects (Physics with Theory + Practical, English with Theory
+     * + Internal Assessment, etc.) the list has one entry per
+     * component and the totals are the sums — the UI renders an
+     * expandable parent row with sub-rows.
+     */
     public static class SubjectGrade {
+        private String subjectId;
         private String subjectName;
         private double marksObtained;
         private double maxMarks;
         private String grade;
         private String teacherRemarks;
         private boolean absent;
+        /**
+         * Pass / Fail at the subject level, computed from the
+         * subject's {@code passRule}:
+         *  - PER_COMPONENT: passed iff every component passed
+         *  - COMBINED: passed iff marksObtained &gt;= sum of component pass marks
+         */
+        private boolean passed = true;
+        /** Per-component breakdown. Always populated (single-component subjects have one entry). */
+        private List<ComponentGrade> components;
 
         public SubjectGrade() {
         }
@@ -196,6 +216,9 @@ public class ReportCard {
             this.grade = grade;
             this.teacherRemarks = teacherRemarks;
         }
+
+        public String getSubjectId() { return subjectId; }
+        public void setSubjectId(String subjectId) { this.subjectId = subjectId; }
 
         public String getSubjectName() {
             return subjectName;
@@ -239,5 +262,59 @@ public class ReportCard {
 
         public boolean isAbsent() { return absent; }
         public void setAbsent(boolean absent) { this.absent = absent; }
+
+        public boolean isPassed() { return passed; }
+        public void setPassed(boolean passed) { this.passed = passed; }
+
+        public List<ComponentGrade> getComponents() { return components; }
+        public void setComponents(List<ComponentGrade> components) { this.components = components; }
+    }
+
+    /**
+     * One row per component within a subject. Carries everything the
+     * UI needs to render the per-component line (label, marks,
+     * pass/fail, attendance %).
+     */
+    public static class ComponentGrade {
+        private String key;
+        private String label;
+        private double marksObtained;
+        private double maxMarks;
+        private double passMarks;
+        private boolean passed;
+        /**
+         * Attendance % for this component, or null when the component
+         * is not attendance-tracked (e.g. an Internal Assessment).
+         */
+        private Double attendancePercentage;
+        /** Either "EXAM" or "INTERNAL" — lets the UI tag the row. */
+        private String assessmentMode;
+
+        public ComponentGrade() {
+        }
+
+        public String getKey() { return key; }
+        public void setKey(String key) { this.key = key; }
+
+        public String getLabel() { return label; }
+        public void setLabel(String label) { this.label = label; }
+
+        public double getMarksObtained() { return marksObtained; }
+        public void setMarksObtained(double marksObtained) { this.marksObtained = marksObtained; }
+
+        public double getMaxMarks() { return maxMarks; }
+        public void setMaxMarks(double maxMarks) { this.maxMarks = maxMarks; }
+
+        public double getPassMarks() { return passMarks; }
+        public void setPassMarks(double passMarks) { this.passMarks = passMarks; }
+
+        public boolean isPassed() { return passed; }
+        public void setPassed(boolean passed) { this.passed = passed; }
+
+        public Double getAttendancePercentage() { return attendancePercentage; }
+        public void setAttendancePercentage(Double attendancePercentage) { this.attendancePercentage = attendancePercentage; }
+
+        public String getAssessmentMode() { return assessmentMode; }
+        public void setAssessmentMode(String assessmentMode) { this.assessmentMode = assessmentMode; }
     }
 }
