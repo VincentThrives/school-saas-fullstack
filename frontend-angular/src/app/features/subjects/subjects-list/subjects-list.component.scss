@@ -165,9 +165,13 @@ $gold-dark: #B8860B;
   display: flex;
   align-items: center;
   justify-content: center;
-  // Bumped well above the sidenav header / Material's CDK overlay
-  // backdrop so the modal always paints on top.
-  z-index: 100000;
+  // Sits just below Angular Material's CDK overlay container (which
+  // defaults to z-index: 1000). That way mat-autocomplete /
+  // mat-select dropdowns rendered FROM INSIDE the dialog still paint
+  // above the dialog backdrop instead of disappearing behind it.
+  // 950 is high enough to cover the sidenav (z-index ~2) and the
+  // page header (~3), low enough to let CDK overlay take over.
+  z-index: 950;
   // Padding gives the panel breathing room from the viewport edges
   // so it never visually butts up against the top bar or the screen
   // bottom on a small laptop.
