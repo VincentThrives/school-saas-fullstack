@@ -195,7 +195,8 @@ export class ClassFormComponent implements OnInit {
       name: ['', Validators.required],
       capacity: [40, [Validators.required, Validators.min(1)]],
       classTeacherId: [''],
-      subjectIds: [[], Validators.required],
+      // Optional at create time; subjects auto-attach as they're created.
+      subjectIds: [[]],
     });
     this.sections.push(sectionGroup);
   }
