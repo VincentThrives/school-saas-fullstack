@@ -73,8 +73,15 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
 
   classes: Array<{ classId: string; name: string; sections?: Array<{ sectionId: string; name: string }> }> = [];
 
-  /** Sections of the currently-selected class — drives the "Apply to sections" picker. */
-  sectionsForSelectedClass: Array<{ sectionId: string; name: string }> = [];
+  /** Flat list of every (class, section) pair in the chosen year — drives the
+   *  combined picker. Each entry's value encodes both ids so we can group by
+   *  class at submit time. */
+  classSectionOptions: Array<{
+    key: string;            // unique value used by mat-select: `${classId}::${sectionId}`
+    label: string;          // human label: "Class 1 — Section A"
+    classId: string;
+    sectionId: string;
+  }> = [];
   academicYears: Array<{ academicYearId: string; label: string }> = [];
 
   // Delete dialog state
@@ -225,16 +232,16 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
     this.form = this.fb.group({
       name: ['', Validators.required],
       code: [''],
-      classId: ['', Validators.required],
       academicYearId: ['', Validators.required],
+      // Combined Class + Section multi-select: each picked value is
+      // a "${classId}::${sectionId}" key. At submit time we group by
+      // classId and create one Subject doc per class, each
+      // auto-attached to its picked sections. Lets the admin create
+      // Kannada across (Class 1 Sec A, Sec B), (Class 2 Sec A),
+      // (Class 3 Sec A) in one shot.
+      classSectionKeys: [[] as string[], Validators.required],
       subjectType: ['THEORY', Validators.required],
       passRule: ['PER_COMPONENT', Validators.required],
-      // Multi-select of section ids to push the subject into. The
-      // backend treats an empty list as "all sections of the chosen
-      // class" — so leaving this untouched still gives the common-case
-      // behaviour. Wired via (selectionChange) and (ngModelChange) so
-      // changing Class resets it.
-      applyToSectionIds: [[] as string[]],
       components: this.fb.array([this.buildComponentGroup('theory', 'Theory', 100, 35, true, 'EXAM')]),
     });
     // Keep components array in sync whenever the admin picks a different preset.
@@ -342,20 +349,19 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
   }
 
   /**
-   * Reload Classes scoped to the chosen academic year. Wipes any
-   * previously-picked class / sections so the form can't carry a
-   * stale selection from the prior year.
+   * Reload classes (and the flattened class–section picker options)
+   * scoped to the chosen academic year. Wipes any previously-picked
+   * class+section combo so the form can't carry a stale selection.
    */
   onYearChange(): void {
     const yearId = this.form?.get('academicYearId')?.value;
     this.classes = [];
-    this.sectionsForSelectedClass = [];
-    this.form?.get('classId')?.setValue('');
-    this.form?.get('applyToSectionIds')?.setValue([]);
+    this.classSectionOptions = [];
+    this.form?.get('classSectionKeys')?.setValue([]);
     if (!yearId) return;
     this.apiService.getClasses(yearId).subscribe({
       next: r => {
-        this.classes = ((r as any)?.data ?? []).map((c: any) => ({
+        const list = ((r as any)?.data ?? []).map((c: any) => ({
           classId: c.classId,
           name: c.name,
           sections: (c.sections || []).map((s: any) => ({
@@ -363,25 +369,25 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
             name: s.name,
           })),
         }));
+        this.classes = list;
+        // Flatten into one option per (class, section). Labels read
+        // "Class 1 — Section A" / "1 — A" depending on what the school
+        // named their classes. Order: class name, then section name.
+        const opts: typeof this.classSectionOptions = [];
+        for (const c of list) {
+          for (const s of (c.sections || [])) {
+            opts.push({
+              key: `${c.classId}::${s.sectionId}`,
+              label: `${c.name} — ${s.name}`,
+              classId: c.classId,
+              sectionId: s.sectionId,
+            });
+          }
+        }
+        opts.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+        this.classSectionOptions = opts;
       },
     });
-  }
-
-  /**
-   * Refresh the Sections picker when the admin changes Class.
-   * Selecting a class pre-ticks ALL of its sections by default — that's
-   * what the backend assumes when the form sends an empty array, but
-   * surfacing the choice up front lets the admin uncheck sections that
-   * shouldn't get this subject.
-   */
-  onClassChange(): void {
-    const classId = this.form?.get('classId')?.value;
-    const cls = this.classes.find(c => c.classId === classId);
-    this.sectionsForSelectedClass = cls?.sections ?? [];
-    // Default to all sections selected; admin can untick.
-    this.form?.get('applyToSectionIds')?.setValue(
-      this.sectionsForSelectedClass.map(s => s.sectionId)
-    );
   }
 
   // ── Dialog open / close ────────────────────────────────────────────
@@ -404,13 +410,11 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       this.snackBar.open('Please fix the highlighted fields.', 'Close', { duration: 3000 });
       return;
     }
-    // Component-level sanity check beyond per-field validators:
-    // passMarks must be <= maxMarks, and component keys must be unique.
-    // subjectType is a UI-only preset selector and isn't sent to the backend.
+    // Component-level sanity check beyond per-field validators.
     const raw = this.form.value as any;
-    const { subjectType, ...v }: { subjectType?: string } & CreateOrUpdateSubject = raw;
+    const components = raw.components as Array<any>;
     const keys = new Set<string>();
-    for (const c of v.components) {
+    for (const c of components) {
       if (c.passMarks > c.maxMarks) {
         this.snackBar.open(`Pass marks for "${c.label}" cannot exceed max marks.`, 'Close', { duration: 4000 });
         return;
@@ -423,26 +427,82 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
     }
     // Drop internalSchedule on EXAM components so the API doesn't store
     // a misleading value alongside an EXAM-mode component.
-    v.components = v.components.map(c =>
+    const cleanComponents = components.map(c =>
       c.assessmentMode === 'INTERNAL'
         ? c
         : (() => { const { internalSchedule, ...rest } = c as any; return rest; })()
     );
 
+    // Group picked class-section keys by classId — one Subject doc per
+    // class, each auto-attached to its picked sections. So Kannada for
+    // (1-A, 1-B, 2-A, 3-A) becomes three docs:
+    //   - Class 1 (sections A, B)
+    //   - Class 2 (section A)
+    //   - Class 3 (section A)
+    const picked: string[] = raw.classSectionKeys || [];
+    if (picked.length === 0) {
+      this.snackBar.open('Pick at least one Class — Section to apply this subject to.', 'Close', { duration: 4000 });
+      return;
+    }
+    const byClass = new Map<string, string[]>();
+    for (const key of picked) {
+      const [classId, sectionId] = key.split('::');
+      if (!classId || !sectionId) continue;
+      if (!byClass.has(classId)) byClass.set(classId, []);
+      byClass.get(classId)!.push(sectionId);
+    }
+
+    // Fan out one create request per class. Wait for ALL to complete
+    // (success or fail individually) before closing the dialog so the
+    // admin sees an accurate result count even if one class errors.
     this.isCreating = true;
-    this.subjectService.createSubject(v).subscribe({
-      next: () => {
-        this.snackBar.open(`Subject "${v.name}" created successfully`, 'Close', { duration: 3000 });
-        this.closeCreateDialog();
-        this.isCreating = false;
-        setTimeout(() => this.loadSubjects(), 500);
-      },
-      error: (err) => {
-        const msg = err?.error?.message || 'Failed to create subject';
-        this.snackBar.open(msg, 'Close', { duration: 5000 });
-        this.isCreating = false;
-      },
+    const entries = Array.from(byClass.entries());
+    let completed = 0;
+    let okCount = 0;
+    const errors: string[] = [];
+    entries.forEach(([classId, sectionIds]) => {
+      const body: CreateOrUpdateSubject = {
+        name: raw.name,
+        code: raw.code,
+        academicYearId: raw.academicYearId,
+        classId,
+        passRule: raw.passRule,
+        components: cleanComponents,
+        applyToSectionIds: sectionIds,
+      };
+      this.subjectService.createSubject(body).subscribe({
+        next: () => {
+          okCount++;
+          this.maybeFinishCreate(++completed, entries.length, okCount, errors, raw.name);
+        },
+        error: (err) => {
+          errors.push(err?.error?.message || `Failed for class ${classId}`);
+          this.maybeFinishCreate(++completed, entries.length, okCount, errors, raw.name);
+        },
+      });
     });
+  }
+
+  /** Called from every per-class create response — closes the dialog only
+   *  when every request has settled. */
+  private maybeFinishCreate(done: number, total: number, okCount: number,
+                            errors: string[], name: string): void {
+    if (done < total) return;
+    this.isCreating = false;
+    if (okCount === total) {
+      this.snackBar.open(
+        `Created "${name}" across ${okCount} class${okCount === 1 ? '' : 'es'}.`,
+        'Close', { duration: 3000 });
+      this.closeCreateDialog();
+    } else if (okCount > 0) {
+      this.snackBar.open(
+        `Partial: ${okCount}/${total} created. Errors: ${errors[0] ?? ''}`,
+        'Close', { duration: 6000 });
+      this.closeCreateDialog();
+    } else {
+      this.snackBar.open(errors[0] || 'Failed to create subject', 'Close', { duration: 5000 });
+    }
+    setTimeout(() => this.loadSubjects(), 500);
   }
 
   // ── Delete (unchanged) ─────────────────────────────────────────────
