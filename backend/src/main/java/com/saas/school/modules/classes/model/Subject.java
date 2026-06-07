@@ -32,8 +32,26 @@ public class Subject {
     private String subjectId;
     private String name;
     private String code;
+    /**
+     * @deprecated Replaced by {@link #assignments}. Kept on the model so
+     * the legacy field deserialises cleanly from documents stored before
+     * the assignments refactor; the migration runner moves the value
+     * into the first {@link Assignment} on boot. New code MUST NOT read
+     * this field — use {@link #getAssignments()} or
+     * {@link #firstClassId()} instead.
+     */
+    @Deprecated
     private String classId;
     private String academicYearId;
+    /**
+     * The classes + sections this subject is taught in. A subject with
+     * the same component scheme across many classes is ONE document with
+     * many assignments — no duplicate Subject rows in the list view.
+     * When the scheme legitimately differs between classes (e.g. Kannada
+     * Theory 100 in Class 5 but Theory 80 + IA 20 in Class 10), those
+     * are two separate Subject documents.
+     */
+    private List<Assignment> assignments;
 
     /**
      * How a student "passes" this subject across its components.
@@ -81,11 +99,55 @@ public class Subject {
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
 
+    /** @deprecated use {@link #getAssignments()} / {@link #firstClassId()}. */
+    @Deprecated
     public String getClassId() { return classId; }
+    /** @deprecated use {@link #setAssignments(List)}. */
+    @Deprecated
     public void setClassId(String classId) { this.classId = classId; }
 
     public String getAcademicYearId() { return academicYearId; }
     public void setAcademicYearId(String academicYearId) { this.academicYearId = academicYearId; }
+
+    public List<Assignment> getAssignments() { return assignments; }
+    public void setAssignments(List<Assignment> assignments) { this.assignments = assignments; }
+
+    /**
+     * First {@code classId} on this subject's assignments — used as a
+     * pragmatic stand-in for the old single-class shape during the
+     * transition (e.g. the report card aggregator that still wants to
+     * resolve a "primary class" for the subject when generating
+     * marks-by-class reports). Returns null if the subject has no
+     * assignments yet (transient state during creation).
+     */
+    public String firstClassId() {
+        if (assignments == null || assignments.isEmpty()) return null;
+        return assignments.get(0).getClassId();
+    }
+
+    /** True if this subject is assigned to the given class. */
+    public boolean isAssignedToClass(String classId) {
+        if (classId == null || assignments == null) return false;
+        for (Assignment a : assignments) {
+            if (classId.equals(a.getClassId())) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Look up the section ids this subject is assigned to in the given
+     * class. Returns an empty list if the subject isn't assigned to that
+     * class.
+     */
+    public List<String> sectionIdsForClass(String classId) {
+        if (classId == null || assignments == null) return java.util.Collections.emptyList();
+        for (Assignment a : assignments) {
+            if (classId.equals(a.getClassId())) {
+                return a.getSectionIds() == null ? java.util.Collections.emptyList() : a.getSectionIds();
+            }
+        }
+        return java.util.Collections.emptyList();
+    }
 
     public PassRule getPassRule() { return passRule == null ? PassRule.PER_COMPONENT : passRule; }
     public void setPassRule(PassRule passRule) { this.passRule = passRule; }
@@ -227,5 +289,31 @@ public class Subject {
 
         public InternalSchedule getInternalSchedule() { return internalSchedule; }
         public void setInternalSchedule(InternalSchedule internalSchedule) { this.internalSchedule = internalSchedule; }
+    }
+
+    /**
+     * One class the subject is taught in, plus the sections of that
+     * class where it applies. A Subject's component scheme is shared
+     * across all its assignments — if a school needs Kannada with one
+     * scheme in primary classes and a different scheme in secondary,
+     * those are two separate Subject documents.
+     */
+    public static class Assignment {
+        private String classId;
+        private List<String> sectionIds;
+
+        public Assignment() {
+        }
+
+        public Assignment(String classId, List<String> sectionIds) {
+            this.classId = classId;
+            this.sectionIds = sectionIds;
+        }
+
+        public String getClassId() { return classId; }
+        public void setClassId(String classId) { this.classId = classId; }
+
+        public List<String> getSectionIds() { return sectionIds; }
+        public void setSectionIds(List<String> sectionIds) { this.sectionIds = sectionIds; }
     }
 }

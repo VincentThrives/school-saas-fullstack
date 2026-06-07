@@ -368,27 +368,19 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
     });
   }
 
-  /** Human label for the "Class" column on the list row. */
+  /** Comma-list of class names this subject is assigned to. Falls back
+   *  to the legacy single classId for any pre-migration rows. */
   classLabelFor(subject: SubjectItem): string {
-    if (!subject.classId) return '—';
-    return this.classLookup.get(subject.classId)?.name || subject.classId;
-  }
-
-  /** Human label for the section list (which sections of the class
-   *  actually carry this subject). Reads the class doc's sections and
-   *  filters to ones whose subjectIds include this subject's id. */
-  sectionsLabelFor(subject: SubjectItem): string {
-    if (!subject.classId) return '';
-    const cls = this.classLookup.get(subject.classId);
-    if (!cls) return '';
-    const ours = cls.sections.filter((s: any) =>
-      (s as any).subjectIds?.includes(subject.subjectId)
-    );
-    // The class lookup above doesn't currently carry subjectIds because
-    // getClasses() returns the full doc; pull from raw sections if we
-    // stored them. For now just list every section name — admin can
-    // open Edit Class to see which sections have it.
-    return cls.sections.map(s => s.name).join(', ');
+    if (subject.assignments && subject.assignments.length > 0) {
+      const names = subject.assignments
+        .map(a => this.classLookup.get(a.classId)?.name || a.classId)
+        .filter(Boolean);
+      return names.join(', ');
+    }
+    if (subject.classId) {
+      return this.classLookup.get(subject.classId)?.name || subject.classId;
+    }
+    return '—';
   }
 
   /**
@@ -489,6 +481,15 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
         }));
         const opts: typeof this.classSectionOptions = [];
         const preselect: string[] = [];
+        // Build a set of every (classId, sectionId) pair this subject is
+        // currently assigned to. Drives the pre-tick state of the
+        // combined multi-select on edit.
+        const assigned = new Set<string>();
+        for (const a of (subject.assignments || [])) {
+          for (const sid of (a.sectionIds || [])) {
+            assigned.add(`${a.classId}::${sid}`);
+          }
+        }
         for (const c of list) {
           for (const s of (c.sections || [])) {
             const key = `${c.classId}::${s.sectionId}`;
@@ -498,9 +499,7 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
               classId: c.classId,
               sectionId: s.sectionId,
             });
-            if (c.classId === subject.classId && (s.subjectIds || []).includes(subject.subjectId)) {
-              preselect.push(key);
-            }
+            if (assigned.has(key)) preselect.push(key);
           }
         }
         opts.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
@@ -566,94 +565,41 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       byClass.get(classId)!.push(sectionId);
     }
 
+    // ONE submission, ONE Subject document — the assignments array
+    // carries every picked (class, section) pair. The backend creates
+    // a single doc and walks its assignments to attach the subject to
+    // each class's matching sections.
+    const assignments = Array.from(byClass.entries()).map(([classId, sectionIds]) => ({
+      classId, sectionIds,
+    }));
+    const body: CreateOrUpdateSubject = {
+      name: raw.name,
+      code: raw.code,
+      academicYearId: raw.academicYearId,
+      passRule: raw.passRule,
+      components: cleanComponents,
+      assignments,
+    };
+
     this.isCreating = true;
-
-    // Edit mode: only the one Subject doc. Pick the (presumably single)
-    // class entry from byClass and PUT it. Multi-class spread is a
-    // create-time-only convenience.
-    if (this.editingSubjectId) {
-      const entries = Array.from(byClass.entries());
-      if (entries.length !== 1) {
+    const call$ = this.editingSubjectId
+      ? this.subjectService.updateSubject(this.editingSubjectId, body)
+      : this.subjectService.createSubject(body);
+    call$.subscribe({
+      next: () => {
+        const verb = this.editingSubjectId ? 'Updated' : 'Created';
         this.snackBar.open(
-          'Editing a subject covers one class at a time. Untick the other class-section entries.',
-          'Close', { duration: 5000 });
+          `${verb} "${raw.name}" across ${assignments.length} class${assignments.length === 1 ? '' : 'es'}.`,
+          'Close', { duration: 3000 });
         this.isCreating = false;
-        return;
-      }
-      const [classId, sectionIds] = entries[0];
-      const body: CreateOrUpdateSubject = {
-        name: raw.name,
-        code: raw.code,
-        academicYearId: raw.academicYearId,
-        classId,
-        passRule: raw.passRule,
-        components: cleanComponents,
-        applyToSectionIds: sectionIds,
-      };
-      this.subjectService.updateSubject(this.editingSubjectId, body).subscribe({
-        next: () => {
-          this.snackBar.open(`Updated "${raw.name}".`, 'Close', { duration: 3000 });
-          this.isCreating = false;
-          this.closeCreateDialog();
-          setTimeout(() => this.loadSubjects(), 500);
-        },
-        error: (err) => {
-          this.snackBar.open(err?.error?.message || 'Failed to update subject', 'Close', { duration: 5000 });
-          this.isCreating = false;
-        },
-      });
-      return;
-    }
-
-    // Create mode: fan out one create request per class. Wait for ALL to
-    // complete before closing so the snackbar reports an accurate count.
-    const entries = Array.from(byClass.entries());
-    let completed = 0;
-    let okCount = 0;
-    const errors: string[] = [];
-    entries.forEach(([classId, sectionIds]) => {
-      const body: CreateOrUpdateSubject = {
-        name: raw.name,
-        code: raw.code,
-        academicYearId: raw.academicYearId,
-        classId,
-        passRule: raw.passRule,
-        components: cleanComponents,
-        applyToSectionIds: sectionIds,
-      };
-      this.subjectService.createSubject(body).subscribe({
-        next: () => {
-          okCount++;
-          this.maybeFinishCreate(++completed, entries.length, okCount, errors, raw.name);
-        },
-        error: (err) => {
-          errors.push(err?.error?.message || `Failed for class ${classId}`);
-          this.maybeFinishCreate(++completed, entries.length, okCount, errors, raw.name);
-        },
-      });
+        this.closeCreateDialog();
+        setTimeout(() => this.loadSubjects(), 500);
+      },
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to save subject', 'Close', { duration: 5000 });
+        this.isCreating = false;
+      },
     });
-  }
-
-  /** Called from every per-class create response — closes the dialog only
-   *  when every request has settled. */
-  private maybeFinishCreate(done: number, total: number, okCount: number,
-                            errors: string[], name: string): void {
-    if (done < total) return;
-    this.isCreating = false;
-    if (okCount === total) {
-      this.snackBar.open(
-        `Created "${name}" across ${okCount} class${okCount === 1 ? '' : 'es'}.`,
-        'Close', { duration: 3000 });
-      this.closeCreateDialog();
-    } else if (okCount > 0) {
-      this.snackBar.open(
-        `Partial: ${okCount}/${total} created. Errors: ${errors[0] ?? ''}`,
-        'Close', { duration: 6000 });
-      this.closeCreateDialog();
-    } else {
-      this.snackBar.open(errors[0] || 'Failed to create subject', 'Close', { duration: 5000 });
-    }
-    setTimeout(() => this.loadSubjects(), 500);
   }
 
   // ── Delete (unchanged) ─────────────────────────────────────────────

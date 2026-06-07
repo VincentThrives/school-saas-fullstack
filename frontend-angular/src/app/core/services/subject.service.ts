@@ -26,17 +26,24 @@ export interface SubjectComponent {
   internalSchedule?: InternalSchedule;
 }
 
+export interface SubjectAssignment {
+  classId: string;
+  sectionIds: string[];
+}
+
 export interface SubjectItem {
   subjectId: string;
   name: string;
   code?: string;
   /** @deprecated Old flat type field. New shape uses {@link components} below. */
   type?: string;
+  /** @deprecated Replaced by {@link assignments}. Kept to read legacy docs. */
   classId?: string;
   academicYearId?: string;
   passRule?: PassRule;
-  /** Empty for legacy single-component subjects fetched in the old shape. */
   components?: SubjectComponent[];
+  /** The (class, sections) pairs this subject is taught in. */
+  assignments?: SubjectAssignment[];
 }
 
 /**
@@ -52,11 +59,12 @@ export interface SubjectItem {
 export interface CreateOrUpdateSubject {
   name: string;
   code?: string;
-  classId: string;
   academicYearId: string;
   passRule?: PassRule;
   components: SubjectComponent[];
-  applyToSectionIds?: string[];
+  /** Pairs of (classId, sectionIds) the subject is taught in. ONE submission
+   *  creates ONE Subject document attached to all the listed classes. */
+  assignments: SubjectAssignment[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -93,6 +101,18 @@ export class SubjectService {
    * list, so downstream code can fall back to old behaviour.
    */
   private toSubjectItem(s: any): SubjectItem {
+    // Server-side migration should already have moved classId into a
+    // single-entry assignments array, but fall through here too so
+    // pre-migration docs (if any leaked through) still resolve.
+    let assignments: SubjectAssignment[] | undefined;
+    if (Array.isArray(s.assignments) && s.assignments.length > 0) {
+      assignments = s.assignments.map((a: any) => ({
+        classId: a.classId,
+        sectionIds: a.sectionIds || [],
+      }));
+    } else if (s.classId) {
+      assignments = [{ classId: s.classId, sectionIds: [] }];
+    }
     return {
       subjectId: s.subjectId || s.id,
       name: s.name,
@@ -102,6 +122,7 @@ export class SubjectService {
       academicYearId: s.academicYearId,
       passRule: s.passRule,
       components: Array.isArray(s.components) ? s.components : undefined,
+      assignments,
     };
   }
 

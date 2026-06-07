@@ -184,9 +184,20 @@ export class ClassFormComponent implements OnInit {
    * subjects the admin types inline.
    */
   private refreshSubjectsListForThisClass(): void {
-    const matching = this.classId
-      ? this.allSubjectsRaw.filter(s => s.classId === this.classId)
-      : [];
+    if (!this.classId) {
+      this.subjectsList = [{ id: 'others', name: 'Others' }];
+      return;
+    }
+    // New shape: subject has an assignments array. Match if any
+    // assignment.classId equals THIS class. Falls back to the
+    // deprecated single classId for any pre-migration rows.
+    const cid = this.classId;
+    const matching = this.allSubjectsRaw.filter((s: any) => {
+      if (Array.isArray(s.assignments) && s.assignments.length > 0) {
+        return s.assignments.some((a: any) => a.classId === cid);
+      }
+      return s.classId === cid;
+    });
     this.subjectsList = matching.map((s: any) => ({ id: s.subjectId, name: s.name }));
     this.subjectsList.push({ id: 'others', name: 'Others' });
   }

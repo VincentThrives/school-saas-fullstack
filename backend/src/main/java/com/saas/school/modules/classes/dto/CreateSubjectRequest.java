@@ -5,22 +5,21 @@ import com.saas.school.modules.classes.model.Subject;
 import java.util.List;
 
 /**
- * Wrapper around {@link Subject} for the create/update endpoint that
- * adds {@code applyToSectionIds} — a list of section IDs in the
- * subject's parent class to auto-attach this subject to.
+ * Wrapper around {@link Subject} for the create / update endpoint.
  *
- * <p>When the request omits the list (or sends an empty list), the
- * controller falls back to "all sections of the class" so the
- * common path (admin creates a subject and wants it in every
- * section) stays one click. When the list is provided, only those
- * sections get the new subject's id pushed into their
- * {@code subjectIds} array.
+ * <p>The new field that drives multi-class subjects is
+ * {@link Subject#getAssignments()} — a list of {@code (classId,
+ * sectionIds)} entries. Sending {@code assignments: [{...}, {...}]}
+ * creates ONE Subject document attached to multiple classes (each with
+ * its own picked sections).
  *
- * <p>Existing clients that POST a plain Subject body still work —
- * Jackson ignores the {@code applyToSectionIds} field when absent,
- * and the controller treats null as "all sections".
+ * <p>Older clients that POST {@code classId} + {@code
+ * applyToSectionIds} keep working — {@code ClassController}
+ * normalises those into a single-entry assignments array before
+ * persisting.
  */
 public class CreateSubjectRequest extends Subject {
+    /** Legacy single-class shape — folded into a one-entry assignments array. */
     private List<String> applyToSectionIds;
 
     public List<String> getApplyToSectionIds() {

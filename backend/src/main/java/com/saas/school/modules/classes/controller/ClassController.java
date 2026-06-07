@@ -98,18 +98,24 @@ public class ClassController {
     @PostMapping("/subjects")
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<Subject>> createSubject(@RequestBody CreateSubjectRequest req) {
+        normaliseAssignmentsFromLegacyFields(req);
         validateSubject(req);
+        validateAssignments(req);
         req.setSubjectId(UUID.randomUUID().toString());
         if (req.getPassRule() == null) req.setPassRule(Subject.PassRule.PER_COMPONENT);
         defaultComponentValues(req);
+        // Wipe the deprecated single-class field on new docs — the
+        // assignments array is the only source of truth going forward.
+        // We keep it null in storage so the migration runner doesn't
+        // accidentally re-process this doc.
+        req.setClassId(null);
         Subject saved = subjectRepo.save(req);
-        // Auto-attach the new subject to the relevant sections of its class
-        // so the admin doesn't have to follow up with a separate "edit class"
-        // step. This is what breaks the old class<->subject chicken-and-egg
-        // (the class can be created with empty section.subjectIds and the
-        // subjects fill in here as they're created).
-        attachSubjectToClassSections(saved.getSubjectId(), saved.getClassId(),
-                req.getApplyToSectionIds());
+        // Auto-attach the new subject into each assigned class's
+        // section.subjectIds arrays — so the per-section pickers on
+        // Class edit immediately reflect what's been created.
+        for (Subject.Assignment a : saved.getAssignments()) {
+            attachSubjectToClassSections(saved.getSubjectId(), a.getClassId(), a.getSectionIds());
+        }
         return ResponseEntity.ok(ApiResponse.success(saved, "Created"));
     }
 
@@ -118,37 +124,108 @@ public class ClassController {
     public ResponseEntity<ApiResponse<Subject>> updateSubject(
             @PathVariable String subjectId,
             @RequestBody CreateSubjectRequest req) {
+        normaliseAssignmentsFromLegacyFields(req);
         validateSubject(req);
+        validateAssignments(req);
         Subject existing = subjectRepo.findById(subjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found"));
         existing.setName(req.getName());
         existing.setCode(req.getCode());
-        existing.setClassId(req.getClassId());
         existing.setAcademicYearId(req.getAcademicYearId());
         existing.setPassRule(req.getPassRule() == null ? Subject.PassRule.PER_COMPONENT : req.getPassRule());
         existing.setComponents(req.getComponents());
         defaultComponentValues(existing);
-        Subject saved = subjectRepo.save(existing);
-        // Re-apply the section assignment on update too. If the admin
-        // changed applyToSectionIds, sections that no longer include
-        // the subject lose it; sections newly listed gain it.
-        if (req.getApplyToSectionIds() != null) {
-            reconcileSubjectOnClassSections(saved.getSubjectId(), saved.getClassId(),
-                    req.getApplyToSectionIds());
+
+        // Compute the diff between the OLD assignments (what the
+        // subject is currently attached to in class sections) and the
+        // new request, so we can reconcile both directions:
+        //   - classes that disappear from assignments lose the subject
+        //   - classes that appear gain it
+        //   - classes that stay get their section list reconciled
+        java.util.Map<String, java.util.List<String>> oldByClass = assignmentsToMap(existing.getAssignments());
+        java.util.Map<String, java.util.List<String>> newByClass = assignmentsToMap(req.getAssignments());
+
+        // Detach from classes that are no longer in the new assignments.
+        for (String classId : oldByClass.keySet()) {
+            if (!newByClass.containsKey(classId)) {
+                detachSubjectFromClass(subjectId, classId);
+            }
         }
+        // Reconcile classes that remain or are newly added.
+        for (java.util.Map.Entry<String, java.util.List<String>> e : newByClass.entrySet()) {
+            reconcileSubjectOnClassSections(subjectId, e.getKey(), e.getValue());
+        }
+
+        existing.setAssignments(req.getAssignments());
+        existing.setClassId(null);
+        Subject saved = subjectRepo.save(existing);
         return ResponseEntity.ok(ApiResponse.success(saved, "Updated"));
     }
 
     @DeleteMapping("/subjects/{subjectId}")
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteSubject(@PathVariable String subjectId) {
-        // Strip the dangling subjectId out of every class section before
-        // deleting the document, so no stale ids linger in section
-        // subjectIds arrays — the existing /subjects DELETE endpoint near
-        // the top of this controller doesn't do this cleanup.
+        // Strip the dangling subjectId out of every class section
+        // before deleting the document.
         detachSubjectFromAllClasses(subjectId);
         subjectRepo.deleteById(subjectId);
         return ResponseEntity.ok(ApiResponse.success(null, "Subject deleted"));
+    }
+
+    // ── Backward-compat: accept the legacy (classId + applyToSectionIds) DTO ─
+
+    /**
+     * If the caller sent the old single-class shape (classId +
+     * applyToSectionIds) but no assignments array, fold the two fields
+     * into a single-entry assignments array so the rest of the pipeline
+     * only deals with one shape. Old API clients keep working.
+     */
+    @SuppressWarnings("deprecation")
+    private void normaliseAssignmentsFromLegacyFields(CreateSubjectRequest req) {
+        boolean hasAssignments = req.getAssignments() != null && !req.getAssignments().isEmpty();
+        if (hasAssignments) return;
+        String legacyClassId = req.getClassId();
+        if (legacyClassId == null || legacyClassId.isBlank()) return;
+        java.util.List<Subject.Assignment> a = new java.util.ArrayList<>();
+        a.add(new Subject.Assignment(legacyClassId, req.getApplyToSectionIds()));
+        req.setAssignments(a);
+    }
+
+    /** Validate each assignment carries a classId. Sections may be empty. */
+    private void validateAssignments(Subject req) {
+        if (req.getAssignments() == null || req.getAssignments().isEmpty()) {
+            throw new IllegalArgumentException("Subject must be assigned to at least one class");
+        }
+        for (Subject.Assignment a : req.getAssignments()) {
+            if (a.getClassId() == null || a.getClassId().isBlank()) {
+                throw new IllegalArgumentException("Each assignment must specify a classId");
+            }
+        }
+    }
+
+    private static java.util.Map<String, java.util.List<String>> assignmentsToMap(
+            java.util.List<Subject.Assignment> list) {
+        java.util.Map<String, java.util.List<String>> m = new java.util.HashMap<>();
+        if (list == null) return m;
+        for (Subject.Assignment a : list) {
+            m.put(a.getClassId(), a.getSectionIds() == null
+                    ? java.util.Collections.emptyList()
+                    : a.getSectionIds());
+        }
+        return m;
+    }
+
+    /** Remove the subjectId from every section of the given class. */
+    private void detachSubjectFromClass(String subjectId, String classId) {
+        if (subjectId == null || classId == null) return;
+        SchoolClass cls = classRepo.findById(classId).orElse(null);
+        if (cls == null || cls.getSections() == null) return;
+        boolean changed = false;
+        for (SchoolClass.Section sec : cls.getSections()) {
+            if (sec.getSubjectIds() == null) continue;
+            if (sec.getSubjectIds().remove(subjectId)) changed = true;
+        }
+        if (changed) classRepo.save(cls);
     }
 
     // ── Subject ↔ Class section sync helpers ───────────────────────
