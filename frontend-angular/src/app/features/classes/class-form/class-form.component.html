@@ -74,13 +74,17 @@
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="section-subjects-field">
-              <mat-label>Subjects *</mat-label>
-              <mat-select formControlName="subjectIds" multiple required>
+              <mat-label>Subjects</mat-label>
+              <mat-select formControlName="subjectIds" multiple>
                 <mat-option *ngFor="let sub of subjectsList" [value]="sub.id">
                   {{ sub.name }}
                 </mat-option>
               </mat-select>
-              <mat-error>At least one subject is required</mat-error>
+              <!-- Optional now — subjects can be added later by creating them
+                   from the Subjects page; each new subject auto-attaches to
+                   the matching class's sections. Lets a fresh tenant create
+                   a class without subjects existing yet. -->
+              <mat-hint>Optional — subjects can be added later from the Subjects page.</mat-hint>
             </mat-form-field>
 
             <!-- Custom subject input when "Others" is selected -->

@@ -71,7 +71,10 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
   isCreating = false;
   form!: FormGroup;
 
-  classes: Array<{ classId: string; name: string }> = [];
+  classes: Array<{ classId: string; name: string; sections?: Array<{ sectionId: string; name: string }> }> = [];
+
+  /** Sections of the currently-selected class — drives the "Apply to sections" picker. */
+  sectionsForSelectedClass: Array<{ sectionId: string; name: string }> = [];
   academicYears: Array<{ academicYearId: string; label: string }> = [];
 
   // Delete dialog state
@@ -226,6 +229,12 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       academicYearId: ['', Validators.required],
       subjectType: ['THEORY', Validators.required],
       passRule: ['PER_COMPONENT', Validators.required],
+      // Multi-select of section ids to push the subject into. The
+      // backend treats an empty list as "all sections of the chosen
+      // class" — so leaving this untouched still gives the common-case
+      // behaviour. Wired via (selectionChange) and (ngModelChange) so
+      // changing Class resets it.
+      applyToSectionIds: [[] as string[]],
       components: this.fb.array([this.buildComponentGroup('theory', 'Theory', 100, 35, true, 'EXAM')]),
     });
     // Keep components array in sync whenever the admin picks a different preset.
@@ -328,8 +337,36 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       next: r => { this.academicYears = (r as any)?.data ?? []; },
     });
     this.apiService.getClasses().subscribe({
-      next: r => { this.classes = ((r as any)?.data ?? []).map((c: any) => ({ classId: c.classId, name: c.name })); },
+      next: r => {
+        // Carry the section list along so the Subject form can show a
+        // per-section multi-select once a class is picked.
+        this.classes = ((r as any)?.data ?? []).map((c: any) => ({
+          classId: c.classId,
+          name: c.name,
+          sections: (c.sections || []).map((s: any) => ({
+            sectionId: s.sectionId,
+            name: s.name,
+          })),
+        }));
+      },
     });
+  }
+
+  /**
+   * Refresh the Sections picker when the admin changes Class.
+   * Selecting a class pre-ticks ALL of its sections by default — that's
+   * what the backend assumes when the form sends an empty array, but
+   * surfacing the choice up front lets the admin uncheck sections that
+   * shouldn't get this subject.
+   */
+  onClassChange(): void {
+    const classId = this.form?.get('classId')?.value;
+    const cls = this.classes.find(c => c.classId === classId);
+    this.sectionsForSelectedClass = cls?.sections ?? [];
+    // Default to all sections selected; admin can untick.
+    this.form?.get('applyToSectionIds')?.setValue(
+      this.sectionsForSelectedClass.map(s => s.sectionId)
+    );
   }
 
   // ── Dialog open / close ────────────────────────────────────────────

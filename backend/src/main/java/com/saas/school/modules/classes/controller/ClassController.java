@@ -2,6 +2,7 @@ package com.saas.school.modules.classes.controller;
 
 import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.common.response.ApiResponse;
+import com.saas.school.modules.classes.dto.CreateSubjectRequest;
 import com.saas.school.modules.classes.model.SchoolClass;
 import com.saas.school.modules.classes.model.Subject;
 import com.saas.school.modules.classes.repository.SchoolClassRepository;
@@ -96,19 +97,27 @@ public class ClassController {
 
     @PostMapping("/subjects")
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
-    public ResponseEntity<ApiResponse<Subject>> createSubject(@RequestBody Subject req) {
+    public ResponseEntity<ApiResponse<Subject>> createSubject(@RequestBody CreateSubjectRequest req) {
         validateSubject(req);
         req.setSubjectId(UUID.randomUUID().toString());
         if (req.getPassRule() == null) req.setPassRule(Subject.PassRule.PER_COMPONENT);
         defaultComponentValues(req);
-        return ResponseEntity.ok(ApiResponse.success(subjectRepo.save(req), "Created"));
+        Subject saved = subjectRepo.save(req);
+        // Auto-attach the new subject to the relevant sections of its class
+        // so the admin doesn't have to follow up with a separate "edit class"
+        // step. This is what breaks the old class<->subject chicken-and-egg
+        // (the class can be created with empty section.subjectIds and the
+        // subjects fill in here as they're created).
+        attachSubjectToClassSections(saved.getSubjectId(), saved.getClassId(),
+                req.getApplyToSectionIds());
+        return ResponseEntity.ok(ApiResponse.success(saved, "Created"));
     }
 
     @PutMapping("/subjects/{subjectId}")
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<Subject>> updateSubject(
             @PathVariable String subjectId,
-            @RequestBody Subject req) {
+            @RequestBody CreateSubjectRequest req) {
         validateSubject(req);
         Subject existing = subjectRepo.findById(subjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found"));
@@ -119,7 +128,107 @@ public class ClassController {
         existing.setPassRule(req.getPassRule() == null ? Subject.PassRule.PER_COMPONENT : req.getPassRule());
         existing.setComponents(req.getComponents());
         defaultComponentValues(existing);
-        return ResponseEntity.ok(ApiResponse.success(subjectRepo.save(existing), "Updated"));
+        Subject saved = subjectRepo.save(existing);
+        // Re-apply the section assignment on update too. If the admin
+        // changed applyToSectionIds, sections that no longer include
+        // the subject lose it; sections newly listed gain it.
+        if (req.getApplyToSectionIds() != null) {
+            reconcileSubjectOnClassSections(saved.getSubjectId(), saved.getClassId(),
+                    req.getApplyToSectionIds());
+        }
+        return ResponseEntity.ok(ApiResponse.success(saved, "Updated"));
+    }
+
+    @DeleteMapping("/subjects/{subjectId}")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteSubject(@PathVariable String subjectId) {
+        // Strip the dangling subjectId out of every class section before
+        // deleting the document, so no stale ids linger in section
+        // subjectIds arrays — the existing /subjects DELETE endpoint near
+        // the top of this controller doesn't do this cleanup.
+        detachSubjectFromAllClasses(subjectId);
+        subjectRepo.deleteById(subjectId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Subject deleted"));
+    }
+
+    // ── Subject ↔ Class section sync helpers ───────────────────────
+
+    /**
+     * Push {@code subjectId} into the {@code subjectIds} list of the
+     * given class's sections.
+     *
+     * <p>If {@code applyToSectionIds} is null or empty, the subject
+     * attaches to ALL sections of the class — that's the common case
+     * (admin wants the subject everywhere). Otherwise only the listed
+     * sections get the subject.
+     */
+    private void attachSubjectToClassSections(String subjectId, String classId,
+                                              java.util.List<String> applyToSectionIds) {
+        if (subjectId == null || classId == null) return;
+        SchoolClass cls = classRepo.findById(classId).orElse(null);
+        if (cls == null || cls.getSections() == null) return;
+
+        boolean attachToAll = applyToSectionIds == null || applyToSectionIds.isEmpty();
+        java.util.Set<String> targetSet = attachToAll
+                ? null
+                : new java.util.HashSet<>(applyToSectionIds);
+
+        boolean changed = false;
+        for (SchoolClass.Section sec : cls.getSections()) {
+            if (!attachToAll && !targetSet.contains(sec.getSectionId())) continue;
+            java.util.List<String> ids = sec.getSubjectIds() == null
+                    ? new java.util.ArrayList<>()
+                    : new java.util.ArrayList<>(sec.getSubjectIds());
+            if (!ids.contains(subjectId)) {
+                ids.add(subjectId);
+                sec.setSubjectIds(ids);
+                changed = true;
+            }
+        }
+        if (changed) classRepo.save(cls);
+    }
+
+    /**
+     * On subject update: make the class's sections match {@code
+     * applyToSectionIds} exactly — listed sections gain the subject if
+     * missing, unlisted sections lose it if present.
+     */
+    private void reconcileSubjectOnClassSections(String subjectId, String classId,
+                                                 java.util.List<String> applyToSectionIds) {
+        if (subjectId == null || classId == null) return;
+        SchoolClass cls = classRepo.findById(classId).orElse(null);
+        if (cls == null || cls.getSections() == null) return;
+        java.util.Set<String> targetSet = new java.util.HashSet<>(applyToSectionIds);
+
+        boolean changed = false;
+        for (SchoolClass.Section sec : cls.getSections()) {
+            java.util.List<String> ids = sec.getSubjectIds() == null
+                    ? new java.util.ArrayList<>()
+                    : new java.util.ArrayList<>(sec.getSubjectIds());
+            boolean shouldHave = targetSet.contains(sec.getSectionId());
+            boolean does = ids.contains(subjectId);
+            if (shouldHave && !does) { ids.add(subjectId); sec.setSubjectIds(ids); changed = true; }
+            else if (!shouldHave && does) { ids.remove(subjectId); sec.setSubjectIds(ids); changed = true; }
+        }
+        if (changed) classRepo.save(cls);
+    }
+
+    /**
+     * Walk every class in the tenant and remove {@code subjectId} from
+     * each section's {@code subjectIds}. Called before deleting a
+     * Subject so no dangling ids remain.
+     */
+    private void detachSubjectFromAllClasses(String subjectId) {
+        if (subjectId == null) return;
+        for (SchoolClass cls : classRepo.findAll()) {
+            if (cls.getSections() == null) continue;
+            boolean changed = false;
+            for (SchoolClass.Section sec : cls.getSections()) {
+                if (sec.getSubjectIds() == null) continue;
+                if (sec.getSubjectIds().remove(subjectId)) changed = true;
+            }
+            if (changed) classRepo.save(cls);
+        }
     }
 
     // ── Subject validation helpers ─────────────────────────────────
@@ -189,10 +298,4 @@ public class ClassController {
         }
     }
 
-    @DeleteMapping("/subjects/{subjectId}")
-    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> deleteSubject(@PathVariable String subjectId) {
-        subjectRepo.deleteById(subjectId);
-        return ResponseEntity.ok(ApiResponse.success(null, "Subject deleted"));
-    }
 }

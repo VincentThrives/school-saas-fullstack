@@ -132,7 +132,7 @@
         <div class="form-row">
           <mat-form-field appearance="outline">
             <mat-label>Class</mat-label>
-            <mat-select formControlName="classId">
+            <mat-select formControlName="classId" (selectionChange)="onClassChange()">
               <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
             </mat-select>
           </mat-form-field>
@@ -143,6 +143,20 @@
             </mat-select>
           </mat-form-field>
         </div>
+
+        <!-- Apply to sections — defaults to all sections of the chosen class
+             so the common case stays one click. Admin can uncheck any
+             section that shouldn't get this subject (e.g. Sanskrit in Sec A
+             only). Hidden until a class is chosen. -->
+        <mat-form-field appearance="outline" *ngIf="sectionsForSelectedClass.length > 0" class="full-width">
+          <mat-label>Apply to sections</mat-label>
+          <mat-select formControlName="applyToSectionIds" multiple>
+            <mat-option *ngFor="let s of sectionsForSelectedClass" [value]="s.sectionId">
+              {{ s.name }}
+            </mat-option>
+          </mat-select>
+          <mat-hint>The subject will be auto-added to these sections on save.</mat-hint>
+        </mat-form-field>
 
         <!-- Subject type preset — the main choice. Selecting one fills in
              the components automatically; admin doesn't need to think

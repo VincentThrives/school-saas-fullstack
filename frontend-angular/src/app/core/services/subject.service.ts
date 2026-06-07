@@ -42,6 +42,12 @@ export interface SubjectItem {
 /**
  * Payload shape for POST /subjects + PUT /subjects/{id}.
  * Mirrors the backend Subject document.
+ *
+ * <p>{@code applyToSectionIds} drives the auto-attach: when the
+ * backend saves the subject, it pushes the new subject's id into
+ * the listed sections' {@code subjectIds} arrays. Omitting the
+ * field (or sending an empty array) attaches the subject to ALL
+ * sections of the chosen class.
  */
 export interface CreateOrUpdateSubject {
   name: string;
@@ -50,6 +56,7 @@ export interface CreateOrUpdateSubject {
   academicYearId: string;
   passRule?: PassRule;
   components: SubjectComponent[];
+  applyToSectionIds?: string[];
 }
 
 @Injectable({ providedIn: 'root' })

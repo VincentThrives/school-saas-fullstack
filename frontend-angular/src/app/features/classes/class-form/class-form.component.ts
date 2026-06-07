@@ -126,7 +126,10 @@ export class ClassFormComponent implements OnInit {
               name: [s.name, Validators.required],
               capacity: [s.capacity, [Validators.required, Validators.min(1)]],
               classTeacherId: [s.classTeacherId || ''],
-              subjectIds: [s.subjectIds || [], Validators.required],
+              // Subjects can be empty at class-creation time — they fill in
+              // automatically as the admin creates Subject documents (each
+              // Subject auto-attaches to its target class's sections).
+              subjectIds: [s.subjectIds || []],
             }));
           });
         }
