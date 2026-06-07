@@ -130,17 +130,24 @@
         </div>
 
         <div class="form-row">
+          <!-- Year first: classes load AFTER the year is picked so the
+               admin can't accidentally pick "5" from a different year. -->
           <mat-form-field appearance="outline">
-            <mat-label>Class</mat-label>
-            <mat-select formControlName="classId" (selectionChange)="onClassChange()">
-              <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+            <mat-label>Academic Year</mat-label>
+            <mat-select formControlName="academicYearId" (selectionChange)="onYearChange()">
+              <mat-option *ngFor="let y of academicYears" [value]="y.academicYearId">{{ y.label }}</mat-option>
             </mat-select>
           </mat-form-field>
           <mat-form-field appearance="outline">
-            <mat-label>Academic Year</mat-label>
-            <mat-select formControlName="academicYearId">
-              <mat-option *ngFor="let y of academicYears" [value]="y.academicYearId">{{ y.label }}</mat-option>
+            <mat-label>Class</mat-label>
+            <mat-select formControlName="classId" (selectionChange)="onClassChange()"
+                        [disabled]="!form?.get('academicYearId')?.value">
+              <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
             </mat-select>
+            <mat-hint *ngIf="!form?.get('academicYearId')?.value">Pick the academic year first</mat-hint>
+            <mat-hint *ngIf="form?.get('academicYearId')?.value && classes.length === 0">
+              No classes exist for the selected year — create one from the Classes page.
+            </mat-hint>
           </mat-form-field>
         </div>
 

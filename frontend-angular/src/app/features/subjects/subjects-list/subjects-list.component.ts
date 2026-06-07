@@ -333,13 +333,28 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
   }
 
   private loadClassesAndYears(): void {
+    // Only academic years up front. Classes load AFTER a year is picked
+    // so the Class dropdown can't accidentally surface classes from
+    // a different year (e.g. last year's "5" instead of this year's).
     this.apiService.getAcademicYears().subscribe({
       next: r => { this.academicYears = (r as any)?.data ?? []; },
     });
-    this.apiService.getClasses().subscribe({
+  }
+
+  /**
+   * Reload Classes scoped to the chosen academic year. Wipes any
+   * previously-picked class / sections so the form can't carry a
+   * stale selection from the prior year.
+   */
+  onYearChange(): void {
+    const yearId = this.form?.get('academicYearId')?.value;
+    this.classes = [];
+    this.sectionsForSelectedClass = [];
+    this.form?.get('classId')?.setValue('');
+    this.form?.get('applyToSectionIds')?.setValue([]);
+    if (!yearId) return;
+    this.apiService.getClasses(yearId).subscribe({
       next: r => {
-        // Carry the section list along so the Subject form can show a
-        // per-section multi-select once a class is picked.
         this.classes = ((r as any)?.data ?? []).map((c: any) => ({
           classId: c.classId,
           name: c.name,
