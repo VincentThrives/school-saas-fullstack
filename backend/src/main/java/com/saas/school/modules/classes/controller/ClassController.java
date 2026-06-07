@@ -319,9 +319,8 @@ public class ClassController {
         if (req.getName() == null || req.getName().isBlank()) {
             throw new IllegalArgumentException("Subject name is required");
         }
-        if (req.getClassId() == null || req.getClassId().isBlank()) {
-            throw new IllegalArgumentException("classId is required");
-        }
+        // classId is no longer required on the body — assignments[].classId
+        // carries that info now. validateAssignments() enforces it.
         if (req.getAcademicYearId() == null || req.getAcademicYearId().isBlank()) {
             throw new IllegalArgumentException("academicYearId is required");
         }
