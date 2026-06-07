@@ -62,8 +62,10 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
   private movedDeleteToBody = false;
   // Renamed "type" column to "summary" — shows component count + makeup
   // so the same column works for legacy single-type subjects AND new
-  // component-shaped subjects.
-  displayedColumns: string[] = ['name', 'code', 'class', 'summary', 'actions'];
+  // component-shaped subjects. Added totalMarks + passRule columns so
+  // the admin can see the full subject configuration without opening
+  // Edit on every row.
+  displayedColumns: string[] = ['name', 'code', 'class', 'summary', 'totalMarks', 'passRule', 'actions'];
   dataSource = new MatTableDataSource<SubjectItem>([]);
   isLoading = false;
 
@@ -381,6 +383,67 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       return this.classLookup.get(subject.classId)?.name || subject.classId;
     }
     return '—';
+  }
+
+  /**
+   * Richer class-with-sections list for the table — renders as
+   * "1st (A, B), 2nd (A)". Used by the dedicated Class column so the
+   * admin can see at a glance which sections of each class the subject
+   * is attached to, without opening Edit. Falls back to bare class name
+   * when section ids can't be resolved (e.g. legacy rows).
+   */
+  classDetailFor(subject: SubjectItem): Array<{ className: string; sectionNames: string[] }> {
+    const out: Array<{ className: string; sectionNames: string[] }> = [];
+    const assignments = subject.assignments && subject.assignments.length > 0
+      ? subject.assignments
+      : (subject.classId ? [{ classId: subject.classId, sectionIds: [] }] : []);
+    for (const a of assignments) {
+      const cls = this.classLookup.get(a.classId);
+      const className = cls?.name || a.classId;
+      const sectionNames = (a.sectionIds || [])
+        .map(sid => cls?.sections.find(s => s.sectionId === sid)?.name || '')
+        .filter(Boolean);
+      out.push({ className, sectionNames });
+    }
+    return out;
+  }
+
+  /** Sum of every component's max marks — the headline number on the
+   *  report card. Returns 0 for legacy single-type subjects. */
+  totalMarks(subject: SubjectItem): number {
+    if (!subject.components || subject.components.length === 0) return 0;
+    return subject.components.reduce((sum, c) => sum + (Number(c.maxMarks) || 0), 0);
+  }
+
+  /** Human-readable pass-rule label for the table chip. */
+  passRuleLabel(subject: SubjectItem): string {
+    return subject.passRule === 'COMBINED' ? 'Combined total' : 'Per component';
+  }
+
+  /**
+   * One chip per component for the Components column — each carries
+   * the label, max marks, assessment mode and attendance flag so the
+   * admin can read the full makeup at a glance.
+   */
+  componentChips(subject: SubjectItem): Array<{
+    label: string; maxMarks: number; passMarks: number;
+    mode: 'EXAM' | 'INTERNAL'; trackAttendance: boolean;
+  }> {
+    if (!subject.components || subject.components.length === 0) {
+      // Legacy single-type fallback — surface the old `type` field as
+      // a single chip so the row isn't blank.
+      const legacy = subject.type
+        ? subject.type.charAt(0).toUpperCase() + subject.type.slice(1).toLowerCase()
+        : 'Theory';
+      return [{ label: legacy, maxMarks: 100, passMarks: 35, mode: 'EXAM', trackAttendance: true }];
+    }
+    return subject.components.map(c => ({
+      label: c.label,
+      maxMarks: Number(c.maxMarks) || 0,
+      passMarks: Number(c.passMarks) || 0,
+      mode: c.assessmentMode,
+      trackAttendance: !!c.trackAttendance,
+    }));
   }
 
   /**
