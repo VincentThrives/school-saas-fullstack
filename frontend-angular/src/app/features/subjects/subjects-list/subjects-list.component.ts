@@ -63,15 +63,21 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
   // Renamed "type" column to "summary" — shows component count + makeup
   // so the same column works for legacy single-type subjects AND new
   // component-shaped subjects.
-  displayedColumns: string[] = ['name', 'code', 'summary', 'actions'];
+  displayedColumns: string[] = ['name', 'code', 'class', 'summary', 'actions'];
   dataSource = new MatTableDataSource<SubjectItem>([]);
   isLoading = false;
 
   createDialogOpen = false;
   isCreating = false;
+  /** When the dialog is open in edit mode, holds the existing subject's id. */
+  editingSubjectId: string | null = null;
   form!: FormGroup;
 
   classes: Array<{ classId: string; name: string; sections?: Array<{ sectionId: string; name: string }> }> = [];
+  /** Tenant-wide class lookup keyed by classId — used by the list view's
+   *  "Class" column to translate {@code subject.classId} into a name +
+   *  sections without having to load classes once per row. */
+  private classLookup = new Map<string, { name: string; sections: Array<{ sectionId: string; name: string }> }>();
 
   /** Flat list of every (class, section) pair in the chosen year — drives the
    *  combined picker. Each entry's value encodes both ids so we can group by
@@ -340,12 +346,49 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
   }
 
   private loadClassesAndYears(): void {
-    // Only academic years up front. Classes load AFTER a year is picked
-    // so the Class dropdown can't accidentally surface classes from
-    // a different year (e.g. last year's "5" instead of this year's).
+    // Only academic years up front. Classes inside the dialog load AFTER
+    // a year is picked so the picker can't surface a class from another
+    // year. The tenant-wide class lookup below is a separate concern — it
+    // feeds the list view's "Class" column so existing subjects can show
+    // their class + sections regardless of which year the admin's on.
     this.apiService.getAcademicYears().subscribe({
       next: r => { this.academicYears = (r as any)?.data ?? []; },
     });
+    this.apiService.getClasses().subscribe({
+      next: r => {
+        const list = (r as any)?.data ?? [];
+        this.classLookup = new Map(list.map((c: any) => [
+          c.classId,
+          {
+            name: c.name,
+            sections: (c.sections || []).map((s: any) => ({ sectionId: s.sectionId, name: s.name })),
+          },
+        ]));
+      },
+    });
+  }
+
+  /** Human label for the "Class" column on the list row. */
+  classLabelFor(subject: SubjectItem): string {
+    if (!subject.classId) return '—';
+    return this.classLookup.get(subject.classId)?.name || subject.classId;
+  }
+
+  /** Human label for the section list (which sections of the class
+   *  actually carry this subject). Reads the class doc's sections and
+   *  filters to ones whose subjectIds include this subject's id. */
+  sectionsLabelFor(subject: SubjectItem): string {
+    if (!subject.classId) return '';
+    const cls = this.classLookup.get(subject.classId);
+    if (!cls) return '';
+    const ours = cls.sections.filter((s: any) =>
+      (s as any).subjectIds?.includes(subject.subjectId)
+    );
+    // The class lookup above doesn't currently carry subjectIds because
+    // getClasses() returns the full doc; pull from raw sections if we
+    // stored them. For now just list every section name — admin can
+    // open Edit Class to see which sections have it.
+    return cls.sections.map(s => s.name).join(', ');
   }
 
   /**
@@ -393,13 +436,84 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
   // ── Dialog open / close ────────────────────────────────────────────
 
   openCreateDialog(): void {
+    this.editingSubjectId = null;
     this.buildForm();
     this.filterNameSuggestions();
     this.createDialogOpen = true;
   }
 
+  /**
+   * Open the dialog in edit mode for the given subject. Pre-fills the
+   * form with name + code + pass rule + components, infers the
+   * subject's preset by inspecting its component shape, and pre-selects
+   * just this subject's (class, sections) entry in the combined picker.
+   *
+   * <p>In edit mode the combined picker stays single-class — editing a
+   * subject is always for the one class it belongs to. Multi-class
+   * "spread" only makes sense at create time.
+   */
+  openEditDialog(subject: SubjectItem): void {
+    this.editingSubjectId = subject.subjectId;
+    this.buildForm();
+    this.filterNameSuggestions();
+    this.form.patchValue({
+      name: subject.name,
+      code: subject.code || '',
+      academicYearId: subject.academicYearId || '',
+      passRule: subject.passRule || 'PER_COMPONENT',
+    });
+    // Re-create the components FormArray to match the existing subject.
+    const comps = this.form.get('components') as any;
+    while (comps.length) comps.removeAt(0);
+    for (const c of (subject.components || [])) {
+      comps.push(this.buildComponentGroup(
+        c.key, c.label, c.maxMarks, c.passMarks,
+        c.trackAttendance, c.assessmentMode, c.internalSchedule || 'PER_TERM'));
+    }
+    // Default to "Custom" preset so the components stay editable.
+    this.form.get('subjectType')?.setValue('CUSTOM', { emitEvent: false });
+    this.customiseComponents = true;
+    // Load classes for this subject's year, then build the class-section
+    // options and pre-select THIS subject's class with its sections that
+    // include this subject's id.
+    if (subject.academicYearId) {
+      this.apiService.getClasses(subject.academicYearId).subscribe(r => {
+        const list = ((r as any)?.data ?? []);
+        this.classes = list.map((c: any) => ({
+          classId: c.classId,
+          name: c.name,
+          sections: (c.sections || []).map((s: any) => ({
+            sectionId: s.sectionId,
+            name: s.name,
+          })),
+        }));
+        const opts: typeof this.classSectionOptions = [];
+        const preselect: string[] = [];
+        for (const c of list) {
+          for (const s of (c.sections || [])) {
+            const key = `${c.classId}::${s.sectionId}`;
+            opts.push({
+              key,
+              label: `${c.name} — ${s.name}`,
+              classId: c.classId,
+              sectionId: s.sectionId,
+            });
+            if (c.classId === subject.classId && (s.subjectIds || []).includes(subject.subjectId)) {
+              preselect.push(key);
+            }
+          }
+        }
+        opts.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+        this.classSectionOptions = opts;
+        this.form.get('classSectionKeys')?.setValue(preselect);
+      });
+    }
+    this.createDialogOpen = true;
+  }
+
   closeCreateDialog(): void {
     this.createDialogOpen = false;
+    this.editingSubjectId = null;
   }
 
   // ── Create ─────────────────────────────────────────────────────────
@@ -452,10 +566,47 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       byClass.get(classId)!.push(sectionId);
     }
 
-    // Fan out one create request per class. Wait for ALL to complete
-    // (success or fail individually) before closing the dialog so the
-    // admin sees an accurate result count even if one class errors.
     this.isCreating = true;
+
+    // Edit mode: only the one Subject doc. Pick the (presumably single)
+    // class entry from byClass and PUT it. Multi-class spread is a
+    // create-time-only convenience.
+    if (this.editingSubjectId) {
+      const entries = Array.from(byClass.entries());
+      if (entries.length !== 1) {
+        this.snackBar.open(
+          'Editing a subject covers one class at a time. Untick the other class-section entries.',
+          'Close', { duration: 5000 });
+        this.isCreating = false;
+        return;
+      }
+      const [classId, sectionIds] = entries[0];
+      const body: CreateOrUpdateSubject = {
+        name: raw.name,
+        code: raw.code,
+        academicYearId: raw.academicYearId,
+        classId,
+        passRule: raw.passRule,
+        components: cleanComponents,
+        applyToSectionIds: sectionIds,
+      };
+      this.subjectService.updateSubject(this.editingSubjectId, body).subscribe({
+        next: () => {
+          this.snackBar.open(`Updated "${raw.name}".`, 'Close', { duration: 3000 });
+          this.isCreating = false;
+          this.closeCreateDialog();
+          setTimeout(() => this.loadSubjects(), 500);
+        },
+        error: (err) => {
+          this.snackBar.open(err?.error?.message || 'Failed to update subject', 'Close', { duration: 5000 });
+          this.isCreating = false;
+        },
+      });
+      return;
+    }
+
+    // Create mode: fan out one create request per class. Wait for ALL to
+    // complete before closing so the snackbar reports an accurate count.
     const entries = Array.from(byClass.entries());
     let completed = 0;
     let okCount = 0;

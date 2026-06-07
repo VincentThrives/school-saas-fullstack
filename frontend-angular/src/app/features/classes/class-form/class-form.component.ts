@@ -68,9 +68,16 @@ export class ClassFormComponent implements OnInit {
       sections: this.fb.array([]),
     });
 
+    // Subject dropdown is per-class: we only show subjects whose
+    // classId matches the class being edited. Without this filter the
+    // admin would see every Sanskrit/English the school has across
+    // every class, with duplicate-looking names (each Subject doc is
+    // tied to one class to keep per-class component schemes
+    // independent — see the Subjects page picker that fans out one
+    // doc per chosen class).
     this.subjectService.getSubjects().subscribe(subjects => {
-      this.subjectsList = subjects.map(s => ({ id: s.subjectId, name: s.name }));
-      this.subjectsList.push({ id: 'others', name: 'Others' });
+      this.allSubjectsRaw = subjects;
+      this.refreshSubjectsListForThisClass();
     });
 
     this.loadAcademicYears();
@@ -114,6 +121,9 @@ export class ClassFormComponent implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           const cls = res.data;
+          // We know the real classId now — refilter subjects so the
+          // per-section dropdown shows only this class's subjects.
+          this.refreshSubjectsListForThisClass();
           this.classForm.patchValue({
             name: this.parseClassNumber(cls.name),
             academicYearId: cls.academicYearId,
@@ -159,7 +169,27 @@ export class ClassFormComponent implements OnInit {
     return `Teacher ${teacher.employeeId || ''}`;
   }
 
+  /** Filtered, deduped subjects available for the section pickers on this class. */
   subjectsList: { id: string; name: string }[] = [];
+  /** Raw subjects from the API — kept so we can re-filter when classId becomes known. */
+  private allSubjectsRaw: any[] = [];
+
+  /**
+   * Build {@link subjectsList} from {@link allSubjectsRaw}, keeping only
+   * subjects whose {@code classId} matches the class being edited (or all
+   * subjects for a brand-new class that doesn't have an id yet — there
+   * will be none in that case anyway because Subject requires classId).
+   *
+   * <p>"Others" stays at the bottom as the escape hatch for ad-hoc
+   * subjects the admin types inline.
+   */
+  private refreshSubjectsListForThisClass(): void {
+    const matching = this.classId
+      ? this.allSubjectsRaw.filter(s => s.classId === this.classId)
+      : [];
+    this.subjectsList = matching.map((s: any) => ({ id: s.subjectId, name: s.name }));
+    this.subjectsList.push({ id: 'others', name: 'Others' });
+  }
 
   customSubject = '';
 

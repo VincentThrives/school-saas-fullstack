@@ -53,6 +53,14 @@
         </td>
       </ng-container>
 
+      <!-- Class Column — disambiguates same-named subjects across classes. -->
+      <ng-container matColumnDef="class">
+        <th mat-header-cell *matHeaderCellDef>Class</th>
+        <td mat-cell *matCellDef="let subject">
+          <span class="code-chip">{{ classLabelFor(subject) }}</span>
+        </td>
+      </ng-container>
+
       <!-- Summary Column (component makeup) -->
       <ng-container matColumnDef="summary">
         <th mat-header-cell *matHeaderCellDef>Components</th>
@@ -71,6 +79,10 @@
             <mat-icon>more_vert</mat-icon>
           </button>
           <mat-menu #subjectMenu="matMenu">
+            <button mat-menu-item (click)="openEditDialog(subject)">
+              <mat-icon>edit</mat-icon>
+              <span>Edit</span>
+            </button>
             <button mat-menu-item (click)="confirmDelete(subject)" class="delete-action">
               <mat-icon color="warn">delete</mat-icon>
               <span>Delete</span>
@@ -97,7 +109,7 @@
   <div #dialogOverlay class="dialog-overlay" *ngIf="createDialogOpen" (click)="closeCreateDialog()">
     <div class="dialog-panel subject-dialog" (click)="$event.stopPropagation()">
       <div class="dialog-head">
-        <h3>Add Subject</h3>
+        <h3>{{ editingSubjectId ? 'Edit Subject' : 'Add Subject' }}</h3>
         <button mat-icon-button (click)="closeCreateDialog()" matTooltip="Close">
           <mat-icon>close</mat-icon>
         </button>
@@ -275,7 +287,9 @@
           <button mat-raised-button type="button" class="create-button"
                   (click)="createSubject()"
                   [disabled]="isCreating">
-            {{ isCreating ? 'Creating...' : 'Create Subject' }}
+            {{ isCreating
+                ? (editingSubjectId ? 'Saving…' : 'Creating…')
+                : (editingSubjectId ? 'Save Changes' : 'Create Subject') }}
           </button>
         </div>
       </form>
