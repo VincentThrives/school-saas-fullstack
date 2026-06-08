@@ -5,6 +5,10 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * SMS configuration for a single tenant (one document per school).
@@ -37,10 +41,13 @@ public class TenantSmsSettings {
     private boolean enabled;
 
     /** Per-trigger toggles, all default to false. Allows e.g. "absence
-     *  alerts ON but result publish OFF" for cost-conscious schools. */
+     *  alerts ON but result publish OFF" for cost-conscious schools.
+     *  Each one is the row-level "active" checkbox in the SMS Control
+     *  table — independent of whether a template is configured. */
     private boolean absenceAlertEnabled;
     private boolean resultPublishEnabled;
     private boolean customNoticeEnabled;
+    private boolean holidayNoticeEnabled;
 
     /** Hard cap (₹) per calendar month. SMS stops sending once
      *  costUsedThisMonth >= monthlyBudgetInr. Resets on the 1st of
@@ -59,6 +66,20 @@ public class TenantSmsSettings {
 
     /** Email school admin when SMS fails (e.g. budget hit, MSG91 down). */
     private boolean notifyAdminOnFailure = true;
+
+    /**
+     * Per-trigger DLT template configuration. Key = SmsTrigger.name().
+     * Each value carries the templateId, sender header, and approved
+     * body the Super Admin pasted for this tenant on the SMS Control
+     * page's expanded row. Empty / missing entries mean "no template
+     * configured" — the dispatch pipeline writes a SKIPPED audit row
+     * and the SMS doesn't fire.
+     *
+     * <p>No platform fallback exists anywhere: a sender like VTPLS is
+     * just another header value the operator might paste; it's not
+     * special.</p>
+     */
+    private Map<String, SmsTemplate> templates = new HashMap<>();
 
     /** Audit metadata. */
     private Instant createdAt;
@@ -79,7 +100,16 @@ public class TenantSmsSettings {
             case ABSENCE_ALERT     -> absenceAlertEnabled;
             case RESULT_COMBINED, RESULT_SINGLE -> resultPublishEnabled;
             case CUSTOM_NOTICE     -> customNoticeEnabled;
+            case HOLIDAY_NOTICE    -> holidayNoticeEnabled;
         };
+    }
+
+    /** Returns the tenant's stored template for a trigger, or null
+     *  if Super Admin hasn't configured one. Caller (the resolver in
+     *  SmsService) treats null as "skip — no template". */
+    public SmsTemplate templateFor(SmsTrigger trigger) {
+        if (templates == null) return null;
+        return templates.get(trigger.name());
     }
 
     // ── Getters / setters ──────────────────────────────────────
@@ -102,6 +132,9 @@ public class TenantSmsSettings {
     public boolean isCustomNoticeEnabled() { return customNoticeEnabled; }
     public void setCustomNoticeEnabled(boolean v) { this.customNoticeEnabled = v; }
 
+    public boolean isHolidayNoticeEnabled() { return holidayNoticeEnabled; }
+    public void setHolidayNoticeEnabled(boolean v) { this.holidayNoticeEnabled = v; }
+
     public double getMonthlyBudgetInr() { return monthlyBudgetInr; }
     public void setMonthlyBudgetInr(double v) { this.monthlyBudgetInr = v; }
 
@@ -122,4 +155,45 @@ public class TenantSmsSettings {
 
     public String getUpdatedBy() { return updatedBy; }
     public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
+
+    public Map<String, SmsTemplate> getTemplates() {
+        return templates == null ? (templates = new HashMap<>()) : templates;
+    }
+    public void setTemplates(Map<String, SmsTemplate> templates) {
+        this.templates = templates == null ? new HashMap<>() : templates;
+    }
+
+    /**
+     * One DLT-registered template stored on a tenant's settings.
+     *
+     * <p>{@code body} is the EXACT text the school's DLT entry was
+     * approved with — stored only for the audit-log preview and so
+     * the operator can see what got pasted. MSG91 sends from
+     * {@code templateId} alone; the body never goes over the wire.
+     * {@code varLabels} drive the form hints ("Student name", "Class &amp;
+     * section", "Marks summary") next to each {@code {#var#}} slot.</p>
+     */
+    public static class SmsTemplate {
+        private String templateId;
+        private String senderId;
+        private String body;
+        private List<String> varLabels = new ArrayList<>();
+
+        public SmsTemplate() {}
+
+        /** True iff this template has both DLT ids — required to send. */
+        public boolean isResolvable() {
+            return templateId != null && !templateId.isBlank()
+                    && senderId  != null && !senderId.isBlank();
+        }
+
+        public String getTemplateId() { return templateId; }
+        public void setTemplateId(String v) { this.templateId = v; }
+        public String getSenderId() { return senderId; }
+        public void setSenderId(String v) { this.senderId = v; }
+        public String getBody() { return body; }
+        public void setBody(String v) { this.body = v; }
+        public List<String> getVarLabels() { return varLabels; }
+        public void setVarLabels(List<String> v) { this.varLabels = v == null ? new ArrayList<>() : v; }
+    }
 }

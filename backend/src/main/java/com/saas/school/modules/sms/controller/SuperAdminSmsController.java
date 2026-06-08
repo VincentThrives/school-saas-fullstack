@@ -15,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Super Admin SMS control panel — full mutate authority over
@@ -86,5 +87,29 @@ public class SuperAdminSmsController {
                 ? "SMS settings deleted for tenant " + tenantId
                 : "No SMS settings existed for tenant " + tenantId;
         return ResponseEntity.ok(ApiResponse.success(null, msg));
+    }
+
+    // ── Per-tenant DLT template config ────────────────────────────
+
+    /** Read a tenant's per-trigger templates. Empty map = nothing
+     *  configured yet — UI renders empty form fields. */
+    @GetMapping("/tenants/{tenantId}/templates")
+    public ResponseEntity<ApiResponse<Map<String, TenantSmsSettings.SmsTemplate>>> getTenantTemplates(
+            @PathVariable String tenantId) {
+        return ResponseEntity.ok(ApiResponse.success(smsService.getTenantTemplates(tenantId)));
+    }
+
+    /** Upsert a tenant's per-trigger templates from the accordion form.
+     *  Body is a map of {@code trigger name → SmsTemplate}. Entries
+     *  with all three text fields blank get pruned. */
+    @PutMapping("/tenants/{tenantId}/templates")
+    public ResponseEntity<ApiResponse<Map<String, TenantSmsSettings.SmsTemplate>>> updateTenantTemplates(
+            @PathVariable String tenantId,
+            @RequestBody Map<String, TenantSmsSettings.SmsTemplate> templates,
+            @AuthenticationPrincipal String adminUserId) {
+        Map<String, TenantSmsSettings.SmsTemplate> saved =
+                smsService.upsertTenantTemplates(tenantId, templates, adminUserId);
+        return ResponseEntity.ok(ApiResponse.success(
+                saved, "SMS templates saved for tenant " + tenantId));
     }
 }

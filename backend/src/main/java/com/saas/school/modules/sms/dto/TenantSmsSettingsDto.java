@@ -16,6 +16,7 @@ public class TenantSmsSettingsDto {
     private boolean absenceAlertEnabled;
     private boolean resultPublishEnabled;
     private boolean customNoticeEnabled;
+    private boolean holidayNoticeEnabled;
     private double monthlyBudgetInr;
     private double costUsedThisMonth;
     private String costMonth;
@@ -32,6 +33,7 @@ public class TenantSmsSettingsDto {
         dto.absenceAlertEnabled = s.isAbsenceAlertEnabled();
         dto.resultPublishEnabled = s.isResultPublishEnabled();
         dto.customNoticeEnabled = s.isCustomNoticeEnabled();
+        dto.holidayNoticeEnabled = s.isHolidayNoticeEnabled();
         dto.monthlyBudgetInr = s.getMonthlyBudgetInr();
         dto.costUsedThisMonth = s.getCostUsedThisMonth();
         dto.costMonth = s.getCostMonth();
@@ -67,6 +69,9 @@ public class TenantSmsSettingsDto {
 
     public boolean isCustomNoticeEnabled() { return customNoticeEnabled; }
     public void setCustomNoticeEnabled(boolean v) { this.customNoticeEnabled = v; }
+
+    public boolean isHolidayNoticeEnabled() { return holidayNoticeEnabled; }
+    public void setHolidayNoticeEnabled(boolean v) { this.holidayNoticeEnabled = v; }
 
     public double getMonthlyBudgetInr() { return monthlyBudgetInr; }
     public void setMonthlyBudgetInr(double v) { this.monthlyBudgetInr = v; }

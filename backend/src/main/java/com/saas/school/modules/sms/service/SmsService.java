@@ -12,6 +12,9 @@ import com.saas.school.modules.sms.dto.AbsentTodayDto;
 import com.saas.school.modules.sms.dto.SendAbsentTodayResponse;
 import com.saas.school.modules.sms.dto.SendCustomNoticeRequest;
 import com.saas.school.modules.sms.dto.SendCustomNoticeResponse;
+import com.saas.school.modules.sms.dto.SendHolidayNoticeRequest;
+import com.saas.school.modules.sms.dto.SendHolidayNoticeResponse;
+import com.saas.school.modules.sms.dto.SmsAudience;
 import com.saas.school.modules.sms.dto.UpdateTenantSmsSettingsRequest;
 import com.saas.school.modules.sms.model.SmsAuditLog;
 import com.saas.school.modules.sms.model.SmsTrigger;
@@ -169,12 +172,15 @@ public class SmsService {
                 return;
             }
 
-            // ── Template id lookup
-            String templateId = templateIdFor(trigger);
-            if (templateId == null || templateId.isBlank()) {
-                log.warn("No DLT template id configured for trigger {} — skipping", trigger);
+            // ── Template + sender resolution. Pure tenant lookup, no
+            //     fallback. If Super Admin hasn't pasted a template for
+            //     this trigger on the SMS Control page's expanded row,
+            //     the dispatch path writes a SKIPPED audit row.
+            ResolvedTemplate rt = resolveTemplate(settings, trigger);
+            if (rt == null) {
+                log.warn("No DLT template configured for tenant {} / trigger {} — skipping", tenantId, trigger);
                 writeSkipped(tenantId, trigger, variables, triggeredBy, entityType, entityId,
-                        "DLT template not configured");
+                        "DLT template not configured for trigger " + trigger);
                 return;
             }
 
@@ -201,7 +207,7 @@ public class SmsService {
                             "Monthly budget cap reached mid-fan-out");
                     break;
                 }
-                sendOne(tenantId, settings, trigger, templateId, r, variables,
+                sendOne(tenantId, settings, trigger, rt, r, variables,
                         triggeredBy, entityType, entityId);
             }
 
@@ -232,22 +238,31 @@ public class SmsService {
         if (phone.isEmpty()) {
             throw new BusinessException("Invalid phone number — must be a 10-digit Indian mobile.");
         }
-        String templateId = templateIdFor(SmsTrigger.ABSENCE_ALERT);
-        if (templateId == null || templateId.isBlank()) {
-            throw new BusinessException("Test SMS template not configured.");
+        // Test uses the school's Absence Alert template — same resolver
+        // as a real absence dispatch. If Super Admin hasn't pasted one
+        // on the SMS Control page, this throws so the admin sees the gap
+        // immediately instead of a silent no-op.
+        ResolvedTemplate rt = resolveTemplate(settings, SmsTrigger.ABSENCE_ALERT);
+        if (rt == null) {
+            throw new BusinessException(
+                "Absence Alert template not configured. Ask the platform admin to set it up under SMS Control.");
         }
 
-        // Render with a dummy student so the body is recognisable as a test.
-        // Variable NAMES match the MSG91 ABSENCE_ALERT template:
-        // "##student##", "##class##", "##date##". Mismatched keys silently
-        // leave the slots blank in the delivered SMS.
+        // Variables stamped under both semantic AND positional keys —
+        // DLT templates registered with {#var#} placeholders match by
+        // position (var1/var2/var3) while the legacy MSG91 absence
+        // template uses named ones (student/class/date). Sending both
+        // covers either registration style.
         Map<String, String> vars = new LinkedHashMap<>();
         vars.put("student", "Test Student");
         vars.put("class", "Test Class");
         vars.put("date", "Test Date");
+        vars.put("var1", "Test Student");
+        vars.put("var2", "Test Class");
+        vars.put("var3", "Test Date");
 
         RecipientInfo recipient = new RecipientInfo(phone.get(), requestingUserId, "ADMIN_TEST");
-        return sendOne(tenantId, settings, SmsTrigger.ABSENCE_ALERT, templateId, recipient, vars,
+        return sendOne(tenantId, settings, SmsTrigger.ABSENCE_ALERT, rt, recipient, vars,
                 requestingUserId, "SmsTest", requestingUserId);
     }
 
@@ -258,7 +273,7 @@ public class SmsService {
      * Distinct from {@link #dispatchAsync} in that the trigger gating
      * happens here once (rather than per-recipient on a system rule fire),
      * and the recipient set is resolved up-front from the requested
-     * {@link SendCustomNoticeRequest.Audience}:</p>
+     * {@link SmsAudience}:</p>
      *
      * <ul>
      *   <li>{@code ALL} — every active user with a phone (parents + staff)</li>
@@ -285,11 +300,11 @@ public class SmsService {
         if (req == null || req.getMessage() == null || req.getMessage().isBlank()) {
             throw new BusinessException("Message is required.");
         }
-        List<SendCustomNoticeRequest.Audience> audiences = req.getAudiences();
+        List<SmsAudience> audiences = req.getAudiences();
         if (audiences == null || audiences.isEmpty()) {
             throw new BusinessException("Pick at least one audience.");
         }
-        if (audiences.contains(SendCustomNoticeRequest.Audience.CLASS)
+        if (audiences.contains(SmsAudience.CLASS)
                 && (req.getClassId() == null || req.getClassId().isBlank())) {
             throw new BusinessException("Class is required when \"Particular class\" is picked.");
         }
@@ -340,6 +355,91 @@ public class SmsService {
     }
 
     /**
+     * Send a holiday / closure notice to the chosen audience. Variables
+     * are stamped as var1/var2/var3 (and semantic aliases) so they slot
+     * into the school's HOLIDAY_NOTICE DLT template's {@code {#var#}}
+     * placeholders in order.
+     *
+     * <p>Tenant must:</p>
+     * <ol>
+     *   <li>Have SMS enabled (master toggle)</li>
+     *   <li>Have the Holiday trigger checkbox ON in the Tenant Settings table</li>
+     *   <li>Have a HOLIDAY_NOTICE template pasted on the SMS Control row's
+     *       expanded panel (templateId + senderId)</li>
+     * </ol>
+     *
+     * <p>Failing any of these throws a clear synchronous error so the
+     * school admin sees the gap before parents notice.</p>
+     */
+    public SendHolidayNoticeResponse sendHolidayNotice(SendHolidayNoticeRequest req, String adminUserId) {
+        if (req == null) throw new BusinessException("Holiday notice payload is required.");
+        if (req.getClosureDate() == null || req.getClosureDate().isBlank())
+            throw new BusinessException("closureDate is required.");
+        if (req.getReason() == null || req.getReason().isBlank())
+            throw new BusinessException("reason is required.");
+        if (req.getReopenDate() == null || req.getReopenDate().isBlank())
+            throw new BusinessException("reopenDate is required.");
+
+        List<SmsAudience> audiences = req.getAudiences();
+        if (audiences == null || audiences.isEmpty())
+            throw new BusinessException("Pick at least one audience.");
+        if (audiences.contains(SmsAudience.CLASS)
+                && (req.getClassId() == null || req.getClassId().isBlank())) {
+            throw new BusinessException("Class is required when \"Particular class\" is picked.");
+        }
+
+        String tenantId = TenantContext.getTenantId();
+        if (!smsConfig.isEnabled()) {
+            throw new BusinessException("SMS is globally disabled. Contact platform admin.");
+        }
+        TenantSmsSettings settings = settingsRepo.findByTenantId(tenantId).orElse(null);
+        if (settings == null || !settings.isEnabled()) {
+            throw new BusinessException("SMS is not enabled for this school.");
+        }
+        if (!settings.isTriggerEnabled(SmsTrigger.HOLIDAY_NOTICE)) {
+            throw new BusinessException(
+                "Holiday SMS is disabled for your school. Ask the platform admin to enable it under SMS Control.");
+        }
+        TenantSmsSettings.SmsTemplate tpl = settings.templateFor(SmsTrigger.HOLIDAY_NOTICE);
+        if (tpl == null || !tpl.isResolvable()) {
+            throw new BusinessException(
+                "Holiday notice template not configured for your school. Ask the platform admin to set it up.");
+        }
+
+        List<String> userIds = resolveAudiences(audiences, req.getClassId());
+        if (userIds.isEmpty()) {
+            throw new BusinessException("No recipients matched the chosen audience(s).");
+        }
+
+        // Both positional (var1/var2/var3) AND semantic (closureDate /
+        // reason / reopenDate) keys so the DLT registration style on
+        // the school's side renders correctly regardless of whether
+        // their template was approved with positional or named placeholders.
+        Map<String, String> vars = new LinkedHashMap<>();
+        vars.put("var1", req.getClosureDate().trim());
+        vars.put("var2", req.getReason().trim());
+        vars.put("var3", req.getReopenDate().trim());
+        vars.put("closureDate", req.getClosureDate().trim());
+        vars.put("reason",      req.getReason().trim());
+        vars.put("reopenDate",  req.getReopenDate().trim());
+
+        List<String> audienceNames = audiences.stream().map(Enum::name).toList();
+        String audienceLabel = String.join(",", audienceNames);
+
+        dispatchAsync(SmsTrigger.HOLIDAY_NOTICE, userIds, vars, adminUserId,
+                "HolidayNotice", "broadcast-" + audienceLabel);
+
+        auditService.log("SMS_HOLIDAY_NOTICE", "HolidayNotice", tenantId,
+                "Holiday broadcast queued by " + adminUserId + " audiences=" + audienceLabel
+                        + (req.getClassId() != null ? " classId=" + req.getClassId() : "")
+                        + " closure=" + req.getClosureDate()
+                        + " reopen=" + req.getReopenDate()
+                        + " recipients=" + userIds.size());
+
+        return new SendHolidayNoticeResponse(audienceNames, userIds.size(), Instant.now());
+    }
+
+    /**
      * Audiences → unioned, deduped userId list.
      *
      * <p>Resolves each picked audience independently then unions them into
@@ -353,18 +453,18 @@ public class SmsService {
      * @param audiences the audiences picked in the UI
      * @param classId   required only when the list contains {@code CLASS}
      */
-    private List<String> resolveAudiences(List<SendCustomNoticeRequest.Audience> audiences, String classId) {
+    private List<String> resolveAudiences(List<SmsAudience> audiences, String classId) {
         // LinkedHashSet → preserves the natural ordering (audience-by-audience)
         // while killing duplicate userIds across audience overlaps.
         LinkedHashSet<String> ids = new LinkedHashSet<>();
-        for (SendCustomNoticeRequest.Audience a : audiences) {
+        for (SmsAudience a : audiences) {
             ids.addAll(resolveOneAudience(a, classId));
         }
         return new ArrayList<>(ids);
     }
 
     /** Resolves a single audience to its userIds. */
-    private List<String> resolveOneAudience(SendCustomNoticeRequest.Audience audience, String classId) {
+    private List<String> resolveOneAudience(SmsAudience audience, String classId) {
         return switch (audience) {
             case ALL            -> collectUserIds(userRepository.findAllByDeletedAtIsNull());
             case ALL_STUDENTS   -> collectStudentParentUserIds(studentRepository.findByDeletedAtIsNull());
@@ -578,10 +678,18 @@ public class SmsService {
             }
 
             String classLabel = resolveClassLabelFromStudent(stu);
+            String studentName = buildStudentName(stu);
+            String classText   = classLabel != null ? classLabel : "your school";
             Map<String, String> vars = new LinkedHashMap<>();
-            vars.put("student", buildStudentName(stu));
-            vars.put("class", classLabel != null ? classLabel : "your school");
+            vars.put("student", studentName);
+            vars.put("class", classText);
             vars.put("date", friendlyDate);
+            // Positional aliases — DLT templates registered with {#var#}
+            // placeholders match var1/var2/var3 by position. Sending
+            // both shapes lets either registration style work.
+            vars.put("var1", studentName);
+            vars.put("var2", classText);
+            vars.put("var3", friendlyDate);
 
             // Dispatch async — returns immediately, audit row tracks status.
             dispatchAsync(SmsTrigger.ABSENCE_ALERT, userIds, extraPhones, vars,
@@ -680,6 +788,7 @@ public class SmsService {
         if (req.getAbsenceAlertEnabled() != null)  s.setAbsenceAlertEnabled(req.getAbsenceAlertEnabled());
         if (req.getResultPublishEnabled() != null) s.setResultPublishEnabled(req.getResultPublishEnabled());
         if (req.getCustomNoticeEnabled() != null)  s.setCustomNoticeEnabled(req.getCustomNoticeEnabled());
+        if (req.getHolidayNoticeEnabled() != null) s.setHolidayNoticeEnabled(req.getHolidayNoticeEnabled());
         if (req.getMonthlyBudgetInr() != null)     s.setMonthlyBudgetInr(req.getMonthlyBudgetInr());
         if (req.getNotifyAdminOnFailure() != null) s.setNotifyAdminOnFailure(req.getNotifyAdminOnFailure());
 
@@ -719,7 +828,7 @@ public class SmsService {
     private SmsAuditLog sendOne(String tenantId,
                                 TenantSmsSettings settings,
                                 SmsTrigger trigger,
-                                String templateId,
+                                ResolvedTemplate rt,
                                 RecipientInfo r,
                                 Map<String, String> variables,
                                 String triggeredBy,
@@ -732,12 +841,13 @@ public class SmsService {
         auditLog.setTenantId(tenantId);
         auditLog.setTriggeredBy(triggeredBy);
         auditLog.setTrigger(trigger);
-        auditLog.setTemplateId(templateId);
+        auditLog.setTemplateId(rt.templateId());
+        auditLog.setSenderId(rt.senderId());
         auditLog.setRecipientPhone(r.phone());
         auditLog.setRecipientUserId(r.userId());
         auditLog.setRecipientRole(r.role());
         auditLog.setVariables(variables);
-        auditLog.setBody(renderBodyForAudit(trigger, variables));
+        auditLog.setBody(renderBodyForAudit(settings, trigger, variables));
         auditLog.setStatus(SmsAuditLog.Status.PENDING);
         auditLog.setCreatedAt(Instant.now());
         auditLog.setCostInr(smsConfig.getCostPerSmsInr());
@@ -746,8 +856,11 @@ public class SmsService {
         auditRepo.save(auditLog);
 
         // Fire the actual MSG91 request.
+        // Use the resolved tenant sender header (e.g. STANNE), NOT the
+        // global smsConfig default. Every send goes out under the
+        // school's own DLT-registered header that Super Admin pasted.
         SmsProvider.SendResult result = smsProvider.send(new SmsProvider.SendArgs(
-                r.phone(), templateId, smsConfig.getMsg91SenderId(), variables));
+                r.phone(), rt.templateId(), rt.senderId(), variables));
 
         if (result.success()) {
             auditLog.setStatus(SmsAuditLog.Status.SENT);
@@ -833,36 +946,120 @@ public class SmsService {
         return out;
     }
 
-    /** Pick the template id based on which trigger fired. */
-    private String templateIdFor(SmsTrigger trigger) {
-        return switch (trigger) {
-            case ABSENCE_ALERT   -> smsConfig.getTplAbsenceAlert();
-            case RESULT_COMBINED -> smsConfig.getTplResultCombined();
-            case RESULT_SINGLE   -> smsConfig.getTplResultSingle();
-            case CUSTOM_NOTICE   -> smsConfig.getTplCustomNotice();
-        };
+    /**
+     * Resolve (templateId, senderId) for the given (tenant, trigger).
+     *
+     * <p>Pure tenant lookup — there is no platform fallback. Every
+     * trigger's template is set by Super Admin on the SMS Control
+     * page's expanded row. If they haven't set one, return null and
+     * the caller writes a SKIPPED audit row.</p>
+     *
+     * <p>VTPLS, STANNE, SPRING — these are all just sender header
+     * strings the operator might paste. None of them are special.</p>
+     */
+    ResolvedTemplate resolveTemplate(TenantSmsSettings settings, SmsTrigger trigger) {
+        if (settings == null) return null;
+        TenantSmsSettings.SmsTemplate t = settings.templateFor(trigger);
+        if (t == null || !t.isResolvable()) return null;
+        return new ResolvedTemplate(t.getTemplateId(), t.getSenderId());
     }
 
-    /** Render the body for audit logging — approximate the real SMS the
-     *  parent will see. We can't ask MSG91 for the rendered body, so we
-     *  reconstruct it from the registered template + variable values.
-     *  Used only for the audit UI, never for actual delivery. */
-    private String renderBodyForAudit(SmsTrigger trigger, Map<String, String> vars) {
+    /** Resolved (templateId, senderId) tuple. */
+    public record ResolvedTemplate(String templateId, String senderId) {}
+
+    // ── Per-tenant template config CRUD ────────────────────────────
+
+    /**
+     * Read a tenant's per-trigger DLT template overrides. Returns an
+     * empty map (not null) when none configured. Called by both the
+     * Super Admin's accordion panel (full edit) and the school admin's
+     * read-only "available templates" badge row.
+     */
+    public Map<String, TenantSmsSettings.SmsTemplate> getTenantTemplates(String tenantId) {
+        TenantSmsSettings s = settingsRepo.findByTenantId(tenantId).orElse(null);
+        if (s == null) return Map.of();
+        return s.getTemplates();
+    }
+
+    /**
+     * Upsert the per-trigger DLT template overrides for a tenant.
+     * Creates the {@link TenantSmsSettings} document on first call.
+     * Only the templates map is touched — other settings (enabled
+     * flags, budget) are preserved.
+     *
+     * <p>Entries where templateId, senderId AND body are all blank
+     * are dropped (= "operator cleared this trigger's template").
+     * Unknown trigger keys silently ignored so a stale frontend
+     * can't pollute the document.</p>
+     */
+    public Map<String, TenantSmsSettings.SmsTemplate> upsertTenantTemplates(
+            String tenantId,
+            Map<String, TenantSmsSettings.SmsTemplate> templates,
+            String adminUserId) {
+        TenantSmsSettings s = settingsRepo.findByTenantId(tenantId).orElse(null);
+        if (s == null) s = new TenantSmsSettings(tenantId);
+
+        Map<String, TenantSmsSettings.SmsTemplate> out = new HashMap<>();
+        if (templates != null) {
+            for (Map.Entry<String, TenantSmsSettings.SmsTemplate> e : templates.entrySet()) {
+                String key = e.getKey();
+                TenantSmsSettings.SmsTemplate v = e.getValue();
+                if (key == null || key.isBlank() || v == null) continue;
+                try {
+                    SmsTrigger.valueOf(key);
+                } catch (IllegalArgumentException ex) {
+                    log.warn("Ignoring unknown trigger key '{}' in template upsert for tenant {}", key, tenantId);
+                    continue;
+                }
+                boolean empty = (v.getTemplateId() == null || v.getTemplateId().isBlank())
+                        && (v.getSenderId() == null || v.getSenderId().isBlank())
+                        && (v.getBody() == null || v.getBody().isBlank());
+                if (empty) continue;
+                out.put(key, v);
+            }
+        }
+        s.setTemplates(out);
+        s.setUpdatedAt(Instant.now());
+        s.setUpdatedBy(adminUserId);
+        settingsRepo.save(s);
+        auditService.log("SMS_TEMPLATES_UPSERT", "TenantSmsSettings", tenantId,
+                "Templates updated by " + adminUserId + " count=" + out.size()
+                        + " triggers=" + String.join(",", out.keySet()));
+        return out;
+    }
+
+    /** Render the body for audit logging — approximate the real SMS
+     *  the parent will see. MSG91 doesn't return the rendered body,
+     *  so we reconstruct it from the tenant's stored template body
+     *  + the actual variable values stamped on the dispatch. The
+     *  preview only — never sent to MSG91. */
+    private String renderBodyForAudit(TenantSmsSettings settings, SmsTrigger trigger,
+                                      Map<String, String> vars) {
         if (vars == null || vars.isEmpty()) return "(no variables)";
-        return switch (trigger) {
-            case ABSENCE_ALERT -> String.format(
-                    "Dear Parent, %s of %s was marked absent on %s. " +
-                    "Please contact the school for details.- Vincent Thrives Pvt Ltd",
-                    // Variable names match the MSG91 template
-                    // (##student##, ##class##, ##date##). Mirrored here so
-                    // the audit log preview reads the same as the actual
-                    // SMS the parent receives.
-                    vars.getOrDefault("student", "—"),
-                    vars.getOrDefault("class", "—"),
-                    vars.getOrDefault("date", "—"));
-            // Phase 2+3 templates render after their bodies are finalised.
-            default -> "(rendered at send time — see MSG91 logs)";
-        };
+        TenantSmsSettings.SmsTemplate t = settings == null ? null : settings.templateFor(trigger);
+        if (t != null && t.getBody() != null && !t.getBody().isBlank()) {
+            return substituteVarPlaceholders(t.getBody(), vars);
+        }
+        return "(rendered at send time — see MSG91 logs)";
+    }
+
+    /** Replace each {@code {#var#}} placeholder in {@code body} with
+     *  the value of {@code var1, var2, var3, ...} (positional). Missing
+     *  slots fall back to an em dash. Matches how DLT templates render
+     *  on the operator's side. */
+    private String substituteVarPlaceholders(String body, Map<String, String> vars) {
+        StringBuilder out = new StringBuilder();
+        int i = 0, slot = 1;
+        while (i < body.length()) {
+            int open = body.indexOf("{#var#}", i);
+            if (open < 0) { out.append(body, i, body.length()); break; }
+            out.append(body, i, open);
+            String value = vars.get("var" + slot);
+            out.append(value == null || value.isBlank() ? "—" : value);
+            slot++;
+            i = open + "{#var#}".length();
+        }
+        return out.toString();
     }
 
     /** Roll the monthly cost counter to zero when a new calendar month

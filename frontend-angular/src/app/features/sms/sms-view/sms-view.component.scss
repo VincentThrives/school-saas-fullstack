@@ -391,11 +391,193 @@ $gold-light: #E8C97A;
   mat-icon { font-size: 16px; width: 16px; height: 16px; color: #9ca3af; }
 }
 
+// ── Templates card ─────────────────────────────────────────────
+// Read-only badges showing which DLT-approved templates the platform
+// admin has registered for this tenant. One badge per trigger we care
+// about. The layout is a responsive grid so 1-4 badges per row depending
+// on viewport width.
+.sv-templates-card { padding: 24px; border-radius: 12px; }
+.sv-tpl-loading {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0;
+}
+.sv-tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.sv-tpl-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+.sv-tpl-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  .sv-tpl-icon { color: $gold-dark; font-size: 20px; width: 20px; height: 20px; }
+  .sv-tpl-title { font-weight: 700; color: #1a1a1a; font-size: 0.95rem; }
+}
+.sv-tpl-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+
+  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  &--ready {
+    background: rgba(22, 163, 74, 0.12);
+    color: #16a34a;
+    mat-icon { color: #16a34a; }
+  }
+  &--missing {
+    background: rgba(220, 38, 38, 0.12);
+    color: #dc2626;
+    mat-icon { color: #dc2626; }
+  }
+}
+.sv-tpl-caption {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+// ── Holiday-notice card ────────────────────────────────────────
+// Same surface treatment as the broadcast card with extra structured
+// fields and a live preview block.
+.sv-holiday-card {
+  padding: 24px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sv-holiday-fields {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 16px;
+  align-items: start;
+
+  .sv-holiday-date  { width: 100%; }
+  .sv-holiday-reason {
+    width: 100%;
+    grid-column: 1 / -1;   // span full width
+  }
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+    .sv-holiday-reason { grid-column: auto; }
+  }
+}
+
+// Live preview block — shows the DLT-approved body with [placeholders]
+// replaced as the admin types. Sender pill sits in the header.
+.sv-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: rgba(212, 168, 67, 0.06);
+  border: 1px solid rgba(212, 168, 67, 0.3);
+  border-radius: 10px;
+}
+.sv-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sv-preview-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+.sv-preview-body {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #1a1a1a;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'JetBrains Mono', monospace;
+  background: #fff;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.sv-holiday-warn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  background: rgba(245, 158, 11, 0.10);
+  border-left: 3px solid #d97706;
+  border-radius: 6px;
+  color: #92400e;
+  font-size: 0.88rem;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; color: #d97706; }
+}
+
+// ── Sender pill (used in audit log + holiday preview) ──────────
+.sv-sender-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(212, 168, 67, 0.18);
+  color: #B8860B;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+.sv-sender-empty {
+  color: #9ca3af;
+  font-style: italic;
+}
+
 // ── Dark theme ─────────────────────────────────────────────────
 :host-context(body.dark-theme) {
-  .sv-status-card, .sv-test-card, .sv-broadcast-card, .sv-absent-card, .sv-log-card {
+  .sv-status-card, .sv-test-card, .sv-broadcast-card, .sv-absent-card, .sv-log-card,
+  .sv-templates-card, .sv-holiday-card {
     background: rgba(255, 255, 255, 0.04);
   }
+  .sv-tpl-badge {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+    .sv-tpl-title { color: #f5f5f5; }
+  }
+  .sv-tpl-caption { color: rgba(255, 255, 255, 0.45); }
+  .sv-preview-wrap {
+    background: rgba(212, 168, 67, 0.10);
+    border-color: rgba(212, 168, 67, 0.4);
+  }
+  .sv-preview-label { color: rgba(255, 255, 255, 0.55); }
+  .sv-preview-body {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #f5f5f5;
+  }
+  .sv-holiday-warn {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+  }
+  .sv-sender-pill {
+    background: rgba(212, 168, 67, 0.22);
+    color: #f6c969;
+  }
+  .sv-sender-empty { color: rgba(255, 255, 255, 0.4); }
   .sv-absent-table {
     th { background: rgba(255, 255, 255, 0.04); color: rgba(255, 255, 255, 0.6); border-bottom-color: rgba(255, 255, 255, 0.12); }
     td { color: #f5f5f5; border-bottom-color: rgba(255, 255, 255, 0.08); }

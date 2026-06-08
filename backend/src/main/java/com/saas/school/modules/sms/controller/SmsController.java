@@ -8,10 +8,13 @@ import com.saas.school.modules.sms.dto.SendAbsentTodayRequest;
 import com.saas.school.modules.sms.dto.SendAbsentTodayResponse;
 import com.saas.school.modules.sms.dto.SendCustomNoticeRequest;
 import com.saas.school.modules.sms.dto.SendCustomNoticeResponse;
+import com.saas.school.modules.sms.dto.SendHolidayNoticeRequest;
+import com.saas.school.modules.sms.dto.SendHolidayNoticeResponse;
 import com.saas.school.modules.sms.dto.SendTestSmsRequest;
 import com.saas.school.modules.sms.dto.SmsAuditLogDto;
 import com.saas.school.modules.sms.dto.TenantSmsSettingsDto;
 import com.saas.school.modules.sms.model.SmsAuditLog;
+import com.saas.school.modules.sms.model.TenantSmsSettings;
 import com.saas.school.modules.sms.repository.SmsAuditLogRepository;
 import com.saas.school.modules.sms.service.SmsService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,6 +29,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Tenant-facing SMS endpoints.
@@ -145,5 +149,34 @@ public class SmsController {
         SendCustomNoticeResponse res = smsService.sendCustomNotice(req, userId);
         return ResponseEntity.ok(ApiResponse.success(
                 res, "Custom notice queued to " + res.getRecipientCount() + " recipient(s)"));
+    }
+
+    /**
+     * Send a holiday / closure SMS to the chosen audience. Uses the
+     * tenant's HOLIDAY_NOTICE DLT template (configured by Super Admin
+     * on the SMS Control page's expanded row). Throws 4xx with a clear
+     * message when the template hasn't been pasted yet.
+     */
+    @PostMapping("/holiday-notice")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN', 'PRINCIPAL')")
+    public ResponseEntity<ApiResponse<SendHolidayNoticeResponse>> sendHolidayNotice(
+            @Valid @RequestBody SendHolidayNoticeRequest req,
+            @AuthenticationPrincipal String userId) {
+        SendHolidayNoticeResponse res = smsService.sendHolidayNotice(req, userId);
+        return ResponseEntity.ok(ApiResponse.success(
+                res, "Holiday notice queued to " + res.getRecipientCount() + " recipient(s)"));
+    }
+
+    /**
+     * Read-only view of the current tenant's per-trigger DLT templates.
+     * Drives the school admin's "available templates" status badges and
+     * gates the Send buttons (e.g. Holiday Notice button is disabled if
+     * the template's missing).
+     */
+    @GetMapping("/templates")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN', 'PRINCIPAL')")
+    public ResponseEntity<ApiResponse<Map<String, TenantSmsSettings.SmsTemplate>>> getMyTemplates() {
+        String tenantId = TenantContext.getTenantId();
+        return ResponseEntity.ok(ApiResponse.success(smsService.getTenantTemplates(tenantId)));
     }
 }

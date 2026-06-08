@@ -21,6 +21,11 @@ public class SmsAuditLogDto {
     private SmsAuditLog.Status status;
     private String errorMessage;
     private double costInr;
+    /** Sender header used for this row (e.g. STANNE, SPRING, VTPLS). */
+    private String senderId;
+    /** DLT template id used. Surfaces in the audit table for diagnosing
+     *  template-mismatch rejections from MSG91. */
+    private String templateId;
     private Instant createdAt;
     private Instant sentAt;
     private Instant deliveredAt;
@@ -38,6 +43,8 @@ public class SmsAuditLogDto {
         dto.status = log.getStatus();
         dto.errorMessage = log.getErrorMessage();
         dto.costInr = log.getCostInr();
+        dto.senderId = log.getSenderId();
+        dto.templateId = log.getTemplateId();
         dto.createdAt = log.getCreatedAt();
         dto.sentAt = log.getSentAt();
         dto.deliveredAt = log.getDeliveredAt();
@@ -64,6 +71,8 @@ public class SmsAuditLogDto {
     public SmsAuditLog.Status getStatus() { return status; }
     public String getErrorMessage() { return errorMessage; }
     public double getCostInr() { return costInr; }
+    public String getSenderId() { return senderId; }
+    public String getTemplateId() { return templateId; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getSentAt() { return sentAt; }
     public Instant getDeliveredAt() { return deliveredAt; }

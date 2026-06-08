@@ -28,26 +28,25 @@ import java.util.List;
  */
 public class SendCustomNoticeRequest {
 
-    public enum Audience {
-        /** All non-deleted users with a usable phone — parents + employees. */
-        ALL,
-        /** Parents of every active student. Falls back to the student's
-         *  own User record when no parent is linked. */
-        ALL_STUDENTS,
-        /** Teachers, principal and school admins. */
-        ALL_EMPLOYEES,
-        /** Parents of students in one specific class — {@link #classId}
-         *  must be set when this audience is in the list. */
-        CLASS
+    /** Audience selector — extracted to the top-level {@link SmsAudience}
+     *  enum so holiday-notice can reuse it without a DTO dependency.
+     *  Inner-enum {@code Audience} alias kept for backward compatibility
+     *  with any older serialized payloads / callers. */
+    public static class Audience {
+        public static final SmsAudience ALL           = SmsAudience.ALL;
+        public static final SmsAudience ALL_STUDENTS  = SmsAudience.ALL_STUDENTS;
+        public static final SmsAudience ALL_EMPLOYEES = SmsAudience.ALL_EMPLOYEES;
+        public static final SmsAudience CLASS         = SmsAudience.CLASS;
+        private Audience() {}
     }
 
     /** One or more audiences. Final recipient set is the union of all
      *  the lists each audience resolves to, deduped by phone in the
      *  dispatch pipeline. */
     @NotEmpty(message = "Pick at least one audience")
-    private List<Audience> audiences;
+    private List<SmsAudience> audiences;
 
-    /** Required only when {@link Audience#CLASS} is among the chosen audiences. */
+    /** Required only when {@link SmsAudience#CLASS} is among the chosen audiences. */
     private String classId;
 
     @NotBlank(message = "message is required")
@@ -56,8 +55,8 @@ public class SendCustomNoticeRequest {
 
     public SendCustomNoticeRequest() {}
 
-    public List<Audience> getAudiences() { return audiences; }
-    public void setAudiences(List<Audience> audiences) { this.audiences = audiences; }
+    public List<SmsAudience> getAudiences() { return audiences; }
+    public void setAudiences(List<SmsAudience> audiences) { this.audiences = audiences; }
 
     public String getClassId() { return classId; }
     public void setClassId(String classId) { this.classId = classId; }

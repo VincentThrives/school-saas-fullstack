@@ -10,14 +10,21 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { ApiService, TenantSmsSettingsDto, UpdateTenantSmsSettingsRequest } from '../../../core/services/api.service';
-import { Tenant } from '../../../core/models';
+import {
+  ApiService,
+  TenantSmsSettingsDto,
+  UpdateTenantSmsSettingsRequest,
+  SmsTemplateConfig,
+  SmsTriggerKey,
+} from '../../../core/services/api.service';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { EnableTenantSmsDialogComponent } from './enable-tenant-sms-dialog.component';
+import { TenantTemplatesPanelComponent } from './tenant-templates-panel/tenant-templates-panel.component';
 
 /**
  * Super Admin SMS Control Panel. Single-page dashboard where the
@@ -30,6 +37,7 @@ import { EnableTenantSmsDialogComponent } from './enable-tenant-sms-dialog.compo
  *   - Optimistic UI — toggle flips locally, snackbar confirms,
  *     rollback on error
  *   - Search/filter for large tenant lists
+ *   - Expandable detail row reveals the per-tenant templates editor
  *
  * Authorisation is enforced at the backend (SUPER_ADMIN role); this
  * component assumes the user already passed the super-admin route guard.
@@ -41,9 +49,10 @@ import { EnableTenantSmsDialogComponent } from './enable-tenant-sms-dialog.compo
     CommonModule, FormsModule,
     MatCardModule, MatTableModule, MatSlideToggleModule, MatCheckboxModule,
     MatIconModule, MatButtonModule, MatInputModule, MatFormFieldModule,
-    MatSelectModule, MatDialogModule,
+    MatSelectModule, MatMenuModule, MatDialogModule,
     MatProgressSpinnerModule, MatSnackBarModule, MatTooltipModule,
     PageHeaderComponent,
+    TenantTemplatesPanelComponent,
   ],
   templateUrl: './sms-control.component.html',
   styleUrl: './sms-control.component.scss',
@@ -69,11 +78,22 @@ export class SmsControlComponent implements OnInit {
   /** Set of tenantIds currently being saved — for spinner UX. */
   saving = new Set<string>();
 
+  /** Currently expanded tenant row, or null when no row is expanded. */
+  expandedTenantId: string | null = null;
+
+  /** Per-tenant template cache. Populated lazily the first time a row is
+   *  expanded so we can render the "configured" dots on the trigger
+   *  checkboxes without an N+1 lookup at page load. */
+  templatesByTenant = new Map<string, SmsTemplateConfig>();
+
   readonly displayedColumns = [
-    'tenantId', 'enabled',
-    'absenceAlert', 'resultPublish', 'customNotice',
+    'expand', 'tenantId', 'enabled',
+    'absenceAlert', 'resultPublish', 'customNotice', 'holidayNotice',
     'budget', 'usage', 'updatedAt', 'actions',
   ];
+
+  /** Single-column row def used for the expanded detail row. */
+  readonly expandedColumns = ['expandedDetail'];
 
   constructor(
     private api: ApiService,
@@ -211,6 +231,9 @@ export class SmsControlComponent implements OnInit {
         // Optimistically splice the row out so the table updates instantly.
         // (load() would work too but causes a brief flicker on slow networks.)
         this.tenants = this.tenants.filter(t => t.tenantId !== tenant.tenantId);
+        // Drop any expansion/cache state pinned to the removed tenant.
+        if (this.expandedTenantId === tenant.tenantId) this.expandedTenantId = null;
+        this.templatesByTenant.delete(tenant.tenantId);
         this.snackBar.open(`Deleted SMS settings for ${label}`, 'OK', { duration: 3000 });
       },
       error: (err) => {
@@ -268,5 +291,50 @@ export class SmsControlComponent implements OnInit {
     return isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, {
       day: '2-digit', month: 'short', year: 'numeric',
     });
+  }
+
+  // ── Expansion + template-dot helpers ───────────────────────────
+
+  /** Predicate for the expanded-detail row template. The `mat-table` calls
+   *  this for every data row — return true only for the currently expanded
+   *  tenant so a single detail row renders. Keeps the column-set tidy and
+   *  avoids relying on `*ngIf` inside row templates (Material doesn't
+   *  support that). */
+  readonly isExpansionRow = (_index: number, row: TenantSmsSettingsDto): boolean =>
+    this.expandedTenantId === row.tenantId;
+
+  /** Toggle expansion for a tenant row. Fires off a one-time templates
+   *  fetch so the dot indicators next to the trigger checkboxes can light
+   *  up. Cached forever — re-fetching on every expand would cause the
+   *  dots to flicker. The panel inside the expanded row re-fetches on its
+   *  own ngOnInit too; that's fine, both calls converge on the same data. */
+  toggleExpand(tenant: TenantSmsSettingsDto): void {
+    if (this.expandedTenantId === tenant.tenantId) {
+      this.expandedTenantId = null;
+      return;
+    }
+    this.expandedTenantId = tenant.tenantId;
+    if (!this.templatesByTenant.has(tenant.tenantId)) {
+      this.api.getTenantSmsTemplates(tenant.tenantId).subscribe({
+        next: (res) => {
+          this.templatesByTenant.set(tenant.tenantId, res?.data ?? {});
+        },
+        error: () => {
+          // Cache an empty map so we don't refetch on every re-expand.
+          // The panel itself will surface load errors via its own snackbar.
+          this.templatesByTenant.set(tenant.tenantId, {});
+        },
+      });
+    }
+  }
+
+  /** Whether a given trigger has a configured template for this tenant.
+   *  Drives the green/grey dot next to the checkbox. Returns false until
+   *  the tenant's row is first expanded (lazy fetch). */
+  hasTemplate(tenantId: string, trigger: SmsTriggerKey): boolean {
+    const cfg = this.templatesByTenant.get(tenantId);
+    if (!cfg) return false;
+    const t = cfg[trigger];
+    return !!(t?.templateId && t?.senderId);
   }
 }

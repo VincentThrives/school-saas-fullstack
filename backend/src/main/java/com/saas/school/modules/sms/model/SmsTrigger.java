@@ -20,5 +20,12 @@ public enum SmsTrigger {
     RESULT_SINGLE,
 
     /** Sent for custom school notices composed by an admin. Template 4. */
-    CUSTOM_NOTICE
+    CUSTOM_NOTICE,
+
+    /** Sent when an admin announces a school closure / holiday. Template 5.
+     *  Three vars: closure-date, reason, reopen-date. Tenant-only template
+     *  — like every other trigger now, no platform fallback. Super Admin
+     *  pastes the school's DLT entry on the SMS Control page's expanded
+     *  row, the same way they paste Absence / Results / Custom. */
+    HOLIDAY_NOTICE
 }

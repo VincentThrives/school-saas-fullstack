@@ -1,0 +1,121 @@
+<div class="ttp-panel">
+  <header class="ttp-header">
+    <div class="ttp-header__title">
+      <h3>SMS Templates<ng-container *ngIf="tenantName"> for {{ tenantName }}</ng-container></h3>
+      <p>DLT-approved template ID + sender header + body for every supported trigger.</p>
+    </div>
+    <div class="ttp-header__actions">
+      <button mat-stroked-button type="button" (click)="editAll()">
+        <mat-icon>edit</mat-icon>
+        Edit all
+      </button>
+    </div>
+  </header>
+
+  <div class="ttp-loading" *ngIf="isLoading">
+    <mat-spinner diameter="28"></mat-spinner>
+  </div>
+
+  <form [formGroup]="form" *ngIf="!isLoading" class="ttp-form">
+    <ng-container formArrayName="sections">
+      <section
+        class="ttp-section"
+        *ngFor="let trigger of TRIGGERS; let i = index"
+        [class.ttp-section--editing]="editingMode[trigger.key]">
+
+        <header class="ttp-section__head">
+          <mat-icon class="ttp-section__icon">{{ trigger.icon }}</mat-icon>
+          <div class="ttp-section__title">
+            <h4>{{ trigger.title }}</h4>
+            <p>{{ trigger.description }}</p>
+          </div>
+          <span class="ttp-pill"
+                [class.ttp-pill--ready]="hasTemplate(trigger.key)"
+                [class.ttp-pill--missing]="!hasTemplate(trigger.key)">
+            {{ hasTemplate(trigger.key) ? 'Configured' : 'Not configured' }}
+          </span>
+        </header>
+
+        <!-- View mode (configured) -->
+        <div *ngIf="!editingMode[trigger.key] && hasTemplate(trigger.key)" class="ttp-view">
+          <dl class="ttp-summary">
+            <div>
+              <dt>Template ID</dt>
+              <dd><code>{{ templates[trigger.key]?.templateId }}</code></dd>
+            </div>
+            <div>
+              <dt>Sender</dt>
+              <dd><code>{{ templates[trigger.key]?.senderId }}</code></dd>
+            </div>
+            <div class="ttp-summary__body">
+              <dt>Body</dt>
+              <dd><pre>{{ templates[trigger.key]?.body }}</pre></dd>
+            </div>
+          </dl>
+          <div class="ttp-actions">
+            <button mat-stroked-button type="button" (click)="enterEditMode(trigger.key)">
+              <mat-icon>edit</mat-icon>
+              Edit
+            </button>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div *ngIf="!editingMode[trigger.key] && !hasTemplate(trigger.key)" class="ttp-empty">
+          <p>No template configured yet for this trigger.</p>
+          <button mat-flat-button color="primary" type="button" (click)="enterEditMode(trigger.key)">
+            <mat-icon>add</mat-icon>
+            Add template
+          </button>
+        </div>
+
+        <!-- Edit mode -->
+        <div *ngIf="editingMode[trigger.key]" class="ttp-edit" [formGroupName]="i">
+          <div class="ttp-edit__row">
+            <mat-form-field appearance="outline" class="ttp-field ttp-field--id">
+              <mat-label>Template ID</mat-label>
+              <input matInput formControlName="templateId"
+                     maxlength="40"
+                     placeholder="1707xxxxxxxxxxxxxxx" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="ttp-field ttp-field--sender">
+              <mat-label>Sender Header</mat-label>
+              <input matInput formControlName="senderId"
+                     maxlength="20"
+                     placeholder="STANNE" />
+            </mat-form-field>
+          </div>
+
+          <mat-form-field appearance="outline" class="ttp-field ttp-field--body">
+            <mat-label>Body</mat-label>
+            <textarea matInput formControlName="body"
+                      rows="4"
+                      maxlength="600"
+                      placeholder="Paste DLT-approved text. Use {#var#} for each slot."></textarea>
+          </mat-form-field>
+
+          <aside class="ttp-var-legend">
+            <strong>Variable order</strong>
+            <ol>
+              <li *ngFor="let label of trigger.varLabels">{{ label }}</li>
+            </ol>
+          </aside>
+
+          <div class="ttp-actions">
+            <button mat-button type="button" (click)="cancelEdit(trigger.key)" [disabled]="isSaving">
+              Cancel
+            </button>
+            <button mat-flat-button color="primary" type="button"
+                    (click)="saveTrigger(trigger.key)"
+                    [disabled]="isSaving">
+              <mat-icon *ngIf="!isSaving">save</mat-icon>
+              <mat-spinner *ngIf="isSaving" diameter="18"></mat-spinner>
+              Save
+            </button>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+  </form>
+</div>

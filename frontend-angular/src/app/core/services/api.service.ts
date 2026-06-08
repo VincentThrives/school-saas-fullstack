@@ -96,6 +96,7 @@ export interface TenantSmsSettingsDto {
   absenceAlertEnabled: boolean;
   resultPublishEnabled: boolean;
   customNoticeEnabled: boolean;
+  holidayNoticeEnabled: boolean;
   monthlyBudgetInr: number;
   costUsedThisMonth: number;
   costMonth?: string;
@@ -111,8 +112,49 @@ export interface UpdateTenantSmsSettingsRequest {
   absenceAlertEnabled?: boolean;
   resultPublishEnabled?: boolean;
   customNoticeEnabled?: boolean;
+  holidayNoticeEnabled?: boolean;
   monthlyBudgetInr?: number;
   notifyAdminOnFailure?: boolean;
+}
+
+/** Every trigger key — must match backend SmsTrigger enum. */
+export type SmsTriggerKey =
+  | 'ABSENCE_ALERT'
+  | 'RESULT_COMBINED'
+  | 'RESULT_SINGLE'
+  | 'CUSTOM_NOTICE'
+  | 'HOLIDAY_NOTICE';
+
+/** One DLT-registered template the Super Admin pasted for a tenant.
+ *  {@code body} is for audit-log preview only — MSG91 sends from
+ *  {@code templateId} alone. */
+export interface SmsTemplate {
+  templateId?: string;
+  senderId?: string;
+  body?: string;
+  varLabels?: string[];
+}
+
+/** Map keyed by SmsTriggerKey — body of the GET/PUT template endpoints. */
+export type SmsTemplateConfig = Partial<Record<SmsTriggerKey, SmsTemplate>>;
+
+/** Audience picker shared by custom-notice and holiday-notice. */
+export type SmsAudience = 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' | 'CLASS';
+
+/** Body for POST /api/v1/sms/holiday-notice. */
+export interface SendHolidayNoticeRequest {
+  audiences: SmsAudience[];
+  classId?: string;
+  closureDate: string;
+  reason: string;
+  reopenDate: string;
+}
+
+/** Ack from POST /sms/holiday-notice. */
+export interface SendHolidayNoticeResponse {
+  audiences: string[];
+  recipientCount: number;
+  queuedAt: string;
 }
 
 /** One value of the audience picker. Multi-select — the broadcast goes
@@ -170,13 +212,17 @@ export interface SendAbsentTodayResponse {
 export interface SmsAuditLogDto {
   id: string;
   tenantId: string;
-  trigger: 'ABSENCE_ALERT' | 'RESULT_COMBINED' | 'RESULT_SINGLE' | 'CUSTOM_NOTICE';
+  trigger: SmsTriggerKey;
   recipientPhone: string;       // masked for tenant view, full for super admin
   recipientRole?: string;
   body?: string;
   status: 'PENDING' | 'SENT' | 'DELIVERED' | 'FAILED' | 'SKIPPED';
   errorMessage?: string;
   costInr: number;
+  /** Sender header used for this row (e.g. STANNE, SPRING, VTPLS). */
+  senderId?: string;
+  /** DLT template id used. */
+  templateId?: string;
   createdAt: string;
   sentAt?: string;
   deliveredAt?: string;
@@ -767,6 +813,21 @@ export class ApiService {
       `${this.API}/sms/send-absent-today`, { studentIds });
   }
 
+  /** Read-only view of THIS tenant's per-trigger DLT templates. Empty
+   *  map when Super Admin hasn't pasted anything yet. Used by the
+   *  school admin's SMS page for "available templates" badges. */
+  getMySmsTemplates(): Observable<ApiResponse<SmsTemplateConfig>> {
+    return this.http.get<ApiResponse<SmsTemplateConfig>>(`${this.API}/sms/templates`);
+  }
+
+  /** Send a holiday / closure SMS. Vars map to var1/var2/var3 in the
+   *  school's HOLIDAY_NOTICE template. 4xx with a clear error message
+   *  if the template hasn't been configured by Super Admin yet. */
+  sendHolidayNoticeSms(req: SendHolidayNoticeRequest): Observable<ApiResponse<SendHolidayNoticeResponse>> {
+    return this.http.post<ApiResponse<SendHolidayNoticeResponse>>(
+      `${this.API}/sms/holiday-notice`, req);
+  }
+
   // ── SMS Notifications (super admin — full control) ────────────────────
   /** List every tenant with their SMS config — drives the super admin table. */
   getAllTenantSmsSettings(): Observable<ApiResponse<TenantSmsSettingsDto[]>> {
@@ -798,6 +859,24 @@ export class ApiService {
   deleteTenantSmsSettings(tenantId: string): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(
       `${this.API}/super/sms/tenants/${tenantId}`);
+  }
+
+  /** Super Admin: read a tenant's per-trigger templates. Drives the
+   *  expanded panel on the SMS Control accordion table. */
+  getTenantSmsTemplates(tenantId: string): Observable<ApiResponse<SmsTemplateConfig>> {
+    return this.http.get<ApiResponse<SmsTemplateConfig>>(
+      `${this.API}/super/sms/tenants/${tenantId}/templates`);
+  }
+
+  /** Super Admin: upsert a tenant's per-trigger templates. Send the
+   *  COMPLETE map — entries that are all-blank get pruned by the
+   *  backend. Returns the canonical persisted map. */
+  upsertTenantSmsTemplates(
+    tenantId: string,
+    templates: SmsTemplateConfig,
+  ): Observable<ApiResponse<SmsTemplateConfig>> {
+    return this.http.put<ApiResponse<SmsTemplateConfig>>(
+      `${this.API}/super/sms/tenants/${tenantId}/templates`, templates);
   }
 
   // ── Publish Result ────────────────────────────────────────────────────

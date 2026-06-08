@@ -15,6 +15,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MAT_DATE_LOCALE } from '@angular/material/core';
 import { SmsConfirmDialogComponent, SmsConfirmData } from './sms-confirm-dialog.component';
 import {
   ApiService,
@@ -23,6 +25,11 @@ import {
   SendCustomNoticeRequest,
   SmsBroadcastAudience,
   AbsentTodayDto,
+  SmsTemplateConfig,
+  SmsTemplate,
+  SmsTriggerKey,
+  SmsAudience,
+  SendHolidayNoticeRequest,
 } from '../../../core/services/api.service';
 import { SchoolClass } from '../../../core/models';
 import { TenantFeatureService } from '../../../core/services/tenant-feature.service';
@@ -50,8 +57,13 @@ import { PageHeaderComponent } from '../../../shared/components/page-header/page
     MatCardModule, MatIconModule, MatButtonModule, MatTableModule,
     MatChipsModule, MatCheckboxModule, MatPaginatorModule, MatProgressSpinnerModule,
     MatFormFieldModule, MatInputModule, MatTooltipModule, MatSnackBarModule,
-    MatSelectModule, MatDialogModule,
+    MatSelectModule, MatDialogModule, MatDatepickerModule,
     PageHeaderComponent,
+  ],
+  providers: [
+    // Use Indian English locale for the date pickers so "9 May 2026" renders
+    // in the format the school admins expect (matches our SMS body format too).
+    { provide: MAT_DATE_LOCALE, useValue: 'en-IN' },
   ],
   templateUrl: './sms-view.component.html',
   styleUrl: './sms-view.component.scss',
@@ -68,7 +80,31 @@ export class SmsViewComponent implements OnInit {
   pageIndex = 0;
   pageSize = 25;
   isLoadingLogs = false;
-  readonly logColumns = ['createdAt', 'trigger', 'recipientPhone', 'status', 'cost'];
+  readonly logColumns = ['createdAt', 'trigger', 'recipientPhone', 'sender', 'status', 'cost'];
+
+  // ── Templates (read-only badges) ─────────────────────────
+  /** Loaded once on init from /sms/templates — used by the templates card
+   *  AND by the holiday-notice card to pull the body + sender for preview. */
+  templates: SmsTemplateConfig | null = null;
+  isLoadingTemplates = false;
+  /** Static badge layout — order + title + icon for each trigger we surface.
+   *  Keeps the template card declarative and easy to extend. */
+  readonly templateBadges: ReadonlyArray<{ key: SmsTriggerKey; title: string; icon: string }> = [
+    { key: 'ABSENCE_ALERT',   title: 'Absence Alert', icon: 'event_busy' },
+    { key: 'HOLIDAY_NOTICE',  title: 'Holiday Notice', icon: 'beach_access' },
+    { key: 'RESULT_COMBINED', title: 'Results',        icon: 'leaderboard' },
+    { key: 'CUSTOM_NOTICE',   title: 'Custom Notice',  icon: 'campaign' },
+  ];
+
+  // ── Holiday-notice form ──────────────────────────────────
+  /** Multi-audience picker, same shape as custom-notice. */
+  holidayAudiences = new Set<SmsAudience>(['ALL_STUDENTS']);
+  holidayClassId = '';
+  holidayClosureDate: Date | null = null;
+  holidayReopenDate: Date | null = null;
+  holidayReason = '';
+  isSendingHoliday = false;
+  readonly HOLIDAY_REASON_MAX = 120;
 
   // Test SMS form
   testPhone = '';
@@ -116,6 +152,44 @@ export class SmsViewComponent implements OnInit {
   ngOnInit(): void {
     this.loadSettings();
     this.loadLogs();
+    this.loadTemplates();
+  }
+
+  // ── Templates ─────────────────────────────────────────────
+
+  /** Pull the tenant's read-only DLT-approved templates. Used by the
+   *  "Available templates" card AND as the source of the Holiday Notice
+   *  preview body + sender pill. One round-trip on page open. */
+  loadTemplates(): void {
+    this.isLoadingTemplates = true;
+    this.api.getMySmsTemplates().subscribe({
+      next: (res) => {
+        this.templates = res?.data ?? {};
+        this.isLoadingTemplates = false;
+      },
+      error: () => {
+        this.templates = {};
+        this.isLoadingTemplates = false;
+      },
+    });
+  }
+
+  /** A template counts as "ready" only when BOTH templateId AND senderId
+   *  are present — MSG91 rejects the send otherwise. */
+  isTemplateReady(t: SmsTemplate | undefined): boolean {
+    return !!(t && t.templateId && t.senderId);
+  }
+
+  /** Template lookup helper — used by the badges card. Angular's template
+   *  parser doesn't love optional-chained bracket indexing, so a tiny
+   *  helper keeps the template clean. */
+  templateFor(key: SmsTriggerKey): SmsTemplate | undefined {
+    return this.templates ? this.templates[key] : undefined;
+  }
+
+  /** Convenience for the holiday card — null when missing. */
+  get holidayTemplate(): SmsTemplate | undefined {
+    return this.templates?.HOLIDAY_NOTICE;
   }
 
   // ── Settings ──────────────────────────────────────────────
@@ -484,6 +558,163 @@ export class SmsViewComponent implements OnInit {
     });
   }
 
+  // ── Holiday-notice broadcast ─────────────────────────────
+
+  /** Same toggle semantics as custom-notice; lazy-loads class list when
+   *  CLASS is ticked for the first time. Shares the {@code classes}
+   *  field with the custom-notice card. */
+  isHolidayAudience(a: SmsAudience): boolean {
+    return this.holidayAudiences.has(a);
+  }
+
+  toggleHolidayAudience(a: SmsAudience, checked: boolean): void {
+    if (checked) this.holidayAudiences.add(a);
+    else         this.holidayAudiences.delete(a);
+
+    if (a === 'CLASS') {
+      if (checked && this.classes.length === 0 && !this.isLoadingClasses) {
+        this.isLoadingClasses = true;
+        this.api.getClasses().subscribe({
+          next: (res) => {
+            this.classes = res?.data ?? [];
+            this.isLoadingClasses = false;
+          },
+          error: () => { this.isLoadingClasses = false; },
+        });
+      }
+      if (!checked) this.holidayClassId = '';
+    }
+  }
+
+  /** Format a Date in the "9 May 2026" shape the DLT-approved template
+   *  body expects. Empty string when null so substitution is safe. */
+  formatHolidayDate(d: Date | null): string {
+    if (!d) return '';
+    return d.toLocaleDateString('en-IN', {
+      day: 'numeric', month: 'short', year: 'numeric',
+    });
+  }
+
+  /** Render the loaded HOLIDAY_NOTICE template body with the typed values
+   *  substituted in order ({#var#} → closureDate, reason, reopenDate).
+   *  Unfilled slots get [Closure date], [Reason], [Reopen date] so the
+   *  admin sees exactly where each value lands. */
+  holidayPreview(): string {
+    const tpl = this.holidayTemplate?.body;
+    if (!tpl) return 'Holiday template not configured.';
+    const closure  = this.formatHolidayDate(this.holidayClosureDate) || '[Closure date]';
+    const reason   = this.holidayReason.trim() || '[Reason]';
+    const reopen   = this.formatHolidayDate(this.holidayReopenDate)  || '[Reopen date]';
+    const values = [closure, reason, reopen];
+    let i = 0;
+    return tpl.replace(/\{#var#\}/g, () => values[i++] ?? '');
+  }
+
+  /** Sender displayed in the small pill. "—" when missing. */
+  holidaySender(): string {
+    return this.holidayTemplate?.senderId || '—';
+  }
+
+  /** Send-button gate — feature on, template ready, trigger ticked in
+   *  tenant settings, audience picked (CLASS implies classId), all
+   *  three structured fields filled, not already sending. */
+  canSendHoliday(): boolean {
+    if (!this.features.smsEnabled()) return false;
+    if (this.isSendingHoliday) return false;
+    if (!this.settings?.holidayNoticeEnabled) return false;
+    if (!this.isTemplateReady(this.holidayTemplate)) return false;
+    if (this.holidayAudiences.size === 0) return false;
+    if (this.holidayAudiences.has('CLASS') && !this.holidayClassId) return false;
+    if (!this.holidayClosureDate || !this.holidayReopenDate) return false;
+    const reason = this.holidayReason.trim();
+    if (!reason || reason.length > this.HOLIDAY_REASON_MAX) return false;
+    return true;
+  }
+
+  /** Audience summary for the confirm dialog. Same vocabulary as the
+   *  custom-notice audienceLabel() — kept as a separate method since the
+   *  enum-to-prose mapping is identical but the source Set differs. */
+  holidayAudienceLabel(): string {
+    if (this.holidayAudiences.size === 0) return 'no one';
+    const parts: string[] = [];
+    if (this.holidayAudiences.has('ALL'))           parts.push('everyone with a phone in the school');
+    if (this.holidayAudiences.has('ALL_STUDENTS'))  parts.push("all students' parents");
+    if (this.holidayAudiences.has('ALL_EMPLOYEES')) parts.push('all teachers, principal, and admins');
+    if (this.holidayAudiences.has('CLASS')) {
+      const c = this.classes.find(x => x.classId === this.holidayClassId);
+      parts.push(c
+        ? `parents of students in class "${c.name}"`
+        : 'parents of students in the selected class');
+    }
+    if (parts.length === 1) return parts[0];
+    if (parts.length === 2) return `${parts[0]} and ${parts[1]}`;
+    return parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1];
+  }
+
+  sendHoliday(): void {
+    if (!this.canSendHoliday()) return;
+
+    const data: SmsConfirmData = {
+      icon: 'beach_access',
+      title: 'Send this holiday notice?',
+      audience: this.holidayAudienceLabel(),
+      messagePreview: this.holidayPreview(),
+      recipientCount: 1,
+      costPerSms: this.COST_PER_SMS,
+      footnote:
+        'Cost depends on how many phones MSG91 resolves from this audience. ' +
+        'Each delivery costs approx ₹0.25. The exact recipient count appears ' +
+        'in the success message after the broadcast is queued.',
+      confirmLabel: 'Send holiday notice',
+    };
+
+    this.dialog.open(SmsConfirmDialogComponent, {
+      width: '480px',
+      maxWidth: '95vw',
+      data,
+      autoFocus: 'first-tabbable',
+    }).afterClosed().subscribe((confirmed) => {
+      if (!confirmed) return;
+      this.dispatchHoliday();
+    });
+  }
+
+  private dispatchHoliday(): void {
+    this.isSendingHoliday = true;
+    const req: SendHolidayNoticeRequest = {
+      audiences: Array.from(this.holidayAudiences),
+      closureDate: this.formatHolidayDate(this.holidayClosureDate),
+      reopenDate:  this.formatHolidayDate(this.holidayReopenDate),
+      reason: this.holidayReason.trim(),
+      ...(this.holidayAudiences.has('CLASS') ? { classId: this.holidayClassId } : {}),
+    };
+    this.api.sendHolidayNoticeSms(req).subscribe({
+      next: (res) => {
+        this.isSendingHoliday = false;
+        const count = res?.data?.recipientCount ?? 0;
+        this.snackBar.open(
+          `Holiday notice queued to ${count} recipient(s). Watch the audit log below for delivery status.`,
+          'OK', { duration: 6000 },
+        );
+        // Clear the structured fields so a stray double-click can't re-send.
+        // Audience picks are sticky — admins often send multiple notices to
+        // the same group during a planning session.
+        this.holidayClosureDate = null;
+        this.holidayReopenDate = null;
+        this.holidayReason = '';
+        this.loadLogs();
+        this.loadSettings();
+      },
+      error: (err) => {
+        this.isSendingHoliday = false;
+        this.snackBar.open(
+          err?.error?.message || 'Failed to send holiday notice',
+          'Close', { duration: 5000 },
+        );
+      },
+    });
+  }
+
   // ── Display helpers ───────────────────────────────────────
 
   formatDateTime(iso?: string): string {
@@ -514,6 +745,7 @@ export class SmsViewComponent implements OnInit {
       case 'RESULT_COMBINED': return 'Result (combined)';
       case 'RESULT_SINGLE':   return 'Result (subject)';
       case 'CUSTOM_NOTICE':   return 'Custom Notice';
+      case 'HOLIDAY_NOTICE':  return 'Holiday Notice';
       default:                return trigger;
     }
   }

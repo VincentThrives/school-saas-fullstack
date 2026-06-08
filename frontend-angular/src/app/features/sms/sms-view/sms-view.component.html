@@ -50,6 +50,52 @@
     </div>
   </mat-card>
 
+  <!-- ── Available templates card ───────────────────────────── -->
+  <!-- Read-only badges showing each DLT-approved template configured by
+       the platform admin. School admins can't edit these — they just see
+       which triggers are ready to fire and which need attention. -->
+  <mat-card class="sv-templates-card" *ngIf="features.smsEnabled()">
+    <div class="sv-card-head">
+      <mat-icon>description</mat-icon>
+      <h3>Available templates</h3>
+    </div>
+    <p class="sv-card-sub">
+      Pre-approved SMS templates registered with the telecom DLT registry.
+      These are configured by your platform admin and shown here for reference.
+    </p>
+
+    <div class="sv-tpl-loading" *ngIf="isLoadingTemplates">
+      <mat-spinner diameter="24"></mat-spinner>
+    </div>
+
+    <div class="sv-tpl-grid" *ngIf="!isLoadingTemplates">
+      <div class="sv-tpl-badge" *ngFor="let b of templateBadges">
+        <div class="sv-tpl-header">
+          <mat-icon class="sv-tpl-icon">{{ b.icon }}</mat-icon>
+          <span class="sv-tpl-title">{{ b.title }}</span>
+        </div>
+        <ng-container *ngIf="templateFor(b.key) as tpl; else noTpl">
+          <span class="sv-tpl-pill"
+                [class.sv-tpl-pill--ready]="isTemplateReady(tpl)"
+                [class.sv-tpl-pill--missing]="!isTemplateReady(tpl)">
+            <mat-icon>{{ isTemplateReady(tpl) ? 'check_circle' : 'error' }}</mat-icon>
+            <ng-container *ngIf="isTemplateReady(tpl); else notReady">
+              Ready · sender {{ tpl.senderId }}
+            </ng-container>
+            <ng-template #notReady>Not configured</ng-template>
+          </span>
+        </ng-container>
+        <ng-template #noTpl>
+          <span class="sv-tpl-pill sv-tpl-pill--missing">
+            <mat-icon>error</mat-icon>
+            Not configured
+          </span>
+        </ng-template>
+        <span class="sv-tpl-caption">Configured by your platform admin</span>
+      </div>
+    </div>
+  </mat-card>
+
   <!-- ── Test SMS card ──────────────────────────────────────── -->
   <mat-card class="sv-test-card" *ngIf="features.smsEnabled()">
     <div class="sv-card-head">
@@ -286,6 +332,120 @@
     </div>
   </mat-card>
 
+  <!-- ── Holiday-notice broadcast card ─────────────────────── -->
+  <!-- Structured-form sibling to the custom-notice card. The body is
+       locked to the DLT-approved HOLIDAY_NOTICE template — admins fill
+       in dates + reason rather than free text, and a live preview shows
+       exactly what each parent will receive. -->
+  <mat-card class="sv-holiday-card" *ngIf="features.smsEnabled()">
+    <div class="sv-card-head">
+      <mat-icon>beach_access</mat-icon>
+      <h3>Send a holiday notice</h3>
+    </div>
+    <p class="sv-card-sub">
+      Announce a school closure to parents and staff. The text is locked to
+      your DLT-approved Holiday Notice template — just pick the dates and
+      reason, then review the live preview below.
+    </p>
+
+    <!-- Audience picker — multi-select via checkboxes, same pattern as
+         the custom-notice broadcast above. -->
+    <div class="sv-broadcast-audience">
+      <label class="sv-broadcast-label">Send to (pick one or more)</label>
+      <div class="sv-checkbox-group">
+        <mat-checkbox
+          [checked]="isHolidayAudience('ALL_STUDENTS')"
+          (change)="toggleHolidayAudience('ALL_STUDENTS', $event.checked)">
+          All parents
+        </mat-checkbox>
+        <mat-checkbox
+          [checked]="isHolidayAudience('ALL_EMPLOYEES')"
+          (change)="toggleHolidayAudience('ALL_EMPLOYEES', $event.checked)">
+          All staff
+        </mat-checkbox>
+        <mat-checkbox
+          [checked]="isHolidayAudience('CLASS')"
+          (change)="toggleHolidayAudience('CLASS', $event.checked)">
+          Particular class
+        </mat-checkbox>
+      </div>
+    </div>
+
+    <mat-form-field appearance="outline" class="sv-class-field" *ngIf="isHolidayAudience('CLASS')">
+      <mat-label>Class</mat-label>
+      <mat-select [(value)]="holidayClassId" [disabled]="isLoadingClasses">
+        <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+      </mat-select>
+      <mat-hint *ngIf="isLoadingClasses">Loading classes…</mat-hint>
+      <mat-hint *ngIf="!isLoadingClasses && classes.length === 0">
+        No classes found — create one under Academic before broadcasting.
+      </mat-hint>
+    </mat-form-field>
+
+    <!-- Structured fields — closure / reopen dates + reason. -->
+    <div class="sv-holiday-fields">
+      <mat-form-field appearance="outline" class="sv-holiday-date">
+        <mat-label>Closure date</mat-label>
+        <input matInput [matDatepicker]="closurePicker"
+               [(ngModel)]="holidayClosureDate" name="holidayClosureDate" required/>
+        <mat-datepicker-toggle matIconSuffix [for]="closurePicker"></mat-datepicker-toggle>
+        <mat-datepicker #closurePicker></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="sv-holiday-date">
+        <mat-label>Reopen date</mat-label>
+        <input matInput [matDatepicker]="reopenPicker"
+               [(ngModel)]="holidayReopenDate" name="holidayReopenDate" required/>
+        <mat-datepicker-toggle matIconSuffix [for]="reopenPicker"></mat-datepicker-toggle>
+        <mat-datepicker #reopenPicker></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="sv-holiday-reason">
+        <mat-label>Reason</mat-label>
+        <input matInput
+               [(ngModel)]="holidayReason"
+               name="holidayReason"
+               [maxlength]="HOLIDAY_REASON_MAX"
+               placeholder="Heavy rain" required/>
+        <mat-hint align="end">{{ holidayReason.length }} / {{ HOLIDAY_REASON_MAX }}</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <!-- Live preview — the actual DLT body with placeholders filled in -->
+    <div class="sv-preview-wrap">
+      <div class="sv-preview-head">
+        <span class="sv-preview-label">Live preview</span>
+        <span class="sv-sender-pill" matTooltip="Sender header for this template">
+          {{ holidaySender() }}
+        </span>
+      </div>
+      <div class="sv-preview-body">{{ holidayPreview() }}</div>
+    </div>
+
+    <!-- Helpful warnings for the common disabled-button cases. -->
+    <p class="sv-holiday-warn"
+       *ngIf="!isLoadingTemplates && !isTemplateReady(holidayTemplate)">
+      <mat-icon>error_outline</mat-icon>
+      Holiday Notice template is not configured. Ask your platform admin to
+      register a DLT template and sender for HOLIDAY_NOTICE.
+    </p>
+    <p class="sv-holiday-warn"
+       *ngIf="settings && !settings.holidayNoticeEnabled">
+      <mat-icon>info</mat-icon>
+      Holiday Notice trigger is currently disabled in your SMS settings.
+    </p>
+
+    <div class="sv-broadcast-actions">
+      <button mat-flat-button color="primary"
+              [disabled]="!canSendHoliday()"
+              (click)="sendHoliday()">
+        <mat-icon *ngIf="!isSendingHoliday">send</mat-icon>
+        <mat-spinner *ngIf="isSendingHoliday" diameter="18" class="sv-inline-spinner"></mat-spinner>
+        {{ isSendingHoliday ? 'Sending…' : 'Send holiday notice' }}
+      </button>
+    </div>
+  </mat-card>
+
   <!-- ── Audit log table ────────────────────────────────────── -->
   <mat-card class="sv-log-card">
     <div class="sv-card-head">
@@ -323,6 +483,14 @@
           <th mat-header-cell *matHeaderCellDef>Recipient</th>
           <td mat-cell *matCellDef="let row">
             <code>{{ row.recipientPhone || '—' }}</code>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="sender">
+          <th mat-header-cell *matHeaderCellDef>Sender</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="sv-sender-pill" *ngIf="row.senderId">{{ row.senderId }}</span>
+            <span class="sv-sender-empty" *ngIf="!row.senderId">—</span>
           </td>
         </ng-container>
 

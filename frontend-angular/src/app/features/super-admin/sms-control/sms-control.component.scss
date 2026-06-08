@@ -1,5 +1,7 @@
 $gold: #D4A843;
 $gold-dark: #B8860B;
+$gold-accent: #c19c2c;
+$expanded-bg: #FAF8F5;
 
 .sms-control {
   display: flex;
@@ -88,7 +90,7 @@ $gold-dark: #B8860B;
 }
 .sc-table {
   width: 100%;
-  min-width: 900px;
+  min-width: 980px;
 
   th {
     color: #6b7280;
@@ -178,19 +180,80 @@ $gold-dark: #B8860B;
   &--near { color: #d97706; font-weight: 600; }
 }
 
-// Actions column — sized snug so the trash icon doesn't push the row taller
-// than the toggle/checkbox rows. Keep the column compact and right-aligned
-// so it reads as "row commands" rather than data.
+// Actions column — overflow menu trigger; sized snug so the icon
+// doesn't push the row taller than the toggle/checkbox rows.
 .sc-actions-th,
 .sc-actions-cell {
   width: 80px;
   text-align: center;
 }
-.sc-delete-btn {
-  color: #9ca3af;
-  transition: color 0.15s ease;
-  &:hover:not([disabled]) { color: #dc2626; }   // red-600 on hover
-  &:focus-visible        { color: #dc2626; outline: none; }
+.sc-menu-danger {
+  mat-icon { color: #dc2626; }
+  color: #dc2626;
+}
+
+// ── Expand column + chevron ───────────────────────────────────
+.sc-expand-th,
+.sc-expand-cell {
+  width: 48px;
+  padding-left: 8px;
+  padding-right: 0;
+}
+.sc-chevron {
+  // Match Material's default icon size so the chevron sits centered in
+  // its icon-button without nudging the row height.
+  transition: transform 0.2s ease;
+  color: #6b7280;
+
+  &--expanded {
+    transform: rotate(90deg);
+    color: $gold-accent;
+  }
+}
+
+// ── Trigger checkbox + status dot ─────────────────────────────
+// Each trigger column shows the master checkbox alongside a small
+// coloured dot indicating whether a DLT template is wired up.
+// Lazy-loaded: dots stay grey until the row has been expanded once
+// (or the panel inside it has fetched its templates).
+.sc-trigger-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}
+.sc-trigger-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: #ccc;
+  flex: 0 0 auto;
+
+  &--ready   { background: #2e7d32; }
+  &--missing { background: #ccc; }
+}
+
+// ── Expanded detail row ───────────────────────────────────────
+// The row body is a single cell spanning the whole table. Background
+// merges with the parent row so the expansion reads as a continuous
+// "drawer" rather than a separate floating panel.
+.sc-row--expanded {
+  td { border-bottom: none; }
+}
+.sc-expanded-row {
+  background: $expanded-bg;
+
+  td {
+    border-top: none;
+    padding: 0;
+  }
+}
+.sc-expanded-cell {
+  background: $expanded-bg;
+}
+.sc-expanded-content {
+  padding: 16px 24px 24px;
 }
 
 // ── Dark theme ─────────────────────────────────────────────────
@@ -219,9 +282,8 @@ $gold-dark: #B8860B;
     border-color: rgba(255, 255, 255, 0.18);
     color: #f5f5f5;
   }
-  .sc-delete-btn {
-    color: rgba(255, 255, 255, 0.45);
-    &:hover:not([disabled]) { color: #f87171; }    // red-400 in dark mode
-    &:focus-visible        { color: #f87171; }
-  }
+  .sc-chevron { color: rgba(255, 255, 255, 0.55); }
+  .sc-expanded-row,
+  .sc-expanded-cell { background: rgba(255, 255, 255, 0.05); }
+  .sc-trigger-dot--missing { background: rgba(255, 255, 255, 0.2); }
 }

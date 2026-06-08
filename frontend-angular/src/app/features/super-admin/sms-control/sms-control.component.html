@@ -75,7 +75,24 @@
 
   <!-- Table -->
   <div class="sc-table-wrap" *ngIf="!isLoading && filtered.length > 0">
-    <table mat-table [dataSource]="filtered" class="sc-table">
+    <table mat-table [dataSource]="filtered" [multiTemplateDataRows]="true" class="sc-table">
+
+      <!-- Chevron column — leading expand toggle. Rotates 90° via the
+           sc-chevron--expanded class when this tenant's detail row is open. -->
+      <ng-container matColumnDef="expand">
+        <th mat-header-cell *matHeaderCellDef class="sc-expand-th"></th>
+        <td mat-cell *matCellDef="let t" class="sc-expand-cell">
+          <button mat-icon-button
+                  type="button"
+                  aria-label="Expand row"
+                  (click)="toggleExpand(t)">
+            <mat-icon class="sc-chevron"
+                      [class.sc-chevron--expanded]="expandedTenantId === t.tenantId">
+              chevron_right
+            </mat-icon>
+          </button>
+        </td>
+      </ng-container>
 
       <!-- Tenant column — show the school name as the primary label,
            with the UUID as a small monospace subtitle for support / API
@@ -107,11 +124,16 @@
       <ng-container matColumnDef="absenceAlert">
         <th mat-header-cell *matHeaderCellDef>Absence</th>
         <td mat-cell *matCellDef="let t">
-          <mat-checkbox
-            [checked]="t.absenceAlertEnabled"
-            [disabled]="!t.enabled || saving.has(t.tenantId)"
-            (change)="patch(t, { absenceAlertEnabled: $event.checked })">
-          </mat-checkbox>
+          <span class="sc-trigger-cell">
+            <mat-checkbox
+              [checked]="t.absenceAlertEnabled"
+              [disabled]="!t.enabled || saving.has(t.tenantId)"
+              (change)="patch(t, { absenceAlertEnabled: $event.checked })">
+            </mat-checkbox>
+            <span class="sc-trigger-dot"
+                  [class.sc-trigger-dot--ready]="hasTemplate(t.tenantId, 'ABSENCE_ALERT')"
+                  [class.sc-trigger-dot--missing]="!hasTemplate(t.tenantId, 'ABSENCE_ALERT')"></span>
+          </span>
         </td>
       </ng-container>
 
@@ -119,11 +141,16 @@
       <ng-container matColumnDef="resultPublish">
         <th mat-header-cell *matHeaderCellDef>Results</th>
         <td mat-cell *matCellDef="let t">
-          <mat-checkbox
-            [checked]="t.resultPublishEnabled"
-            [disabled]="!t.enabled || saving.has(t.tenantId)"
-            (change)="patch(t, { resultPublishEnabled: $event.checked })">
-          </mat-checkbox>
+          <span class="sc-trigger-cell">
+            <mat-checkbox
+              [checked]="t.resultPublishEnabled"
+              [disabled]="!t.enabled || saving.has(t.tenantId)"
+              (change)="patch(t, { resultPublishEnabled: $event.checked })">
+            </mat-checkbox>
+            <span class="sc-trigger-dot"
+                  [class.sc-trigger-dot--ready]="hasTemplate(t.tenantId, 'RESULT_COMBINED')"
+                  [class.sc-trigger-dot--missing]="!hasTemplate(t.tenantId, 'RESULT_COMBINED')"></span>
+          </span>
         </td>
       </ng-container>
 
@@ -131,11 +158,33 @@
       <ng-container matColumnDef="customNotice">
         <th mat-header-cell *matHeaderCellDef>Custom</th>
         <td mat-cell *matCellDef="let t">
-          <mat-checkbox
-            [checked]="t.customNoticeEnabled"
-            [disabled]="!t.enabled || saving.has(t.tenantId)"
-            (change)="patch(t, { customNoticeEnabled: $event.checked })">
-          </mat-checkbox>
+          <span class="sc-trigger-cell">
+            <mat-checkbox
+              [checked]="t.customNoticeEnabled"
+              [disabled]="!t.enabled || saving.has(t.tenantId)"
+              (change)="patch(t, { customNoticeEnabled: $event.checked })">
+            </mat-checkbox>
+            <span class="sc-trigger-dot"
+                  [class.sc-trigger-dot--ready]="hasTemplate(t.tenantId, 'CUSTOM_NOTICE')"
+                  [class.sc-trigger-dot--missing]="!hasTemplate(t.tenantId, 'CUSTOM_NOTICE')"></span>
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Holiday trigger -->
+      <ng-container matColumnDef="holidayNotice">
+        <th mat-header-cell *matHeaderCellDef>Holiday</th>
+        <td mat-cell *matCellDef="let t">
+          <span class="sc-trigger-cell">
+            <mat-checkbox
+              [checked]="t.holidayNoticeEnabled"
+              [disabled]="!t.enabled || saving.has(t.tenantId)"
+              (change)="patch(t, { holidayNoticeEnabled: $event.checked })">
+            </mat-checkbox>
+            <span class="sc-trigger-dot"
+                  [class.sc-trigger-dot--ready]="hasTemplate(t.tenantId, 'HOLIDAY_NOTICE')"
+                  [class.sc-trigger-dot--missing]="!hasTemplate(t.tenantId, 'HOLIDAY_NOTICE')"></span>
+          </span>
         </td>
       </ng-container>
 
@@ -166,24 +215,55 @@
         <td mat-cell *matCellDef="let t">{{ formatDate(t.updatedAt) }}</td>
       </ng-container>
 
-      <!-- Row actions — delete removes the settings row entirely. Distinct
-           from flipping master toggle off (which keeps the row). -->
+      <!-- Row actions — overflow menu hosts Edit (toggle expand) and
+           Delete (removes the settings row entirely; distinct from
+           flipping master toggle off). -->
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef class="sc-actions-th">Actions</th>
         <td mat-cell *matCellDef="let t" class="sc-actions-cell">
           <button mat-icon-button
-                  class="sc-delete-btn"
-                  matTooltip="Delete SMS settings"
+                  [matMenuTriggerFor]="rowMenu"
                   [disabled]="saving.has(t.tenantId)"
-                  (click)="onDelete(t)">
-            <mat-icon>delete_outline</mat-icon>
+                  aria-label="Row actions">
+            <mat-icon>more_vert</mat-icon>
           </button>
+          <mat-menu #rowMenu="matMenu">
+            <button mat-menu-item (click)="toggleExpand(t)">
+              <mat-icon>edit</mat-icon>
+              <span>{{ expandedTenantId === t.tenantId ? 'Collapse' : 'Edit templates' }}</span>
+            </button>
+            <button mat-menu-item (click)="onDelete(t)" class="sc-menu-danger">
+              <mat-icon>delete_outline</mat-icon>
+              <span>Delete settings</span>
+            </button>
+          </mat-menu>
+        </td>
+      </ng-container>
+
+      <!-- Expanded detail row — one cell that spans the full table width
+           and embeds the per-tenant templates panel. The wrapper div is
+           collapsed to height:0 when this row is not the expanded one so
+           the row simply vanishes (table still renders one detail row
+           per data row when multiTemplateDataRows is on, but the `when`
+           predicate below restricts that to the expanded tenant only,
+           keeping the DOM small). -->
+      <ng-container matColumnDef="expandedDetail">
+        <td mat-cell *matCellDef="let row" [attr.colspan]="displayedColumns.length" class="sc-expanded-cell">
+          <div class="sc-expanded-content">
+            <app-tenant-templates-panel
+              [tenantId]="row.tenantId"
+              [tenantName]="displayName(row.tenantId)">
+            </app-tenant-templates-panel>
+          </div>
         </td>
       </ng-container>
 
       <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
       <tr mat-row *matRowDef="let row; columns: displayedColumns;"
-          [class.sc-row--disabled]="!row.enabled"></tr>
+          [class.sc-row--disabled]="!row.enabled"
+          [class.sc-row--expanded]="expandedTenantId === row.tenantId"></tr>
+      <tr mat-row *matRowDef="let row; columns: expandedColumns; when: isExpansionRow"
+          class="sc-expanded-row"></tr>
     </table>
   </div>
 </div>

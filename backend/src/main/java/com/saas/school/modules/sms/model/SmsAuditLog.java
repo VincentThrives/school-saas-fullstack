@@ -54,6 +54,12 @@ public class SmsAuditLog {
     /** DLT template ID used for this send. Useful when templates rotate. */
     private String templateId;
 
+    /** DLT sender header used for this send (e.g. STANNE / SPRING / VTPLS).
+     *  Stamped per-row so the audit table shows which branded sender each
+     *  delivery went under. Resolved from the tenant's stored SmsTemplate
+     *  at dispatch time — no implicit fallback. */
+    private String senderId;
+
     /** Final recipient phone in E.164 (+91XXXXXXXXXX). */
     private String recipientPhone;
 
@@ -109,6 +115,9 @@ public class SmsAuditLog {
 
     public String getTemplateId() { return templateId; }
     public void setTemplateId(String templateId) { this.templateId = templateId; }
+
+    public String getSenderId() { return senderId; }
+    public void setSenderId(String senderId) { this.senderId = senderId; }
 
     public String getRecipientPhone() { return recipientPhone; }
     public void setRecipientPhone(String recipientPhone) { this.recipientPhone = recipientPhone; }
