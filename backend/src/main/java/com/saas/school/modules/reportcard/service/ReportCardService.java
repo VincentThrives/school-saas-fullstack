@@ -1,6 +1,7 @@
 package com.saas.school.modules.reportcard.service;
 
 import com.itextpdf.kernel.colors.ColorConstants;
+import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
@@ -438,13 +439,75 @@ public class ReportCardService {
 
             List<ReportCard.SubjectGrade> subjects = reportCard.getSubjects();
             if (subjects != null) {
+                // Light tint for failed subject rows so parents can see at a
+                // glance which subject caused the FAIL — pure-text "(FAIL)"
+                // would get lost in the dense table.
+                DeviceRgb failTint = new DeviceRgb(252, 232, 232);
                 for (int i = 0; i < subjects.size(); i++) {
                     ReportCard.SubjectGrade sg = subjects.get(i);
-                    marksTable.addCell(new Cell().add(new Paragraph(String.valueOf(i + 1)).setFontSize(8)).setPadding(2));
-                    marksTable.addCell(new Cell().add(new Paragraph(sg.getSubjectName()).setFontSize(8)).setPadding(2));
-                    marksTable.addCell(new Cell().add(new Paragraph(String.valueOf(sg.getMarksObtained())).setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2));
-                    marksTable.addCell(new Cell().add(new Paragraph(String.valueOf(sg.getMaxMarks())).setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2));
-                    marksTable.addCell(new Cell().add(new Paragraph(sg.getGrade()).setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2));
+                    boolean subjectFailed = !sg.isPassed() && !sg.isAbsent();
+                    Cell rowBg = subjectFailed ? new Cell() : null;  // marker for tint
+
+                    // Subject name with a small "(FAIL)" suffix on failed rows;
+                    // the row's background tint makes it pop, the text makes it explicit.
+                    String subjLabel = sg.getSubjectName()
+                            + (subjectFailed ? "  (FAIL)" : "");
+
+                    Cell numC = new Cell().add(new Paragraph(String.valueOf(i + 1)).setFontSize(8)).setPadding(2);
+                    Cell subC = new Cell().add(new Paragraph(subjLabel).setBold().setFontSize(8)).setPadding(2);
+                    Cell obtC = new Cell().add(new Paragraph(String.valueOf(sg.getMarksObtained())).setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
+                    Cell maxC = new Cell().add(new Paragraph(String.valueOf(sg.getMaxMarks())).setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
+                    Cell grdC = new Cell().add(new Paragraph(sg.getGrade()).setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
+                    if (subjectFailed) {
+                        numC.setBackgroundColor(failTint);
+                        subC.setBackgroundColor(failTint);
+                        obtC.setBackgroundColor(failTint);
+                        maxC.setBackgroundColor(failTint);
+                        grdC.setBackgroundColor(failTint);
+                    }
+                    marksTable.addCell(numC);
+                    marksTable.addCell(subC);
+                    marksTable.addCell(obtC);
+                    marksTable.addCell(maxC);
+                    marksTable.addCell(grdC);
+
+                    // Per-component breakdown for hybrid subjects (Theory +
+                    // Practical, etc.). Parents need to see the slice marks
+                    // to understand why a 75/100 subject is FAIL — Practical
+                    // was 10/30 below its 12 pass cap. Single-component
+                    // subjects skip this — nothing extra to show.
+                    List<ReportCard.ComponentGrade> comps = sg.getComponents();
+                    if (comps != null && comps.size() >= 2) {
+                        for (ReportCard.ComponentGrade cg : comps) {
+                            boolean compFailed = !cg.isPassed();
+                            String status = compFailed ? "✗ Fail" : "✓ Pass";
+                            // Indent the component name; spans the # column too
+                            // so it visually sits underneath the subject row.
+                            Cell label = new Cell(1, 2)
+                                    .add(new Paragraph("    └ " + cg.getLabel() + "  ·  " + status)
+                                            .setFontSize(7).setItalic())
+                                    .setPadding(2);
+                            Cell obtained = new Cell()
+                                    .add(new Paragraph(String.valueOf(cg.getMarksObtained()))
+                                            .setFontSize(7).setTextAlignment(TextAlignment.CENTER))
+                                    .setPadding(2);
+                            Cell capCell = new Cell()
+                                    .add(new Paragraph(cg.getMaxMarks() + "  (pass: " + cg.getPassMarks() + ")")
+                                            .setFontSize(7).setTextAlignment(TextAlignment.CENTER))
+                                    .setPadding(2);
+                            Cell blank = new Cell().add(new Paragraph("-").setFontSize(7).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
+                            if (compFailed) {
+                                label.setBackgroundColor(failTint);
+                                obtained.setBackgroundColor(failTint);
+                                capCell.setBackgroundColor(failTint);
+                                blank.setBackgroundColor(failTint);
+                            }
+                            marksTable.addCell(label);
+                            marksTable.addCell(obtained);
+                            marksTable.addCell(capCell);
+                            marksTable.addCell(blank);
+                        }
+                    }
                 }
             }
 
