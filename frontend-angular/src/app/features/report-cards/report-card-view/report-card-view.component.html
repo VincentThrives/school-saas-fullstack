@@ -55,8 +55,11 @@
         <div class="info-item">
           <span class="info-label">Result</span>
           <span class="info-value">
-            <mat-chip [class]="reportCard.percentage >= 35 ? 'pass-chip' : 'fail-chip'">
-              {{ reportCard.percentage >= 35 ? 'PASS' : 'FAIL' }}
+            <!-- Overall result respects each subject's pass rule (per-component
+                 vs combined). A subject with a failed Practical fails the
+                 whole card, even if the overall percentage is above 35. -->
+            <mat-chip [class]="reportCard.passed ? 'pass-chip' : 'fail-chip'">
+              {{ reportCard.passed ? 'PASS' : 'FAIL' }}
             </mat-chip>
           </span>
         </div>

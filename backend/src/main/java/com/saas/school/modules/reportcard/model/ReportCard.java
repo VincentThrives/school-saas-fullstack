@@ -28,6 +28,15 @@ public class ReportCard {
     private double attendancePercentage;
     private String teacherRemarks;
     private String principalRemarks;
+    /**
+     * Overall pass/fail across all subjects on this report card. True iff
+     * EVERY subject's {@link SubjectGrade#passed} flag is true. Per-subject
+     * pass is itself computed from the subject's {@code passRule}
+     * (PER_COMPONENT / COMBINED), so a Practical at 10/30 fails the
+     * subject and therefore the whole card — regardless of the overall
+     * percentage being above 35.
+     */
+    private boolean passed = true;
 
     @CreatedDate
     private Instant generatedAt;
@@ -167,6 +176,9 @@ public class ReportCard {
     public void setPrincipalRemarks(String principalRemarks) {
         this.principalRemarks = principalRemarks;
     }
+
+    public boolean isPassed() { return passed; }
+    public void setPassed(boolean passed) { this.passed = passed; }
 
     public Instant getGeneratedAt() {
         return generatedAt;

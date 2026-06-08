@@ -57,8 +57,10 @@
         <div><div style="color:#888;font-size:12px;">Overall %</div><div style="font-weight:600;">{{ reportCard.percentage }}%</div></div>
         <div><div style="color:#888;font-size:12px;">Grade</div><div><mat-chip>{{ reportCard.grade }}</mat-chip></div></div>
         <div><div style="color:#888;font-size:12px;">Result</div><div>
-          <mat-chip [class]="reportCard.percentage >= 35 ? 'pass-chip' : 'fail-chip'">
-            {{ reportCard.percentage >= 35 ? 'PASS' : 'FAIL' }}
+          <!-- Result honours each subject's per-component pass rule, not
+               a flat percentage threshold. -->
+          <mat-chip [class]="reportCard.passed ? 'pass-chip' : 'fail-chip'">
+            {{ reportCard.passed ? 'PASS' : 'FAIL' }}
           </mat-chip>
         </div></div>
       </div>

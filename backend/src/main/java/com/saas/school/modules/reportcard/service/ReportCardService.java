@@ -325,6 +325,12 @@ public class ReportCardService {
         reportCard.setGrade(overallGrade);
         reportCard.setRank(rank);
         reportCard.setAttendancePercentage(Math.round(attendancePercentage * 100.0) / 100.0);
+        // Overall pass = every subject passed. A single failed subject (e.g.
+        // Practical below its per-component pass cap) flips the whole card
+        // to FAIL, even if the aggregate percentage clears 35%.
+        boolean allSubjectsPassed = !subjectGrades.isEmpty()
+                && subjectGrades.stream().allMatch(ReportCard.SubjectGrade::isPassed);
+        reportCard.setPassed(allSubjectsPassed);
 
         ReportCard saved = reportCardRepository.save(reportCard);
         logger.info("Report card generated and saved for studentId={}, id={}", studentId, saved.getId());
@@ -465,7 +471,11 @@ public class ReportCardService {
             document.add(resultTable);
 
             // ── PASS / FAIL ──
-            String result = reportCard.getPercentage() >= 35 ? "PASS" : "FAIL";
+            // Use the persisted per-subject roll-up rather than a flat
+            // percentage threshold — a single failed subject (e.g. a
+            // Practical below its component pass cap) flips the card to
+            // FAIL even if the average looks healthy.
+            String result = reportCard.isPassed() ? "PASS" : "FAIL";
             document.add(new Paragraph("Result: " + result)
                     .setBold().setFontSize(12).setTextAlignment(TextAlignment.CENTER).setMarginBottom(6));
 
