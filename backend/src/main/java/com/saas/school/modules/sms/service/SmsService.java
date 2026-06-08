@@ -322,8 +322,8 @@ public class SmsService {
                 "Custom notices are disabled for your school. Contact platform support to enable.");
         }
 
-        List<String> userIds = resolveAudiences(audiences, req.getClassId());
-        if (userIds.isEmpty()) {
+        AudienceTargets targets = resolveAudiences(audiences, req.getClassId());
+        if (targets.userIds().isEmpty() && targets.extraPhones().isEmpty()) {
             throw new BusinessException("No recipients matched the chosen audience(s).");
         }
 
@@ -341,17 +341,22 @@ public class SmsService {
         List<String> audienceNames = audiences.stream().map(Enum::name).toList();
         String audienceLabel = String.join(",", audienceNames);
 
-        // Fan out — async, returns immediately. Each per-recipient send is
-        // independently audited inside dispatchAsync.
-        dispatchAsync(SmsTrigger.CUSTOM_NOTICE, userIds, vars, adminUserId,
-                "CustomNotice", "broadcast-" + audienceLabel);
+        // 7-arg dispatch carries the raw parent phones in addition to
+        // userIds so parents whose number lives only on
+        // Student.parentPhone (no linked User record) still receive
+        // the broadcast. Phone dedupe in resolveRecipients trims any
+        // double-coverage to one SMS.
+        dispatchAsync(SmsTrigger.CUSTOM_NOTICE, targets.userIds(), targets.extraPhones(),
+                vars, adminUserId, "CustomNotice", "broadcast-" + audienceLabel);
+
+        int recipientCount = targets.userIds().size() + targets.extraPhones().size();
 
         auditService.log("SMS_CUSTOM_NOTICE", "CustomNotice", tenantId,
                 "Broadcast queued by " + adminUserId + " audiences=" + audienceLabel
                         + (req.getClassId() != null ? " classId=" + req.getClassId() : "")
-                        + " recipients=" + userIds.size());
+                        + " recipients=" + recipientCount);
 
-        return new SendCustomNoticeResponse(audienceNames, userIds.size(), Instant.now());
+        return new SendCustomNoticeResponse(audienceNames, recipientCount, Instant.now());
     }
 
     /**
@@ -406,8 +411,8 @@ public class SmsService {
                 "Holiday notice template not configured for your school. Ask the platform admin to set it up.");
         }
 
-        List<String> userIds = resolveAudiences(audiences, req.getClassId());
-        if (userIds.isEmpty()) {
+        AudienceTargets targets = resolveAudiences(audiences, req.getClassId());
+        if (targets.userIds().isEmpty() && targets.extraPhones().isEmpty()) {
             throw new BusinessException("No recipients matched the chosen audience(s).");
         }
 
@@ -426,59 +431,98 @@ public class SmsService {
         List<String> audienceNames = audiences.stream().map(Enum::name).toList();
         String audienceLabel = String.join(",", audienceNames);
 
-        dispatchAsync(SmsTrigger.HOLIDAY_NOTICE, userIds, vars, adminUserId,
-                "HolidayNotice", "broadcast-" + audienceLabel);
+        // 7-arg dispatch carries the raw parent phones in addition to
+        // userIds. Phone-level dedupe inside resolveRecipients
+        // guarantees one SMS per phone even when a parent appears in
+        // both lists (linked Parent User AND Student.parentPhone).
+        dispatchAsync(SmsTrigger.HOLIDAY_NOTICE, targets.userIds(), targets.extraPhones(),
+                vars, adminUserId, "HolidayNotice", "broadcast-" + audienceLabel);
+
+        // Rough pre-dedupe recipient count for the snackbar — actual
+        // phone count after normalisation might be slightly lower.
+        int recipientCount = targets.userIds().size() + targets.extraPhones().size();
 
         auditService.log("SMS_HOLIDAY_NOTICE", "HolidayNotice", tenantId,
                 "Holiday broadcast queued by " + adminUserId + " audiences=" + audienceLabel
                         + (req.getClassId() != null ? " classId=" + req.getClassId() : "")
                         + " closure=" + req.getClosureDate()
                         + " reopen=" + req.getReopenDate()
-                        + " recipients=" + userIds.size());
+                        + " recipients=" + recipientCount);
 
-        return new SendHolidayNoticeResponse(audienceNames, userIds.size(), Instant.now());
+        return new SendHolidayNoticeResponse(audienceNames, recipientCount, Instant.now());
     }
 
     /**
-     * Audiences → unioned, deduped userId list.
+     * Audiences → unioned, deduped recipient bundle: userIds + raw
+     * extraPhones.
      *
-     * <p>Resolves each picked audience independently then unions them into
-     * an order-preserving {@link LinkedHashSet} so the same userId can't
-     * appear twice when audiences overlap (e.g. a teacher whose own child
-     * is also a student in the school appearing in both {@code ALL_EMPLOYEES}
-     * and {@code ALL_STUDENTS}). Phone-level dedupe still runs later in
-     * {@link #resolveRecipients} — this just trims the obvious userId
-     * duplicates upfront so we don't fetch the same User twice.</p>
+     * <p>Why TWO collections: students store a parent's number in two
+     * places — sometimes as a linked Parent User document (resolved
+     * via {@code Student.parentIds} → {@code User.phone}), and almost
+     * always also as a free-text field {@code Student.parentPhone}
+     * (set at admission, no User record auto-created). For absence
+     * alerts we already merged both via the {@code extraPhones}
+     * overload of {@link #dispatchAsync}; broadcasts (custom-notice,
+     * holiday-notice) used to skip the free-text path and silently
+     * miss any parent who only has a {@code parentPhone}. Now they
+     * pull both. Phone-level dedupe in {@link #resolveRecipients}
+     * still guarantees one SMS per phone even when a parent appears
+     * in both sources.</p>
      *
      * @param audiences the audiences picked in the UI
      * @param classId   required only when the list contains {@code CLASS}
      */
-    private List<String> resolveAudiences(List<SmsAudience> audiences, String classId) {
-        // LinkedHashSet → preserves the natural ordering (audience-by-audience)
-        // while killing duplicate userIds across audience overlaps.
+    private AudienceTargets resolveAudiences(List<SmsAudience> audiences, String classId) {
+        // LinkedHashSet → preserve audience ordering, kill obvious duplicates.
         LinkedHashSet<String> ids = new LinkedHashSet<>();
+        LinkedHashSet<String> phones = new LinkedHashSet<>();
         for (SmsAudience a : audiences) {
-            ids.addAll(resolveOneAudience(a, classId));
+            AudienceTargets t = resolveOneAudience(a, classId);
+            ids.addAll(t.userIds());
+            phones.addAll(t.extraPhones());
         }
-        return new ArrayList<>(ids);
+        return new AudienceTargets(new ArrayList<>(ids), new ArrayList<>(phones));
     }
 
-    /** Resolves a single audience to its userIds. */
-    private List<String> resolveOneAudience(SmsAudience audience, String classId) {
+    /** Resolves a single audience to its userIds + raw extra phones. */
+    private AudienceTargets resolveOneAudience(SmsAudience audience, String classId) {
         return switch (audience) {
-            case ALL            -> collectUserIds(userRepository.findAllByDeletedAtIsNull());
-            case ALL_STUDENTS   -> collectStudentParentUserIds(studentRepository.findByDeletedAtIsNull());
-            case ALL_EMPLOYEES  -> {
+            case ALL -> {
+                List<String> userIds = collectUserIds(userRepository.findAllByDeletedAtIsNull());
+                // "Everyone" should also reach parents who only exist as
+                // Student.parentPhone (no User record). Pull those too.
+                List<String> phones  = collectStudentParentPhones(studentRepository.findByDeletedAtIsNull());
+                yield new AudienceTargets(userIds, phones);
+            }
+            case ALL_STUDENTS -> {
+                List<Student> students = studentRepository.findByDeletedAtIsNull();
+                yield new AudienceTargets(
+                        collectStudentParentUserIds(students),
+                        collectStudentParentPhones(students));
+            }
+            case ALL_EMPLOYEES -> {
                 List<String> ids = new ArrayList<>();
                 ids.addAll(collectUserIds(userRepository.findAllByRoleAndDeletedAtIsNull(UserRole.TEACHER)));
                 ids.addAll(collectUserIds(userRepository.findAllByRoleAndDeletedAtIsNull(UserRole.PRINCIPAL)));
                 ids.addAll(collectUserIds(userRepository.findAllByRoleAndDeletedAtIsNull(UserRole.SCHOOL_ADMIN)));
-                yield ids;
+                // Teachers/principals/admins always have User records — no
+                // raw-phone path needed.
+                yield new AudienceTargets(ids, List.of());
             }
-            case CLASS          -> collectStudentParentUserIds(
-                    studentRepository.findAllByClassIdAndDeletedAtIsNull(classId));
+            case CLASS -> {
+                List<Student> students = studentRepository.findAllByClassIdAndDeletedAtIsNull(classId);
+                yield new AudienceTargets(
+                        collectStudentParentUserIds(students),
+                        collectStudentParentPhones(students));
+            }
         };
     }
+
+    /** Tuple returned by {@link #resolveAudiences}. {@code userIds} go
+     *  through User-record lookup; {@code extraPhones} are raw strings
+     *  fed straight to {@link #resolveRecipients} which normalises and
+     *  dedupes them against the user-resolved phones. */
+    record AudienceTargets(List<String> userIds, List<String> extraPhones) {}
 
     /** Flatten a User list to its userIds, dropping nulls. */
     private List<String> collectUserIds(List<User> users) {
@@ -504,6 +548,22 @@ public class SmsService {
             } else if (s.getUserId() != null) {
                 out.add(s.getUserId());
             }
+        }
+        return out;
+    }
+
+    /** Raw parent phones from {@code Student.parentPhone}. Almost every
+     *  student has this set at admission even when no Parent User is
+     *  linked, so this is the primary path for reaching parents in
+     *  broadcasts. Normalisation + dedupe happens later in
+     *  {@link #resolveRecipients}. */
+    private List<String> collectStudentParentPhones(List<Student> students) {
+        if (students == null) return List.of();
+        List<String> out = new ArrayList<>();
+        for (Student s : students) {
+            if (s == null) continue;
+            String p = s.getParentPhone();
+            if (p != null && !p.isBlank()) out.add(p.trim());
         }
         return out;
     }
