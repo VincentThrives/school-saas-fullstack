@@ -466,3 +466,25 @@ $gold-light: rgba(212, 168, 67, 0.08);
     color: #b8860b;
   }
 }
+
+/* Read-only badge shown when the timetable already picked the component
+   for this period — teachers see WHICH slice they're marking without a
+   dropdown asking them again. */
+.component-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(184, 134, 11, 0.10);
+  color: #8b6914;
+  font-size: 13px;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+  strong { font-weight: 700; }
+}

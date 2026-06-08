@@ -83,6 +83,16 @@ public class Timetable {
         private String teacherId;
         private String teacherName;
         private String roomNumber;
+        /**
+         * For hybrid subjects (e.g. Math with Theory + Practical that both
+         * track attendance), the timetable slot declares WHICH slice this
+         * period is for. Attendance and other downstream consumers read
+         * this directly — no second prompt on the attendance page.
+         * Null/blank for single-component subjects or pre-component periods.
+         */
+        private String componentKey;
+        /** Human-readable label cache for componentKey ("Theory" / "Practical"). */
+        private String componentLabel;
 
         public Period() {
         }
@@ -120,5 +130,11 @@ public class Timetable {
 
         public String getRoomNumber() { return roomNumber; }
         public void setRoomNumber(String roomNumber) { this.roomNumber = roomNumber; }
+
+        public String getComponentKey() { return componentKey; }
+        public void setComponentKey(String componentKey) { this.componentKey = componentKey; }
+
+        public String getComponentLabel() { return componentLabel; }
+        public void setComponentLabel(String componentLabel) { this.componentLabel = componentLabel; }
     }
 }

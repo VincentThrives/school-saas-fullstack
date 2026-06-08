@@ -188,10 +188,10 @@
           </span>
         </div>
 
-        <!-- Component picker — only shown for multi-component subjects where
-             both portions track attendance (e.g. PUC II Physics has Theory
-             + Practical, both attendance-tracked). For single-component
-             subjects the picker stays hidden and the backend auto-fills. -->
+        <!-- Component picker — only shown for multi-component subjects
+             where the timetable did NOT pre-declare the slice. When the
+             timetable says "this period is Theory", we honor that silently
+             and surface a small read-only chip below for confirmation. -->
         <div class="component-picker" *ngIf="componentChoices.length > 0">
           <mat-form-field appearance="outline" class="component-select">
             <mat-label>Component</mat-label>
@@ -202,6 +202,14 @@
             </mat-select>
             <mat-hint>Which portion of the subject this period is for</mat-hint>
           </mat-form-field>
+        </div>
+        <!-- Read-only "decided in timetable" chip — replaces the picker
+             when the slot already carries a componentKey. Keeps the
+             teacher informed without re-asking. -->
+        <div class="component-locked"
+             *ngIf="componentChoices.length === 0 && selectedComponentKey && selectedPeriod?.componentLabel">
+          <mat-icon>lock</mat-icon>
+          <span>Component: <strong>{{ selectedPeriod?.componentLabel }}</strong> · set in timetable</span>
         </div>
         <div class="actions-row">
           <div class="quick-actions">

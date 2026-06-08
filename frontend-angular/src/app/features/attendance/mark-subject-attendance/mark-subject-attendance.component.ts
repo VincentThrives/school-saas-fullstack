@@ -38,6 +38,11 @@ interface TimetablePeriod {
   sectionId?: string;
   sectionName?: string;
   academicYearId?: string;
+  // Slice of the subject the period was created for (Theory / Practical)
+  // — only present when the timetable builder picked one. Drives the
+  // read-only chip on this page and is sent on attendance save.
+  componentKey?: string;
+  componentLabel?: string;
 }
 
 interface StudentAttendance {
@@ -335,6 +340,8 @@ export class MarkSubjectAttendanceComponent implements OnInit {
           sectionId: tt.sectionId,
           sectionName: tt.sectionName,
           academicYearId: tt.academicYearId,
+          componentKey: p.componentKey,
+          componentLabel: p.componentLabel,
         });
       }
     }
@@ -740,20 +747,27 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     if (period.classId) this.selectedClassId = period.classId;
     if (period.sectionId) this.selectedSectionId = period.sectionId;
     if (period.academicYearId) this.selectedAcademicYearId = period.academicYearId;
-    this.refreshComponentChoices(period.subjectId);
+    this.refreshComponentChoices(period.subjectId, period.componentKey || null);
     this.loadStudents();
   }
 
   /**
    * Load the attendance-tracked components for the period's subject.
-   * Sets up {@link componentChoices} (for the picker) and pre-selects
-   * the first attendance-tracked component so saveAttendance() always
-   * has a value to send.
    *
-   * <p>Single-component subjects keep selectedComponentKey at null —
-   * the backend auto-fills, and the picker stays hidden.
+   * <p>Two paths:
+   * <ul>
+   *   <li>The timetable slot already declared a component (the admin picked
+   *       "Theory" or "Practical" when building the timetable) — we use it
+   *       and HIDE the picker. The pre-decided slice is shown read-only.</li>
+   *   <li>The slot doesn't declare one (legacy timetable, or single-
+   *       component subject) — fall back to the in-page picker preselected
+   *       to the first attendance-tracked component.</li>
+   * </ul>
+   *
+   * <p>Single-component subjects keep selectedComponentKey at null and the
+   * picker stays hidden — backend auto-fills.
    */
-  private refreshComponentChoices(subjectId: string): void {
+  private refreshComponentChoices(subjectId: string, periodComponentKey: string | null): void {
     this.componentChoices = [];
     this.selectedComponentKey = null;
     if (!subjectId) return;
@@ -761,8 +775,20 @@ export class MarkSubjectAttendanceComponent implements OnInit {
       const subject = subs[0];
       const attended = (subject?.components || []).filter(c => c.trackAttendance);
       if (attended.length > 1) {
-        this.componentChoices = attended.map(c => ({ key: c.key, label: c.label }));
-        this.selectedComponentKey = attended[0].key;
+        // Hybrid subject — does the period already carry a choice?
+        const fromTimetable = periodComponentKey
+            && attended.some(c => c.key === periodComponentKey)
+            ? periodComponentKey
+            : null;
+        if (fromTimetable) {
+          // Timetable made the call — skip the picker entirely.
+          this.selectedComponentKey = fromTimetable;
+          this.componentChoices = [];   // hidden
+        } else {
+          // Legacy slot — ask once at the top of the page.
+          this.componentChoices = attended.map(c => ({ key: c.key, label: c.label }));
+          this.selectedComponentKey = attended[0].key;
+        }
       }
     });
   }

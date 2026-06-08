@@ -936,6 +936,14 @@ export interface TimetablePeriod {
   teacherId: string;
   teacherName?: string;
   roomNumber: string;
+  /**
+   * For hybrid subjects with multiple attendance-tracked components
+   * (e.g. Math: Theory + Practical) the timetable slot itself declares
+   * which slice this period is for. Empty when the subject has a single
+   * component or no slice was chosen at timetable time.
+   */
+  componentKey?: string;
+  componentLabel?: string;
 }
 
 export interface TimetableDaySchedule {

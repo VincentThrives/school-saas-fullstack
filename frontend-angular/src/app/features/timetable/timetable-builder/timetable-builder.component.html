@@ -116,6 +116,23 @@
                     </mat-select>
                   </mat-form-field>
 
+                  <!-- Component picker — only when the subject has 2+
+                       attendance-tracked components. Example: Math has both
+                       Theory + Practical tracked, so the admin says here
+                       "this period is for Theory". Single-component subjects
+                       skip the picker entirely. -->
+                  <mat-form-field appearance="outline" class="cell-field component-field"
+                                  *ngIf="componentsFor(daySchedule.periods[i].subjectId) as comps">
+                    <mat-label>Component</mat-label>
+                    <mat-select [(ngModel)]="daySchedule.periods[i].componentKey"
+                                (selectionChange)="onPeriodComponentChange(daySchedule.periods[i])">
+                      <mat-option value="">--</mat-option>
+                      <mat-option *ngFor="let c of comps" [value]="c.key">
+                        {{ c.label }}
+                      </mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
                   <mat-form-field appearance="outline" class="cell-field teacher-field"
                                   [class.teacher-conflict]="!!getTeacherConflictLabel(daySchedule.periods[i].teacherId, daySchedule.dayOfWeek, daySchedule.periods[i].periodNumber)">
                     <mat-label>Teacher</mat-label>

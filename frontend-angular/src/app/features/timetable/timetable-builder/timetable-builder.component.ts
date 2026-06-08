@@ -28,6 +28,13 @@ import {
 interface SubjectOption {
   subjectId: string;
   name: string;
+  /**
+   * Components on this subject that need their own attendance roll
+   * (e.g. Math could carry "Theory" and "Practical" — both
+   * trackAttendance=true). Only populated when the subject has 2+
+   * such components — for 0 or 1 the per-period picker stays hidden.
+   */
+  components?: Array<{ key: string; label: string }>;
 }
 
 @Component({
@@ -239,18 +246,46 @@ export class TimetableBuilderComponent implements OnInit {
         // Map by id so we can fall back to the raw id when a subject isn't
         // registered in the Subjects collection (legacy classes use literal
         // strings like "kannada"/"english" as ids).
-        const byId = new Map<string, string>();
-        subjects.forEach(s => byId.set(s.subjectId, s.name));
-        this.subjects = subjectIds.map(id => ({
-          subjectId: id,
-          name: byId.get(id) || id,
-        }));
+        const byId = new Map<string, typeof subjects[number]>();
+        subjects.forEach(s => byId.set(s.subjectId, s));
+        this.subjects = subjectIds.map(id => {
+          const sub = byId.get(id);
+          // Surface a component picker only when 2+ components actually need
+          // attendance — Theory + IA where only Theory tracks attendance
+          // doesn't qualify; the period stays as plain "Math".
+          const trackedComps = (sub?.components || [])
+              .filter(c => c && c.trackAttendance)
+              .map(c => ({ key: c.key, label: c.label }));
+          return {
+            subjectId: id,
+            name: sub?.name || id,
+            components: trackedComps.length > 1 ? trackedComps : undefined,
+          };
+        });
       },
       error: () => {
         // Network/API failure — still show the raw ids so the user can pick.
         this.subjects = subjectIds.map(id => ({ subjectId: id, name: id }));
       },
     });
+  }
+
+  /** Returns the multi-component metadata for a subject, or undefined when
+   *  the subject is single-component (no picker needed in the form). */
+  componentsFor(subjectId: string): Array<{ key: string; label: string }> | undefined {
+    return this.subjects.find(s => s.subjectId === subjectId)?.components;
+  }
+
+  /** Called when admin picks a Component for a period. Caches the label so
+   *  downstream consumers (attendance, reports) don't need a second lookup. */
+  onPeriodComponentChange(period: TimetablePeriod): void {
+    if (!period.subjectId || !period.componentKey) {
+      period.componentLabel = '';
+      return;
+    }
+    const comps = this.componentsFor(period.subjectId) || [];
+    const c = comps.find(x => x.key === period.componentKey);
+    period.componentLabel = c?.label || '';
   }
 
   loadTimetable(): void {
@@ -464,9 +499,12 @@ export class TimetableBuilderComponent implements OnInit {
   }
 
   onPeriodSubjectChange(daySchedule: any, periodIndex: number): void {
-    if (daySchedule.periods[periodIndex]) {
-      daySchedule.periods[periodIndex].teacherId = '';
-    }
+    const p = daySchedule.periods[periodIndex];
+    if (!p) return;
+    p.teacherId = '';
+    // Reset component info — picker becomes irrelevant when subject changes.
+    p.componentKey = '';
+    p.componentLabel = '';
   }
 
   getSubjectColor(subjectId: string): string {
