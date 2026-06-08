@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { BehaviorSubject, Observable, of, tap, throwError, shareReplay, catchError, map, finalize } from 'rxjs';
 import { Router } from '@angular/router';
 import {
   ApiResponse,
@@ -51,6 +51,68 @@ export class AuthService {
 
   get accessToken(): string | null {
     return this.accessToken$.value;
+  }
+
+  get refreshToken(): string | null {
+    return this.refreshToken$.value;
+  }
+
+  /**
+   * Single-flight refresh attempt. Multiple concurrent 401s would otherwise
+   * each fire their own /auth/refresh call — we share one in-flight
+   * Observable so the backend (and audit log) sees a single hit.
+   */
+  private refreshInFlight$: Observable<string> | null = null;
+
+  /**
+   * Exchange the stored refresh token for a fresh access token (and a new
+   * rolling refresh token, so the 7-day window restarts every successful
+   * refresh). Picks the super-admin endpoint when the current session is
+   * a super-admin, the tenant endpoint otherwise — they have the same
+   * shape but live on different paths.
+   *
+   * Returns the new access token. Errors when:
+   *   • No refresh token stored locally → emits error, caller should log out.
+   *   • Backend rejects the refresh token (expired / revoked) → same.
+   */
+  refreshAccessToken(): Observable<string> {
+    if (this.refreshInFlight$) return this.refreshInFlight$;
+
+    const token = this.refreshToken;
+    if (!token) {
+      return throwError(() => new Error('No refresh token stored.'));
+    }
+    const endpoint = this.isSuperAdmin ? '/super/auth/refresh' : '/auth/refresh';
+    const headers = new HttpHeaders({ 'X-Refresh-Token': token });
+
+    this.refreshInFlight$ = this.http
+      .post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
+        `${this.API}${endpoint}`,
+        {},
+        { headers },
+      )
+      .pipe(
+        map((res) => {
+          if (!res?.success || !res.data?.accessToken) {
+            throw new Error('Refresh response missing tokens.');
+          }
+          // Persist new tokens. We keep the existing user/role/flags —
+          // the refresh endpoint doesn't re-issue those, and they
+          // shouldn't have changed mid-session.
+          this.accessToken$.next(res.data.accessToken);
+          this.refreshToken$.next(res.data.refreshToken);
+          localStorage.setItem('accessToken', res.data.accessToken);
+          localStorage.setItem('refreshToken', res.data.refreshToken);
+          return res.data.accessToken;
+        }),
+        catchError((err) => {
+          // Refresh itself failed — caller will redirect to /login.
+          return throwError(() => err);
+        }),
+        finalize(() => { this.refreshInFlight$ = null; }),
+        shareReplay({ bufferSize: 1, refCount: false }),
+      );
+    return this.refreshInFlight$;
   }
 
   get currentRole(): UserRole | null {
