@@ -480,11 +480,12 @@ public class ReportCardService {
                 for (int i = 0; i < subjects.size(); i++) {
                     ReportCard.SubjectGrade sg = subjects.get(i);
                     boolean subjectFailed = !sg.isPassed() && !sg.isAbsent();
-                    String subjLabel = sg.getSubjectName()
-                            + (subjectFailed ? "  (FAIL)" : "");
 
+                    // Subject name stays clean — Pass/Fail labels live in the
+                    // component columns where the actual cause sits. The row
+                    // tint still flags failed subjects at a glance.
                     Cell numC = new Cell().add(new Paragraph(String.valueOf(i + 1)).setFontSize(8)).setPadding(2);
-                    Cell subC = new Cell().add(new Paragraph(subjLabel).setBold().setFontSize(8)).setPadding(2);
+                    Cell subC = new Cell().add(new Paragraph(sg.getSubjectName()).setBold().setFontSize(8)).setPadding(2);
                     if (subjectFailed) { numC.setBackgroundColor(failTint); subC.setBackgroundColor(failTint); }
                     marksTable.addCell(numC);
                     marksTable.addCell(subC);
@@ -504,15 +505,19 @@ public class ReportCardService {
                             c = new Cell().add(new Paragraph("—")
                                     .setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
                         } else {
-                            String mark = trimDecimal(cg.getMarksObtained()) + " / " + trimDecimal(cg.getMaxMarks());
-                            if (!cg.isPassed()) mark += "  ✗";
+                            // "65 / 70 (Pass)" or "10 / 30 (Fail)" — explicit
+                            // verdict per component so parents see exactly which
+                            // slice failed and which passed.
+                            String verdict = cg.isPassed() ? "(Pass)" : "(Fail)";
+                            String mark = trimDecimal(cg.getMarksObtained())
+                                    + " / " + trimDecimal(cg.getMaxMarks())
+                                    + "  " + verdict;
                             c = new Cell().add(new Paragraph(mark)
                                     .setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
                             if (!cg.isPassed()) c.setBackgroundColor(failTint);
                         }
-                        // Tint the whole row if the subject itself failed,
-                        // overriding only when the cell is already tinted as a
-                        // failed component (no harm — same colour).
+                        // Tint passing or empty cells on a failed subject row
+                        // too, so the whole row reads as the problem row.
                         if (subjectFailed && cg != null && cg.isPassed()) c.setBackgroundColor(failTint);
                         if (subjectFailed && cg == null) c.setBackgroundColor(failTint);
                         marksTable.addCell(c);
