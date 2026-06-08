@@ -36,9 +36,30 @@ public class ExamService {
             throw new IllegalArgumentException("Class is required");
         }
         validateComponent(req);
+        snapMarksToComponent(req);
         req.setExamId(UUID.randomUUID().toString());
         req.setStatus(Exam.ExamStatus.SCHEDULED);
         return examRepository.save(req);
+    }
+
+    /**
+     * Force the exam's max + pass marks to match the component's own
+     * caps. Without this, a client could submit maxMarks=100 for an
+     * English Theory exam whose cap is 70 — admins would enter marks
+     * above the cap and the report card aggregation would explode.
+     *
+     * <p>Subject not found OR component not resolved → silent no-op;
+     * {@link #validateComponent} already rejects truly bad inputs, this
+     * just enforces consistency on the way through.
+     */
+    private void snapMarksToComponent(Exam req) {
+        if (req.getComponentKey() == null || req.getComponentKey().isBlank()) return;
+        Subject subject = subjectRepository.findById(req.getSubjectId()).orElse(null);
+        if (subject == null) return;
+        Subject.Component comp = subject.componentByKey(req.getComponentKey());
+        if (comp == null) return;
+        if (comp.getMaxMarks() > 0) req.setMaxMarks(comp.getMaxMarks());
+        if (comp.getPassMarks() > 0) req.setPassingMarks(comp.getPassMarks());
     }
 
     /**
@@ -126,6 +147,7 @@ public class ExamService {
         // Re-validate component if the subject (or component) is being changed.
         if (req.getSubjectId() != null && !req.getSubjectId().isBlank()) {
             validateComponent(req);
+            snapMarksToComponent(req);
         }
         req.setExamId(examId);
         req.setStatus(exam.getStatus());

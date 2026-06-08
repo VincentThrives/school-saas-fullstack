@@ -112,6 +112,21 @@ export class ExamFormComponent implements OnInit {
       this.refreshComponentChoices(sub);
     });
 
+    // Pull maxMarks + passingMarks from the chosen component. The Theory
+    // component on English is 70/35; using the parent subject's total
+    // (100) here would let admins enter marks > the component's cap and
+    // wreck the report card. Component-level numbers are the truth.
+    this.examForm.get('componentKey')?.valueChanges.subscribe((key) => {
+      if (!key) return;
+      const sub = this.subjectsList.find(s => s.subjectId === this.examForm.get('subjectId')?.value);
+      const comp = sub?.components?.find(c => c.key === key);
+      if (!comp) return;
+      this.examForm.patchValue({
+        maxMarks: comp.maxMarks,
+        passingMarks: comp.passMarks,
+      }, { emitEvent: false });
+    });
+
     // Load exam types for the picker; auto-fill maxMarks from the catalog when empty/default
     this.api.getExamTypes().subscribe({
       next: (res) => { this.examTypes = res?.data || []; },
