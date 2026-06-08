@@ -1,5 +1,6 @@
 package com.saas.school.modules.classes.controller;
 
+import com.saas.school.common.exception.BusinessException;
 import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.classes.dto.CreateSubjectRequest;
@@ -43,6 +44,7 @@ public class ClassController {
     @PostMapping("/classes")
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<SchoolClass>> createClass(@RequestBody SchoolClass req) {
+        validateUniqueClassAndSections(req, null);
         req.setClassId(UUID.randomUUID().toString());
         if (req.getSections() != null) {
             req.getSections().forEach(s -> {
@@ -58,6 +60,7 @@ public class ClassController {
             @PathVariable String classId, @RequestBody SchoolClass req) {
         classRepo.findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Class not found"));
+        validateUniqueClassAndSections(req, classId);
         req.setClassId(classId);
         // Generate sectionId for new sections
         if (req.getSections() != null) {
@@ -68,6 +71,66 @@ public class ClassController {
             });
         }
         return ResponseEntity.ok(ApiResponse.success(classRepo.save(req), "Updated"));
+    }
+
+    /**
+     * Reject duplicate classes and duplicate sections-within-a-class
+     * BEFORE we hit the persist step.
+     *
+     * <p>Two checks:</p>
+     * <ol>
+     *   <li><b>Class uniqueness</b>: the same (name, academicYearId) can't
+     *       exist twice for this tenant. Names are compared case-
+     *       insensitively + trimmed so "1st" / "1ST" / " 1st " all
+     *       collide. On UPDATE we exclude the row being edited so a save
+     *       that doesn't change the name still passes.</li>
+     *   <li><b>Section uniqueness</b>: within a class, two sections can't
+     *       share a name. "A" / "a" / " A " collide. Catches the common
+     *       "I created A by accident and re-typed A" mistake on the
+     *       Add/Edit Class form.</li>
+     * </ol>
+     *
+     * @param req         the incoming class payload
+     * @param editingId   the classId being updated, or {@code null} when
+     *                    we're creating a new class
+     */
+    private void validateUniqueClassAndSections(SchoolClass req, String editingId) {
+        if (req == null) throw new BusinessException("Class payload is required.");
+        String name = req.getName() == null ? "" : req.getName().trim();
+        if (name.isBlank()) throw new BusinessException("Class name is required.");
+        String year = req.getAcademicYearId() == null ? "" : req.getAcademicYearId().trim();
+        if (year.isBlank()) throw new BusinessException("Academic year is required.");
+
+        // Class-level uniqueness: same name + same year → reject.
+        List<SchoolClass> existingInYear = classRepo.findByAcademicYearId(year);
+        for (SchoolClass other : existingInYear) {
+            if (other == null) continue;
+            if (editingId != null && editingId.equals(other.getClassId())) continue; // self
+            if (other.getName() != null
+                    && other.getName().trim().equalsIgnoreCase(name)) {
+                throw new BusinessException(
+                        "Class \"" + name + "\" already exists for this academic year.");
+            }
+        }
+
+        // Section-level uniqueness within THIS class payload — catches
+        // the admin typing the same letter twice on the form before
+        // it ever reaches storage.
+        if (req.getSections() != null) {
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            for (SchoolClass.Section s : req.getSections()) {
+                if (s == null) continue;
+                String sname = s.getName() == null ? "" : s.getName().trim();
+                if (sname.isBlank()) {
+                    throw new BusinessException("Every section needs a name.");
+                }
+                String key = sname.toLowerCase(java.util.Locale.ROOT);
+                if (!seen.add(key)) {
+                    throw new BusinessException(
+                            "Section \"" + sname + "\" appears twice — section names must be unique within a class.");
+                }
+            }
+        }
     }
 
     @DeleteMapping("/classes/{classId}")
