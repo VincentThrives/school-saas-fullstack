@@ -241,19 +241,37 @@ $expanded-bg: #FAF8F5;
 .sc-row--expanded {
   td { border-bottom: none; }
 }
+// Expansion row is ALWAYS in the DOM for every data row (Angular
+// Material's `when:` predicate doesn't re-evaluate on local property
+// flips, so we can't filter via predicate). Instead, the row's content
+// is `max-height: 0; overflow: hidden` when collapsed and animates open
+// when the matching modifier class is applied. The td itself stays in
+// place but renders empty space the height of 0 → no visible row.
 .sc-expanded-row {
   background: $expanded-bg;
 
   td {
     border-top: none;
     padding: 0;
+    background: $expanded-bg;
   }
 }
 .sc-expanded-cell {
   background: $expanded-bg;
 }
 .sc-expanded-content {
-  padding: 16px 24px 24px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease, padding 0.2s ease;
+  padding: 0 24px;
+
+  &--open {
+    // Generous max-height — covers the tallest possible panel (4
+    // expanded edit forms stacked). A fixed large value is cheaper
+    // than measuring scrollHeight on every change-detection pass.
+    max-height: 2000px;
+    padding: 16px 24px 24px;
+  }
 }
 
 // ── Dark theme ─────────────────────────────────────────────────

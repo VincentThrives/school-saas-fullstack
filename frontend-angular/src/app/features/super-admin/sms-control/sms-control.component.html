@@ -240,17 +240,22 @@
         </td>
       </ng-container>
 
-      <!-- Expanded detail row — one cell that spans the full table width
-           and embeds the per-tenant templates panel. The wrapper div is
-           collapsed to height:0 when this row is not the expanded one so
-           the row simply vanishes (table still renders one detail row
-           per data row when multiTemplateDataRows is on, but the `when`
-           predicate below restricts that to the expanded tenant only,
-           keeping the DOM small). -->
+      <!-- Expanded detail row — one cell that spans the full table.
+           Always rendered in the DOM for every data row (Material's
+           when-predicate doesn't re-evaluate on local property changes
+           like expandedTenantId, so we anchor visibility to CSS
+           instead). When the row isn't the expanded one its content's
+           max-height collapses to 0 and the row paints empty; when it
+           IS expanded, max-height unbounds and the panel reveals. The
+           *ngIf inside also short-circuits the panel's data fetch
+           when collapsed so we don't pay for every row's templates
+           upfront. -->
       <ng-container matColumnDef="expandedDetail">
         <td mat-cell *matCellDef="let row" [attr.colspan]="displayedColumns.length" class="sc-expanded-cell">
-          <div class="sc-expanded-content">
+          <div class="sc-expanded-content"
+               [class.sc-expanded-content--open]="expandedTenantId === row.tenantId">
             <app-tenant-templates-panel
+              *ngIf="expandedTenantId === row.tenantId"
               [tenantId]="row.tenantId"
               [tenantName]="displayName(row.tenantId)">
             </app-tenant-templates-panel>
@@ -262,8 +267,9 @@
       <tr mat-row *matRowDef="let row; columns: displayedColumns;"
           [class.sc-row--disabled]="!row.enabled"
           [class.sc-row--expanded]="expandedTenantId === row.tenantId"></tr>
-      <tr mat-row *matRowDef="let row; columns: expandedColumns; when: isExpansionRow"
-          class="sc-expanded-row"></tr>
+      <tr mat-row *matRowDef="let row; columns: expandedColumns;"
+          class="sc-expanded-row"
+          [class.sc-expanded-row--open]="expandedTenantId === row.tenantId"></tr>
     </table>
   </div>
 </div>

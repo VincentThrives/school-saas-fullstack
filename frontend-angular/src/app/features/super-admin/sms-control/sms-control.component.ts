@@ -295,14 +295,6 @@ export class SmsControlComponent implements OnInit {
 
   // ── Expansion + template-dot helpers ───────────────────────────
 
-  /** Predicate for the expanded-detail row template. The `mat-table` calls
-   *  this for every data row — return true only for the currently expanded
-   *  tenant so a single detail row renders. Keeps the column-set tidy and
-   *  avoids relying on `*ngIf` inside row templates (Material doesn't
-   *  support that). */
-  readonly isExpansionRow = (_index: number, row: TenantSmsSettingsDto): boolean =>
-    this.expandedTenantId === row.tenantId;
-
   /** Toggle expansion for a tenant row. Fires off a one-time templates
    *  fetch so the dot indicators next to the trigger checkboxes can light
    *  up. Cached forever — re-fetching on every expand would cause the
