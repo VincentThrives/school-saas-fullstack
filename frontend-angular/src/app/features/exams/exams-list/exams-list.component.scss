@@ -27,11 +27,19 @@ $gold-dark: #B8860B;
 
 .table-card {
   border-radius: 12px !important;
-  overflow: hidden;
+  // 10 columns of exam data don't fit on a typical laptop viewport;
+  // the previous `overflow: hidden` was clipping the Actions column
+  // off the right edge. Allow horizontal scroll WITHIN the card so
+  // the layout stays clean.
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .exams-table {
   width: 100%;
+  // Minimum width so columns don't compress to unreadable widths;
+  // beyond this, the card scrolls horizontally instead.
+  min-width: 1100px;
 }
 
 .exam-name {

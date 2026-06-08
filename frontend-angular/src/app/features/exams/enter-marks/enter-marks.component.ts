@@ -217,9 +217,37 @@ export class EnterMarksComponent implements OnInit {
     return 'F';
   }
 
-  onMarksChange(student: StudentMark, value: string): void {
-    const numVal = value === '' ? null : parseInt(value, 10);
-    if (numVal !== null && (numVal < 0 || numVal > this.maxMarks)) return;
+  /**
+   * Handle typing/spinner in the marks field. We can't rely on the input
+   * element's [max] attribute — browsers don't enforce it for typed
+   * values, only for the spinner. So we clamp here:
+   *   • Empty → null (no marks entered yet).
+   *   • Below 0 → 0.
+   *   • Above maxMarks → capped at maxMarks + a one-shot toast so the
+   *     teacher knows why their "75" became "70".
+   * The clamped value is pushed back into the input element directly,
+   * since we use one-way [value] binding (two-way would re-trigger this
+   * handler in a loop).
+   */
+  onMarksChange(student: StudentMark, value: string, event?: Event): void {
+    if (value === '' || value == null) {
+      student.marksObtained = null;
+      return;
+    }
+    let numVal = parseInt(value, 10);
+    if (isNaN(numVal)) {
+      student.marksObtained = null;
+      return;
+    }
+    if (numVal < 0) numVal = 0;
+    if (numVal > this.maxMarks) {
+      numVal = this.maxMarks;
+      this.snackBar.open(
+        `Marks can't exceed the exam max (${this.maxMarks}). Capped.`,
+        'Close', { duration: 2500 });
+      const target = event?.target as HTMLInputElement | undefined;
+      if (target) target.value = String(numVal);
+    }
     student.marksObtained = numVal;
   }
 

@@ -60,7 +60,7 @@
             matInput
             type="number"
             [value]="student.marksObtained"
-            (input)="onMarksChange(student, $any($event.target).value)"
+            (input)="onMarksChange(student, $any($event.target).value, $event)"
             [min]="0"
             [max]="maxMarks"
             placeholder="--"
@@ -102,7 +102,7 @@
               matInput
               type="number"
               [value]="student.marksObtained"
-              (input)="onMarksChange(student, $any($event.target).value)"
+              (input)="onMarksChange(student, $any($event.target).value, $event)"
               [min]="0"
               [max]="maxMarks"
               placeholder="--"
