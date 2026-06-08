@@ -149,7 +149,9 @@
         </div>
 
         <div class="period-time">{{ p.startTime }} - {{ p.endTime }}</div>
-        <div class="period-subject">{{ p.subjectName }}</div>
+        <div class="period-subject">
+          {{ p.subjectName }}<span *ngIf="p.componentLabel" class="period-component"> ({{ p.componentLabel }})</span>
+        </div>
 
         <div class="period-teacher" *ngIf="!isTeacherMode">
           <mat-icon class="small-icon">person</mat-icon>
@@ -179,7 +181,7 @@
     <mat-card class="actions-card">
       <mat-card-content>
         <div class="selected-period-info">
-          <strong>Period {{ selectedPeriod.periodNumber }}: {{ selectedPeriod.subjectName }}</strong>
+          <strong>Period {{ selectedPeriod.periodNumber }}: {{ selectedPeriod.subjectName }}<span *ngIf="selectedPeriod.componentLabel"> ({{ selectedPeriod.componentLabel }})</span></strong>
           <span class="teacher-info" *ngIf="selectedPeriod.className">{{ selectedPeriod.className }}<span *ngIf="selectedPeriod.sectionName"> · {{ selectedPeriod.sectionName }}</span></span>
           <span class="teacher-info" *ngIf="!isTeacherMode">Teacher: {{ selectedPeriod.teacherName || '-' }}</span>
           <span class="already-marked-chip" *ngIf="isAlreadyMarked">
@@ -188,28 +190,12 @@
           </span>
         </div>
 
-        <!-- Component picker — only shown for multi-component subjects
-             where the timetable did NOT pre-declare the slice. When the
-             timetable says "this period is Theory", we honor that silently
-             and surface a small read-only chip below for confirmation. -->
-        <div class="component-picker" *ngIf="componentChoices.length > 0">
-          <mat-form-field appearance="outline" class="component-select">
-            <mat-label>Component</mat-label>
-            <mat-select [(value)]="selectedComponentKey">
-              <mat-option *ngFor="let c of componentChoices" [value]="c.key">
-                {{ c.label }}
-              </mat-option>
-            </mat-select>
-            <mat-hint>Which portion of the subject this period is for</mat-hint>
-          </mat-form-field>
-        </div>
-        <!-- Read-only "decided in timetable" chip — replaces the picker
-             when the slot already carries a componentKey. Keeps the
-             teacher informed without re-asking. -->
-        <div class="component-locked"
-             *ngIf="componentChoices.length === 0 && selectedComponentKey && selectedPeriod?.componentLabel">
-          <mat-icon>lock</mat-icon>
-          <span>Component: <strong>{{ selectedPeriod?.componentLabel }}</strong> · set in timetable</span>
+        <!-- Component is decided once in the timetable builder; we never
+             ask again here. If the period carries one, show a small chip
+             so teachers know which slice they're marking. -->
+        <div class="component-locked" *ngIf="selectedPeriod?.componentLabel">
+          <mat-icon>label_important</mat-icon>
+          <span>{{ selectedPeriod?.componentLabel }} · from timetable</span>
         </div>
         <div class="actions-row">
           <div class="quick-actions">

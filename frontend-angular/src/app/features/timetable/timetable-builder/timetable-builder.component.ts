@@ -25,16 +25,27 @@ import {
   TeacherSubjectAssignment,
 } from '../../../core/models';
 
+/**
+ * One dropdown row in the Subject picker. A subject with multiple
+ * attendance-tracked components (Theory + Practical, etc.) expands into
+ * one option PER component — e.g. "English (Theory)" and
+ * "English (Practical)" — so the admin picks the slice and the subject
+ * in a single click. Single-component subjects produce one option whose
+ * componentKey is null.
+ *
+ * {@link value} is the composite "subjectId|componentKey" string used as
+ * the mat-select bound value; it round-trips through
+ * {@link TimetableBuilderComponent#getPeriodPick} /
+ * {@link TimetableBuilderComponent#setPeriodPick}.
+ */
 interface SubjectOption {
   subjectId: string;
-  name: string;
-  /**
-   * Components on this subject that need their own attendance roll
-   * (e.g. Math could carry "Theory" and "Practical" — both
-   * trackAttendance=true). Only populated when the subject has 2+
-   * such components — for 0 or 1 the per-period picker stays hidden.
-   */
-  components?: Array<{ key: string; label: string }>;
+  /** Display label like "English" or "English (Theory)". */
+  label: string;
+  /** "subjectId" for plain subjects, "subjectId|componentKey" for slices. */
+  value: string;
+  componentKey?: string;
+  componentLabel?: string;
 }
 
 @Component({
@@ -248,44 +259,73 @@ export class TimetableBuilderComponent implements OnInit {
         // strings like "kannada"/"english" as ids).
         const byId = new Map<string, typeof subjects[number]>();
         subjects.forEach(s => byId.set(s.subjectId, s));
-        this.subjects = subjectIds.map(id => {
-          const sub = byId.get(id);
-          // Surface a component picker only when 2+ components actually need
-          // attendance — Theory + IA where only Theory tracks attendance
-          // doesn't qualify; the period stays as plain "Math".
-          const trackedComps = (sub?.components || [])
-              .filter(c => c && c.trackAttendance)
-              .map(c => ({ key: c.key, label: c.label }));
-          return {
-            subjectId: id,
-            name: sub?.name || id,
-            components: trackedComps.length > 1 ? trackedComps : undefined,
-          };
-        });
+        this.subjects = subjectIds.flatMap(id => this.buildOptionsForSubject(id, byId.get(id)));
       },
       error: () => {
         // Network/API failure — still show the raw ids so the user can pick.
-        this.subjects = subjectIds.map(id => ({ subjectId: id, name: id }));
+        this.subjects = subjectIds.map(id => ({
+          subjectId: id, label: id, value: id,
+        }));
       },
     });
   }
 
-  /** Returns the multi-component metadata for a subject, or undefined when
-   *  the subject is single-component (no picker needed in the form). */
-  componentsFor(subjectId: string): Array<{ key: string; label: string }> | undefined {
-    return this.subjects.find(s => s.subjectId === subjectId)?.components;
+  /**
+   * Expand a single subject into 1+ dropdown options. Hybrid subjects
+   * with multiple attendance-tracked components produce one option per
+   * component — labelled "Subject (Component)". Single-component or
+   * subjects with at most one attendance-tracked component produce one
+   * plain entry. Letting the admin pick "English (Theory)" in a single
+   * click is cleaner than asking subject + component separately.
+   */
+  private buildOptionsForSubject(subjectId: string, sub: any): SubjectOption[] {
+    const name = sub?.name || subjectId;
+    const tracked = (sub?.components || []).filter((c: any) => c && c.trackAttendance);
+    if (tracked.length < 2) {
+      return [{ subjectId, label: name, value: subjectId }];
+    }
+    return tracked.map((c: any) => ({
+      subjectId,
+      componentKey: c.key,
+      componentLabel: c.label,
+      label: `${name} (${c.label})`,
+      value: `${subjectId}|${c.key}`,
+    }));
   }
 
-  /** Called when admin picks a Component for a period. Caches the label so
-   *  downstream consumers (attendance, reports) don't need a second lookup. */
-  onPeriodComponentChange(period: TimetablePeriod): void {
-    if (!period.subjectId || !period.componentKey) {
+  /** Composite value (subjectId or subjectId|componentKey) bound to the
+   *  Subject mat-select. Reads the period back into the dropdown's value. */
+  getPeriodPick(period: TimetablePeriod): string {
+    if (!period.subjectId) return '';
+    return period.componentKey
+        ? `${period.subjectId}|${period.componentKey}`
+        : period.subjectId;
+  }
+
+  /** Apply the composite picked value back to the period — sets subjectId,
+   *  componentKey and componentLabel together. Clears teacher because the
+   *  teacher list depends on (subject, component). */
+  setPeriodPick(period: TimetablePeriod, value: string): void {
+    if (!value) {
+      period.subjectId = '';
+      period.componentKey = '';
       period.componentLabel = '';
+      period.teacherId = '';
       return;
     }
-    const comps = this.componentsFor(period.subjectId) || [];
-    const c = comps.find(x => x.key === period.componentKey);
-    period.componentLabel = c?.label || '';
+    const opt = this.subjects.find(s => s.value === value);
+    if (!opt) {
+      // Fallback — value didn't match (legacy data). Treat as plain subject.
+      period.subjectId = value;
+      period.componentKey = '';
+      period.componentLabel = '';
+      period.teacherId = '';
+      return;
+    }
+    period.subjectId = opt.subjectId;
+    period.componentKey = opt.componentKey || '';
+    period.componentLabel = opt.componentLabel || '';
+    period.teacherId = '';
   }
 
   loadTimetable(): void {
@@ -409,6 +449,9 @@ export class TimetableBuilderComponent implements OnInit {
       ...day,
       periods: day.periods.map(p => ({
         ...p,
+        // Cached subjectName stays component-FREE — attendance/report renderers
+        // append componentLabel separately, so "English" + "(Theory)" don't
+        // double up to "English (Theory) (Theory)".
         subjectName: p.subjectId ? this.getSubjectName(p.subjectId) : '',
         teacherName: p.teacherId ? this.getTeacherName(p.teacherId) : '',
       })),
@@ -448,8 +491,22 @@ export class TimetableBuilderComponent implements OnInit {
     });
   }
 
-  getSubjectName(subjectId: string): string {
-    return this.subjects.find((s) => s.subjectId === subjectId)?.name || subjectId;
+  /** Resolve a display name for the period. Includes the component label
+   *  in parentheses for hybrid subjects so saved snapshots stay accurate. */
+  getSubjectName(subjectId: string, componentKey?: string): string {
+    if (!subjectId) return '';
+    if (componentKey) {
+      const hit = this.subjects.find(s =>
+          s.subjectId === subjectId && s.componentKey === componentKey);
+      if (hit) return hit.label;
+    }
+    // Plain or component-less fallback
+    const plain = this.subjects.find(s => s.subjectId === subjectId && !s.componentKey);
+    if (plain) return plain.label;
+    // Last-resort: any matching subjectId (returns first variant's parent name).
+    const any = this.subjects.find(s => s.subjectId === subjectId);
+    if (any) return any.label.replace(/\s*\([^)]+\)\s*$/, '');
+    return subjectId;
   }
 
   getTeacherName(teacherId: string): string {
@@ -498,13 +555,12 @@ export class TimetableBuilderComponent implements OnInit {
     return byIds;
   }
 
+  /** @deprecated use {@link setPeriodPick} — kept only for templates that
+   *  haven't migrated yet. Will be removed once nothing references it. */
   onPeriodSubjectChange(daySchedule: any, periodIndex: number): void {
     const p = daySchedule.periods[periodIndex];
     if (!p) return;
     p.teacherId = '';
-    // Reset component info — picker becomes irrelevant when subject changes.
-    p.componentKey = '';
-    p.componentLabel = '';
   }
 
   getSubjectColor(subjectId: string): string {

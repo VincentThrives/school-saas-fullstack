@@ -747,50 +747,13 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     if (period.classId) this.selectedClassId = period.classId;
     if (period.sectionId) this.selectedSectionId = period.sectionId;
     if (period.academicYearId) this.selectedAcademicYearId = period.academicYearId;
-    this.refreshComponentChoices(period.subjectId, period.componentKey || null);
-    this.loadStudents();
-  }
-
-  /**
-   * Load the attendance-tracked components for the period's subject.
-   *
-   * <p>Two paths:
-   * <ul>
-   *   <li>The timetable slot already declared a component (the admin picked
-   *       "Theory" or "Practical" when building the timetable) — we use it
-   *       and HIDE the picker. The pre-decided slice is shown read-only.</li>
-   *   <li>The slot doesn't declare one (legacy timetable, or single-
-   *       component subject) — fall back to the in-page picker preselected
-   *       to the first attendance-tracked component.</li>
-   * </ul>
-   *
-   * <p>Single-component subjects keep selectedComponentKey at null and the
-   * picker stays hidden — backend auto-fills.
-   */
-  private refreshComponentChoices(subjectId: string, periodComponentKey: string | null): void {
+    // The timetable slot is the single source of truth for the component —
+    // it was picked once when the timetable was built. No manual picker on
+    // this page (componentChoices stays empty). Single-component subjects
+    // simply leave selectedComponentKey null and the backend auto-fills.
     this.componentChoices = [];
-    this.selectedComponentKey = null;
-    if (!subjectId) return;
-    this.subjectService.getSubjectsByIds([subjectId]).subscribe(subs => {
-      const subject = subs[0];
-      const attended = (subject?.components || []).filter(c => c.trackAttendance);
-      if (attended.length > 1) {
-        // Hybrid subject — does the period already carry a choice?
-        const fromTimetable = periodComponentKey
-            && attended.some(c => c.key === periodComponentKey)
-            ? periodComponentKey
-            : null;
-        if (fromTimetable) {
-          // Timetable made the call — skip the picker entirely.
-          this.selectedComponentKey = fromTimetable;
-          this.componentChoices = [];   // hidden
-        } else {
-          // Legacy slot — ask once at the top of the page.
-          this.componentChoices = attended.map(c => ({ key: c.key, label: c.label }));
-          this.selectedComponentKey = attended[0].key;
-        }
-      }
-    });
+    this.selectedComponentKey = period.componentKey || null;
+    this.loadStudents();
   }
 
   isPeriodLocked(index: number): boolean {

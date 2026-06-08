@@ -105,30 +105,18 @@
                 [style.background-color]="daySchedule.periods[i].subjectId ? getSubjectColor(daySchedule.periods[i].subjectId) : ''"
               >
                 <div class="cell-content" *ngIf="daySchedule.periods[i]">
+                  <!-- Subject picker — hybrid subjects (Theory + Practical
+                       both attendance-tracked) expand into one entry PER
+                       component, e.g. "English (Theory)" and "English
+                       (Practical)". One pick sets subjectId AND
+                       componentKey together — no second dropdown. -->
                   <mat-form-field appearance="outline" class="cell-field subject-field">
                     <mat-label>Subject</mat-label>
-                    <mat-select [(ngModel)]="daySchedule.periods[i].subjectId"
-                                (selectionChange)="onPeriodSubjectChange(daySchedule, i)">
+                    <mat-select [value]="getPeriodPick(daySchedule.periods[i])"
+                                (selectionChange)="setPeriodPick(daySchedule.periods[i], $event.value)">
                       <mat-option value="">--</mat-option>
-                      <mat-option *ngFor="let sub of subjects" [value]="sub.subjectId">
-                        {{ sub.name }}
-                      </mat-option>
-                    </mat-select>
-                  </mat-form-field>
-
-                  <!-- Component picker — only when the subject has 2+
-                       attendance-tracked components. Example: Math has both
-                       Theory + Practical tracked, so the admin says here
-                       "this period is for Theory". Single-component subjects
-                       skip the picker entirely. -->
-                  <mat-form-field appearance="outline" class="cell-field component-field"
-                                  *ngIf="componentsFor(daySchedule.periods[i].subjectId) as comps">
-                    <mat-label>Component</mat-label>
-                    <mat-select [(ngModel)]="daySchedule.periods[i].componentKey"
-                                (selectionChange)="onPeriodComponentChange(daySchedule.periods[i])">
-                      <mat-option value="">--</mat-option>
-                      <mat-option *ngFor="let c of comps" [value]="c.key">
-                        {{ c.label }}
+                      <mat-option *ngFor="let sub of subjects" [value]="sub.value">
+                        {{ sub.label }}
                       </mat-option>
                     </mat-select>
                   </mat-form-field>
