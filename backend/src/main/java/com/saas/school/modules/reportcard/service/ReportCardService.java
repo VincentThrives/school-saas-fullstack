@@ -428,93 +428,115 @@ public class ReportCardService {
             document.add(infoTable);
 
             // ── Marks Table ──
-            Table marksTable = new Table(UnitValue.createPercentArray(new float[]{8, 32, 20, 20, 20}));
-            marksTable.setWidth(UnitValue.createPercentValue(100)).setMarginBottom(4);
-
-            addCompactHeaderCell(marksTable, "#");
-            addCompactHeaderCell(marksTable, "Subject");
-            addCompactHeaderCell(marksTable, "Marks Obtained");
-            addCompactHeaderCell(marksTable, "Max Marks");
-            addCompactHeaderCell(marksTable, "Grade");
-
+            //
+            // One row PER subject. For hybrid subjects (Theory + Practical,
+            // etc.) each component gets its own column instead of a separate
+            // sub-row, so parents read a clean grid:
+            //
+            //   # | Subject | Theory | Practical | Marks | Max | Grade
+            //   1 | English | 65/70  | 10/30 ✗   | 75    | 100 | B+   (FAIL)
+            //
+            // The Theory/Practical column set is derived from the UNION of
+            // components across all subjects, preserving first-seen order.
+            // Subjects that don't use a given component show "—".
             List<ReportCard.SubjectGrade> subjects = reportCard.getSubjects();
+            List<String> componentLabels = new ArrayList<>();
             if (subjects != null) {
-                // Light tint for failed subject rows so parents can see at a
-                // glance which subject caused the FAIL — pure-text "(FAIL)"
-                // would get lost in the dense table.
-                DeviceRgb failTint = new DeviceRgb(252, 232, 232);
-                for (int i = 0; i < subjects.size(); i++) {
-                    ReportCard.SubjectGrade sg = subjects.get(i);
-                    boolean subjectFailed = !sg.isPassed() && !sg.isAbsent();
-                    Cell rowBg = subjectFailed ? new Cell() : null;  // marker for tint
-
-                    // Subject name with a small "(FAIL)" suffix on failed rows;
-                    // the row's background tint makes it pop, the text makes it explicit.
-                    String subjLabel = sg.getSubjectName()
-                            + (subjectFailed ? "  (FAIL)" : "");
-
-                    Cell numC = new Cell().add(new Paragraph(String.valueOf(i + 1)).setFontSize(8)).setPadding(2);
-                    Cell subC = new Cell().add(new Paragraph(subjLabel).setBold().setFontSize(8)).setPadding(2);
-                    Cell obtC = new Cell().add(new Paragraph(String.valueOf(sg.getMarksObtained())).setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
-                    Cell maxC = new Cell().add(new Paragraph(String.valueOf(sg.getMaxMarks())).setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
-                    Cell grdC = new Cell().add(new Paragraph(sg.getGrade()).setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
-                    if (subjectFailed) {
-                        numC.setBackgroundColor(failTint);
-                        subC.setBackgroundColor(failTint);
-                        obtC.setBackgroundColor(failTint);
-                        maxC.setBackgroundColor(failTint);
-                        grdC.setBackgroundColor(failTint);
-                    }
-                    marksTable.addCell(numC);
-                    marksTable.addCell(subC);
-                    marksTable.addCell(obtC);
-                    marksTable.addCell(maxC);
-                    marksTable.addCell(grdC);
-
-                    // Per-component breakdown for hybrid subjects (Theory +
-                    // Practical, etc.). Parents need to see the slice marks
-                    // to understand why a 75/100 subject is FAIL — Practical
-                    // was 10/30 below its 12 pass cap. Single-component
-                    // subjects skip this — nothing extra to show.
-                    List<ReportCard.ComponentGrade> comps = sg.getComponents();
-                    if (comps != null && comps.size() >= 2) {
-                        for (ReportCard.ComponentGrade cg : comps) {
-                            boolean compFailed = !cg.isPassed();
-                            String status = compFailed ? "✗ Fail" : "✓ Pass";
-                            // Indent the component name; spans the # column too
-                            // so it visually sits underneath the subject row.
-                            Cell label = new Cell(1, 2)
-                                    .add(new Paragraph("    └ " + cg.getLabel() + "  ·  " + status)
-                                            .setFontSize(7).setItalic())
-                                    .setPadding(2);
-                            Cell obtained = new Cell()
-                                    .add(new Paragraph(String.valueOf(cg.getMarksObtained()))
-                                            .setFontSize(7).setTextAlignment(TextAlignment.CENTER))
-                                    .setPadding(2);
-                            Cell capCell = new Cell()
-                                    .add(new Paragraph(cg.getMaxMarks() + "  (pass: " + cg.getPassMarks() + ")")
-                                            .setFontSize(7).setTextAlignment(TextAlignment.CENTER))
-                                    .setPadding(2);
-                            Cell blank = new Cell().add(new Paragraph("-").setFontSize(7).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
-                            if (compFailed) {
-                                label.setBackgroundColor(failTint);
-                                obtained.setBackgroundColor(failTint);
-                                capCell.setBackgroundColor(failTint);
-                                blank.setBackgroundColor(failTint);
-                            }
-                            marksTable.addCell(label);
-                            marksTable.addCell(obtained);
-                            marksTable.addCell(capCell);
-                            marksTable.addCell(blank);
+                for (ReportCard.SubjectGrade sg : subjects) {
+                    if (sg.getComponents() == null) continue;
+                    for (ReportCard.ComponentGrade cg : sg.getComponents()) {
+                        if (cg.getLabel() != null && !componentLabels.contains(cg.getLabel())) {
+                            componentLabels.add(cg.getLabel());
                         }
                     }
                 }
             }
 
-            // Total row
-            marksTable.addCell(new Cell(1, 2).add(new Paragraph("TOTAL").setBold().setFontSize(8)).setPadding(2));
-            marksTable.addCell(new Cell().add(new Paragraph(String.valueOf(reportCard.getTotalMarks())).setBold().setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2));
-            marksTable.addCell(new Cell().add(new Paragraph(String.valueOf(reportCard.getTotalMaxMarks())).setBold().setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2));
+            // Width layout: # + Subject + N component cols + Marks + Max + Grade.
+            // Numbers chosen so the table totals ~100 for 0–3 component columns
+            // without crowding the trailing summary cells.
+            int compCount = componentLabels.size();
+            float[] widths = new float[5 + compCount];
+            widths[0] = 6;                          // #
+            widths[1] = compCount == 0 ? 32 : 24;   // Subject — wider when no comp cols
+            for (int c = 0; c < compCount; c++) widths[2 + c] = 13;
+            widths[2 + compCount]     = 12;         // Marks Obtained
+            widths[3 + compCount]     = 10;         // Max Marks
+            widths[4 + compCount]     = 10;         // Grade
+            Table marksTable = new Table(UnitValue.createPercentArray(widths));
+            marksTable.setWidth(UnitValue.createPercentValue(100)).setMarginBottom(4);
+
+            addCompactHeaderCell(marksTable, "#");
+            addCompactHeaderCell(marksTable, "Subject");
+            for (String lbl : componentLabels) addCompactHeaderCell(marksTable, lbl);
+            addCompactHeaderCell(marksTable, "Marks Obtained");
+            addCompactHeaderCell(marksTable, "Max Marks");
+            addCompactHeaderCell(marksTable, "Grade");
+
+            if (subjects != null) {
+                // Light red tint on failed subject rows so parents see the
+                // problem subject at a glance.
+                DeviceRgb failTint = new DeviceRgb(252, 232, 232);
+                for (int i = 0; i < subjects.size(); i++) {
+                    ReportCard.SubjectGrade sg = subjects.get(i);
+                    boolean subjectFailed = !sg.isPassed() && !sg.isAbsent();
+                    String subjLabel = sg.getSubjectName()
+                            + (subjectFailed ? "  (FAIL)" : "");
+
+                    Cell numC = new Cell().add(new Paragraph(String.valueOf(i + 1)).setFontSize(8)).setPadding(2);
+                    Cell subC = new Cell().add(new Paragraph(subjLabel).setBold().setFontSize(8)).setPadding(2);
+                    if (subjectFailed) { numC.setBackgroundColor(failTint); subC.setBackgroundColor(failTint); }
+                    marksTable.addCell(numC);
+                    marksTable.addCell(subC);
+
+                    // Index this subject's components by label for fast column lookup.
+                    Map<String, ReportCard.ComponentGrade> compByLabel = new HashMap<>();
+                    if (sg.getComponents() != null) {
+                        for (ReportCard.ComponentGrade cg : sg.getComponents()) {
+                            if (cg.getLabel() != null) compByLabel.put(cg.getLabel(), cg);
+                        }
+                    }
+                    for (String lbl : componentLabels) {
+                        ReportCard.ComponentGrade cg = compByLabel.get(lbl);
+                        Cell c;
+                        if (cg == null) {
+                            // Subject doesn't have this component — show a dash.
+                            c = new Cell().add(new Paragraph("—")
+                                    .setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
+                        } else {
+                            String mark = trimDecimal(cg.getMarksObtained()) + " / " + trimDecimal(cg.getMaxMarks());
+                            if (!cg.isPassed()) mark += "  ✗";
+                            c = new Cell().add(new Paragraph(mark)
+                                    .setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
+                            if (!cg.isPassed()) c.setBackgroundColor(failTint);
+                        }
+                        // Tint the whole row if the subject itself failed,
+                        // overriding only when the cell is already tinted as a
+                        // failed component (no harm — same colour).
+                        if (subjectFailed && cg != null && cg.isPassed()) c.setBackgroundColor(failTint);
+                        if (subjectFailed && cg == null) c.setBackgroundColor(failTint);
+                        marksTable.addCell(c);
+                    }
+
+                    Cell obtC = new Cell().add(new Paragraph(trimDecimal(sg.getMarksObtained())).setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
+                    Cell maxC = new Cell().add(new Paragraph(trimDecimal(sg.getMaxMarks())).setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
+                    Cell grdC = new Cell().add(new Paragraph(sg.getGrade()).setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2);
+                    if (subjectFailed) {
+                        obtC.setBackgroundColor(failTint);
+                        maxC.setBackgroundColor(failTint);
+                        grdC.setBackgroundColor(failTint);
+                    }
+                    marksTable.addCell(obtC);
+                    marksTable.addCell(maxC);
+                    marksTable.addCell(grdC);
+                }
+            }
+
+            // Total row — TOTAL label spans # + Subject + every component column.
+            int totalLabelSpan = 2 + compCount;
+            marksTable.addCell(new Cell(1, totalLabelSpan).add(new Paragraph("TOTAL").setBold().setFontSize(8)).setPadding(2));
+            marksTable.addCell(new Cell().add(new Paragraph(trimDecimal(reportCard.getTotalMarks())).setBold().setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2));
+            marksTable.addCell(new Cell().add(new Paragraph(trimDecimal(reportCard.getTotalMaxMarks())).setBold().setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2));
             marksTable.addCell(new Cell().add(new Paragraph(reportCard.getGrade()).setBold().setFontSize(8).setTextAlignment(TextAlignment.CENTER)).setPadding(2));
             document.add(marksTable);
 
@@ -863,5 +885,17 @@ public class ReportCardService {
         cell.setBackgroundColor(ColorConstants.LIGHT_GRAY).setPadding(2);
         cell.add(new Paragraph(text).setBold().setFontSize(8).setTextAlignment(TextAlignment.CENTER));
         table.addCell(cell);
+    }
+
+    /**
+     * Strip a trailing ".0" from whole-number marks so the table reads
+     * "65 / 70" instead of "65.0 / 70.0". Fractional marks keep their
+     * decimal so 75.5 stays accurate.
+     */
+    private String trimDecimal(double v) {
+        if (v == Math.floor(v) && !Double.isInfinite(v)) {
+            return String.valueOf((long) v);
+        }
+        return String.valueOf(v);
     }
 }
