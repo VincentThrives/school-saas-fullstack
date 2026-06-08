@@ -98,7 +98,9 @@
                     [style.background-color]="getSubjectColor(period.subjectId)"
                     [style.border-left-color]="getSubjectBorderColor(period.subjectId)"
                   >
-                    <div class="subject-name">{{ period.subjectName || period.subjectId }}</div>
+                    <div class="subject-name">
+                      {{ period.subjectName || period.subjectId }}<span *ngIf="period.componentLabel" class="subject-component"> ({{ period.componentLabel }})</span>
+                    </div>
                     <div class="teacher-name" *ngIf="period.teacherName || period.teacherId">
                       <mat-icon class="info-icon">person</mat-icon>
                       {{ period.teacherName || period.teacherId }}

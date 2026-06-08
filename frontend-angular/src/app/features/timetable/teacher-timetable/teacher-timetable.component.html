@@ -112,7 +112,9 @@
                   <mat-icon>class</mat-icon>
                   <span>{{ p.className }}<span *ngIf="p.sectionName"> · {{ p.sectionName }}</span></span>
                 </div>
-                <div class="period-subject">{{ p.subjectName || 'Subject' }}</div>
+                <div class="period-subject">
+                  {{ p.subjectName || 'Subject' }}<span *ngIf="p.componentLabel" class="period-component"> ({{ p.componentLabel }})</span>
+                </div>
                 <div class="period-room" *ngIf="p.roomNumber">
                   <mat-icon>meeting_room</mat-icon>
                   Room {{ p.roomNumber }}
