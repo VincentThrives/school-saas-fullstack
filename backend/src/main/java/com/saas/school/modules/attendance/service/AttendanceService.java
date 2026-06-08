@@ -313,6 +313,12 @@ public class AttendanceService {
             pm.put("teacherName", resolveTeacherName(p, teacherNameMap));
             pm.put("startTime", p.getStartTime());
             pm.put("endTime", p.getEndTime());
+            // Hybrid-subject slice (Theory / Practical / IA) — drives the
+            // "English (Theory)" suffix on attendance cards and the
+            // auto-resolution at attendance-save time. Always present in
+            // the response (possibly null) so the frontend can rely on it.
+            pm.put("componentKey", p.getComponentKey());
+            pm.put("componentLabel", p.getComponentLabel());
 
             Optional<StudentsAttendance> marked = batchRepository
                     .findByClassIdAndSectionIdAndDateAndPeriodNumber(classId, sectionId, date, p.getPeriodNumber());
