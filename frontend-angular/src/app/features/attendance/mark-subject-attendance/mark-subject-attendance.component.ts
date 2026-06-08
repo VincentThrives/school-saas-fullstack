@@ -615,6 +615,10 @@ export class MarkSubjectAttendanceComponent implements OnInit {
               sectionId: pair.sectionId,
               sectionName: pair.sectionName,
               academicYearId: this.selectedAcademicYearId,
+              // Carry the hybrid-subject slice through so the card shows
+              // "English (Theory)" and the save uses the right componentKey.
+              componentKey: p.componentKey || undefined,
+              componentLabel: p.componentLabel || undefined,
             });
           });
           completed++;
