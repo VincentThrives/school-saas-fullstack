@@ -96,13 +96,20 @@ export class TeacherAssignmentsComponent implements OnInit {
   formSectionId = '';
   formSubjectId = '';
   /**
-   * componentKey for SUBJECT_TEACHER assignments. Set when the chosen
-   * subject has multiple components — e.g. one teacher owns "theory"
-   * on PUC II Physics while another owns "practical". Null for
-   * single-component subjects and CLASS_TEACHER-only rows; the
-   * backend auto-fills or ignores accordingly.
+   * componentKey for the SUBJECT_TEACHER assignment being EDITED.
+   * Edit mode is single-row, so a single key is sufficient. Null for
+   * single-component subjects and CLASS_TEACHER-only rows; the backend
+   * auto-fills or ignores accordingly.
    */
   formComponentKey: string | null = null;
+  /**
+   * Create-mode multi-select: one teacher can own Theory + IA in one go.
+   * Each picked component fans out to its own SUBJECT_TEACHER row at
+   * save time (one row per (class × section × component)). Empty means
+   * "let the backend auto-fill" — only valid when the subject has a
+   * single eligible component, or all eligible ones should be assigned.
+   */
+  formComponentKeys: string[] = [];
   /** Components on the currently-chosen subject (for the picker). */
   formComponentChoices: Array<{ key: string; label: string }> = [];
   formRoleClass = false;
@@ -392,6 +399,9 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.formClassId = '';
     this.formSectionId = '';
     this.formSubjectId = '';
+    this.formComponentKey = null;
+    this.formComponentKeys = [];
+    this.formComponentChoices = [];
     this.formRoleClass = false;
     this.formRoleSubject = true;
     this.classTeacherClassId = '';
@@ -421,6 +431,7 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.formSectionIds = a.sectionId ? [a.sectionId] : [];
     this.formSubjectId = a.subjectId || '';
     this.formComponentKey = a.componentKey || null;
+    this.formComponentKeys = a.componentKey ? [a.componentKey] : [];
     // Repopulate the picker so the edit form shows the right options.
     this.refreshFormComponentChoices();
     this.formRoleClass = (a.roles || []).includes('CLASS_TEACHER');
@@ -734,6 +745,7 @@ export class TeacherAssignmentsComponent implements OnInit {
    */
   private refreshFormComponentChoices(): void {
     this.formComponentKey = null;
+    this.formComponentKeys = [];
     this.formComponentChoices = [];
     if (!this.formSubjectId) return;
     this.subjectService.getSubjectsByIds([this.formSubjectId]).subscribe(subs => {
@@ -741,6 +753,12 @@ export class TeacherAssignmentsComponent implements OnInit {
       const comps = sub?.components ?? [];
       if (comps.length > 1) {
         this.formComponentChoices = comps.map(c => ({ key: c.key, label: c.label }));
+        // Create-mode default: pre-select every component so the common
+        // case ("this teacher owns Math entirely — both Theory and IA")
+        // is one click. The admin can untick if they really want a slice.
+        if (!this.editingId) {
+          this.formComponentKeys = comps.map(c => c.key);
+        }
       }
     });
   }
@@ -821,34 +839,49 @@ export class TeacherAssignmentsComponent implements OnInit {
     }
 
     const requests: CreateTeacherAssignmentRequest[] = [];
-    // Build one SUBJECT_TEACHER row per explicitly-picked (class × section) pair.
+    // Build one SUBJECT_TEACHER row per explicitly-picked (class × section × component).
+    //
+    // Component handling:
+    //   • Single-component subject → picker is hidden, formComponentKeys is empty.
+    //     We push ONE request with componentKey undefined; backend auto-fills.
+    //   • Multi-component subject → admin pre-selects all components; they can
+    //     untick to slice. Each ticked component fans out to its own row.
     if (this.formRoleSubject) {
+      const componentKeys: Array<string | undefined> =
+          this.formComponentKeys.length > 0
+              ? this.formComponentKeys.slice()
+              : [undefined];
+
       if (this.formClassSectionKeys.length > 0) {
         for (const key of this.formClassSectionKeys) {
           const [classId, sectionId] = key.split('::');
           if (!classId || !sectionId) continue;
-          requests.push({
-            teacherId: this.formTeacherId,
-            academicYearId: this.selectedAcademicYearId,
-            classId,
-            sectionId,
-            subjectId: this.formSubjectId || undefined,
-            componentKey: this.formComponentKey || undefined,
-            roles: ['SUBJECT_TEACHER'],
-          });
+          for (const componentKey of componentKeys) {
+            requests.push({
+              teacherId: this.formTeacherId,
+              academicYearId: this.selectedAcademicYearId,
+              classId,
+              sectionId,
+              subjectId: this.formSubjectId || undefined,
+              componentKey,
+              roles: ['SUBJECT_TEACHER'],
+            });
+          }
         }
       } else {
         // No section picked at all — apply to each class as "whole class".
         for (const classId of this.formClassIds) {
-          requests.push({
-            teacherId: this.formTeacherId,
-            academicYearId: this.selectedAcademicYearId,
-            classId,
-            sectionId: undefined,
-            subjectId: this.formSubjectId || undefined,
-            componentKey: this.formComponentKey || undefined,
-            roles: ['SUBJECT_TEACHER'],
-          });
+          for (const componentKey of componentKeys) {
+            requests.push({
+              teacherId: this.formTeacherId,
+              academicYearId: this.selectedAcademicYearId,
+              classId,
+              sectionId: undefined,
+              subjectId: this.formSubjectId || undefined,
+              componentKey,
+              roles: ['SUBJECT_TEACHER'],
+            });
+          }
         }
       }
     }

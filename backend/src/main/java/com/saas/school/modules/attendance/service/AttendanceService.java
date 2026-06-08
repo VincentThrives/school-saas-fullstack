@@ -78,23 +78,49 @@ public class AttendanceService {
             // the system surface the real "subject not found" error.
             return req.getComponentKey();
         }
-        if (subject.getComponents().size() == 1) {
-            return subject.getComponents().get(0).getKey();
+
+        // ── Caller supplied a componentKey — validate it and use it.
+        if (req.getComponentKey() != null && !req.getComponentKey().isBlank()) {
+            Subject.Component target = subject.componentByKey(req.getComponentKey());
+            if (target == null) {
+                throw new IllegalArgumentException(
+                        "Component '" + req.getComponentKey() + "' not found on subject '"
+                                + subject.getName() + "'.");
+            }
+            if (!target.isTrackAttendance()) {
+                throw new IllegalArgumentException(
+                        "Component '" + target.getLabel() + "' is not attendance-tracked.");
+            }
+            return target.getKey();
         }
-        if (req.getComponentKey() == null || req.getComponentKey().isBlank()) {
+
+        // ── No componentKey supplied — auto-pick from attendance-tracked components.
+        // Math example: Theory (trackAttendance=true) + IA (trackAttendance=false).
+        // The teacher takes attendance for "Mathematics" → Theory is the only
+        // component that tracks attendance, so we silently pick it. No need to
+        // bother the UI with a component dropdown for the common case.
+        List<Subject.Component> tracked = subject.getComponents().stream()
+                .filter(c -> c != null && c.isTrackAttendance())
+                .toList();
+
+        if (tracked.isEmpty()) {
             throw new IllegalArgumentException(
-                    "Subject '" + subject.getName() + "' has multiple components; componentKey is required.");
+                    "Subject '" + subject.getName() + "' has no attendance-tracked components. "
+                            + "Configure at least one component with attendance tracking enabled.");
         }
-        Subject.Component target = subject.componentByKey(req.getComponentKey());
-        if (target == null) {
-            throw new IllegalArgumentException(
-                    "Component '" + req.getComponentKey() + "' not found on subject '" + subject.getName() + "'.");
+        if (tracked.size() == 1) {
+            // Most-common path. Auto-pick the only tracked component.
+            return tracked.get(0).getKey();
         }
-        if (!target.isTrackAttendance()) {
-            throw new IllegalArgumentException(
-                    "Component '" + target.getLabel() + "' is not attendance-tracked.");
-        }
-        return target.getKey();
+        // 2+ tracked components (e.g. Theory + Practical both track) — the
+        // caller has to disambiguate. Surface the available labels so the
+        // error message tells the admin which choices exist.
+        String labels = tracked.stream()
+                .map(Subject.Component::getLabel)
+                .collect(java.util.stream.Collectors.joining(", "));
+        throw new IllegalArgumentException(
+                "Subject '" + subject.getName() + "' has multiple attendance-tracked components ("
+                        + labels + "). Pick which one this attendance is for.");
     }
 
     // ── Batch attendance (1 document per class+section+date+period) ──

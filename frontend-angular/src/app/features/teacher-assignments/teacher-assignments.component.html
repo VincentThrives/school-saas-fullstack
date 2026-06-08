@@ -251,11 +251,21 @@
           </mat-select>
         </mat-form-field>
 
-        <!-- Component picker — only shown for multi-component subjects so a
-             teacher can own Theory while another owns Practical on the same
-             subject. Hidden for single-component subjects; the backend
-             auto-fills from the only component. -->
-        <mat-form-field appearance="outline" *ngIf="formComponentChoices.length > 0">
+        <!-- Component picker — only shown for multi-component subjects.
+             Create mode → multi-select so one teacher can own both Theory
+             and Internal Assessment on Math in one go (each ticked
+             component fans out to its own assignment row). Edit mode →
+             single-select since we're editing one existing row. -->
+        <mat-form-field appearance="outline" *ngIf="formComponentChoices.length > 0 && !editingId">
+          <mat-label>Components</mat-label>
+          <mat-select [(ngModel)]="formComponentKeys" multiple>
+            <mat-option *ngFor="let c of formComponentChoices" [value]="c.key">
+              {{ c.label }}
+            </mat-option>
+          </mat-select>
+          <mat-hint>Tick every slice this teacher owns (default: all)</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline" *ngIf="formComponentChoices.length > 0 && editingId">
           <mat-label>Component</mat-label>
           <mat-select [(ngModel)]="formComponentKey">
             <mat-option *ngFor="let c of formComponentChoices" [value]="c.key">

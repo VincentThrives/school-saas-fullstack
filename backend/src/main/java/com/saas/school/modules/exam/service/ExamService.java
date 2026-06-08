@@ -71,27 +71,46 @@ public class ExamService {
                     "Subject '" + subject.getName() + "' has no components configured.");
         }
 
-        if (comps.size() == 1) {
-            // Single-component subject — componentKey is optional; auto-fill.
-            if (req.getComponentKey() == null || req.getComponentKey().isBlank()) {
-                req.setComponentKey(comps.get(0).getKey());
+        // Caller supplied a key → validate it directly.
+        if (req.getComponentKey() != null && !req.getComponentKey().isBlank()) {
+            Subject.Component target = subject.componentByKey(req.getComponentKey());
+            if (target == null) {
+                throw new IllegalArgumentException(
+                        "Component '" + req.getComponentKey() + "' does not exist on subject '"
+                                + subject.getName() + "'.");
             }
-        } else if (req.getComponentKey() == null || req.getComponentKey().isBlank()) {
-            throw new IllegalArgumentException(
-                    "Subject '" + subject.getName() + "' has multiple components; componentKey is required.");
+            if (target.getAssessmentMode() == Subject.AssessmentMode.INTERNAL) {
+                throw new IllegalArgumentException(
+                        "Component '" + target.getLabel() + "' is INTERNAL — its marks come from "
+                                + "the Internal Marks form, not an exam.");
+            }
+            return;
         }
 
-        Subject.Component target = subject.componentByKey(req.getComponentKey());
-        if (target == null) {
+        // No key supplied — auto-pick from EXAM-mode components only (INTERNAL
+        // components have their own entry path so excluding them from this
+        // dropdown is correct). Math example: Theory (EXAM) + IA (INTERNAL) →
+        // only Theory is exam-eligible, auto-pick it. No componentKey needed.
+        List<Subject.Component> examComps = comps.stream()
+                .filter(c -> c != null && c.getAssessmentMode() == Subject.AssessmentMode.EXAM)
+                .toList();
+
+        if (examComps.isEmpty()) {
             throw new IllegalArgumentException(
-                    "Component '" + req.getComponentKey() + "' does not exist on subject '"
-                            + subject.getName() + "'.");
+                    "Subject '" + subject.getName() + "' has no exam-mode components. "
+                            + "Add at least one EXAM-mode component before scheduling an exam.");
         }
-        if (target.getAssessmentMode() == Subject.AssessmentMode.INTERNAL) {
-            throw new IllegalArgumentException(
-                    "Component '" + target.getLabel() + "' is INTERNAL — its marks come from the "
-                            + "Internal Marks form, not an exam.");
+        if (examComps.size() == 1) {
+            req.setComponentKey(examComps.get(0).getKey());
+            return;
         }
+        // 2+ exam-mode components (e.g. Theory + Practical) — caller must pick.
+        String labels = examComps.stream()
+                .map(Subject.Component::getLabel)
+                .collect(java.util.stream.Collectors.joining(", "));
+        throw new IllegalArgumentException(
+                "Subject '" + subject.getName() + "' has multiple exam-mode components ("
+                        + labels + "). Pick which one this exam is for.");
     }
 
     public Exam getExamById(String examId) {
