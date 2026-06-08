@@ -112,14 +112,15 @@ management:
       show-details: when-authorized
 
 # ── SMS module configuration ──────────────────────────────────────────
-# All real values come from environment variables on Render. The
-# global kill-switch (SMS_ENABLED) keeps the feature dormant until
-# you've registered DLT templates + MSG91 auth key. Even when enabled
-# globally, each tenant must be opted in by the SUPER_ADMIN — defence
-# in depth so a missing env var or wrong toggle can't accidentally
-# fire SMS or block expected ones.
+# All real values come from environment variables on Render. SMS_ENABLED
+# defaults to TRUE because the real on/off control is now per-tenant:
+# Super Admin enables individual schools via SMS Control and pastes
+# their DLT templates inline. Each tenant must still be opted in
+# (TenantSmsSettings.enabled), so an unsetup tenant can't accidentally
+# fire SMS. Override with SMS_ENABLED=false only for a true platform-
+# wide emergency stop (e.g. MSG91 outage, fraud investigation).
 sms:
-  enabled: ${SMS_ENABLED:false}
+  enabled: ${SMS_ENABLED:true}
   cost-per-sms-inr: ${SMS_COST_PER_INR:0.25}
   retry:
     max-attempts: ${SMS_RETRY_MAX:3}

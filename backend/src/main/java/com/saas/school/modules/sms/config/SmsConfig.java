@@ -33,7 +33,7 @@ import java.util.Map;
 public class SmsConfig {
 
     /** Hard global switch — when false, SmsService is a no-op. */
-    @Value("${sms.enabled:false}")
+    @Value("${sms.enabled:true}")
     private boolean enabled;
 
     @Value("${sms.msg91.auth-key:}")

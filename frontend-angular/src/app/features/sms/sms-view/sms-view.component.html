@@ -4,7 +4,12 @@
     subtitle="Track every SMS sent to parents and verify the pipeline.">
   </app-page-header>
 
-  <!-- ── Status card ─────────────────────────────────────────── -->
+  <!-- ── Combined status + templates card ──────────────────────
+       Single card showing the enable/disable state, this month's
+       budget usage, AND the per-trigger template availability
+       grid. The old "trigger pills" row (Absence / Exam / Custom)
+       got dropped — it duplicated the template badges below since
+       a configured template implies the trigger is wired. -->
   <mat-card class="sv-status-card">
     <div class="sv-status-header">
       <mat-icon>{{ features.smsEnabled() ? 'check_circle' : 'block' }}</mat-icon>
@@ -20,21 +25,6 @@
       </div>
     </div>
 
-    <div class="sv-triggers" *ngIf="features.smsEnabled() && settings">
-      <span class="sv-trigger" [class.sv-trigger--on]="settings.absenceAlertEnabled">
-        <mat-icon>{{ settings.absenceAlertEnabled ? 'check_circle' : 'remove_circle' }}</mat-icon>
-        Absence alerts to parents
-      </span>
-      <span class="sv-trigger" [class.sv-trigger--on]="settings.resultPublishEnabled">
-        <mat-icon>{{ settings.resultPublishEnabled ? 'check_circle' : 'remove_circle' }}</mat-icon>
-        Exam result notifications
-      </span>
-      <span class="sv-trigger" [class.sv-trigger--on]="settings.customNoticeEnabled">
-        <mat-icon>{{ settings.customNoticeEnabled ? 'check_circle' : 'remove_circle' }}</mat-icon>
-        Custom school notices
-      </span>
-    </div>
-
     <!-- Budget bar -->
     <div class="sv-budget" *ngIf="features.smsEnabled() && settings">
       <div class="sv-budget-line">
@@ -48,77 +38,49 @@
         </div>
       </div>
     </div>
-  </mat-card>
 
-  <!-- ── Available templates card ───────────────────────────── -->
-  <!-- Read-only badges showing each DLT-approved template configured by
-       the platform admin. School admins can't edit these — they just see
-       which triggers are ready to fire and which need attention. -->
-  <mat-card class="sv-templates-card" *ngIf="features.smsEnabled()">
-    <div class="sv-card-head">
-      <mat-icon>description</mat-icon>
-      <h3>Available templates</h3>
-    </div>
-    <p class="sv-card-sub">
-      Pre-approved SMS templates registered with the telecom DLT registry.
-      These are configured by your platform admin and shown here for reference.
-    </p>
-
-    <div class="sv-tpl-loading" *ngIf="isLoadingTemplates">
-      <mat-spinner diameter="24"></mat-spinner>
-    </div>
-
-    <div class="sv-tpl-grid" *ngIf="!isLoadingTemplates">
-      <div class="sv-tpl-badge" *ngFor="let b of templateBadges">
-        <div class="sv-tpl-header">
-          <mat-icon class="sv-tpl-icon">{{ b.icon }}</mat-icon>
-          <span class="sv-tpl-title">{{ b.title }}</span>
-        </div>
-        <ng-container *ngIf="templateFor(b.key) as tpl; else noTpl">
-          <span class="sv-tpl-pill"
-                [class.sv-tpl-pill--ready]="isTemplateReady(tpl)"
-                [class.sv-tpl-pill--missing]="!isTemplateReady(tpl)">
-            <mat-icon>{{ isTemplateReady(tpl) ? 'check_circle' : 'error' }}</mat-icon>
-            <ng-container *ngIf="isTemplateReady(tpl); else notReady">
-              Ready · sender {{ tpl.senderId }}
-            </ng-container>
-            <ng-template #notReady>Not configured</ng-template>
-          </span>
-        </ng-container>
-        <ng-template #noTpl>
-          <span class="sv-tpl-pill sv-tpl-pill--missing">
-            <mat-icon>error</mat-icon>
-            Not configured
-          </span>
-        </ng-template>
-        <span class="sv-tpl-caption">Configured by your platform admin</span>
+    <!-- Templates strip — the per-trigger badges live inside the
+         same status card now so the school admin sees "what's on"
+         and "what's wired" together at the top of the page. -->
+    <div class="sv-templates-section" *ngIf="features.smsEnabled()">
+      <div class="sv-card-head">
+        <mat-icon>description</mat-icon>
+        <h3>Available templates</h3>
       </div>
-    </div>
-  </mat-card>
+      <p class="sv-card-sub">
+        Pre-approved DLT templates configured by your platform admin.
+        A green badge means the trigger is ready to fire.
+      </p>
 
-  <!-- ── Test SMS card ──────────────────────────────────────── -->
-  <mat-card class="sv-test-card" *ngIf="features.smsEnabled()">
-    <div class="sv-card-head">
-      <mat-icon>sms</mat-icon>
-      <h3>Send a test SMS</h3>
-    </div>
-    <p class="sv-card-sub">
-      Fire a sample Absence Alert to your own phone to verify the SMS pipeline.
-      Real parents are not contacted by this test.
-    </p>
-    <div class="sv-test-row">
-      <mat-form-field appearance="outline" class="sv-test-field">
-        <mat-label>Your mobile number</mat-label>
-        <mat-icon matPrefix>phone</mat-icon>
-        <input matInput [(ngModel)]="testPhone" placeholder="9876543210" maxlength="13"/>
-      </mat-form-field>
-      <button mat-flat-button color="primary"
-              [disabled]="!canSendTest()"
-              (click)="sendTest()">
-        <mat-icon *ngIf="!isSendingTest">send</mat-icon>
-        <mat-spinner *ngIf="isSendingTest" diameter="18" class="sv-inline-spinner"></mat-spinner>
-        {{ isSendingTest ? 'Sending…' : 'Send Test SMS' }}
-      </button>
+      <div class="sv-tpl-loading" *ngIf="isLoadingTemplates">
+        <mat-spinner diameter="24"></mat-spinner>
+      </div>
+
+      <div class="sv-tpl-grid" *ngIf="!isLoadingTemplates">
+        <div class="sv-tpl-badge" *ngFor="let b of templateBadges">
+          <div class="sv-tpl-header">
+            <mat-icon class="sv-tpl-icon">{{ b.icon }}</mat-icon>
+            <span class="sv-tpl-title">{{ b.title }}</span>
+          </div>
+          <ng-container *ngIf="templateFor(b.key) as tpl; else noTpl">
+            <span class="sv-tpl-pill"
+                  [class.sv-tpl-pill--ready]="isTemplateReady(tpl)"
+                  [class.sv-tpl-pill--missing]="!isTemplateReady(tpl)">
+              <mat-icon>{{ isTemplateReady(tpl) ? 'check_circle' : 'error' }}</mat-icon>
+              <ng-container *ngIf="isTemplateReady(tpl); else notReady">
+                Ready · sender {{ tpl.senderId }}
+              </ng-container>
+              <ng-template #notReady>Not configured</ng-template>
+            </span>
+          </ng-container>
+          <ng-template #noTpl>
+            <span class="sv-tpl-pill sv-tpl-pill--missing">
+              <mat-icon>error</mat-icon>
+              Not configured
+            </span>
+          </ng-template>
+        </div>
+      </div>
     </div>
   </mat-card>
 
