@@ -41,6 +41,19 @@
   margin-right: 4px;
 }
 
+/* Class-section pill in the grouped Classes column.
+   Clickable (each chip opens edit for that specific assignment). */
+.cs-chip {
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin: 2px;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+.cs-chip:hover {
+  background-color: rgba(212, 168, 67, 0.18) !important;
+}
+
 .col-actions {
   width: 120px;
   text-align: right !important;

@@ -29,6 +29,21 @@ import {
 interface TeacherLite { teacherId: string; name: string; }
 interface SectionLite { sectionId: string; name: string; subjectIds?: string[]; }
 
+/**
+ * One grouped row in the compact assignments table. {@code items} carries
+ * the raw assignment docs so per-chip edit + bulk delete still operate
+ * on real DB rows.
+ */
+interface GroupedAssignmentRow {
+  key: string;
+  teacherId: string;
+  teacherDisplay: string;
+  subjectId: string | null;
+  subjectDisplay: string;
+  roles: string[];
+  items: TeacherSubjectAssignment[];
+}
+
 @Component({
   selector: 'app-teacher-assignments',
   standalone: true,
@@ -78,7 +93,14 @@ export class TeacherAssignmentsComponent implements OnInit {
 
   // Table
   dataSource = new MatTableDataSource<TeacherSubjectAssignment>([]);
-  displayedColumns = ['teacher', 'class', 'section', 'subject', 'roles', 'actions'];
+  /**
+   * Grouped view: one row per (teacher, subject, role-set). Replaces the
+   * old "one row per assignment" layout that exploded when a teacher
+   * taught the same subject across 4+ class-section pairs. Each group
+   * row carries its underlying assignments in {@code items} so click
+   * handlers can edit/delete the specific pill the admin clicked.
+   */
+  displayedColumns = ['teacher', 'subject', 'classes', 'roles', 'actions'];
   isLoading = false;
 
   // Form (right panel / modal)
@@ -465,6 +487,64 @@ export class TeacherAssignmentsComponent implements OnInit {
 
   onSearchChange(): void {
     this.dataSource.filter = (this.searchQuery || '').trim().toLowerCase();
+  }
+
+  /**
+   * Collapse the filtered assignment rows into one row per
+   * (teacher, subject, role-set). Drives the compact table view —
+   * a teacher who handles Kannada across 4 sections shows up as ONE
+   * row with 4 chips, not 4 rows. Recomputes on every read so the
+   * grouping stays consistent with the live dataSource filter state.
+   */
+  get groupedRows(): GroupedAssignmentRow[] {
+    // Honour the active mat-table filter (search box) by reading
+    // filteredData, not raw data — keeps "Search" working under grouping.
+    const rows = this.dataSource.filteredData || this.dataSource.data || [];
+    const byKey = new Map<string, GroupedAssignmentRow>();
+    for (const a of rows) {
+      const subjId = a.subjectId || '';
+      const rolesKey = (a.roles || []).slice().sort().join(',');
+      const key = `${a.teacherId}|${subjId}|${rolesKey}`;
+      let group = byKey.get(key);
+      if (!group) {
+        group = {
+          key,
+          teacherId: a.teacherId,
+          teacherDisplay: this.teacherName(a.teacherId),
+          subjectId: a.subjectId || null,
+          subjectDisplay: a.subjectId ? this.subjectLabel(a) : '—',
+          roles: this.rolesLabel(a.roles || []),
+          items: [],
+        };
+        byKey.set(key, group);
+      }
+      group.items.push(a);
+    }
+    // Sort each group's items by class+section so the chips read
+    // left-to-right in a predictable order.
+    for (const g of byKey.values()) {
+      g.items.sort((x: TeacherSubjectAssignment, y: TeacherSubjectAssignment) => {
+        const cx = this.classLabel(x) || '';
+        const cy = this.classLabel(y) || '';
+        const byClass = cx.localeCompare(cy, undefined, { numeric: true });
+        if (byClass !== 0) return byClass;
+        return (this.sectionLabel(x) || '').localeCompare(this.sectionLabel(y) || '');
+      });
+    }
+    return Array.from(byKey.values())
+      .sort((a, b) => {
+        const t = a.teacherDisplay.localeCompare(b.teacherDisplay);
+        if (t !== 0) return t;
+        return a.subjectDisplay.localeCompare(b.subjectDisplay);
+      });
+  }
+
+  /** Compact pill label for a single assignment: "1st-A", "2nd-B", or
+   *  just "1st" when no section is set. */
+  chipLabel(a: TeacherSubjectAssignment): string {
+    const cls = this.classLabel(a) || a.classId || '';
+    const sec = this.sectionLabel(a);
+    return sec ? `${cls}-${sec}` : cls;
   }
 
   private applyFilters(): void {
@@ -1088,6 +1168,63 @@ export class TeacherAssignmentsComponent implements OnInit {
         this.snackBar.open(err?.error?.message || 'Failed to delete', 'Close', { duration: 3000 });
       },
     });
+  }
+
+  /** Delete every assignment inside a grouped row. Used by the "Delete
+   *  all" action on the compact table — common case is "stop this teacher
+   *  from teaching this subject anywhere". Confirmation is the existing
+   *  delete dialog with a count-aware subtitle. */
+  confirmDeleteGroup(items: TeacherSubjectAssignment[]): void {
+    if (!items || items.length === 0) return;
+    if (items.length === 1) { this.confirmDelete(items[0]); return; }
+    // Reuse the existing dialog. Stash all targets on a sibling field
+    // we read in deleteAssignment when the dialog confirms.
+    this.deleteTarget = items[0];
+    this.deleteGroupTargets = items;
+    this.deleteDialogOpen = true;
+  }
+  /** Bulk targets — set by {@link confirmDeleteGroup}, drained by
+   *  {@link deleteAssignmentGroup}. Null when a single-row delete is
+   *  pending (the single-target path uses {@link deleteTarget} alone). */
+  deleteGroupTargets: TeacherSubjectAssignment[] | null = null;
+  /**
+   * Delete every assignment listed in {@link deleteGroupTargets} in
+   * sequence. Fires N HTTP DELETE calls (one per row) and refreshes the
+   * list once they all complete. Errors on individual rows are surfaced
+   * via snackbar but don't abort the rest of the batch.
+   */
+  deleteAssignmentGroup(): void {
+    const targets = this.deleteGroupTargets;
+    if (!targets || targets.length === 0) return;
+    this.isDeleting = true;
+    let completed = 0;
+    let ok = 0;
+    const errs: string[] = [];
+    for (const t of targets) {
+      this.api.deleteTeacherAssignment(t.assignmentId).subscribe({
+        next: () => {
+          ok++;
+          if (++completed === targets.length) finish.call(this);
+        },
+        error: (err) => {
+          errs.push(err?.error?.message || 'Failed');
+          if (++completed === targets.length) finish.call(this);
+        },
+      });
+    }
+    function finish(this: TeacherAssignmentsComponent) {
+      this.isDeleting = false;
+      this.deleteGroupTargets = null;
+      this.cancelDelete();
+      if (errs.length === 0) {
+        this.snackBar.open(`Removed ${ok} assignment${ok === 1 ? '' : 's'}`, 'Close', { duration: 2500 });
+      } else if (ok > 0) {
+        this.snackBar.open(`Removed ${ok}, ${errs.length} failed. ${errs[0]}`, 'Close', { duration: 4000 });
+      } else {
+        this.snackBar.open(errs[0] || 'Failed to delete', 'Close', { duration: 3500 });
+      }
+      this.loadAssignments();
+    }
   }
 
   // ── Carry-forward ──────────────────────────────────────────────────
