@@ -41,7 +41,7 @@ public class AuthService {
     @Autowired private AuditService auditService;
     @Autowired private JavaMailSender mailSender;
 
-    @Value("${app.jwt.refresh-token-expiry-ms:604800000}")
+    @Value("${app.jwt.refresh-token-expiry-ms:2592000000}")
     private long refreshTokenExpiryMs;
 
     // ── Tenant Login ───────────────────────────────────────────────
@@ -172,7 +172,7 @@ public class AuthService {
             String newRefresh = jwtUtil.generateRefreshToken(userId, null, UserRole.SUPER_ADMIN);
             admin.setRefreshToken(passwordEncoder.encode(newRefresh));
             // Roll the audit clock forward — a user who keeps using the app
-            // never crosses the 7-day idle threshold. Without this update the
+            // never crosses the idle threshold. Without this update the
             // metadata would still reflect the original login time, even
             // though the JWT itself is fresh.
             admin.setRefreshTokenExpiresAt(Instant.now().plusMillis(refreshTokenExpiryMs));
@@ -197,7 +197,7 @@ public class AuthService {
         String newAccess  = jwtUtil.generateAccessToken(userId, tenantId, user.getRole(), tenant.getFeatureFlags());
         String newRefresh = jwtUtil.generateRefreshToken(userId, tenantId, user.getRole());
         user.setRefreshToken(passwordEncoder.encode(newRefresh));
-        // Rolling 7-day window — every successful refresh resets the clock.
+        // Rolling refresh window — every successful refresh resets the clock.
         // The JWT itself already carries a fresh expiry from generateRefreshToken;
         // we sync the User doc so admin audit screens reflect the same window.
         user.setRefreshTokenExpiresAt(Instant.now().plusMillis(refreshTokenExpiryMs));

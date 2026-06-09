@@ -37,7 +37,7 @@ app:
   jwt:
     secret: ${JWT_SECRET:ThisIsAVeryLongSecretKeyForJWTTokenSigningMustBe256BitsAtMinimum!!}
     access-token-expiry-ms: ${JWT_ACCESS_EXPIRY:86400000}      # 24 hours (dev-friendly)
-    refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY:604800000}  # 7 days
+    refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY:2592000000}  # 30 days (rolling — clock resets on every refresh)
     super-admin-access-expiry-ms: ${SA_ACCESS_EXPIRY:86400000} # 24 hours (dev-friendly)
 
   # File storage
