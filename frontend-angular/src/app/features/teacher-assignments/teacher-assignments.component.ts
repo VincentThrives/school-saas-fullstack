@@ -839,26 +839,28 @@ export class TeacherAssignmentsComponent implements OnInit {
   }
 
   /** Build the searchable (class × section) list + the subject catalog.
-   *  Edit mode → single class's sections (for the legacy Section dropdown).
-   *  Create mode → every section of every class in the selected AY, plus
-   *    the subject-to-pair index used for filtering. */
+   *  Edit and Add now share the same multi-select pair grid, so both
+   *  modes fall through to the create-mode body below.
+   *
+   *  Still populates the legacy formSectionOptions array for any code
+   *  paths that still read it. */
   private recomputeFormSectionOptions(): void {
     if (this.editingId) {
-      // Edit mode retains the original simple list.
+      // Keep formSectionOptions in sync for any legacy reads, but DO NOT
+      // short-circuit the pair-grid build — edit mode now uses the same
+      // multi-select Classes & Sections dropdown as Add.
       const cls = this.classes.find(c => c.classId === this.formClassId);
-      if (!cls || !cls.sections) {
+      if (cls && cls.sections) {
+        this.formSectionOptions = (cls.sections as any[]).map(s => ({
+          sectionId: s.sectionId, name: s.name, subjectIds: s.subjectIds,
+        }));
+      } else {
         this.formSectionOptions = [];
-        this.formClassSectionOptions = [];
-        return;
       }
-      this.formSectionOptions = (cls.sections as any[]).map(s => ({
-        sectionId: s.sectionId, name: s.name, subjectIds: s.subjectIds,
-      }));
-      this.formClassSectionOptions = [];
-      return;
+      // Fall through to build formClassSectionOptions from the full AY.
     }
 
-    // Create mode — one row per (class, section) pair across the whole year.
+    // Build one row per (class, section) pair across the whole AY.
     type Pair = {
       key: string; classId: string; sectionId: string;
       classLabel: string; sectionLabel: string; label: string; search: string;
