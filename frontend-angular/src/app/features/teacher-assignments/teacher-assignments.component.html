@@ -90,7 +90,7 @@
        teacher header to expand; rows inside have their own actions. -->
   <mat-card class="table-card" *ngIf="!isLoading">
     <mat-accordion class="ta-accordion" multi>
-      <mat-expansion-panel *ngFor="let panel of teacherAccordion" class="ta-panel">
+      <mat-expansion-panel *ngFor="let panel of teacherPanels; trackBy: trackTeacherPanel" class="ta-panel">
         <mat-expansion-panel-header>
           <mat-panel-title>
             <mat-icon class="teacher-icon">person</mat-icon>
@@ -102,7 +102,7 @@
           </mat-panel-description>
         </mat-expansion-panel-header>
 
-        <div class="ta-subject-row" *ngFor="let g of panel.subjects">
+        <div class="ta-subject-row" *ngFor="let g of panel.subjects; trackBy: trackSubjectGroup">
           <div class="ta-subject-main">
             <div class="ta-subject-title">
               <strong>{{ g.subjectDisplay }}</strong>
@@ -111,7 +111,7 @@
               </mat-chip-set>
             </div>
             <mat-chip-set class="ta-class-chips">
-              <mat-chip *ngFor="let pill of chipsForGroup(g)"
+              <mat-chip *ngFor="let pill of g.chips; trackBy: trackChipPill"
                         class="cs-chip"
                         [matTooltip]="pill.count > 1
                           ? 'Edit (' + pill.count + ' components behind this chip)'
@@ -138,7 +138,7 @@
       </mat-expansion-panel>
     </mat-accordion>
 
-    <div class="empty-state" *ngIf="!isLoading && teacherAccordion.length === 0">
+    <div class="empty-state" *ngIf="!isLoading && teacherPanels.length === 0">
       <mat-icon class="empty-icon">assignment_ind</mat-icon>
       <p class="empty-title">No assignments for this year</p>
       <p class="empty-subtitle">Click "Add Assignment" or carry forward from a previous year</p>

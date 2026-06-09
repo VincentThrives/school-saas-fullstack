@@ -43,6 +43,14 @@ interface GroupedAssignmentRow {
   subjectDisplay: string;
   roles: string[];
   items: TeacherSubjectAssignment[];
+  /** Pre-computed pills so the template doesn't recompute on every CD
+   *  cycle (the previous getter was triggering an infinite render loop). */
+  chips: Array<{
+    key: string;
+    label: string;
+    count: number;
+    first: TeacherSubjectAssignment;
+  }>;
 }
 
 /**
@@ -107,15 +115,16 @@ export class TeacherAssignmentsComponent implements OnInit {
 
   // Table
   dataSource = new MatTableDataSource<TeacherSubjectAssignment>([]);
-  /**
-   * Grouped view: one row per (teacher, subject, role-set). Replaces the
-   * old "one row per assignment" layout that exploded when a teacher
-   * taught the same subject across 4+ class-section pairs. Each group
-   * row carries its underlying assignments in {@code items} so click
-   * handlers can edit/delete the specific pill the admin clicked.
-   */
   displayedColumns = ['teacher', 'subject', 'classes', 'roles', 'actions'];
   isLoading = false;
+
+  /**
+   * Pre-computed accordion model. Populated by {@link rebuildAccordion},
+   * which runs after every load/filter/search change. Was previously a
+   * getter; that returned fresh objects on every CD cycle and Angular
+   * spun into an infinite render loop on the teacher-assignments page.
+   */
+  teacherPanels: TeacherAccordionGroup[] = [];
 
   // Form (right panel / modal)
   formOpen = false;
@@ -299,7 +308,9 @@ export class TeacherAssignmentsComponent implements OnInit {
   }
 
   loadAssignments(): void {
-    if (!this.selectedAcademicYearId) { this.allAssignments = []; this.dataSource.data = []; return; }
+    if (!this.selectedAcademicYearId) {
+      this.allAssignments = []; this.dataSource.data = []; this.teacherPanels = []; return;
+    }
     this.isLoading = true;
     this.api.getTeacherAssignments({ academicYearId: this.selectedAcademicYearId }).subscribe({
       next: (res) => {
@@ -307,7 +318,10 @@ export class TeacherAssignmentsComponent implements OnInit {
         this.applyFilters();
         this.isLoading = false;
       },
-      error: () => { this.allAssignments = []; this.dataSource.data = []; this.isLoading = false; },
+      error: () => {
+        this.allAssignments = []; this.dataSource.data = []; this.teacherPanels = [];
+        this.isLoading = false;
+      },
     });
   }
 
@@ -501,25 +515,28 @@ export class TeacherAssignmentsComponent implements OnInit {
 
   onSearchChange(): void {
     this.dataSource.filter = (this.searchQuery || '').trim().toLowerCase();
+    this.rebuildAccordion();
   }
 
   /**
-   * Collapse the filtered assignment rows into one row per
-   * (teacher, subject, role-set). Drives the compact table view —
-   * a teacher who handles Kannada across 4 sections shows up as ONE
-   * row with 4 chips, not 4 rows. Recomputes on every read so the
-   * grouping stays consistent with the live dataSource filter state.
+   * Recompute {@link teacherPanels} from the current dataSource state.
+   * Must be called after any change to dataSource.data or dataSource.filter
+   * — otherwise the accordion shows stale groupings. Called from
+   * applyFilters() + onSearchChange() which between them cover every
+   * mutation path.
+   *
+   * <p>Designed to run quickly: a single pass over the filtered list
+   * builds both subject groups and teacher panels. Chip dedupe runs in
+   * the same loop so we don't walk items twice.
    */
-  get groupedRows(): GroupedAssignmentRow[] {
-    // Honour the active mat-table filter (search box) by reading
-    // filteredData, not raw data — keeps "Search" working under grouping.
+  private rebuildAccordion(): void {
     const rows = this.dataSource.filteredData || this.dataSource.data || [];
-    const byKey = new Map<string, GroupedAssignmentRow>();
+    const subjectGroups = new Map<string, GroupedAssignmentRow>();
     for (const a of rows) {
       const subjId = a.subjectId || '';
       const rolesKey = (a.roles || []).slice().sort().join(',');
       const key = `${a.teacherId}|${subjId}|${rolesKey}`;
-      let group = byKey.get(key);
+      let group = subjectGroups.get(key);
       if (!group) {
         group = {
           key,
@@ -529,41 +546,41 @@ export class TeacherAssignmentsComponent implements OnInit {
           subjectDisplay: a.subjectId ? this.subjectLabel(a) : '—',
           roles: this.rolesLabel(a.roles || []),
           items: [],
+          chips: [],
         };
-        byKey.set(key, group);
+        subjectGroups.set(key, group);
       }
       group.items.push(a);
     }
-    // Sort each group's items by class+section so the chips read
-    // left-to-right in a predictable order.
-    for (const g of byKey.values()) {
-      g.items.sort((x: TeacherSubjectAssignment, y: TeacherSubjectAssignment) => {
+    // Sort each group's items by class+section, then dedupe chips by
+    // (classId, sectionId) — two assignment docs for the same pair (one
+    // per componentKey, e.g. Theory + IA on Math 1st-A) collapse into
+    // one chip with an ×2 badge.
+    for (const g of subjectGroups.values()) {
+      g.items.sort((x, y) => {
         const cx = this.classLabel(x) || '';
         const cy = this.classLabel(y) || '';
         const byClass = cx.localeCompare(cy, undefined, { numeric: true });
         if (byClass !== 0) return byClass;
         return (this.sectionLabel(x) || '').localeCompare(this.sectionLabel(y) || '');
       });
+      const byPair = new Map<string, GroupedAssignmentRow['chips'][number]>();
+      for (const a of g.items) {
+        const k = `${a.classId || ''}::${a.sectionId || ''}`;
+        const existing = byPair.get(k);
+        if (existing) { existing.count++; continue; }
+        byPair.set(k, {
+          key: k,
+          label: this.chipLabel(a),
+          count: 1,
+          first: a,
+        });
+      }
+      g.chips = Array.from(byPair.values());
     }
-    return Array.from(byKey.values())
-      .sort((a, b) => {
-        const t = a.teacherDisplay.localeCompare(b.teacherDisplay);
-        if (t !== 0) return t;
-        return a.subjectDisplay.localeCompare(b.subjectDisplay);
-      });
-  }
-
-  /**
-   * Accordion view of the same data: teachers on the outside, their
-   * (subject, role) groups nested inside. Sidesteps the chip vs
-   * action-column overlap problem entirely — each subject group has
-   * its OWN action buttons inside the expanded panel, not in a shared
-   * table column.
-   */
-  get teacherAccordion(): TeacherAccordionGroup[] {
-    const groups = this.groupedRows; // already filter-aware
+    // Roll subject groups up into teacher panels.
     const byTeacher = new Map<string, TeacherAccordionGroup>();
-    for (const g of groups) {
+    for (const g of subjectGroups.values()) {
       let panel = byTeacher.get(g.teacherId);
       if (!panel) {
         panel = {
@@ -577,7 +594,11 @@ export class TeacherAssignmentsComponent implements OnInit {
       panel.subjects.push(g);
       panel.totalAssignments += g.items.length;
     }
-    return Array.from(byTeacher.values())
+    // Sort panels by teacher name, subjects inside each panel by name.
+    for (const p of byTeacher.values()) {
+      p.subjects.sort((a, b) => a.subjectDisplay.localeCompare(b.subjectDisplay));
+    }
+    this.teacherPanels = Array.from(byTeacher.values())
       .sort((a, b) => a.teacherDisplay.localeCompare(b.teacherDisplay));
   }
 
@@ -589,37 +610,11 @@ export class TeacherAssignmentsComponent implements OnInit {
     return sec ? `${cls}-${sec}` : cls;
   }
 
-  /**
-   * Compact pill view of a grouped row: one chip per (class, section)
-   * pair instead of one per assignment doc. A teacher with both Theory
-   * and IA on Math 1st-A becomes two assignment rows in the DB but ONE
-   * chip on this page, with a small "(2)" badge so the admin knows
-   * there's more behind it.
-   *
-   * {@code count} is the number of underlying assignment docs that
-   * collapsed into this chip. {@code first} is the doc the chip's
-   * click handler edits (and that the delete batch routes through).
-   */
-  chipsForGroup(g: GroupedAssignmentRow): Array<{
-    key: string;
-    label: string;
-    count: number;
-    first: TeacherSubjectAssignment;
-  }> {
-    const byPair = new Map<string, {
-      key: string;
-      label: string;
-      count: number;
-      first: TeacherSubjectAssignment;
-    }>();
-    for (const a of g.items) {
-      const key = `${a.classId || ''}::${a.sectionId || ''}`;
-      const existing = byPair.get(key);
-      if (existing) { existing.count++; continue; }
-      byPair.set(key, { key, label: this.chipLabel(a), count: 1, first: a });
-    }
-    return Array.from(byPair.values());
-  }
+  /** trackBy helpers — stable identity so Angular doesn't tear down +
+   *  rebuild expansion panels / chips on every CD cycle. */
+  trackTeacherPanel = (_: number, p: TeacherAccordionGroup) => p.teacherId;
+  trackSubjectGroup = (_: number, g: GroupedAssignmentRow) => g.key;
+  trackChipPill    = (_: number, c: { key: string }) => c.key;
 
   private applyFilters(): void {
     let list = this.allAssignments;
@@ -628,6 +623,7 @@ export class TeacherAssignmentsComponent implements OnInit {
     if (this.filterTeacherId) list = list.filter(a => a.teacherId === this.filterTeacherId);
     this.dataSource.data = list;
     this.dataSource.filter = (this.searchQuery || '').trim().toLowerCase();
+    this.rebuildAccordion();
   }
 
   /** Strict filter: only classes that belong to the selected academic year.
