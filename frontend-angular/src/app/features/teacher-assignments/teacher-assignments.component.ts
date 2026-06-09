@@ -123,6 +123,10 @@ export class TeacherAssignmentsComponent implements OnInit {
   formClassOptions: SchoolClass[] = [];
   formSectionOptions: SectionLite[] = [];
   formSubjectOptions: { id: string; name: string }[] = [];
+  /** Raw subject metadata kept around so we can re-derive
+   *  {@link formSubjectOptions} whenever either subjects OR classes
+   *  arrive — order doesn't matter, both feed the label rebuild. */
+  private rawSubjects: Array<{ id: string; name: string; assignments: any[] }> = [];
 
   /** Flat list of (class, section) pairs for the multi-select in create mode.
    *  Values are encoded as "classId::sectionId" so each pair is distinct.
@@ -190,11 +194,12 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.loadSubjectsDirect();
 
     // Then bind to the shared service so future updates from Subjects page
-    // propagate here live.
+    // propagate here live. Pass assignments through so applySubjectOptions
+    // can disambiguate duplicate names with a class-list suffix.
     this.subjectService.getSubjects().subscribe((list) => {
       if (!list || list.length === 0) return;
       this.applySubjectOptions(list.map(s => ({
-        id: s.subjectId, name: s.name,
+        id: s.subjectId, name: s.name, assignments: (s as any).assignments || [],
       })));
     });
     this.api.getClasses().subscribe((res) => {
@@ -202,6 +207,12 @@ export class TeacherAssignmentsComponent implements OnInit {
       this.recomputeFormClassOptions();
       this.recomputeFilterClassOptions();
       this.recomputeFormSectionOptions();
+      // Classes may have loaded AFTER the subject list — in that case the
+      // earlier applySubjectOptions ran with an empty classes array and the
+      // disambiguation suffix came out blank. Rebuild labels now that
+      // classes are available so duplicate names finally show their class
+      // suffix.
+      this.rebuildSubjectOptionLabels();
     });
     this.api.getAcademicYears().subscribe((res) => {
       this.academicYears = res.data || [];
@@ -323,42 +334,46 @@ export class TeacherAssignmentsComponent implements OnInit {
   }
 
   /**
-   * Merge a fresh list of subjects into formSubjectOptions, de-duping by id.
-   * When two subject docs share a name (legacy data — the new backend
-   * validator blocks duplicates going forward), suffix each label with
-   * its assigned class names so the admin can tell them apart in the
-   * dropdown. "Mathematics" + "Mathematics" becomes "Mathematics (1st, 2nd)"
-   * and "Mathematics (2nd, 3rd)".
+   * Cache a fresh batch of subjects into {@link rawSubjects} (de-duped by
+   * id) and rebuild the dropdown labels. Called from both load paths
+   * (direct API fetch + SubjectService broadcast). Idempotent — the
+   * lookup map dedupes regardless of which source fired first.
    */
   private applySubjectOptions(list: Array<{ id: string; name: string; assignments?: any[] }>): void {
     if (!list || list.length === 0) return;
-    type Entry = { id: string; name: string; assignments: any[] };
-    const byId = new Map<string, Entry>();
-    // Preserve previously-added entries (we don't carry their assignments,
-    // so they'll fall through to plain names — but the new list usually
-    // supersedes anyway).
-    for (const existing of this.formSubjectOptions) {
-      byId.set(existing.id, { id: existing.id, name: existing.name, assignments: [] });
-    }
+    const byId = new Map<string, { id: string; name: string; assignments: any[] }>();
+    for (const existing of this.rawSubjects) byId.set(existing.id, existing);
     for (const s of list) {
       if (!s.id || !s.name) continue;
       byId.set(s.id, { id: s.id, name: s.name, assignments: s.assignments || [] });
     }
+    this.rawSubjects = Array.from(byId.values());
+    this.rebuildSubjectOptionLabels();
+  }
 
-    // Group by lowercase-trimmed name to find collisions.
+  /**
+   * Derive {@link formSubjectOptions} from {@link rawSubjects} +
+   * {@link classes}. When two subject docs share a name, suffix each
+   * label with its assigned class names so the dropdown reads
+   * "Sanskrit (1st)" vs "Sanskrit (1st, 2nd)" instead of two
+   * indistinguishable "Sanskrit" rows.
+   *
+   * Safe to call before classes load — falls back to plain names until
+   * the class lookup is ready, then the next call re-applies suffixes.
+   */
+  private rebuildSubjectOptionLabels(): void {
+    if (!this.rawSubjects.length) { this.formSubjectOptions = []; return; }
     const nameCounts = new Map<string, number>();
-    for (const entry of byId.values()) {
+    for (const entry of this.rawSubjects) {
       const key = entry.name.trim().toLowerCase();
       nameCounts.set(key, (nameCounts.get(key) || 0) + 1);
     }
-
-    this.formSubjectOptions = Array.from(byId.values())
+    this.formSubjectOptions = this.rawSubjects
       .map((entry) => {
         const key = entry.name.trim().toLowerCase();
         if ((nameCounts.get(key) || 0) < 2) {
           return { id: entry.id, name: entry.name };
         }
-        // Duplicate name — append the class list as a disambiguator.
         const classNames = (entry.assignments || [])
           .map((a: any) => this.classes.find((c) => c.classId === a.classId)?.name)
           .filter((n: any): n is string => !!n);
