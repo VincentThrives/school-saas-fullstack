@@ -701,20 +701,24 @@ export class TeacherAssignmentsComponent implements OnInit {
   openEditForm(a: TeacherSubjectAssignment): void {
     this.editingId = a.assignmentId;
     this.formTeacherId = a.teacherId;
-    // In edit mode we stick to single-value. Mirror to the array fields
-    // so templates that read the multi-select still see the same value.
+    // Edit and Add now share one form. Pre-fill the SAME multi-select
+    // fields with the row's current values: one class-section pair, one
+    // component, the row's role set. Admin can then add or remove pairs
+    // and components, and the save logic deletes the old row + creates
+    // new ones to match.
     this.formClassId = a.classId;
     this.formClassIds = a.classId ? [a.classId] : [];
     this.formSectionId = a.sectionId || '';
     this.formSectionIds = a.sectionId ? [a.sectionId] : [];
+    this.formClassSectionKeys = (a.classId && a.sectionId)
+        ? [`${a.classId}::${a.sectionId}`]
+        : [];
     this.formSubjectId = a.subjectId || '';
     this.formComponentKey = a.componentKey || null;
     this.formComponentKeys = a.componentKey ? [a.componentKey] : [];
-    // Repopulate the picker so the edit form shows the right options.
     this.refreshFormComponentChoices();
     this.formRoleClass = (a.roles || []).includes('CLASS_TEACHER');
     this.formRoleSubject = (a.roles || []).includes('SUBJECT_TEACHER');
-    // When editing a Class Teacher row, pre-fill the class-teacher pickers.
     this.classTeacherClassId = this.formRoleClass ? a.classId : '';
     this.classTeacherSectionId = this.formRoleClass ? (a.sectionId || '') : '';
     this.recomputeFormClassOptions();
@@ -1051,42 +1055,60 @@ export class TeacherAssignmentsComponent implements OnInit {
       return;
     }
 
-    // ── Edit mode: single row, single class + section ─────────────
+    // ── Edit mode: same form layout as Add. Implemented as
+    //    "delete the row being edited → fan out new rows from the
+    //    current multi-selects". Lets the admin add or remove
+    //    class-section pairs and components from a single dialog,
+    //    matching the Add flow exactly.
     if (this.editingId) {
-      if (!this.formClassId) {
-        this.snackBar.open('Select a class.', 'Close', { duration: 2500 });
+      if (this.formClassSectionKeys.length === 0) {
+        this.snackBar.open('Pick at least one class–section pair.', 'Close', { duration: 2500 });
         return;
       }
       if (this.formRoleSubject && !this.formSubjectId) {
         this.snackBar.open('Subject Teacher role needs a subject.', 'Close', { duration: 2500 });
         return;
       }
-      const roles: TeacherAssignmentRole[] = [];
-      if (this.formRoleClass) roles.push('CLASS_TEACHER');
-      if (this.formRoleSubject) roles.push('SUBJECT_TEACHER');
-      const req: CreateTeacherAssignmentRequest = {
-        teacherId: this.formTeacherId,
-        academicYearId: this.selectedAcademicYearId,
-        classId: this.formClassId,
-        sectionId: this.formSectionId || undefined,
-        subjectId: this.formSubjectId || undefined,
-        roles,
-      };
       this.isSaving = true;
-      this.api.updateTeacherAssignment(this.editingId, req).subscribe({
+      const oldId = this.editingId;
+      // Delete the original assignment doc first; on success, fan out
+      // new ones from the (class-section × component) multi-selects.
+      this.api.deleteTeacherAssignment(oldId).subscribe({
         next: () => {
-          this.isSaving = false;
-          this.snackBar.open('Assignment updated', 'Close', { duration: 2000 });
-          this.closeForm();
-          this.loadAssignments();
+          this.editingId = null;
+          this.saveCreatePath();
         },
         error: (err) => {
           this.isSaving = false;
-          this.snackBar.open(err?.error?.message || 'Failed to save assignment', 'Close', { duration: 3000 });
+          this.snackBar.open(err?.error?.message || 'Failed to update', 'Close', { duration: 3000 });
         },
       });
       return;
     }
+    this.saveCreatePath();
+  }
+
+  /**
+   * Extracted from the bottom of saveForm — the create-mode fan-out.
+   * Reused by edit mode after the original row has been deleted, so
+   * the multi-select Add form is the single source of truth for what
+   * assignments end up in the DB.
+   */
+  private saveCreatePath(): void {
+    // Sync the flat id arrays with the multi-select keys. The change
+    // handler (onFormClassSectionsChange) does this when the admin
+    // ticks chips; in edit mode we pre-fill keys programmatically and
+    // need to refresh the derived arrays before the fan-out below
+    // reads them.
+    const classIds = new Set<string>();
+    const sectionIds = new Set<string>();
+    for (const key of this.formClassSectionKeys) {
+      const [cId, sId] = key.split('::');
+      if (cId) classIds.add(cId);
+      if (sId) sectionIds.add(sId);
+    }
+    this.formClassIds = Array.from(classIds);
+    this.formSectionIds = Array.from(sectionIds);
 
     // ── Create mode: multi-select → many assignments ──────────────
     if (this.formClassIds.length === 0) {

@@ -161,7 +161,7 @@
         <!-- Create mode: Subject first (searchable), then Classes & Sections
              narrow by subject. Subjects come from the same source as the
              admin "Subjects" sidenav page (SubjectService). -->
-        <mat-form-field appearance="outline" *ngIf="!editingId">
+        <mat-form-field appearance="outline">
           <mat-label>Subject</mat-label>
           <mat-select [(ngModel)]="formSubjectId"
                       (selectionChange)="onFormSubjectChange()"
@@ -194,7 +194,7 @@
 
         <!-- Create mode: ONE searchable multi-select for (class × section) pairs
              where the selected subject is taught. -->
-        <mat-form-field appearance="outline" class="span-2" *ngIf="!editingId">
+        <mat-form-field appearance="outline" class="span-2">
           <mat-label>Classes & Sections</mat-label>
           <mat-select multiple
                       [(ngModel)]="formClassSectionKeys"
@@ -234,36 +234,9 @@
           </mat-hint>
         </mat-form-field>
 
-        <!-- Edit mode: single class + single section + single subject. -->
-        <mat-form-field appearance="outline" *ngIf="editingId">
-          <mat-label>Class</mat-label>
-          <mat-select [(ngModel)]="formClassId" (selectionChange)="onFormClassChange()">
-            <mat-option *ngFor="let c of formClassOptions" [value]="c.classId">{{ c.name }}</mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline" *ngIf="editingId">
-          <mat-label>Section (optional)</mat-label>
-          <mat-select [(ngModel)]="formSectionId" [disabled]="!formClassId" (selectionChange)="onFormSectionChange()">
-            <mat-option value="">Any / Whole class</mat-option>
-            <mat-option *ngFor="let s of formSectionOptions" [value]="s.sectionId">{{ s.name }}</mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline" *ngIf="editingId">
-          <mat-label>Subject</mat-label>
-          <mat-select [(ngModel)]="formSubjectId"
-                      (selectionChange)="onFormSubjectChange()"
-                      [disabled]="!formClassId">
-            <mat-option value="">No subject (for Class Teacher only)</mat-option>
-            <mat-option *ngFor="let s of formSubjectOptions" [value]="s.id">{{ s.name }}</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Component picker — only shown for multi-component subjects.
-             Create mode → multi-select so one teacher can own both Theory
-             and Internal Assessment on Math in one go (each ticked
-             component fans out to its own assignment row). Edit mode →
-             single-select since we're editing one existing row. -->
-        <mat-form-field appearance="outline" *ngIf="formComponentChoices.length > 0 && !editingId">
+        <!-- Components multi-select — same control in Add and Edit. Edit
+             pre-ticks the row's component; admin can add/remove. -->
+        <mat-form-field appearance="outline" *ngIf="formComponentChoices.length > 0">
           <mat-label>Components</mat-label>
           <mat-select [(ngModel)]="formComponentKeys" multiple>
             <mat-option *ngFor="let c of formComponentChoices" [value]="c.key">
@@ -271,15 +244,6 @@
             </mat-option>
           </mat-select>
           <mat-hint>Tick every slice this teacher owns (default: all)</mat-hint>
-        </mat-form-field>
-        <mat-form-field appearance="outline" *ngIf="formComponentChoices.length > 0 && editingId">
-          <mat-label>Component</mat-label>
-          <mat-select [(ngModel)]="formComponentKey">
-            <mat-option *ngFor="let c of formComponentChoices" [value]="c.key">
-              {{ c.label }}
-            </mat-option>
-          </mat-select>
-          <mat-hint>Which slice of the subject this teacher owns</mat-hint>
         </mat-form-field>
       </div>
 
