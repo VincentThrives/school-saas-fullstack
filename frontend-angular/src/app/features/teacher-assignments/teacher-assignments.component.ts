@@ -126,7 +126,14 @@ export class TeacherAssignmentsComponent implements OnInit {
   /** Raw subject metadata kept around so we can re-derive
    *  {@link formSubjectOptions} whenever either subjects OR classes
    *  arrive — order doesn't matter, both feed the label rebuild. */
-  private rawSubjects: Array<{ id: string; name: string; assignments: any[] }> = [];
+  private rawSubjects: Array<{
+    id: string;
+    name: string;
+    assignments: any[];
+    /** Components on the subject — used to disambiguate the dropdown
+     *  label when two same-named subjects differ in component shape. */
+    components?: any[];
+  }> = [];
 
   /** Flat list of (class, section) pairs for the multi-select in create mode.
    *  Values are encoded as "classId::sectionId" so each pair is distinct.
@@ -199,7 +206,10 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.subjectService.getSubjects().subscribe((list) => {
       if (!list || list.length === 0) return;
       this.applySubjectOptions(list.map(s => ({
-        id: s.subjectId, name: s.name, assignments: (s as any).assignments || [],
+        id: s.subjectId,
+        name: s.name,
+        assignments: (s as any).assignments || [],
+        components: (s as any).components || [],
       })));
     });
     this.api.getClasses().subscribe((res) => {
@@ -322,9 +332,10 @@ export class TeacherAssignmentsComponent implements OnInit {
             .map((s: any) => ({
               id: s.subjectId || s.id,
               name: s.name as string,
-              // Carry assignments through so applySubjectOptions can
-              // disambiguate duplicate names with a class-list suffix.
+              // Carry assignments + components through so applySubjectOptions
+              // can disambiguate duplicate names with class AND component info.
               assignments: Array.isArray(s.assignments) ? s.assignments : [],
+              components: Array.isArray(s.components) ? s.components : [],
             }));
           this.applySubjectOptions(rawList);
         }
@@ -339,13 +350,20 @@ export class TeacherAssignmentsComponent implements OnInit {
    * (direct API fetch + SubjectService broadcast). Idempotent — the
    * lookup map dedupes regardless of which source fired first.
    */
-  private applySubjectOptions(list: Array<{ id: string; name: string; assignments?: any[] }>): void {
+  private applySubjectOptions(list: Array<{ id: string; name: string; assignments?: any[]; components?: any[] }>): void {
     if (!list || list.length === 0) return;
-    const byId = new Map<string, { id: string; name: string; assignments: any[] }>();
-    for (const existing of this.rawSubjects) byId.set(existing.id, existing);
+    const byId = new Map<string, { id: string; name: string; assignments: any[]; components: any[] }>();
+    for (const existing of this.rawSubjects) {
+      byId.set(existing.id, { ...existing, components: existing.components || [] });
+    }
     for (const s of list) {
       if (!s.id || !s.name) continue;
-      byId.set(s.id, { id: s.id, name: s.name, assignments: s.assignments || [] });
+      byId.set(s.id, {
+        id: s.id,
+        name: s.name,
+        assignments: s.assignments || [],
+        components: s.components || [],
+      });
     }
     this.rawSubjects = Array.from(byId.values());
     this.rebuildSubjectOptionLabels();
@@ -374,13 +392,41 @@ export class TeacherAssignmentsComponent implements OnInit {
         if ((nameCounts.get(key) || 0) < 2) {
           return { id: entry.id, name: entry.name };
         }
+        // Duplicate name — show BOTH the component shape (the functional
+        // difference between two same-named subjects) AND the class list
+        // (where each one applies). Admin should never have to guess
+        // which "Sanskrit" they're picking.
+        //   Sanskrit · Theory 100 · 1st, 2nd
+        //   Sanskrit · Theory 80 + IA 20 · 2nd
+        const compSummary = this.summariseComponents(entry.components || []);
         const classNames = (entry.assignments || [])
           .map((a: any) => this.classes.find((c) => c.classId === a.classId)?.name)
           .filter((n: any): n is string => !!n);
-        const suffix = classNames.length > 0 ? ` (${classNames.join(', ')})` : '';
-        return { id: entry.id, name: entry.name + suffix };
+        const parts = [entry.name];
+        if (compSummary) parts.push(compSummary);
+        if (classNames.length > 0) parts.push(classNames.join(', '));
+        return { id: entry.id, name: parts.join(' · ') };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Compact human-readable shape of a subject's components, used to
+   * differentiate same-named subjects in the dropdown. Examples:
+   *   [Theory 100]                     → "Theory 100"
+   *   [Theory 80, IA 20]               → "Theory 80 + IA 20"
+   *   [Theory 70, Practical 30]        → "Theory 70 + Practical 30"
+   *   []                               → "" (caller skips the suffix)
+   */
+  private summariseComponents(comps: any[]): string {
+    if (!comps || comps.length === 0) return '';
+    return comps
+      .map((c: any) => {
+        const label = c?.label || c?.key || '?';
+        const max = c?.maxMarks;
+        return (typeof max === 'number') ? `${label} ${max}` : label;
+      })
+      .join(' + ');
   }
 
   onFilterClassChange(): void {
