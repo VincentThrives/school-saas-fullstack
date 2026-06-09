@@ -66,6 +66,24 @@
 .col-actions {
   width: 120px;
   text-align: right !important;
+  // position+z-index guard so the chip-set above never paints over the
+  // action buttons (mat-chip ripple overlay can otherwise leak across
+  // the cell boundary and swallow clicks on the trash/edit icons).
+  position: relative;
+  z-index: 2;
+}
+
+/* Keep the chip set from overflowing into the Actions column. */
+.ta-table mat-chip-set {
+  max-width: 100%;
+  display: inline-flex;
+  flex-wrap: wrap;
+}
+
+/* Mat ripple on mat-chip can swallow clicks on neighbouring cells when
+   the ripple bounds extend past the chip's visible box. Constrain. */
+.ta-table mat-chip {
+  pointer-events: auto;
 }
 
 .loading-row {
