@@ -164,7 +164,7 @@ public class ClassController {
         normaliseAssignmentsFromLegacyFields(req);
         validateSubject(req);
         validateAssignments(req);
-        assertUniqueSubjectName(req.getName(), req.getAcademicYearId(), null);
+        assertNoOverlappingAssignment(req.getName(), req.getAcademicYearId(), req.getAssignments(), null);
         req.setSubjectId(UUID.randomUUID().toString());
         if (req.getPassRule() == null) req.setPassRule(Subject.PassRule.PER_COMPONENT);
         defaultComponentValues(req);
@@ -193,7 +193,7 @@ public class ClassController {
         validateAssignments(req);
         Subject existing = subjectRepo.findById(subjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found"));
-        assertUniqueSubjectName(req.getName(), req.getAcademicYearId(), subjectId);
+        assertNoOverlappingAssignment(req.getName(), req.getAcademicYearId(), req.getAssignments(), subjectId);
         existing.setName(req.getName());
         existing.setCode(req.getCode());
         existing.setAcademicYearId(req.getAcademicYearId());
@@ -425,29 +425,73 @@ public class ClassController {
     }
 
     /**
-     * Enforce one Subject per name per academic year. Without this rule
-     * the admin can create two "Mathematics" docs that mostly differ in
-     * class assignments — and downstream pickers (Teacher Assignment
-     * Subject dropdown, Exam form) show identical labels with no way to
-     * tell them apart. Match is case- and whitespace-insensitive.
+     * Reject a Subject if another doc with the same name in the same
+     * academic year already claims one of the same (classId, sectionId)
+     * pairs. Different classes with the same name are FINE — Class 10
+     * Math (Theory only) and Class 11 Math (Theory + Practical) are
+     * legitimately separate Subject docs because their components
+     * differ. We only block the case where the SAME class+section is
+     * mapped to two same-named Subject docs, because the downstream
+     * pickers (Teacher Assignment, Exam, Timetable) then show two
+     * indistinguishable "Mathematics" entries for that section.
      *
      * @param name           the incoming subject name (trimmed before query)
      * @param academicYearId the year we're checking within
+     * @param newAssignments class+section pairs the new/edited subject claims
      * @param ignoreId       subjectId of the doc being updated (so an edit
-     *                       that doesn't rename doesn't trip on itself);
-     *                       null for create.
+     *                       doesn't trip on itself); null for create.
      */
-    private void assertUniqueSubjectName(String name, String academicYearId, String ignoreId) {
+    private void assertNoOverlappingAssignment(
+            String name,
+            String academicYearId,
+            List<Subject.Assignment> newAssignments,
+            String ignoreId) {
         if (name == null || name.isBlank() || academicYearId == null || academicYearId.isBlank()) return;
+        if (newAssignments == null || newAssignments.isEmpty()) return;
         String trimmed = name.trim();
-        // Anchor + escape to make this a whole-name match (no "Math" hitting "Mathematics").
         String regex = "^" + java.util.regex.Pattern.quote(trimmed) + "$";
         List<Subject> hits = subjectRepo.findByNameRegexAndAcademicYearId(regex, academicYearId);
+
+        // Index the incoming class+section pairs for O(1) probes.
+        java.util.Set<String> newPairs = new java.util.HashSet<>();
+        java.util.Map<String, String> classLabel = new java.util.HashMap<>();
+        for (Subject.Assignment a : newAssignments) {
+            if (a == null || a.getClassId() == null || a.getSectionIds() == null) continue;
+            for (String secId : a.getSectionIds()) {
+                if (secId == null || secId.isBlank()) continue;
+                newPairs.add(a.getClassId() + "::" + secId);
+            }
+        }
+        if (newPairs.isEmpty()) return;
+
         for (Subject other : hits) {
             if (ignoreId != null && ignoreId.equals(other.getSubjectId())) continue;
-            throw new IllegalArgumentException(
-                    "Subject '" + trimmed + "' already exists for this academic year. "
-                  + "Edit the existing entry to add more class–section assignments instead of creating a duplicate.");
+            if (other.getAssignments() == null) continue;
+            for (Subject.Assignment a : other.getAssignments()) {
+                if (a == null || a.getClassId() == null || a.getSectionIds() == null) continue;
+                for (String secId : a.getSectionIds()) {
+                    if (secId == null || secId.isBlank()) continue;
+                    String key = a.getClassId() + "::" + secId;
+                    if (newPairs.contains(key)) {
+                        // Resolve a friendly class+section label for the error.
+                        String cls = classRepo.findById(a.getClassId())
+                                .map(c -> c.getName()).orElse(a.getClassId());
+                        // Section name lookup — fall through to id if class doc is missing.
+                        String secName = classRepo.findById(a.getClassId())
+                                .flatMap(c -> c.getSections() == null ? java.util.Optional.empty()
+                                        : c.getSections().stream()
+                                                .filter(s -> secId.equals(s.getSectionId()))
+                                                .findFirst()
+                                                .map(s -> s.getName()))
+                                .orElse(secId);
+                        throw new IllegalArgumentException(
+                                "Subject '" + trimmed + "' is already mapped to "
+                              + cls + " — Section " + secName
+                              + " through another entry. Either edit that existing entry to change its components, "
+                              + "or pick a different class/section here.");
+                    }
+                }
+            }
         }
     }
 
