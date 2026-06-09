@@ -161,13 +161,15 @@ export interface SendHolidayNoticeResponse {
 }
 
 /** Body for POST /api/v1/sms/event-notice — fired from the per-event
- *  "Send SMS" action on the school admin's Events page. */
+ *  "Send SMS" action on the school admin's Events page.
+ *  eventName usually carries "Name · Description" so var1 can show
+ *  both. eventTime is free-form ("10:00 AM"). */
 export interface SendEventNoticeRequest {
   audiences: SmsAudience[];
   classId?: string;
   eventName: string;
   eventDate: string;
-  venue: string;
+  eventTime: string;
   eventId?: string;
 }
 

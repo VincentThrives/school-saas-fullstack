@@ -59,7 +59,7 @@ export class EventsListComponent implements OnInit {
   smsDialogOpen = false;
   smsEvent: SchoolEvent | null = null;
   smsAudience: 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' = 'ALL_STUDENTS';
-  smsVenue = '';
+  smsTime = '';
   smsSending = false;
 
   isAdmin = false;
@@ -257,13 +257,17 @@ export class EventsListComponent implements OnInit {
 
   // ── Per-event SMS broadcast ─────────────────────────────────────
 
-  /** Open the Send SMS dialog for one event. Pre-fills the venue from
-   *  the event's location field when present so the admin can just hit
-   *  Send for the common case. */
+  /** Open the Send SMS dialog for one event. Pre-fills time from the
+   *  event's startTime when present so the admin can hit Send for the
+   *  common case without typing anything. */
   openSendSms(event: SchoolEvent): void {
     this.smsEvent = event;
     this.smsAudience = 'ALL_STUDENTS';
-    this.smsVenue = (event as any).location || (event as any).venue || 'School';
+    const start = (event as any).startTime;
+    const end = (event as any).endTime;
+    this.smsTime = start
+        ? (end && end !== start ? `${start} – ${end}` : start)
+        : '';
     this.smsDialogOpen = true;
   }
 
@@ -275,17 +279,21 @@ export class EventsListComponent implements OnInit {
   sendEventSms(): void {
     const ev = this.smsEvent;
     if (!ev) return;
-    if (!this.smsVenue || !this.smsVenue.trim()) {
-      this.snackBar.open('Enter the venue.', 'Close', { duration: 2500 });
+    if (!this.smsTime || !this.smsTime.trim()) {
+      this.snackBar.open('Enter the event time.', 'Close', { duration: 2500 });
       return;
     }
     this.smsSending = true;
     const dateLabel = this.formatEventDateForSms(ev);
+    // Concatenate name + description into var1 so the single template
+    // slot communicates both. "Annual Day · Cultural performances".
+    const desc = (ev as any).description?.trim();
+    const nameWithDesc = desc ? `${ev.title} · ${desc}` : ev.title;
     this.apiService.sendEventNoticeSms({
       audiences: [this.smsAudience as any],
-      eventName: ev.title,
+      eventName: nameWithDesc,
       eventDate: dateLabel,
-      venue: this.smsVenue.trim(),
+      eventTime: this.smsTime.trim(),
       eventId: ev.eventId,
     }).subscribe({
       next: (res) => {

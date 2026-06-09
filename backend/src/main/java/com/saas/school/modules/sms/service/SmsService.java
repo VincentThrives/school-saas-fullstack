@@ -470,8 +470,8 @@ public class SmsService {
             throw new BusinessException("eventName is required.");
         if (req.getEventDate() == null || req.getEventDate().isBlank())
             throw new BusinessException("eventDate is required.");
-        if (req.getVenue() == null || req.getVenue().isBlank())
-            throw new BusinessException("venue is required.");
+        if (req.getEventTime() == null || req.getEventTime().isBlank())
+            throw new BusinessException("eventTime is required.");
 
         List<SmsAudience> audiences = req.getAudiences();
         if (audiences == null || audiences.isEmpty())
@@ -506,13 +506,15 @@ public class SmsService {
 
         // Positional + semantic aliases so the DLT body can reference
         // either ##var1## or ##eventName## style placeholders.
+        // var1 = event name (+ description if the frontend already
+        //        concatenated it), var2 = date, var3 = time.
         Map<String, String> vars = new LinkedHashMap<>();
         vars.put("var1", req.getEventName().trim());
         vars.put("var2", req.getEventDate().trim());
-        vars.put("var3", req.getVenue().trim());
+        vars.put("var3", req.getEventTime().trim());
         vars.put("eventName", req.getEventName().trim());
         vars.put("eventDate", req.getEventDate().trim());
-        vars.put("venue",     req.getVenue().trim());
+        vars.put("eventTime", req.getEventTime().trim());
 
         List<String> audienceNames = audiences.stream().map(Enum::name).toList();
         String audienceLabel = String.join(",", audienceNames);

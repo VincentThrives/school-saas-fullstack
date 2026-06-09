@@ -68,8 +68,8 @@ const TRIGGERS: TriggerMeta[] = [
     title: 'Event Notice',
     icon: 'event',
     description: 'Per-event broadcast — fired from the Events page card.',
-    sampleBody: '{#var#} on {#var#} at {#var#}. - {#var#}',
-    varLabels: ['Event name', 'Event date', 'Venue', 'School short name'],
+    sampleBody: 'Dear Parent, {#var#} is scheduled on {#var#} at {#var#}. Kindly mark your calendar and plan to attend. - {#var#}',
+    varLabels: ['Event name + description', 'Event date', 'Event time', 'School short name'],
   },
 ];
 
