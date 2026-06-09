@@ -84,73 +84,61 @@
     <mat-spinner diameter="32"></mat-spinner>
   </div>
 
+  <!-- Accordion view: outer panel per teacher, inner rows per
+       (subject, role) group. Edit/delete buttons live inside each
+       inner row so there's no shared column to overlap. Click the
+       teacher header to expand; rows inside have their own actions. -->
   <mat-card class="table-card" *ngIf="!isLoading">
-    <!-- Grouped view: one row per (teacher, subject, role-set). Multiple
-         class–section assignments collapse into chip pills so a teacher
-         handling Kannada across 4 sections is ONE row, not four. Each
-         chip is clickable to edit that specific assignment; the trash
-         icon on the row deletes the whole group with confirmation. -->
-    <table mat-table [dataSource]="groupedRows" class="ta-table">
-      <ng-container matColumnDef="teacher">
-        <th mat-header-cell *matHeaderCellDef>Teacher</th>
-        <td mat-cell *matCellDef="let g">{{ g.teacherDisplay }}</td>
-      </ng-container>
+    <mat-accordion class="ta-accordion" multi>
+      <mat-expansion-panel *ngFor="let panel of teacherAccordion" class="ta-panel">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon class="teacher-icon">person</mat-icon>
+            <strong>{{ panel.teacherDisplay }}</strong>
+          </mat-panel-title>
+          <mat-panel-description>
+            {{ panel.subjects.length }} subject{{ panel.subjects.length === 1 ? '' : 's' }}
+            · {{ panel.totalAssignments }} assignment{{ panel.totalAssignments === 1 ? '' : 's' }}
+          </mat-panel-description>
+        </mat-expansion-panel-header>
 
-      <ng-container matColumnDef="subject">
-        <th mat-header-cell *matHeaderCellDef>Subject</th>
-        <td mat-cell *matCellDef="let g">{{ g.subjectDisplay }}</td>
-      </ng-container>
+        <div class="ta-subject-row" *ngFor="let g of panel.subjects">
+          <div class="ta-subject-main">
+            <div class="ta-subject-title">
+              <strong>{{ g.subjectDisplay }}</strong>
+              <mat-chip-set class="inline-roles">
+                <mat-chip *ngFor="let r of g.roles" class="role-chip">{{ r }}</mat-chip>
+              </mat-chip-set>
+            </div>
+            <mat-chip-set class="ta-class-chips">
+              <mat-chip *ngFor="let pill of chipsForGroup(g)"
+                        class="cs-chip"
+                        [matTooltip]="pill.count > 1
+                          ? 'Edit (' + pill.count + ' components behind this chip)'
+                          : 'Edit this assignment'"
+                        (click)="openEditForm(pill.first)">
+                {{ pill.label }}<span *ngIf="pill.count > 1" class="chip-count">×{{ pill.count }}</span>
+              </mat-chip>
+            </mat-chip-set>
+          </div>
+          <div class="ta-subject-actions">
+            <button mat-icon-button
+                    matTooltip="Edit first assignment"
+                    (click)="openEditForm(g.items[0])">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button
+                    color="warn"
+                    [matTooltip]="g.items.length === 1 ? 'Delete' : 'Delete all ' + g.items.length + ' assignments'"
+                    (click)="confirmDeleteGroup(g.items)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+      </mat-expansion-panel>
+    </mat-accordion>
 
-      <ng-container matColumnDef="classes">
-        <th mat-header-cell *matHeaderCellDef>Classes</th>
-        <td mat-cell *matCellDef="let g">
-          <mat-chip-set>
-            <mat-chip *ngFor="let pill of chipsForGroup(g)"
-                      class="cs-chip"
-                      [matTooltip]="pill.count > 1
-                        ? 'Edit this assignment (' + pill.count + ' components behind this chip)'
-                        : 'Edit this assignment'"
-                      (click)="openEditForm(pill.first)">
-              {{ pill.label }}<span *ngIf="pill.count > 1" class="chip-count">×{{ pill.count }}</span>
-            </mat-chip>
-          </mat-chip-set>
-        </td>
-      </ng-container>
-
-      <ng-container matColumnDef="roles">
-        <th mat-header-cell *matHeaderCellDef>Roles</th>
-        <td mat-cell *matCellDef="let g">
-          <mat-chip-set>
-            <mat-chip *ngFor="let r of g.roles" class="role-chip">{{ r }}</mat-chip>
-          </mat-chip-set>
-        </td>
-      </ng-container>
-
-      <ng-container matColumnDef="actions">
-        <th mat-header-cell *matHeaderCellDef class="col-actions">Actions</th>
-        <td mat-cell *matCellDef="let g" class="col-actions">
-          <!-- Row-level edit always available — opens the first assignment
-               in the group. For multi-class groups, clicking a chip is
-               the precise edit; this is the bulk entry point. -->
-          <button mat-icon-button
-                  matTooltip="Edit first assignment"
-                  (click)="openEditForm(g.items[0])">
-            <mat-icon>edit</mat-icon>
-          </button>
-          <button mat-icon-button
-                  [matTooltip]="g.items.length === 1 ? 'Delete' : 'Delete all ' + g.items.length + ' assignments in this row'"
-                  color="warn"
-                  (click)="confirmDeleteGroup(g.items)">
-            <mat-icon>delete</mat-icon>
-          </button>
-        </td>
-      </ng-container>
-
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-    </table>
-
-    <div class="empty-state" *ngIf="!isLoading && groupedRows.length === 0">
+    <div class="empty-state" *ngIf="!isLoading && teacherAccordion.length === 0">
       <mat-icon class="empty-icon">assignment_ind</mat-icon>
       <p class="empty-title">No assignments for this year</p>
       <p class="empty-subtitle">Click "Add Assignment" or carry forward from a previous year</p>

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -44,6 +45,18 @@ interface GroupedAssignmentRow {
   items: TeacherSubjectAssignment[];
 }
 
+/**
+ * One teacher with all their grouped subject-rows nested. Used by the
+ * accordion list view: outer panel = teacher, inner rows = subject
+ * groups (same shape as GroupedAssignmentRow).
+ */
+interface TeacherAccordionGroup {
+  teacherId: string;
+  teacherDisplay: string;
+  totalAssignments: number;
+  subjects: GroupedAssignmentRow[];
+}
+
 @Component({
   selector: 'app-teacher-assignments',
   standalone: true,
@@ -52,6 +65,7 @@ interface GroupedAssignmentRow {
     FormsModule,
     MatCardModule,
     MatTableModule,
+    MatExpansionModule,
     MatButtonModule,
     MatIconModule,
     MatFormFieldModule,
@@ -537,6 +551,34 @@ export class TeacherAssignmentsComponent implements OnInit {
         if (t !== 0) return t;
         return a.subjectDisplay.localeCompare(b.subjectDisplay);
       });
+  }
+
+  /**
+   * Accordion view of the same data: teachers on the outside, their
+   * (subject, role) groups nested inside. Sidesteps the chip vs
+   * action-column overlap problem entirely — each subject group has
+   * its OWN action buttons inside the expanded panel, not in a shared
+   * table column.
+   */
+  get teacherAccordion(): TeacherAccordionGroup[] {
+    const groups = this.groupedRows; // already filter-aware
+    const byTeacher = new Map<string, TeacherAccordionGroup>();
+    for (const g of groups) {
+      let panel = byTeacher.get(g.teacherId);
+      if (!panel) {
+        panel = {
+          teacherId: g.teacherId,
+          teacherDisplay: g.teacherDisplay,
+          totalAssignments: 0,
+          subjects: [],
+        };
+        byTeacher.set(g.teacherId, panel);
+      }
+      panel.subjects.push(g);
+      panel.totalAssignments += g.items.length;
+    }
+    return Array.from(byTeacher.values())
+      .sort((a, b) => a.teacherDisplay.localeCompare(b.teacherDisplay));
   }
 
   /** Compact pill label for a single assignment: "1st-A", "2nd-B", or
