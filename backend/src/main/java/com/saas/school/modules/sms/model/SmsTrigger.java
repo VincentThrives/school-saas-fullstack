@@ -27,5 +27,12 @@ public enum SmsTrigger {
      *  — like every other trigger now, no platform fallback. Super Admin
      *  pastes the school's DLT entry on the SMS Control page's expanded
      *  row, the same way they paste Absence / Results / Custom. */
-    HOLIDAY_NOTICE
+    HOLIDAY_NOTICE,
+
+    /** Sent when an admin announces a school event — fired from the
+     *  Events page's per-card "Send SMS" action. Three vars:
+     *  event-name, event-date, venue (or description). Tenant-only
+     *  template — Super Admin pastes the school's DLT entry on the SMS
+     *  Control page's expanded row. */
+    EVENT_NOTICE
 }

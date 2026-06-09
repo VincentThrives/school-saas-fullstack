@@ -12,6 +12,8 @@ import com.saas.school.modules.sms.dto.AbsentTodayDto;
 import com.saas.school.modules.sms.dto.SendAbsentTodayResponse;
 import com.saas.school.modules.sms.dto.SendCustomNoticeRequest;
 import com.saas.school.modules.sms.dto.SendCustomNoticeResponse;
+import com.saas.school.modules.sms.dto.SendEventNoticeRequest;
+import com.saas.school.modules.sms.dto.SendEventNoticeResponse;
 import com.saas.school.modules.sms.dto.SendHolidayNoticeRequest;
 import com.saas.school.modules.sms.dto.SendHolidayNoticeResponse;
 import com.saas.school.modules.sms.dto.SmsAudience;
@@ -453,6 +455,89 @@ public class SmsService {
     }
 
     /**
+     * Send an event notice — fired from the per-event "Send SMS" button
+     * on the school admin's Events page. Three vars (eventName, eventDate,
+     * venue) map to var1/var2/var3 in the school's EVENT_NOTICE DLT
+     * template, with semantic aliases stamped alongside.
+     *
+     * <p>Same enable/template guards as
+     * {@link #sendHolidayNotice}; the school must have EVENT_NOTICE
+     * trigger ON and a DLT template pasted on the SMS Control row.</p>
+     */
+    public SendEventNoticeResponse sendEventNotice(SendEventNoticeRequest req, String adminUserId) {
+        if (req == null) throw new BusinessException("Event notice payload is required.");
+        if (req.getEventName() == null || req.getEventName().isBlank())
+            throw new BusinessException("eventName is required.");
+        if (req.getEventDate() == null || req.getEventDate().isBlank())
+            throw new BusinessException("eventDate is required.");
+        if (req.getVenue() == null || req.getVenue().isBlank())
+            throw new BusinessException("venue is required.");
+
+        List<SmsAudience> audiences = req.getAudiences();
+        if (audiences == null || audiences.isEmpty())
+            throw new BusinessException("Pick at least one audience.");
+        if (audiences.contains(SmsAudience.CLASS)
+                && (req.getClassId() == null || req.getClassId().isBlank())) {
+            throw new BusinessException("Class is required when \"Particular class\" is picked.");
+        }
+
+        String tenantId = TenantContext.getTenantId();
+        if (!smsConfig.isEnabled()) {
+            throw new BusinessException("SMS is globally disabled. Contact platform admin.");
+        }
+        TenantSmsSettings settings = settingsRepo.findByTenantId(tenantId).orElse(null);
+        if (settings == null || !settings.isEnabled()) {
+            throw new BusinessException("SMS is not enabled for this school.");
+        }
+        if (!settings.isTriggerEnabled(SmsTrigger.EVENT_NOTICE)) {
+            throw new BusinessException(
+                "Event SMS is disabled for your school. Ask the platform admin to enable it under SMS Control.");
+        }
+        TenantSmsSettings.SmsTemplate tpl = settings.templateFor(SmsTrigger.EVENT_NOTICE);
+        if (tpl == null || !tpl.isResolvable()) {
+            throw new BusinessException(
+                "Event notice template not configured for your school. Ask the platform admin to set it up.");
+        }
+
+        AudienceTargets targets = resolveAudiences(audiences, req.getClassId());
+        if (targets.userIds().isEmpty() && targets.extraPhones().isEmpty()) {
+            throw new BusinessException("No recipients matched the chosen audience(s).");
+        }
+
+        // Positional + semantic aliases so the DLT body can reference
+        // either ##var1## or ##eventName## style placeholders.
+        Map<String, String> vars = new LinkedHashMap<>();
+        vars.put("var1", req.getEventName().trim());
+        vars.put("var2", req.getEventDate().trim());
+        vars.put("var3", req.getVenue().trim());
+        vars.put("eventName", req.getEventName().trim());
+        vars.put("eventDate", req.getEventDate().trim());
+        vars.put("venue",     req.getVenue().trim());
+
+        List<String> audienceNames = audiences.stream().map(Enum::name).toList();
+        String audienceLabel = String.join(",", audienceNames);
+        // entityId stamps the source event row when known — useful for the
+        // SMS audit log "show me everything sent for this event" query.
+        String entityId = (req.getEventId() != null && !req.getEventId().isBlank())
+                ? req.getEventId()
+                : "broadcast-" + audienceLabel;
+
+        dispatchAsync(SmsTrigger.EVENT_NOTICE, targets.userIds(), targets.extraPhones(),
+                vars, adminUserId, "EventNotice", entityId);
+
+        int recipientCount = targets.userIds().size() + targets.extraPhones().size();
+
+        auditService.log("SMS_EVENT_NOTICE", "EventNotice", tenantId,
+                "Event broadcast queued by " + adminUserId + " audiences=" + audienceLabel
+                        + (req.getClassId() != null ? " classId=" + req.getClassId() : "")
+                        + " event=" + req.getEventName()
+                        + " date=" + req.getEventDate()
+                        + " recipients=" + recipientCount);
+
+        return new SendEventNoticeResponse(audienceNames, recipientCount, Instant.now());
+    }
+
+    /**
      * Audiences → unioned, deduped recipient bundle: userIds + raw
      * extraPhones.
      *
@@ -849,6 +934,7 @@ public class SmsService {
         if (req.getResultPublishEnabled() != null) s.setResultPublishEnabled(req.getResultPublishEnabled());
         if (req.getCustomNoticeEnabled() != null)  s.setCustomNoticeEnabled(req.getCustomNoticeEnabled());
         if (req.getHolidayNoticeEnabled() != null) s.setHolidayNoticeEnabled(req.getHolidayNoticeEnabled());
+        if (req.getEventNoticeEnabled() != null)   s.setEventNoticeEnabled(req.getEventNoticeEnabled());
         if (req.getMonthlyBudgetInr() != null)     s.setMonthlyBudgetInr(req.getMonthlyBudgetInr());
         if (req.getNotifyAdminOnFailure() != null) s.setNotifyAdminOnFailure(req.getNotifyAdminOnFailure());
 

@@ -14,6 +14,7 @@ public class UpdateTenantSmsSettingsRequest {
     private Boolean resultPublishEnabled;
     private Boolean customNoticeEnabled;
     private Boolean holidayNoticeEnabled;
+    private Boolean eventNoticeEnabled;
     private Double  monthlyBudgetInr;
     private Boolean notifyAdminOnFailure;
 
@@ -33,6 +34,9 @@ public class UpdateTenantSmsSettingsRequest {
 
     public Boolean getHolidayNoticeEnabled() { return holidayNoticeEnabled; }
     public void setHolidayNoticeEnabled(Boolean v) { this.holidayNoticeEnabled = v; }
+
+    public Boolean getEventNoticeEnabled() { return eventNoticeEnabled; }
+    public void setEventNoticeEnabled(Boolean v) { this.eventNoticeEnabled = v; }
 
     public Double getMonthlyBudgetInr() { return monthlyBudgetInr; }
     public void setMonthlyBudgetInr(Double v) { this.monthlyBudgetInr = v; }

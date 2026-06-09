@@ -88,7 +88,7 @@ export class SmsControlComponent implements OnInit {
 
   readonly displayedColumns = [
     'expand', 'tenantId', 'enabled',
-    'absenceAlert', 'resultPublish', 'customNotice', 'holidayNotice',
+    'absenceAlert', 'resultPublish', 'customNotice', 'holidayNotice', 'eventNotice',
     'budget', 'usage', 'updatedAt', 'actions',
   ];
 

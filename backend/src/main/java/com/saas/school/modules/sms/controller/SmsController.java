@@ -8,6 +8,8 @@ import com.saas.school.modules.sms.dto.SendAbsentTodayRequest;
 import com.saas.school.modules.sms.dto.SendAbsentTodayResponse;
 import com.saas.school.modules.sms.dto.SendCustomNoticeRequest;
 import com.saas.school.modules.sms.dto.SendCustomNoticeResponse;
+import com.saas.school.modules.sms.dto.SendEventNoticeRequest;
+import com.saas.school.modules.sms.dto.SendEventNoticeResponse;
 import com.saas.school.modules.sms.dto.SendHolidayNoticeRequest;
 import com.saas.school.modules.sms.dto.SendHolidayNoticeResponse;
 import com.saas.school.modules.sms.dto.SendTestSmsRequest;
@@ -165,6 +167,22 @@ public class SmsController {
         SendHolidayNoticeResponse res = smsService.sendHolidayNotice(req, userId);
         return ResponseEntity.ok(ApiResponse.success(
                 res, "Holiday notice queued to " + res.getRecipientCount() + " recipient(s)"));
+    }
+
+    /**
+     * Send an event SMS — fired from the per-event "Send SMS" action on
+     * the school admin's Events page. Uses the tenant's EVENT_NOTICE
+     * DLT template. Same error semantics as holiday-notice — clear 4xx
+     * when the template isn't configured.
+     */
+    @PostMapping("/event-notice")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN', 'PRINCIPAL')")
+    public ResponseEntity<ApiResponse<SendEventNoticeResponse>> sendEventNotice(
+            @Valid @RequestBody SendEventNoticeRequest req,
+            @AuthenticationPrincipal String userId) {
+        SendEventNoticeResponse res = smsService.sendEventNotice(req, userId);
+        return ResponseEntity.ok(ApiResponse.success(
+                res, "Event notice queued to " + res.getRecipientCount() + " recipient(s)"));
     }
 
     /**

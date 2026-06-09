@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -30,6 +31,7 @@ import { SchoolEvent, AcademicYear, UserRole } from '../../../core/models';
     MatChipsModule,
     MatTooltipModule,
     MatFormFieldModule,
+    MatInputModule,
     MatSelectModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
@@ -51,6 +53,14 @@ export class EventsListComponent implements OnInit {
 
   deleteDialogOpen = false;
   selectedEvent: SchoolEvent | null = null;
+
+  /** Per-event "Send SMS" dialog state. Lives next to delete so the
+   *  card actions share the same single-event scope. */
+  smsDialogOpen = false;
+  smsEvent: SchoolEvent | null = null;
+  smsAudience: 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' = 'ALL_STUDENTS';
+  smsVenue = '';
+  smsSending = false;
 
   isAdmin = false;
 
@@ -243,5 +253,64 @@ export class EventsListComponent implements OnInit {
         this.snackBar.open(err?.error?.message || 'Failed to delete event', 'Close', { duration: 3000 });
       },
     });
+  }
+
+  // ── Per-event SMS broadcast ─────────────────────────────────────
+
+  /** Open the Send SMS dialog for one event. Pre-fills the venue from
+   *  the event's location field when present so the admin can just hit
+   *  Send for the common case. */
+  openSendSms(event: SchoolEvent): void {
+    this.smsEvent = event;
+    this.smsAudience = 'ALL_STUDENTS';
+    this.smsVenue = (event as any).location || (event as any).venue || 'School';
+    this.smsDialogOpen = true;
+  }
+
+  cancelSendSms(): void {
+    this.smsDialogOpen = false;
+    this.smsEvent = null;
+  }
+
+  sendEventSms(): void {
+    const ev = this.smsEvent;
+    if (!ev) return;
+    if (!this.smsVenue || !this.smsVenue.trim()) {
+      this.snackBar.open('Enter the venue.', 'Close', { duration: 2500 });
+      return;
+    }
+    this.smsSending = true;
+    const dateLabel = this.formatEventDateForSms(ev);
+    this.apiService.sendEventNoticeSms({
+      audiences: [this.smsAudience as any],
+      eventName: ev.title,
+      eventDate: dateLabel,
+      venue: this.smsVenue.trim(),
+      eventId: ev.eventId,
+    }).subscribe({
+      next: (res) => {
+        this.smsSending = false;
+        const n = res?.data?.recipientCount ?? 0;
+        this.snackBar.open(`Event SMS queued to ${n} recipient${n === 1 ? '' : 's'}.`,
+          'Close', { duration: 3500 });
+        this.cancelSendSms();
+      },
+      error: (err) => {
+        this.smsSending = false;
+        this.snackBar.open(err?.error?.message || 'Failed to send event SMS',
+          'Close', { duration: 4000 });
+      },
+    });
+  }
+
+  /** Format the event's date(s) into a short string for the SMS var.
+   *  Same-day events read "9 Jun"; ranges read "9 Jun – 11 Jun". */
+  private formatEventDateForSms(ev: SchoolEvent): string {
+    const start = ev.startDate ? new Date(ev.startDate) : null;
+    const end = ev.endDate ? new Date(ev.endDate) : null;
+    if (!start) return '';
+    const fmt = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    if (!end || start.toDateString() === end.toDateString()) return fmt(start);
+    return `${fmt(start)} – ${fmt(end)}`;
   }
 }

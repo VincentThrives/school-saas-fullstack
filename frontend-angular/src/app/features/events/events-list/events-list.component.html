@@ -73,6 +73,9 @@
               </div>
             </div>
             <div class="event-card-actions" *ngIf="isAdmin">
+              <button mat-icon-button matTooltip="Send SMS to parents" (click)="openSendSms(event)">
+                <mat-icon>sms</mat-icon>
+              </button>
               <button mat-icon-button matTooltip="Edit" (click)="editEvent(event)">
                 <mat-icon>edit</mat-icon>
               </button>
@@ -151,6 +154,40 @@
       <div class="dialog-actions">
         <button mat-button (click)="cancelDelete()">Cancel</button>
         <button mat-raised-button color="warn" (click)="deleteEvent()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send Event SMS dialog — per-card broadcast using the school's
+       EVENT_NOTICE DLT template. -->
+  <div class="delete-overlay" *ngIf="smsDialogOpen" (click)="cancelSendSms()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <h3>Send SMS · {{ smsEvent?.title }}</h3>
+      <p style="margin-bottom: 12px;">
+        Notify parents about this event. Uses your school's <strong>Event Notice</strong>
+        DLT template — the platform admin must have it configured.
+      </p>
+
+      <mat-form-field appearance="outline" style="width: 100%;">
+        <mat-label>Audience</mat-label>
+        <mat-select [(ngModel)]="smsAudience">
+          <mat-option value="ALL_STUDENTS">All Students</mat-option>
+          <mat-option value="ALL_EMPLOYEES">All Employees</mat-option>
+          <mat-option value="ALL">Everyone (students + employees)</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" style="width: 100%;">
+        <mat-label>Venue</mat-label>
+        <input matInput [(ngModel)]="smsVenue" placeholder="e.g. School Auditorium">
+        <mat-hint>Goes into the SMS body</mat-hint>
+      </mat-form-field>
+
+      <div class="dialog-actions">
+        <button mat-button [disabled]="smsSending" (click)="cancelSendSms()">Cancel</button>
+        <button mat-raised-button color="primary" [disabled]="smsSending" (click)="sendEventSms()">
+          {{ smsSending ? 'Sending…' : 'Send SMS' }}
+        </button>
       </div>
     </div>
   </div>

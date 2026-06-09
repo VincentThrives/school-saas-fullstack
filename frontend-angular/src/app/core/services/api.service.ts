@@ -97,6 +97,7 @@ export interface TenantSmsSettingsDto {
   resultPublishEnabled: boolean;
   customNoticeEnabled: boolean;
   holidayNoticeEnabled: boolean;
+  eventNoticeEnabled: boolean;
   monthlyBudgetInr: number;
   costUsedThisMonth: number;
   costMonth?: string;
@@ -113,6 +114,7 @@ export interface UpdateTenantSmsSettingsRequest {
   resultPublishEnabled?: boolean;
   customNoticeEnabled?: boolean;
   holidayNoticeEnabled?: boolean;
+  eventNoticeEnabled?: boolean;
   monthlyBudgetInr?: number;
   notifyAdminOnFailure?: boolean;
 }
@@ -123,7 +125,8 @@ export type SmsTriggerKey =
   | 'RESULT_COMBINED'
   | 'RESULT_SINGLE'
   | 'CUSTOM_NOTICE'
-  | 'HOLIDAY_NOTICE';
+  | 'HOLIDAY_NOTICE'
+  | 'EVENT_NOTICE';
 
 /** One DLT-registered template the Super Admin pasted for a tenant.
  *  {@code body} is for audit-log preview only — MSG91 sends from
@@ -152,6 +155,23 @@ export interface SendHolidayNoticeRequest {
 
 /** Ack from POST /sms/holiday-notice. */
 export interface SendHolidayNoticeResponse {
+  audiences: string[];
+  recipientCount: number;
+  queuedAt: string;
+}
+
+/** Body for POST /api/v1/sms/event-notice — fired from the per-event
+ *  "Send SMS" action on the school admin's Events page. */
+export interface SendEventNoticeRequest {
+  audiences: SmsAudience[];
+  classId?: string;
+  eventName: string;
+  eventDate: string;
+  venue: string;
+  eventId?: string;
+}
+
+export interface SendEventNoticeResponse {
   audiences: string[];
   recipientCount: number;
   queuedAt: string;
@@ -826,6 +846,14 @@ export class ApiService {
   sendHolidayNoticeSms(req: SendHolidayNoticeRequest): Observable<ApiResponse<SendHolidayNoticeResponse>> {
     return this.http.post<ApiResponse<SendHolidayNoticeResponse>>(
       `${this.API}/sms/holiday-notice`, req);
+  }
+
+  /** Send an event SMS — fired from the per-event "Send SMS" action on
+   *  the school admin's Events page. eventName / eventDate / venue map
+   *  to var1/var2/var3 in the school's EVENT_NOTICE template. */
+  sendEventNoticeSms(req: SendEventNoticeRequest): Observable<ApiResponse<SendEventNoticeResponse>> {
+    return this.http.post<ApiResponse<SendEventNoticeResponse>>(
+      `${this.API}/sms/event-notice`, req);
   }
 
   // ── SMS Notifications (super admin — full control) ────────────────────

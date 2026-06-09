@@ -188,6 +188,23 @@
         </td>
       </ng-container>
 
+      <!-- Event trigger — per-event broadcast from the Events page card -->
+      <ng-container matColumnDef="eventNotice">
+        <th mat-header-cell *matHeaderCellDef>Event</th>
+        <td mat-cell *matCellDef="let t">
+          <span class="sc-trigger-cell">
+            <mat-checkbox
+              [checked]="t.eventNoticeEnabled"
+              [disabled]="!t.enabled || saving.has(t.tenantId)"
+              (change)="patch(t, { eventNoticeEnabled: $event.checked })">
+            </mat-checkbox>
+            <span class="sc-trigger-dot"
+                  [class.sc-trigger-dot--ready]="hasTemplate(t.tenantId, 'EVENT_NOTICE')"
+                  [class.sc-trigger-dot--missing]="!hasTemplate(t.tenantId, 'EVENT_NOTICE')"></span>
+          </span>
+        </td>
+      </ng-container>
+
       <!-- Budget -->
       <ng-container matColumnDef="budget">
         <th mat-header-cell *matHeaderCellDef>Budget / month (₹)</th>

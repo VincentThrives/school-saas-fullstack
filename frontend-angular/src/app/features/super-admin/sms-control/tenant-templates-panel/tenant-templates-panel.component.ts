@@ -63,6 +63,14 @@ const TRIGGERS: TriggerMeta[] = [
     sampleBody: '{#var#} - {#var#}',
     varLabels: ['Message', 'School short name'],
   },
+  {
+    key: 'EVENT_NOTICE',
+    title: 'Event Notice',
+    icon: 'event',
+    description: 'Per-event broadcast — fired from the Events page card.',
+    sampleBody: '{#var#} on {#var#} at {#var#}. - {#var#}',
+    varLabels: ['Event name', 'Event date', 'Venue', 'School short name'],
+  },
 ];
 
 /**
@@ -116,6 +124,7 @@ export class TenantTemplatesPanelComponent implements OnInit, OnChanges {
     RESULT_COMBINED: false,
     RESULT_SINGLE: false,
     CUSTOM_NOTICE: false,
+    EVENT_NOTICE: false,
   };
 
   isLoading = false;
