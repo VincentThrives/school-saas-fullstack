@@ -130,6 +130,10 @@ export class TeacherAssignmentsComponent implements OnInit {
   formOpen = false;
   isSaving = false;
   editingId: string | null = null;
+  /** Every assignmentId being edited in this dialog. Single-row edit
+   *  (chip click) → length 1. Group edit (row pencil) → length N. Save
+   *  deletes ALL of them before fanning out the new picks. */
+  editingIds: string[] = [];
   formTeacherId = '';
 
   // Create mode: multi-select (arrays). Edit mode: single-value reused.
@@ -698,29 +702,61 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.formOpen = true;
   }
 
-  openEditForm(a: TeacherSubjectAssignment): void {
-    this.editingId = a.assignmentId;
-    this.formTeacherId = a.teacherId;
-    // Edit and Add now share one form. Pre-fill the SAME multi-select
-    // fields with the row's current values: one class-section pair, one
-    // component, the row's role set. Admin can then add or remove pairs
-    // and components, and the save logic deletes the old row + creates
-    // new ones to match.
-    this.formClassId = a.classId;
-    this.formClassIds = a.classId ? [a.classId] : [];
-    this.formSectionId = a.sectionId || '';
-    this.formSectionIds = a.sectionId ? [a.sectionId] : [];
-    this.formClassSectionKeys = (a.classId && a.sectionId)
-        ? [`${a.classId}::${a.sectionId}`]
-        : [];
-    this.formSubjectId = a.subjectId || '';
-    this.formComponentKey = a.componentKey || null;
-    this.formComponentKeys = a.componentKey ? [a.componentKey] : [];
+  /**
+   * Open the edit form for a single assignment OR an entire grouped row.
+   * When called from the row-level edit icon, the caller passes the
+   * whole group's items so all the pairs/components show up
+   * pre-ticked. When called from a chip click, only that one pair is
+   * pre-ticked (admin is targeting one specific slot).
+   *
+   * Backward-compatible: a single TeacherSubjectAssignment still works.
+   */
+  openEditForm(a: TeacherSubjectAssignment | TeacherSubjectAssignment[]): void {
+    const items = Array.isArray(a) ? a : [a];
+    if (items.length === 0) return;
+    const head = items[0];
+
+    // editingIds carries EVERY row to delete on save; editingId points to
+    // the first one so templates/snackbars that already read it keep working.
+    this.editingIds = items.map(x => x.assignmentId);
+    this.editingId = head.assignmentId;
+    this.formTeacherId = head.teacherId;
+
+    // Pre-tick the union of (classId, sectionId) pairs across the group.
+    const pairs = new Set<string>();
+    for (const x of items) {
+      if (x.classId && x.sectionId) pairs.add(`${x.classId}::${x.sectionId}`);
+    }
+    this.formClassSectionKeys = Array.from(pairs);
+
+    // Pre-tick the union of componentKeys across the group.
+    const comps = new Set<string>();
+    for (const x of items) if (x.componentKey) comps.add(x.componentKey);
+    this.formComponentKeys = Array.from(comps);
+
+    // Mirror to single-value fields the legacy paths still read.
+    this.formClassId = head.classId;
+    this.formClassIds = items.map(x => x.classId).filter(Boolean) as string[];
+    this.formSectionId = head.sectionId || '';
+    this.formSectionIds = items.map(x => x.sectionId).filter(Boolean) as string[];
+    this.formSubjectId = head.subjectId || '';
+    this.formComponentKey = head.componentKey || null;
+
+    // refreshFormComponentChoices is async — it wipes formComponentKeys
+    // then refills only in create mode. Stash our pre-fill and restore
+    // after the async fetch resolves.
+    const preFilledComponents = this.formComponentKeys.slice();
     this.refreshFormComponentChoices();
-    this.formRoleClass = (a.roles || []).includes('CLASS_TEACHER');
-    this.formRoleSubject = (a.roles || []).includes('SUBJECT_TEACHER');
-    this.classTeacherClassId = this.formRoleClass ? a.classId : '';
-    this.classTeacherSectionId = this.formRoleClass ? (a.sectionId || '') : '';
+    // The subscription inside refreshFormComponentChoices fires
+    // synchronously when the subject is already cached; either way,
+    // immediately restoring here works because we run before/with the
+    // subscriber's next-tick. A microtask is the safe spot.
+    Promise.resolve().then(() => { this.formComponentKeys = preFilledComponents; });
+
+    this.formRoleClass = (head.roles || []).includes('CLASS_TEACHER');
+    this.formRoleSubject = (head.roles || []).includes('SUBJECT_TEACHER');
+    this.classTeacherClassId = this.formRoleClass ? head.classId : '';
+    this.classTeacherSectionId = this.formRoleClass ? (head.sectionId || '') : '';
     this.recomputeFormClassOptions();
     this.recomputeFormSectionOptions();
     this.recomputeFormSubjectOptions();
@@ -731,6 +767,7 @@ export class TeacherAssignmentsComponent implements OnInit {
   closeForm(): void {
     this.formOpen = false;
     this.editingId = null;
+    this.editingIds = [];
   }
 
   // ── Create-mode (multi) handlers ────────────────────────────────
@@ -1072,19 +1109,24 @@ export class TeacherAssignmentsComponent implements OnInit {
         return;
       }
       this.isSaving = true;
-      const oldId = this.editingId;
-      // Delete the original assignment doc first; on success, fan out
-      // new ones from the (class-section × component) multi-selects.
-      this.api.deleteTeacherAssignment(oldId).subscribe({
-        next: () => {
-          this.editingId = null;
-          this.saveCreatePath();
-        },
-        error: (err) => {
-          this.isSaving = false;
-          this.snackBar.open(err?.error?.message || 'Failed to update', 'Close', { duration: 3000 });
-        },
-      });
+      // Delete EVERY assignment in the edit set (the group the admin
+      // expanded into the dialog) before fanning out the new picks.
+      // For a single-chip edit, editingIds has length 1 — same effect
+      // as the previous "delete then create" path.
+      const oldIds = this.editingIds.slice();
+      let done = 0;
+      const finish = () => {
+        if (++done < oldIds.length) return;
+        this.editingId = null;
+        this.editingIds = [];
+        this.saveCreatePath();
+      };
+      for (const id of oldIds) {
+        this.api.deleteTeacherAssignment(id).subscribe({
+          next: finish,
+          error: finish, // best-effort; non-existent ids shouldn't block the create
+        });
+      }
       return;
     }
     this.saveCreatePath();
