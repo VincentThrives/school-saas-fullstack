@@ -547,6 +547,38 @@ export class TeacherAssignmentsComponent implements OnInit {
     return sec ? `${cls}-${sec}` : cls;
   }
 
+  /**
+   * Compact pill view of a grouped row: one chip per (class, section)
+   * pair instead of one per assignment doc. A teacher with both Theory
+   * and IA on Math 1st-A becomes two assignment rows in the DB but ONE
+   * chip on this page, with a small "(2)" badge so the admin knows
+   * there's more behind it.
+   *
+   * {@code count} is the number of underlying assignment docs that
+   * collapsed into this chip. {@code first} is the doc the chip's
+   * click handler edits (and that the delete batch routes through).
+   */
+  chipsForGroup(g: GroupedAssignmentRow): Array<{
+    key: string;
+    label: string;
+    count: number;
+    first: TeacherSubjectAssignment;
+  }> {
+    const byPair = new Map<string, {
+      key: string;
+      label: string;
+      count: number;
+      first: TeacherSubjectAssignment;
+    }>();
+    for (const a of g.items) {
+      const key = `${a.classId || ''}::${a.sectionId || ''}`;
+      const existing = byPair.get(key);
+      if (existing) { existing.count++; continue; }
+      byPair.set(key, { key, label: this.chipLabel(a), count: 1, first: a });
+    }
+    return Array.from(byPair.values());
+  }
+
   private applyFilters(): void {
     let list = this.allAssignments;
     if (this.filterClassId) list = list.filter(a => a.classId === this.filterClassId);

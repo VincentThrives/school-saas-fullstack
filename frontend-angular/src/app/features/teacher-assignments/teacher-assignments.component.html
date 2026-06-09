@@ -105,11 +105,13 @@
         <th mat-header-cell *matHeaderCellDef>Classes</th>
         <td mat-cell *matCellDef="let g">
           <mat-chip-set>
-            <mat-chip *ngFor="let a of g.items"
+            <mat-chip *ngFor="let pill of chipsForGroup(g)"
                       class="cs-chip"
-                      matTooltip="Edit this assignment"
-                      (click)="openEditForm(a)">
-              {{ chipLabel(a) }}
+                      [matTooltip]="pill.count > 1
+                        ? 'Edit this assignment (' + pill.count + ' components behind this chip)'
+                        : 'Edit this assignment'"
+                      (click)="openEditForm(pill.first)">
+              {{ pill.label }}<span *ngIf="pill.count > 1" class="chip-count">×{{ pill.count }}</span>
             </mat-chip>
           </mat-chip-set>
         </td>
@@ -127,9 +129,11 @@
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef class="col-actions">Actions</th>
         <td mat-cell *matCellDef="let g" class="col-actions">
+          <!-- Row-level edit always available — opens the first assignment
+               in the group. For multi-class groups, clicking a chip is
+               the precise edit; this is the bulk entry point. -->
           <button mat-icon-button
-                  *ngIf="g.items.length === 1"
-                  matTooltip="Edit"
+                  matTooltip="Edit first assignment"
                   (click)="openEditForm(g.items[0])">
             <mat-icon>edit</mat-icon>
           </button>

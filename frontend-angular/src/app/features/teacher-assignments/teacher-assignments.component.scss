@@ -54,6 +54,15 @@
   background-color: rgba(212, 168, 67, 0.18) !important;
 }
 
+/* Small inline count when a chip stands for multiple assignment docs
+   (e.g. Math 1st-A behind both Theory and IA components). */
+.chip-count {
+  margin-left: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
 .col-actions {
   width: 120px;
   text-align: right !important;
