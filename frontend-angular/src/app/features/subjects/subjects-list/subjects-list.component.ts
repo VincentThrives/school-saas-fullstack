@@ -89,6 +89,14 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
     label: string;          // human label: "Class 1 — Section A"
     classId: string;
     sectionId: string;
+    /** True when a same-named Subject in this year already claims this
+     *  (class, section). Drives the `[disabled]` on the mat-option so the
+     *  admin can't even try to pick a conflicting pair. Recomputed on
+     *  every name-field change. */
+    disabled?: boolean;
+    /** Human-readable label of the subject already occupying this pair —
+     *  shown in the option's hint. */
+    occupiedBy?: string;
   }> = [];
   academicYears: Array<{ academicYearId: string; label: string }> = [];
 
@@ -254,7 +262,51 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
     });
     // Keep components array in sync whenever the admin picks a different preset.
     this.form.get('subjectType')?.valueChanges.subscribe(v => this.applyPreset(v));
+    // Recompute which (class, section) options are disabled whenever the
+    // admin types/changes the Subject name. Same-named subjects in this
+    // year block the pairs they already own — the admin sees them greyed
+    // out with a helpful "already used by …" hint instead of running into
+    // a backend rejection after hitting Save.
+    this.form.get('name')?.valueChanges.subscribe(() => this.recomputeDisabledClassSections());
     this.customiseComponents = false;
+  }
+
+  /**
+   * Walk the in-memory subjects list and mark every classSectionOption
+   * that's already claimed by a SAME-NAMED subject in the same academic
+   * year (excluding the doc being edited). Re-runs on every name change.
+   */
+  private recomputeDisabledClassSections(): void {
+    if (!this.classSectionOptions.length) return;
+    const name = (this.form?.get('name')?.value || '').trim().toLowerCase();
+    const yearId = this.form?.get('academicYearId')?.value;
+    if (!name || !yearId) {
+      // Nothing to block until we know which name we're checking against.
+      for (const opt of this.classSectionOptions) { opt.disabled = false; opt.occupiedBy = undefined; }
+      return;
+    }
+    // Build a set of (classId::sectionId) → occupying subject name for
+    // every same-named subject in this year (minus the one being edited).
+    const claimed = new Map<string, string>();
+    const all = this.dataSource.data || [];
+    for (const sub of all) {
+      if (!sub || sub.subjectId === this.editingSubjectId) continue;
+      if ((sub.name || '').trim().toLowerCase() !== name) continue;
+      if (sub.academicYearId && sub.academicYearId !== yearId) continue;
+      const assignments = sub.assignments && sub.assignments.length > 0
+        ? sub.assignments
+        : (sub.classId ? [{ classId: sub.classId, sectionIds: [] }] : []);
+      for (const a of assignments) {
+        for (const secId of (a.sectionIds || [])) {
+          claimed.set(`${a.classId}::${secId}`, sub.name);
+        }
+      }
+    }
+    for (const opt of this.classSectionOptions) {
+      const occupier = claimed.get(opt.key);
+      opt.disabled = !!occupier;
+      opt.occupiedBy = occupier;
+    }
   }
 
   /** Lightweight description of a component used to seed presets. */
@@ -484,6 +536,10 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
         }
         opts.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
         this.classSectionOptions = opts;
+        // After options are built, immediately grey out anything already
+        // owned by a same-named subject. Triggers off the current name
+        // value; will re-fire on every subsequent name keystroke too.
+        this.recomputeDisabledClassSections();
       },
     });
   }
@@ -568,6 +624,10 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
         opts.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
         this.classSectionOptions = opts;
         this.form.get('classSectionKeys')?.setValue(preselect);
+        // Grey out pairs taken by OTHER same-named subjects (editingSubjectId
+        // is excluded inside the helper, so this subject's own pairs stay
+        // selectable / pre-ticked).
+        this.recomputeDisabledClassSections();
       });
     }
     this.createDialogOpen = true;

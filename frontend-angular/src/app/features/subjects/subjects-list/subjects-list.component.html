@@ -201,8 +201,10 @@
           <mat-label>Apply to Classes &amp; Sections</mat-label>
           <mat-select formControlName="classSectionKeys" multiple
                       [disabled]="!form?.get('academicYearId')?.value || classSectionOptions.length === 0">
-            <mat-option *ngFor="let opt of classSectionOptions" [value]="opt.key">
-              {{ opt.label }}
+            <mat-option *ngFor="let opt of classSectionOptions" [value]="opt.key" [disabled]="opt.disabled">
+              {{ opt.label }}<span *ngIf="opt.disabled" style="opacity:.6; font-size:.85em;">
+                &nbsp;— already used by {{ opt.occupiedBy }}
+              </span>
             </mat-option>
           </mat-select>
           <mat-hint *ngIf="!form?.get('academicYearId')?.value">
