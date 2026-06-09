@@ -392,41 +392,66 @@ export class TeacherAssignmentsComponent implements OnInit {
         if ((nameCounts.get(key) || 0) < 2) {
           return { id: entry.id, name: entry.name };
         }
-        // Duplicate name — show BOTH the component shape (the functional
-        // difference between two same-named subjects) AND the class list
-        // (where each one applies). Admin should never have to guess
-        // which "Sanskrit" they're picking.
-        //   Sanskrit · Theory 100 · 1st, 2nd
-        //   Sanskrit · Theory 80 + IA 20 · 2nd
-        const compSummary = this.summariseComponents(entry.components || []);
-        const classNames = (entry.assignments || [])
-          .map((a: any) => this.classes.find((c) => c.classId === a.classId)?.name)
-          .filter((n: any): n is string => !!n);
-        const parts = [entry.name];
-        if (compSummary) parts.push(compSummary);
-        if (classNames.length > 0) parts.push(classNames.join(', '));
-        return { id: entry.id, name: parts.join(' · ') };
+        // Duplicate name — append compact class-section + component-initials
+        // suffix so the admin sees exactly which "Sanskrit" they're picking:
+        //   Sanskrit (1st-A, 2nd-A)(T+IA)
+        //   Sanskrit (2nd-B)(T+P)
+        // Both pieces are needed: classes say WHERE the doc applies, the
+        // component initials say WHAT marks shape it has.
+        const pairLabels = this.formatClassSectionPairs(entry.assignments || []);
+        const compInitials = this.formatComponentInitials(entry.components || []);
+        let label = entry.name;
+        if (pairLabels) label += ` (${pairLabels})`;
+        if (compInitials) label += `(${compInitials})`;
+        return { id: entry.id, name: label };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   /**
-   * Compact human-readable shape of a subject's components, used to
-   * differentiate same-named subjects in the dropdown. Examples:
-   *   [Theory 100]                     → "Theory 100"
-   *   [Theory 80, IA 20]               → "Theory 80 + IA 20"
-   *   [Theory 70, Practical 30]        → "Theory 70 + Practical 30"
-   *   []                               → "" (caller skips the suffix)
+   * Compact "Class-Section" pair list for the dropdown suffix.
+   *   [{classId: c1, sectionIds: [s1, s2]}]  → "1st-A, 1st-B"
+   *   [{classId: c1, sectionIds: []}]        → "1st"   (whole class)
+   *   []                                     → ""     (no claim)
    */
-  private summariseComponents(comps: any[]): string {
+  private formatClassSectionPairs(assignments: any[]): string {
+    if (!assignments || assignments.length === 0) return '';
+    const parts: string[] = [];
+    for (const a of assignments) {
+      const cls = this.classes.find((c) => c.classId === a.classId);
+      if (!cls) continue;
+      const sectionIds: string[] = Array.isArray(a.sectionIds) ? a.sectionIds : [];
+      if (sectionIds.length === 0) { parts.push(cls.name); continue; }
+      for (const sid of sectionIds) {
+        const sec = (cls.sections || []).find((s: any) => s.sectionId === sid);
+        if (sec) parts.push(`${cls.name}-${sec.name}`);
+      }
+    }
+    return parts.join(', ');
+  }
+
+  /**
+   * Component label → initials, joined with '+'. Multi-word labels keep
+   * one letter per word so "Internal Assessment" reads as "IA".
+   *   [Theory]                        → "T"
+   *   [Theory, Practical]             → "T+P"
+   *   [Theory, Internal Assessment]   → "T+IA"
+   *   []                              → ""
+   */
+  private formatComponentInitials(comps: any[]): string {
     if (!comps || comps.length === 0) return '';
     return comps
       .map((c: any) => {
-        const label = c?.label || c?.key || '?';
-        const max = c?.maxMarks;
-        return (typeof max === 'number') ? `${label} ${max}` : label;
+        const label = (c?.label || c?.key || '').trim();
+        if (!label) return '?';
+        // Split on whitespace; first letter of each word, uppercased.
+        const initials = label
+          .split(/\s+/)
+          .map((w: string) => w.charAt(0).toUpperCase())
+          .join('');
+        return initials || '?';
       })
-      .join(' + ');
+      .join('+');
   }
 
   onFilterClassChange(): void {
