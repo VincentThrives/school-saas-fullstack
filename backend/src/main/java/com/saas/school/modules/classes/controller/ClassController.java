@@ -165,9 +165,28 @@ public class ClassController {
         validateSubject(req);
         validateAssignments(req);
         assertNoOverlappingAssignment(req.getName(), req.getAcademicYearId(), req.getAssignments(), null);
-        req.setSubjectId(UUID.randomUUID().toString());
         if (req.getPassRule() == null) req.setPassRule(Subject.PassRule.PER_COMPONENT);
         defaultComponentValues(req);
+
+        // Auto-merge path: if a same-named doc already exists in this
+        // academic year AND its components are identical, fold the new
+        // class+section assignments into that doc instead of creating a
+        // second row. Saves the admin from littering the list with
+        // "Sanskrit / Sanskrit" rows that mean the same thing.
+        Subject mergeTarget = findIdenticalComponentSubject(
+                req.getName(), req.getAcademicYearId(), req.getComponents());
+        if (mergeTarget != null) {
+            mergeAssignmentsInto(mergeTarget, req.getAssignments());
+            mergeTarget.setClassId(null);
+            Subject saved = subjectRepo.save(mergeTarget);
+            for (Subject.Assignment a : req.getAssignments()) {
+                attachSubjectToClassSections(saved.getSubjectId(), a.getClassId(), a.getSectionIds());
+            }
+            return ResponseEntity.ok(ApiResponse.success(saved,
+                    "Added class–section to existing '" + saved.getName() + "' (same components)."));
+        }
+
+        req.setSubjectId(UUID.randomUUID().toString());
         // Wipe the deprecated single-class field on new docs — the
         // assignments array is the only source of truth going forward.
         // We keep it null in storage so the migration runner doesn't
@@ -492,6 +511,83 @@ public class ClassController {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Find an existing same-named Subject in this year whose component
+     * shape EXACTLY matches the incoming request. "Exactly" means: same
+     * set of component keys, each with identical maxMarks, passMarks,
+     * assessmentMode, trackAttendance, label. Order-insensitive.
+     * Returns null when no such doc exists — caller falls through to
+     * "create new doc" path.
+     */
+    private Subject findIdenticalComponentSubject(
+            String name, String academicYearId, List<Subject.Component> incoming) {
+        if (name == null || name.isBlank() || academicYearId == null || academicYearId.isBlank()) return null;
+        if (incoming == null) return null;
+        String regex = "^" + java.util.regex.Pattern.quote(name.trim()) + "$";
+        List<Subject> hits = subjectRepo.findByNameRegexAndAcademicYearId(regex, academicYearId);
+        for (Subject other : hits) {
+            if (componentsEqual(other.getComponents(), incoming)) return other;
+        }
+        return null;
+    }
+
+    /**
+     * Order-insensitive equality on the bits of {@link Subject.Component}
+     * that actually drive downstream behaviour (marks caps, assessment
+     * routing, label shown to parents). Two components with the same key
+     * but different maxMarks count as DIFFERENT — Class 10 Math (Theory
+     * 100) vs Class 11 Math (Theory 70 + Practical 30) must stay
+     * separate docs.
+     */
+    private boolean componentsEqual(List<Subject.Component> a, List<Subject.Component> b) {
+        if (a == null || b == null) return a == b;
+        if (a.size() != b.size()) return false;
+        java.util.Map<String, Subject.Component> byKey = new java.util.HashMap<>();
+        for (Subject.Component c : a) if (c != null && c.getKey() != null) byKey.put(c.getKey(), c);
+        for (Subject.Component c : b) {
+            if (c == null || c.getKey() == null) return false;
+            Subject.Component peer = byKey.get(c.getKey());
+            if (peer == null) return false;
+            if (!java.util.Objects.equals(peer.getMaxMarks(), c.getMaxMarks())) return false;
+            if (!java.util.Objects.equals(peer.getPassMarks(), c.getPassMarks())) return false;
+            if (peer.getAssessmentMode() != c.getAssessmentMode()) return false;
+            if (peer.isTrackAttendance() != c.isTrackAttendance()) return false;
+            if (!java.util.Objects.equals(peer.getLabel(), c.getLabel())) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Fold the incoming class+section assignments into an existing
+     * Subject. For a class already on the target, merge the section ids
+     * (de-duped). For a brand-new class, push a fresh Assignment. The
+     * caller still walks the incoming assignments to attach the subject
+     * to each class's section.subjectIds list — this method only touches
+     * the Subject doc itself.
+     */
+    private void mergeAssignmentsInto(Subject target, List<Subject.Assignment> incoming) {
+        if (incoming == null || incoming.isEmpty()) return;
+        if (target.getAssignments() == null) target.setAssignments(new java.util.ArrayList<>());
+        java.util.Map<String, Subject.Assignment> byClassId = new java.util.HashMap<>();
+        for (Subject.Assignment a : target.getAssignments()) {
+            if (a != null && a.getClassId() != null) byClassId.put(a.getClassId(), a);
+        }
+        for (Subject.Assignment a : incoming) {
+            if (a == null || a.getClassId() == null) continue;
+            Subject.Assignment existing = byClassId.get(a.getClassId());
+            if (existing == null) {
+                target.getAssignments().add(a);
+                byClassId.put(a.getClassId(), a);
+                continue;
+            }
+            // Merge sectionIds (preserve order, drop dupes).
+            java.util.LinkedHashSet<String> merged = new java.util.LinkedHashSet<>();
+            if (existing.getSectionIds() != null) merged.addAll(existing.getSectionIds());
+            if (a.getSectionIds() != null) merged.addAll(a.getSectionIds());
+            existing.setSectionIds(new java.util.ArrayList<>(merged));
         }
     }
 
