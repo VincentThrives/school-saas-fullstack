@@ -92,6 +92,7 @@ export class SmsViewComponent implements OnInit {
   readonly templateBadges: ReadonlyArray<{ key: SmsTriggerKey; title: string; icon: string }> = [
     { key: 'ABSENCE_ALERT',   title: 'Absence Alert', icon: 'event_busy' },
     { key: 'HOLIDAY_NOTICE',  title: 'Holiday Notice', icon: 'beach_access' },
+    { key: 'EVENT_NOTICE',    title: 'Event Notice',   icon: 'event' },
     { key: 'RESULT_COMBINED', title: 'Results',        icon: 'leaderboard' },
     { key: 'CUSTOM_NOTICE',   title: 'Custom Notice',  icon: 'campaign' },
   ];
@@ -746,6 +747,7 @@ export class SmsViewComponent implements OnInit {
       case 'RESULT_SINGLE':   return 'Result (subject)';
       case 'CUSTOM_NOTICE':   return 'Custom Notice';
       case 'HOLIDAY_NOTICE':  return 'Holiday Notice';
+      case 'EVENT_NOTICE':    return 'Event Notice';
       default:                return trigger;
     }
   }
