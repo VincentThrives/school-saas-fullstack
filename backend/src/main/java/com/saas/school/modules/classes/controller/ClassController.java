@@ -164,6 +164,7 @@ public class ClassController {
         normaliseAssignmentsFromLegacyFields(req);
         validateSubject(req);
         validateAssignments(req);
+        assertUniqueSubjectName(req.getName(), req.getAcademicYearId(), null);
         req.setSubjectId(UUID.randomUUID().toString());
         if (req.getPassRule() == null) req.setPassRule(Subject.PassRule.PER_COMPONENT);
         defaultComponentValues(req);
@@ -192,6 +193,7 @@ public class ClassController {
         validateAssignments(req);
         Subject existing = subjectRepo.findById(subjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found"));
+        assertUniqueSubjectName(req.getName(), req.getAcademicYearId(), subjectId);
         existing.setName(req.getName());
         existing.setCode(req.getCode());
         existing.setAcademicYearId(req.getAcademicYearId());
@@ -419,6 +421,33 @@ public class ClassController {
                 // Default to PER_TERM rather than rejecting — matches CBSE behaviour
                 // and the form's default. defaultComponentValues() applies it.
             }
+        }
+    }
+
+    /**
+     * Enforce one Subject per name per academic year. Without this rule
+     * the admin can create two "Mathematics" docs that mostly differ in
+     * class assignments — and downstream pickers (Teacher Assignment
+     * Subject dropdown, Exam form) show identical labels with no way to
+     * tell them apart. Match is case- and whitespace-insensitive.
+     *
+     * @param name           the incoming subject name (trimmed before query)
+     * @param academicYearId the year we're checking within
+     * @param ignoreId       subjectId of the doc being updated (so an edit
+     *                       that doesn't rename doesn't trip on itself);
+     *                       null for create.
+     */
+    private void assertUniqueSubjectName(String name, String academicYearId, String ignoreId) {
+        if (name == null || name.isBlank() || academicYearId == null || academicYearId.isBlank()) return;
+        String trimmed = name.trim();
+        // Anchor + escape to make this a whole-name match (no "Math" hitting "Mathematics").
+        String regex = "^" + java.util.regex.Pattern.quote(trimmed) + "$";
+        List<Subject> hits = subjectRepo.findByNameRegexAndAcademicYearId(regex, academicYearId);
+        for (Subject other : hits) {
+            if (ignoreId != null && ignoreId.equals(other.getSubjectId())) continue;
+            throw new IllegalArgumentException(
+                    "Subject '" + trimmed + "' already exists for this academic year. "
+                  + "Edit the existing entry to add more class–section assignments instead of creating a duplicate.");
         }
     }
 

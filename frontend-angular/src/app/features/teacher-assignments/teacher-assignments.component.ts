@@ -306,23 +306,65 @@ export class TeacherAssignmentsComponent implements OnInit {
       next: (res: any) => {
         const all = res?.data || [];
         if (all.length > 0) {
-          this.applySubjectOptions(all
+          const rawList = all
             .filter((s: any) => !!(s.subjectId || s.id) && !!s.name)
-            .map((s: any) => ({ id: s.subjectId || s.id, name: s.name })));
+            .map((s: any) => ({
+              id: s.subjectId || s.id,
+              name: s.name as string,
+              // Carry assignments through so applySubjectOptions can
+              // disambiguate duplicate names with a class-list suffix.
+              assignments: Array.isArray(s.assignments) ? s.assignments : [],
+            }));
+          this.applySubjectOptions(rawList);
         }
       },
       error: () => { /* SubjectService subscription will fill in the fallback */ },
     });
   }
 
-  /** Merge a fresh list of subjects into formSubjectOptions, de-duping by id. */
-  private applySubjectOptions(list: { id: string; name: string }[]): void {
+  /**
+   * Merge a fresh list of subjects into formSubjectOptions, de-duping by id.
+   * When two subject docs share a name (legacy data — the new backend
+   * validator blocks duplicates going forward), suffix each label with
+   * its assigned class names so the admin can tell them apart in the
+   * dropdown. "Mathematics" + "Mathematics" becomes "Mathematics (1st, 2nd)"
+   * and "Mathematics (2nd, 3rd)".
+   */
+  private applySubjectOptions(list: Array<{ id: string; name: string; assignments?: any[] }>): void {
     if (!list || list.length === 0) return;
-    const byId = new Map<string, string>();
-    for (const existing of this.formSubjectOptions) byId.set(existing.id, existing.name);
-    for (const s of list) if (s.id && s.name) byId.set(s.id, s.name);
-    this.formSubjectOptions = Array.from(byId.entries())
-      .map(([id, name]) => ({ id, name }))
+    type Entry = { id: string; name: string; assignments: any[] };
+    const byId = new Map<string, Entry>();
+    // Preserve previously-added entries (we don't carry their assignments,
+    // so they'll fall through to plain names — but the new list usually
+    // supersedes anyway).
+    for (const existing of this.formSubjectOptions) {
+      byId.set(existing.id, { id: existing.id, name: existing.name, assignments: [] });
+    }
+    for (const s of list) {
+      if (!s.id || !s.name) continue;
+      byId.set(s.id, { id: s.id, name: s.name, assignments: s.assignments || [] });
+    }
+
+    // Group by lowercase-trimmed name to find collisions.
+    const nameCounts = new Map<string, number>();
+    for (const entry of byId.values()) {
+      const key = entry.name.trim().toLowerCase();
+      nameCounts.set(key, (nameCounts.get(key) || 0) + 1);
+    }
+
+    this.formSubjectOptions = Array.from(byId.values())
+      .map((entry) => {
+        const key = entry.name.trim().toLowerCase();
+        if ((nameCounts.get(key) || 0) < 2) {
+          return { id: entry.id, name: entry.name };
+        }
+        // Duplicate name — append the class list as a disambiguator.
+        const classNames = (entry.assignments || [])
+          .map((a: any) => this.classes.find((c) => c.classId === a.classId)?.name)
+          .filter((n: any): n is string => !!n);
+        const suffix = classNames.length > 0 ? ` (${classNames.join(', ')})` : '';
+        return { id: entry.id, name: entry.name + suffix };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
