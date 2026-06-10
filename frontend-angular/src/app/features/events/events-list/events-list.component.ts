@@ -13,7 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule, provideNativeDateAdapter } from '@angular/material/core';
+import { MatNativeDateModule, MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService, SendHolidayNoticeRequest } from '../../../core/services/api.service';
@@ -43,7 +43,12 @@ import { SchoolEvent, AcademicYear, UserRole } from '../../../core/models';
   ],
   templateUrl: './events-list.component.html',
   styleUrl: './events-list.component.scss',
-  providers: [provideNativeDateAdapter()],
+  providers: [
+    provideNativeDateAdapter(),
+    // en-GB renders the picker input as DD/MM/YYYY — matches what schools
+    // here expect on the holiday reopen field (and elsewhere on the page).
+    { provide: MAT_DATE_LOCALE, useValue: 'en-GB' },
+  ],
 })
 export class EventsListComponent implements OnInit {
   allEvents: SchoolEvent[] = [];
