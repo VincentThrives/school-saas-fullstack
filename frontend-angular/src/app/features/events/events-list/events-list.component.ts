@@ -14,7 +14,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
-import { ApiService } from '../../../core/services/api.service';
+import { ApiService, SendHolidayNoticeRequest } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { SchoolEvent, AcademicYear, UserRole } from '../../../core/models';
 
@@ -61,6 +61,15 @@ export class EventsListComponent implements OnInit {
   smsAudience: 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' = 'ALL_STUDENTS';
   smsTime = '';
   smsSending = false;
+
+  /** Per-holiday "Send SMS" dialog state. Separate from the event one so
+   *  the form fields stay isolated and the two dialogs can't get into a
+   *  half-mixed state when admin opens one while the other is closing. */
+  smsHolidayDialogOpen = false;
+  smsHoliday: SchoolEvent | null = null;
+  smsHolidayAudience: 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' = 'ALL_STUDENTS';
+  smsHolidayReason = '';
+  smsHolidaySending = false;
 
   isAdmin = false;
 
@@ -320,5 +329,91 @@ export class EventsListComponent implements OnInit {
     const fmt = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
     if (!end || start.toDateString() === end.toDateString()) return fmt(start);
     return `${fmt(start)} – ${fmt(end)}`;
+  }
+
+  // ── Per-holiday SMS broadcast ───────────────────────────────────
+
+  /** Open the Send SMS dialog for one holiday. Pre-fills the reason
+   *  from the holiday's title + description so the common case is a
+   *  one-click send. Mirrors the event SMS dialog so admin only has
+   *  one mental model. */
+  openSendHolidaySms(holiday: SchoolEvent): void {
+    this.smsHoliday = holiday;
+    this.smsHolidayAudience = 'ALL_STUDENTS';
+    const desc = (holiday as any).description?.trim();
+    this.smsHolidayReason = desc
+        ? `${holiday.title} · ${desc}`
+        : (holiday.title || '');
+    this.smsHolidayDialogOpen = true;
+  }
+
+  cancelSendHolidaySms(): void {
+    this.smsHolidayDialogOpen = false;
+    this.smsHoliday = null;
+  }
+
+  sendHolidaySms(): void {
+    const hol = this.smsHoliday;
+    if (!hol) return;
+    const reason = this.smsHolidayReason?.trim();
+    if (!reason) {
+      this.snackBar.open('Enter a reason for the holiday.', 'Close', { duration: 2500 });
+      return;
+    }
+
+    // DLT template body wants closure and reopen as "9 Jun 2026" style
+    // strings. Closure = first day of the holiday; reopen = day AFTER
+    // the last holiday day so parents know when school resumes.
+    const closureDateStr = this.formatHolidayDateForSms(hol.startDate);
+    const reopenDateStr  = this.formatHolidayDateForSms(this.deriveReopenDate(hol));
+    if (!closureDateStr || !reopenDateStr) {
+      this.snackBar.open('Holiday dates are missing.', 'Close', { duration: 2500 });
+      return;
+    }
+
+    this.smsHolidaySending = true;
+    const req: SendHolidayNoticeRequest = {
+      audiences: [this.smsHolidayAudience as any],
+      closureDate: closureDateStr,
+      reopenDate: reopenDateStr,
+      reason,
+    };
+    this.apiService.sendHolidayNoticeSms(req).subscribe({
+      next: (res) => {
+        this.smsHolidaySending = false;
+        const n = res?.data?.recipientCount ?? 0;
+        this.snackBar.open(`Holiday SMS queued to ${n} recipient${n === 1 ? '' : 's'}.`,
+          'Close', { duration: 3500 });
+        this.cancelSendHolidaySms();
+      },
+      error: (err) => {
+        this.smsHolidaySending = false;
+        this.snackBar.open(err?.error?.message || 'Failed to send holiday SMS',
+          'Close', { duration: 4000 });
+      },
+    });
+  }
+
+  /** Date AFTER the last holiday day — when school actually reopens.
+   *  Single-day holidays reopen the next day; ranges reopen the day
+   *  after endDate. Returns null when the holiday has no dates. */
+  private deriveReopenDate(hol: SchoolEvent): Date | null {
+    const baseStr = hol.endDate || hol.startDate;
+    if (!baseStr) return null;
+    const d = new Date(baseStr);
+    if (isNaN(d.getTime())) return null;
+    d.setDate(d.getDate() + 1);
+    return d;
+  }
+
+  /** Format "9 May 2026" style date string used in the HOLIDAY_NOTICE
+   *  DLT template body. Accepts a Date or ISO date string. */
+  private formatHolidayDateForSms(d: Date | string | null | undefined): string {
+    if (!d) return '';
+    const dt = d instanceof Date ? d : new Date(d);
+    if (isNaN(dt.getTime())) return '';
+    return dt.toLocaleDateString('en-IN', {
+      day: 'numeric', month: 'short', year: 'numeric',
+    });
   }
 }

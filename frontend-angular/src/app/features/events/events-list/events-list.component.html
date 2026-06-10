@@ -127,6 +127,9 @@
               <span class="holiday-description" *ngIf="event.description">{{ event.description }}</span>
             </div>
             <div class="holiday-card-actions" *ngIf="isAdmin">
+              <button mat-icon-button matTooltip="Send SMS to parents" (click)="openSendHolidaySms(event)">
+                <mat-icon>sms</mat-icon>
+              </button>
               <button mat-icon-button matTooltip="Edit" (click)="editEvent(event)">
                 <mat-icon>edit</mat-icon>
               </button>
@@ -187,6 +190,42 @@
         <button mat-button [disabled]="smsSending" (click)="cancelSendSms()">Cancel</button>
         <button mat-raised-button color="primary" [disabled]="smsSending" (click)="sendEventSms()">
           {{ smsSending ? 'Sending…' : 'Send SMS' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send Holiday SMS dialog — per-card broadcast using the school's
+       HOLIDAY_NOTICE DLT template. Closure date comes from the holiday's
+       startDate; reopen date is auto-derived (endDate + 1 day) so the
+       parent receives an accurate "school reopens on X" line. -->
+  <div class="delete-overlay" *ngIf="smsHolidayDialogOpen" (click)="cancelSendHolidaySms()">
+    <div class="delete-dialog" (click)="$event.stopPropagation()">
+      <h3>Send SMS · {{ smsHoliday?.title }}</h3>
+      <p style="margin-bottom: 12px;">
+        Notify parents about this holiday. Uses your school's <strong>Holiday Notice</strong>
+        DLT template — closure and reopen dates are filled from the holiday card.
+      </p>
+
+      <mat-form-field appearance="outline" style="width: 100%;">
+        <mat-label>Audience</mat-label>
+        <mat-select [(ngModel)]="smsHolidayAudience">
+          <mat-option value="ALL_STUDENTS">All Students</mat-option>
+          <mat-option value="ALL_EMPLOYEES">All Employees</mat-option>
+          <mat-option value="ALL">Everyone (students + employees)</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" style="width: 100%;">
+        <mat-label>Reason</mat-label>
+        <input matInput [(ngModel)]="smsHolidayReason" placeholder="e.g. Republic Day">
+        <mat-hint>Pre-filled from the holiday. Edit if needed.</mat-hint>
+      </mat-form-field>
+
+      <div class="dialog-actions">
+        <button mat-button [disabled]="smsHolidaySending" (click)="cancelSendHolidaySms()">Cancel</button>
+        <button mat-raised-button color="primary" [disabled]="smsHolidaySending" (click)="sendHolidaySms()">
+          {{ smsHolidaySending ? 'Sending…' : 'Send SMS' }}
         </button>
       </div>
     </div>
