@@ -5,6 +5,39 @@ $gold-dark: #B8860B;
   padding: 0;
 }
 
+// Empty state card — shown when no students are enrolled in the exam's
+// class/section. Friendlier than a silent blank page.
+.empty-state-card {
+  border-radius: 12px !important;
+  margin: 16px 0;
+
+  mat-card-content {
+    text-align: center;
+    padding: 32px 24px;
+  }
+
+  .empty-state-icon {
+    font-size: 56px;
+    width: 56px;
+    height: 56px;
+    color: #9ca3af;
+    margin-bottom: 12px;
+  }
+
+  h3 {
+    margin: 8px 0;
+    color: #1f2937;
+    font-weight: 600;
+  }
+
+  p {
+    color: #6b7280;
+    max-width: 480px;
+    margin: 0 auto 18px;
+    line-height: 1.5;
+  }
+}
+
 .exam-info-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

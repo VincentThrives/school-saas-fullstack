@@ -52,6 +52,25 @@
     <mat-spinner diameter="40"></mat-spinner>
   </div>
 
+  <!-- Empty state — no students enrolled in this exam's class/section yet.
+       Shown as a friendly card instead of a blank page so the admin knows
+       why the marks table is missing. -->
+  <mat-card class="empty-state-card" *ngIf="!isLoading && students.length === 0 && exam">
+    <mat-card-content>
+      <mat-icon class="empty-state-icon">groups_off</mat-icon>
+      <h3>No students in {{ getClassName() }}</h3>
+      <p>
+        No students are enrolled in <strong>{{ getClassName() }}</strong> yet,
+        so there's nothing to enter marks for. Add students to this class &amp;
+        section first, then come back here.
+      </p>
+      <button mat-stroked-button (click)="goBack()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to Exams
+      </button>
+    </mat-card-content>
+  </mat-card>
+
   <!-- Marks Table -->
   <mat-card class="table-card" *ngIf="!isLoading && students.length > 0">
     <!-- Mobile cards (< 600px) -->
