@@ -49,8 +49,7 @@
       <a
         *ngIf="!item.children"
         [routerLink]="item.path"
-        routerLinkActive="active-link"
-        [routerLinkActiveOptions]="{ exact: item.path === '/dashboard' || item.path === '/superadmin/dashboard' }"
+        [class.active-link]="isItemActive(item)"
         class="nav-item"
         (click)="onNavClick()"
       >
@@ -79,7 +78,7 @@
             <a
               *ngIf="isItemVisible(child)"
               [routerLink]="child.path"
-              routerLinkActive="active-link"
+              [class.active-link]="isItemActive(child)"
               class="nav-item nav-child"
               (click)="onNavClick()"
             >

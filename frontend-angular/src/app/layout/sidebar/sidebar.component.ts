@@ -1,6 +1,7 @@
 import { Component, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
@@ -56,6 +57,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
   user: User | null = null;
   attendanceMode = 'DAY_WISE';
 
+  /** Current URL path without query/fragment. Updated on every NavigationEnd
+   *  so {@link isItemActive} can pick the most-specific matching item. */
+  private currentUrl = '';
+
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -66,6 +71,17 @@ export class SidebarComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // Seed and track the current URL so the active-item logic can pick
+    // the most-specific match (instead of letting Angular's default
+    // routerLinkActive light up every prefix sibling).
+    this.currentUrl = this.stripQuery(this.router.url);
+    this.router.events
+      .pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(e => { this.currentUrl = this.stripQuery(e.urlAfterRedirects || e.url); });
+
     this.authService.user
       .pipe(takeUntil(this.destroy$))
       .subscribe((user) => {
@@ -410,7 +426,54 @@ export class SidebarComponent implements OnInit, OnDestroy {
   /** Auto-expand a group when one of its children matches the current URL.
    *  Used by `isGroupOpen` as the default when the user hasn't toggled. */
   isGroupActive(item: MenuItem): boolean {
-    const current = this.router.url;
-    return !!item.children && item.children.some(c => c.path && current.startsWith(c.path));
+    const current = this.currentUrl || this.router.url;
+    return !!item.children && item.children.some(c => c.path && this.urlMatchesPath(current, c.path));
+  }
+
+  /**
+   * Is this item's path the BEST match for the current URL? "Best" means
+   * the longest sidebar path that's either equal to or a string-prefix
+   * (with a "/" boundary) of the URL. Replaces Angular's default
+   * routerLinkActive prefix-match, which would also light up
+   * /exams when the URL is /exams/config.
+   */
+  isItemActive(item: MenuItem): boolean {
+    if (!item?.path) return false;
+    const url = this.currentUrl || this.stripQuery(this.router.url);
+    if (!this.urlMatchesPath(url, item.path)) return false;
+
+    // Find the most-specific sidebar path that matches this URL across
+    // EVERY top-level item (so a leaf at the top level can still beat a
+    // group child if it's more specific, and vice versa).
+    let bestLen = -1;
+    for (const top of this.menuItems) {
+      if (top.path && this.urlMatchesPath(url, top.path)) {
+        bestLen = Math.max(bestLen, top.path.length);
+      }
+      for (const child of top.children || []) {
+        if (child.path && this.urlMatchesPath(url, child.path)) {
+          bestLen = Math.max(bestLen, child.path.length);
+        }
+      }
+    }
+    return item.path.length === bestLen;
+  }
+
+  /** True when {@code url} is exactly {@code path} OR starts with `path + "/"`.
+   *  Trailing slash boundary stops "/exams" from matching "/exams-foo". */
+  private urlMatchesPath(url: string, path: string): boolean {
+    if (!path) return false;
+    if (url === path) return true;
+    return url.startsWith(path.endsWith('/') ? path : path + '/');
+  }
+
+  private stripQuery(url: string): string {
+    if (!url) return '';
+    const q = url.indexOf('?');
+    const h = url.indexOf('#');
+    let end = url.length;
+    if (q >= 0) end = Math.min(end, q);
+    if (h >= 0) end = Math.min(end, h);
+    return url.substring(0, end);
   }
 }
