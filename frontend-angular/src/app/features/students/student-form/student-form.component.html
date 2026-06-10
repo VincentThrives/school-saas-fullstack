@@ -125,9 +125,14 @@
           </mat-form-field>
         </div>
 
-        <mat-divider class="section-divider"></mat-divider>
+        <!--
+        ── Subjects section ──────────────────────────────────────────
+        Hidden for now — subjects auto-attach from the chosen section's
+        subjectIds (see StudentService.createStudent), so the manual picker
+        was creating drift between bulk-import and one-off entry. Uncomment
+        the block below if schools want to override per-student.
 
-        <!-- Subjects -->
+        <mat-divider class="section-divider"></mat-divider>
         <h3 class="section-title">Subjects</h3>
         <div class="form-grid">
           <mat-form-field appearance="outline" class="full-width">
@@ -140,10 +145,16 @@
             <mat-hint>Select subjects this student is taking for the academic year</mat-hint>
           </mat-form-field>
         </div>
+        -->
+
+        <!--
+        ── Parent Accounts section ───────────────────────────────────
+        Hidden — parent linkage was a placeholder (only "No parents
+        linked yet" was selectable). Parent contact lives on the
+        Parent Name / Phone / Email fields above. Uncomment when the
+        Parents module ships with real accounts to pick.
 
         <mat-divider class="section-divider"></mat-divider>
-
-        <!-- Parent IDs (legacy) -->
         <h3 class="section-title">Parent Accounts</h3>
         <div class="form-grid">
           <mat-form-field appearance="outline" class="full-width">
@@ -154,6 +165,7 @@
             <mat-hint>Select parent accounts to link</mat-hint>
           </mat-form-field>
         </div>
+        -->
 
         <mat-divider class="section-divider"></mat-divider>
 
