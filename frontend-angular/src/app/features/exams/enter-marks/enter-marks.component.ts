@@ -169,28 +169,31 @@ export class EnterMarksComponent implements OnInit {
       return;
     }
 
-    // Load students - try with classId filter first, fallback to all
+    // Strictly scope to this exam's class + section. A zero-result here means
+    // there genuinely are no students in 2-A (or whatever the exam targets),
+    // NOT that we should show every student in the school — the old fallback
+    // did that and dragged a 1-A student onto every class/section's mark
+    // entry screen.
     const params: any = {};
     if (this.exam.classId) params.classId = this.exam.classId;
     if (this.exam.sectionId) params.sectionId = this.exam.sectionId;
     this.api.getStudents(0, 100, Object.keys(params).length > 0 ? params : undefined).subscribe({
       next: (res) => {
         let studentList = res.data?.content || [];
-
-        // If classId filter returned empty, load all students
-        if (studentList.length === 0 && this.exam.classId) {
-          this.api.getStudents(0, 100).subscribe({
-            next: (allRes) => {
-              studentList = allRes.data?.content || [];
-              this.mapStudents(studentList);
-              this.loadExistingMarks();
-            },
-            error: () => { this.isLoading = false; },
-          });
-        } else {
-          this.mapStudents(studentList);
-          this.loadExistingMarks();
+        // Defence in depth: even when the backend supports sectionId, older
+        // builds may return the whole class when the filter is unknown. Apply
+        // an explicit client-side filter so an over-broad response can't slip
+        // someone else's student onto this exam's roster.
+        if (this.exam?.sectionId) {
+          studentList = studentList.filter((s: any) =>
+            s?.sectionId === this.exam.sectionId);
         }
+        if (this.exam?.classId) {
+          studentList = studentList.filter((s: any) =>
+            s?.classId === this.exam.classId);
+        }
+        this.mapStudents(studentList);
+        this.loadExistingMarks();
       },
       error: () => {
         this.isLoading = false;
