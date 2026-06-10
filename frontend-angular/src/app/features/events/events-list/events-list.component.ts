@@ -12,6 +12,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule, provideNativeDateAdapter } from '@angular/material/core';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService, SendHolidayNoticeRequest } from '../../../core/services/api.service';
@@ -34,11 +36,14 @@ import { SchoolEvent, AcademicYear, UserRole } from '../../../core/models';
     MatInputModule,
     MatSelectModule,
     MatProgressSpinnerModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
     MatSnackBarModule,
     PageHeaderComponent,
   ],
   templateUrl: './events-list.component.html',
   styleUrl: './events-list.component.scss',
+  providers: [provideNativeDateAdapter()],
 })
 export class EventsListComponent implements OnInit {
   allEvents: SchoolEvent[] = [];
@@ -69,6 +74,10 @@ export class EventsListComponent implements OnInit {
   smsHoliday: SchoolEvent | null = null;
   smsHolidayAudience: 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' = 'ALL_STUDENTS';
   smsHolidayReason = '';
+  /** Reopen date is editable — auto-derived from endDate+1 but admin
+   *  overrides it for weekend collisions (Saturday holiday → school
+   *  doesn't reopen Sunday, so admin picks Monday). */
+  smsHolidayReopenDate: Date | null = null;
   smsHolidaySending = false;
 
   isAdmin = false;
@@ -344,6 +353,10 @@ export class EventsListComponent implements OnInit {
     this.smsHolidayReason = desc
         ? `${holiday.title} · ${desc}`
         : (holiday.title || '');
+    // Auto-derive reopen as endDate+1 — admin can override before sending
+    // (the common case: Saturday holiday → suggested Sunday is invalid, so
+    // admin picks Monday).
+    this.smsHolidayReopenDate = this.deriveReopenDate(holiday);
     this.smsHolidayDialogOpen = true;
   }
 
@@ -360,12 +373,18 @@ export class EventsListComponent implements OnInit {
       this.snackBar.open('Enter a reason for the holiday.', 'Close', { duration: 2500 });
       return;
     }
+    if (!this.smsHolidayReopenDate) {
+      this.snackBar.open('Pick the reopen date.', 'Close', { duration: 2500 });
+      return;
+    }
 
     // DLT template body wants closure and reopen as "9 Jun 2026" style
-    // strings. Closure = first day of the holiday; reopen = day AFTER
-    // the last holiday day so parents know when school resumes.
+    // strings. Closure = first day of the holiday; reopen = the admin-
+    // picked date (auto-suggested as endDate+1, but editable for
+    // weekend collisions — Saturday holiday → Sunday is invalid, admin
+    // picks Monday).
     const closureDateStr = this.formatHolidayDateForSms(hol.startDate);
-    const reopenDateStr  = this.formatHolidayDateForSms(this.deriveReopenDate(hol));
+    const reopenDateStr  = this.formatHolidayDateForSms(this.smsHolidayReopenDate);
     if (!closureDateStr || !reopenDateStr) {
       this.snackBar.open('Holiday dates are missing.', 'Close', { duration: 2500 });
       return;

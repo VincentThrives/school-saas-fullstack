@@ -222,6 +222,14 @@
         <mat-hint>Pre-filled from the holiday. Edit if needed.</mat-hint>
       </mat-form-field>
 
+      <mat-form-field appearance="outline" style="width: 100%;">
+        <mat-label>School reopens on</mat-label>
+        <input matInput [matDatepicker]="reopenPicker" [(ngModel)]="smsHolidayReopenDate">
+        <mat-datepicker-toggle matIconSuffix [for]="reopenPicker"></mat-datepicker-toggle>
+        <mat-datepicker #reopenPicker></mat-datepicker>
+        <mat-hint>Auto-suggested as day after the holiday — change if a weekend falls in between.</mat-hint>
+      </mat-form-field>
+
       <div class="dialog-actions">
         <button mat-button [disabled]="smsHolidaySending" (click)="cancelSendHolidaySms()">Cancel</button>
         <button mat-raised-button color="primary" [disabled]="smsHolidaySending" (click)="sendHolidaySms()">
