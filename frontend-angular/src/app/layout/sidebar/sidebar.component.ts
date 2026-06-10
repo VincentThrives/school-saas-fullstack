@@ -263,14 +263,24 @@ export class SidebarComponent implements OnInit, OnDestroy {
         },
         { title: 'Events', path: '/events', icon: 'event', feature: 'events' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications' },
-        // SMS Notifications — only visible when Super Admin has enabled
-        // SMS for this tenant. TenantFeatureService.smsEnabled() is a
-        // signal that re-evaluates on every change-detection pass, so
-        // the menu item appears/disappears within seconds of a toggle
-        // (plus a page reload). The smsFeatureGuard re-enforces this
-        // at route entry as defence in depth.
+        // SMS — only visible when Super Admin has enabled SMS for this
+        // tenant. TenantFeatureService.smsEnabled() is a signal that
+        // re-evaluates on every change-detection pass, so the menu item
+        // appears/disappears within seconds of a toggle (plus a page
+        // reload). The smsFeatureGuard re-enforces this at route entry
+        // as defence in depth.
+        //
+        // Two-child group: the main /settings/sms view + the dedicated
+        // audit log page. Splitting them lets the audit log page filter
+        // by year/template/status/date without bloating the main view.
         ...(this.features.smsEnabled() ? [
-          { title: 'SMS Notifications', path: '/settings/sms', icon: 'sms' } as MenuItem,
+          {
+            title: 'SMS', path: '', icon: 'sms',
+            children: [
+              { title: 'SMS Notifications', path: '/settings/sms', icon: 'sms' },
+              { title: 'SMS Audit Log', path: '/settings/sms/audit-log', icon: 'history' },
+            ],
+          } as MenuItem,
         ] : []),
         // { title: 'WhatsApp', path: '/whatsapp', icon: 'chat', feature: 'whatsapp' },
         // { title: 'ID Cards', path: '/id-cards', icon: 'badge', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },

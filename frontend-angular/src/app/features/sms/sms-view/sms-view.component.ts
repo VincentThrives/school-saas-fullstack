@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -53,7 +54,7 @@ import { PageHeaderComponent } from '../../../shared/components/page-header/page
   selector: 'app-sms-view',
   standalone: true,
   imports: [
-    CommonModule, FormsModule,
+    CommonModule, FormsModule, RouterLink,
     MatCardModule, MatIconModule, MatButtonModule, MatTableModule,
     MatChipsModule, MatCheckboxModule, MatPaginatorModule, MatProgressSpinnerModule,
     MatFormFieldModule, MatInputModule, MatTooltipModule, MatSnackBarModule,

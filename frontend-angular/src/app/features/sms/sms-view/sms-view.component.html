@@ -408,84 +408,25 @@
     </div>
   </mat-card>
 
-  <!-- ── Audit log table ────────────────────────────────────── -->
+  <!-- ── Audit log link ───────────────────────────────────────
+       The embedded audit table moved to its own /settings/sms/audit-log
+       page so this view doesn't bloat as tenant SMS volume grows. The
+       full page has filters by year, template, status, and date range. -->
   <mat-card class="sv-log-card">
     <div class="sv-card-head">
       <mat-icon>history</mat-icon>
       <h3>SMS audit log</h3>
-      <button mat-icon-button (click)="loadLogs()" [disabled]="isLoadingLogs"
-              class="sv-refresh" matTooltip="Refresh">
-        <mat-icon>refresh</mat-icon>
-      </button>
     </div>
-
-    <div class="sv-log-loading" *ngIf="isLoadingLogs">
-      <mat-spinner diameter="32"></mat-spinner>
-    </div>
-
-    <div class="sv-log-empty" *ngIf="!isLoadingLogs && logs.length === 0">
-      <mat-icon>inbox</mat-icon>
-      <p>No SMS sent yet. New sends will appear here.</p>
-    </div>
-
-    <div class="sv-log-table-wrap" *ngIf="!isLoadingLogs && logs.length > 0">
-      <table mat-table [dataSource]="logs" class="sv-log-table">
-
-        <ng-container matColumnDef="createdAt">
-          <th mat-header-cell *matHeaderCellDef>Sent at</th>
-          <td mat-cell *matCellDef="let row">{{ formatDateTime(row.createdAt) }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="trigger">
-          <th mat-header-cell *matHeaderCellDef>Trigger</th>
-          <td mat-cell *matCellDef="let row">{{ triggerLabel(row.trigger) }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="recipientPhone">
-          <th mat-header-cell *matHeaderCellDef>Recipient</th>
-          <td mat-cell *matCellDef="let row">
-            <code>{{ row.recipientPhone || '—' }}</code>
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="sender">
-          <th mat-header-cell *matHeaderCellDef>Sender</th>
-          <td mat-cell *matCellDef="let row">
-            <span class="sv-sender-pill" *ngIf="row.senderId">{{ row.senderId }}</span>
-            <span class="sv-sender-empty" *ngIf="!row.senderId">—</span>
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef>Status</th>
-          <td mat-cell *matCellDef="let row">
-            <span class="sv-chip" [class]="statusClass(row.status)">
-              {{ row.status }}
-            </span>
-            <span class="sv-chip-tip" *ngIf="row.errorMessage" [matTooltip]="row.errorMessage">
-              <mat-icon>info</mat-icon>
-            </span>
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="cost">
-          <th mat-header-cell *matHeaderCellDef>Cost</th>
-          <td mat-cell *matCellDef="let row">
-            ₹{{ row.costInr | number:'1.2-2' }}
-          </td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="logColumns"></tr>
-        <tr mat-row *matRowDef="let r; columns: logColumns"></tr>
-      </table>
-
-      <mat-paginator
-        [length]="totalLogs"
-        [pageSize]="pageSize"
-        [pageIndex]="pageIndex"
-        [pageSizeOptions]="[10, 25, 50, 100]"
-        (page)="onPageChange($event)">
-      </mat-paginator>
+    <div class="sv-log-empty">
+      <p>
+        The audit log now lives on its own page so you can filter by
+        date, template, and delivery status without scrolling through
+        thousands of rows here.
+      </p>
+      <a mat-flat-button color="primary" routerLink="/settings/sms/audit-log">
+        <mat-icon>open_in_new</mat-icon>
+        Open SMS Audit Log
+      </a>
     </div>
   </mat-card>
 </div>

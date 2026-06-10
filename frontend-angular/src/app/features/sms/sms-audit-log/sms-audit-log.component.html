@@ -1,0 +1,155 @@
+<div class="sms-audit-container">
+  <app-page-header
+    title="SMS Audit Log"
+    subtitle="Every SMS we sent, attempted, or skipped — with the reason"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'SMS', link: '/settings/sms' },
+      { label: 'Audit Log' }
+    ]"
+  ></app-page-header>
+
+  <!-- ── Filters ────────────────────────────────────────────────── -->
+  <mat-card class="filters-card">
+    <mat-card-content>
+      <div class="filters-row">
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Academic Year</mat-label>
+          <mat-select [(ngModel)]="academicYearFilter" (selectionChange)="onFilterChange()">
+            <mat-option value="">All Years</mat-option>
+            <mat-option *ngFor="let y of academicYears" [value]="y.academicYearId">
+              {{ y.label }} {{ y.current ? '(Current)' : '' }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Template</mat-label>
+          <mat-select [(ngModel)]="triggerFilter" (selectionChange)="onFilterChange()">
+            <mat-option value="">All templates</mat-option>
+            <mat-option *ngFor="let t of triggers" [value]="t.key">{{ t.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="statusFilter" (selectionChange)="onFilterChange()">
+            <mat-option *ngFor="let s of statusBuckets" [value]="s.value">{{ s.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>From date</mat-label>
+          <input matInput [matDatepicker]="pickerFrom" [(ngModel)]="dateFrom" (dateChange)="onFilterChange()">
+          <mat-datepicker-toggle matIconSuffix [for]="pickerFrom"></mat-datepicker-toggle>
+          <mat-datepicker #pickerFrom></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>To date</mat-label>
+          <input matInput [matDatepicker]="pickerTo" [(ngModel)]="dateTo" (dateChange)="onFilterChange()">
+          <mat-datepicker-toggle matIconSuffix [for]="pickerTo"></mat-datepicker-toggle>
+          <mat-datepicker #pickerTo></mat-datepicker>
+        </mat-form-field>
+
+        <span class="spacer"></span>
+
+        <button mat-stroked-button (click)="clearFilters()" matTooltip="Clear all filters">
+          <mat-icon>clear</mat-icon>
+          Clear
+        </button>
+        <button mat-icon-button matTooltip="Refresh" (click)="load()">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- ── Table ──────────────────────────────────────────────────── -->
+  <mat-card class="table-card">
+    <div class="loading-row" *ngIf="isLoading">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+
+    <div class="empty-state" *ngIf="!isLoading && rows.length === 0">
+      <mat-icon class="empty-icon">forum</mat-icon>
+      <h3>No SMS in this view</h3>
+      <p>Adjust the filters above to see more rows.</p>
+    </div>
+
+    <div class="table-scroll" *ngIf="!isLoading && rows.length > 0">
+      <table mat-table [dataSource]="rows" class="audit-table">
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef>Date</th>
+          <td mat-cell *matCellDef="let row">
+            <div class="cell-date">{{ row.createdAt | date:'dd MMM' }}</div>
+            <div class="cell-time">{{ row.createdAt | date:'HH:mm' }}</div>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="trigger">
+          <th mat-header-cell *matHeaderCellDef>Template</th>
+          <td mat-cell *matCellDef="let row">
+            <mat-chip class="trigger-chip">{{ triggerLabel(row.trigger) }}</mat-chip>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="recipient">
+          <th mat-header-cell *matHeaderCellDef>Recipient</th>
+          <td mat-cell *matCellDef="let row">
+            <div class="cell-phone">{{ row.recipientPhone || '—' }}</div>
+            <div class="cell-role muted" *ngIf="row.recipientRole">{{ row.recipientRole }}</div>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="body">
+          <th mat-header-cell *matHeaderCellDef>Body</th>
+          <td mat-cell *matCellDef="let row">
+            <span [matTooltip]="row.body || ''" matTooltipClass="audit-body-tooltip">
+              {{ truncate(row.body) }}
+            </span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="cost">
+          <th mat-header-cell *matHeaderCellDef>Cost</th>
+          <td mat-cell *matCellDef="let row">
+            ₹{{ row.costInr | number:'1.2-2' }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let row">
+            <mat-chip [class]="statusClass(row.status)">{{ row.status }}</mat-chip>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="reason">
+          <th mat-header-cell *matHeaderCellDef>Reason</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="reason-text" *ngIf="isNotSent(row.status); else dash"
+                  [matTooltip]="reasonFor(row)">
+              {{ reasonFor(row) }}
+            </span>
+            <ng-template #dash>
+              <span class="muted">—</span>
+            </ng-template>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+    </div>
+
+    <mat-paginator
+      [length]="totalElements"
+      [pageSize]="pageSize"
+      [pageIndex]="pageIndex"
+      [pageSizeOptions]="[25, 50, 100]"
+      (page)="onPageChange($event)"
+      showFirstLastButtons>
+    </mat-paginator>
+  </mat-card>
+</div>

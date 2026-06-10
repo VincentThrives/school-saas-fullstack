@@ -1,0 +1,99 @@
+.sms-audit-container {
+  padding: 16px 20px 60px;
+}
+
+.filters-card {
+  border-radius: 12px;
+  margin-bottom: 14px;
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-field {
+  min-width: 170px;
+}
+
+.spacer { flex: 1; }
+
+.table-card {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.loading-row {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  .empty-icon {
+    font-size: 48px; width: 48px; height: 48px; color: #9ca3af; margin-bottom: 8px;
+  }
+  h3 { color: #1f2937; margin: 4px 0; }
+  p  { color: #6b7280; margin: 0; }
+}
+
+.table-scroll { overflow-x: auto; }
+
+.audit-table {
+  width: 100%;
+  th { font-weight: 600; color: #374151; background: #f9fafb; }
+  td { font-size: 13px; vertical-align: top; }
+}
+
+.cell-date { font-weight: 600; color: #1f2937; }
+.cell-time { color: #6b7280; font-size: 11px; }
+.cell-phone { font-family: monospace; color: #1f2937; }
+.cell-role { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.muted { color: #9ca3af; }
+
+.trigger-chip {
+  background-color: #e0e7ff !important;
+  color: #3730a3 !important;
+  font-size: 11px !important;
+  height: 22px !important;
+}
+
+// Status chips — colour the row at a glance.
+.chip-sent {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+  font-weight: 500 !important;
+}
+.chip-failed {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  font-weight: 500 !important;
+}
+.chip-pending {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
+  font-weight: 500 !important;
+}
+.chip-neutral {
+  background-color: #f3f4f6 !important;
+  color: #6b7280 !important;
+}
+
+.reason-text {
+  display: inline-block;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #991b1b;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .filter-field { min-width: 140px; flex: 1 1 calc(50% - 8px); }
+}

@@ -17,8 +17,12 @@ import com.saas.school.modules.sms.dto.SmsAuditLogDto;
 import com.saas.school.modules.sms.dto.TenantSmsSettingsDto;
 import com.saas.school.modules.sms.model.SmsAuditLog;
 import com.saas.school.modules.sms.model.TenantSmsSettings;
+import com.saas.school.modules.sms.model.SmsTrigger;
 import com.saas.school.modules.sms.repository.SmsAuditLogRepository;
 import com.saas.school.modules.sms.service.SmsService;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +52,7 @@ public class SmsController {
 
     @Autowired private SmsService smsService;
     @Autowired private SmsAuditLogRepository auditRepo;
+    @Autowired private MongoTemplate mongoTemplate;
 
     /** Read-only view of THIS tenant's SMS settings. Returns sensible
      *  defaults (everything off) if no settings doc exists yet — avoids
@@ -62,20 +67,84 @@ public class SmsController {
 
     /** Paginated audit log for THIS tenant. Phone numbers are partially
      *  masked in the response — admins see enough to recognise
-     *  recipients without exposing full phones in screenshots. */
+     *  recipients without exposing full phones in screenshots.
+     *
+     *  <p>All filters are optional and stack as ANDs:
+     *  <ul>
+     *    <li>{@code trigger} — exact enum match (ABSENCE_ALERT, HOLIDAY_NOTICE, …)</li>
+     *    <li>{@code status} — CSV of statuses; pass "SENT,DELIVERED" for the
+     *        "Sent" bucket, "FAILED,SKIPPED" for the "Not Sent" bucket</li>
+     *    <li>{@code dateFrom} / {@code dateTo} — ISO instants, inclusive on
+     *        the from edge, exclusive on the to edge to play nicely with
+     *        day-boundary date pickers</li>
+     *  </ul>
+     */
     @GetMapping("/audit-logs")
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN', 'PRINCIPAL')")
     public ResponseEntity<ApiResponse<PageResponse<SmsAuditLogDto>>> myAuditLogs(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "25") int size) {
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(required = false) String trigger,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo) {
         String tenantId = TenantContext.getTenantId();
-        PageRequest pr = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<SmsAuditLog> result = auditRepo.findByTenantIdOrderByCreatedAtDesc(tenantId, pr);
-        List<SmsAuditLogDto> dtos = result.getContent().stream()
+
+        Criteria criteria = Criteria.where("tenantId").is(tenantId);
+        if (trigger != null && !trigger.isBlank()) {
+            try {
+                criteria.and("trigger").is(SmsTrigger.valueOf(trigger.trim()));
+            } catch (IllegalArgumentException ignored) {
+                // Unknown trigger → no matches. Don't 400 — the UI may pass
+                // stale values from a cached dropdown; an empty page is gentler.
+                criteria.and("trigger").is("__unknown__");
+            }
+        }
+        if (status != null && !status.isBlank()) {
+            List<SmsAuditLog.Status> statuses = new java.util.ArrayList<>();
+            for (String s : status.split(",")) {
+                String trimmed = s.trim();
+                if (trimmed.isEmpty()) continue;
+                try { statuses.add(SmsAuditLog.Status.valueOf(trimmed)); }
+                catch (IllegalArgumentException ignored) { /* drop bad token */ }
+            }
+            if (!statuses.isEmpty()) criteria.and("status").in(statuses);
+        }
+        if ((dateFrom != null && !dateFrom.isBlank())
+                || (dateTo != null && !dateTo.isBlank())) {
+            Criteria dateCriteria = Criteria.where("createdAt");
+            if (dateFrom != null && !dateFrom.isBlank()) {
+                dateCriteria = dateCriteria.gte(parseInstant(dateFrom));
+            }
+            if (dateTo != null && !dateTo.isBlank()) {
+                dateCriteria = dateCriteria.lt(parseInstant(dateTo));
+            }
+            criteria.andOperator(dateCriteria);
+        }
+
+        Query query = new Query(criteria).with(Sort.by("createdAt").descending());
+        long total = mongoTemplate.count(query, SmsAuditLog.class);
+        query.skip((long) page * size).limit(size);
+        List<SmsAuditLog> result = mongoTemplate.find(query, SmsAuditLog.class);
+
+        List<SmsAuditLogDto> dtos = result.stream()
                 .map(l -> SmsAuditLogDto.from(l, true))   // mask phones for tenant view
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(
-                PageResponse.of(dtos, result.getTotalElements(), page, size)));
+                PageResponse.of(dtos, total, page, size)));
+    }
+
+    /** Parse an ISO-8601 instant, falling back to "yyyy-MM-dd" at UTC midnight
+     *  so the date pickers can send either format without a 400. */
+    private java.time.Instant parseInstant(String raw) {
+        String trimmed = raw.trim();
+        try {
+            return java.time.Instant.parse(trimmed);
+        } catch (Exception ignored) {
+            // Try date-only ISO → midnight UTC.
+            return java.time.LocalDate.parse(trimmed)
+                    .atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+        }
     }
 
     /** Send a single test SMS to the admin's own number. Lets them

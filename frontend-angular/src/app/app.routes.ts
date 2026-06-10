@@ -765,6 +765,15 @@ export const routes: Routes = [
         canActivate: [smsFeatureGuard],
         data: { title: 'SMS Notifications' },
       },
+      {
+        // SMS audit log — separate page so it doesn't bloat the main
+        // /settings/sms view when there are thousands of rows.
+        path: 'settings/sms/audit-log',
+        loadComponent: () =>
+          import('./features/sms/sms-audit-log/sms-audit-log.component').then(m => m.SmsAuditLogComponent),
+        canActivate: [smsFeatureGuard],
+        data: { title: 'SMS Audit Log' },
+      },
     ],
   },
 

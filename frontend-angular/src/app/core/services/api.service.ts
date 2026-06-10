@@ -950,9 +950,23 @@ export class ApiService {
 
   /** Paginated SMS audit log for the current tenant. Phone numbers are
    *  masked in the response — admins see enough to identify the parent
-   *  without exposing full phones in screenshots. */
-  getMySmsAuditLogs(page = 0, size = 25): Observable<ApiResponse<PaginatedResponse<SmsAuditLogDto>>> {
-    const params = new HttpParams().set('page', page).set('size', size);
+   *  without exposing full phones in screenshots.
+   *
+   *  <p>All filter args are optional and stack as ANDs on the backend:
+   *  - `trigger`: exact SmsTrigger name
+   *  - `status`: CSV of statuses ("SENT,DELIVERED" for the "Sent" bucket,
+   *    "FAILED,SKIPPED" for "Not Sent")
+   *  - `dateFrom` / `dateTo`: ISO date (`yyyy-MM-dd`) or full instant
+   */
+  getMySmsAuditLogs(
+    page = 0, size = 25,
+    filter?: { trigger?: string; status?: string; dateFrom?: string; dateTo?: string },
+  ): Observable<ApiResponse<PaginatedResponse<SmsAuditLogDto>>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (filter?.trigger)  params = params.set('trigger', filter.trigger);
+    if (filter?.status)   params = params.set('status', filter.status);
+    if (filter?.dateFrom) params = params.set('dateFrom', filter.dateFrom);
+    if (filter?.dateTo)   params = params.set('dateTo', filter.dateTo);
     return this.http.get<ApiResponse<PaginatedResponse<SmsAuditLogDto>>>(
       `${this.API}/sms/audit-logs`, { params });
   }
