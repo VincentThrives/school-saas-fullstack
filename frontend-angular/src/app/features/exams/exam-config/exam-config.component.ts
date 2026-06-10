@@ -103,6 +103,13 @@ export class ExamConfigComponent implements OnInit {
   pickedSubjectRows: SubjectRow[] = [];
   isSaving = false;
   isLoading = false;
+  /**
+   * Token bumped on every refreshAvailableSubjects() call. The subscribe
+   * callback ignores its own response if the token has moved on — without
+   * this, a stale wider-set response can land after a newer narrower one
+   * and re-show class subjects the admin just deselected.
+   */
+  private subjectsFetchToken = 0;
 
   constructor(
     private fb: FormBuilder,
@@ -218,6 +225,10 @@ export class ExamConfigComponent implements OnInit {
 
   /** Refresh the subject pool whenever the pair selection changes. */
   private refreshAvailableSubjects(): void {
+    // Bump the token first so any in-flight subscribe callback from a prior
+    // call drops its response on arrival (race fix — see token doc above).
+    const myToken = ++this.subjectsFetchToken;
+
     if (this.pickedPairKeys.size === 0) {
       this.availableSubjects = [];
       // Prune picked rows that no longer have a backing pair.
@@ -238,6 +249,8 @@ export class ExamConfigComponent implements OnInit {
     }
     this.subjectService.getSubjectsByIds(Array.from(subjectIds)).subscribe({
       next: (subs) => {
+        // Drop stale response — only the latest fetch may mutate state.
+        if (myToken !== this.subjectsFetchToken) return;
         this.availableSubjects = subs
           .filter(s => s.components && s.components.length > 0)
           // Sort alphabetically — admin picks from a long list, deterministic order helps.
