@@ -1,0 +1,144 @@
+<div class="config-list-container">
+  <app-page-header
+    title="Exam Config"
+    subtitle="Existing exam configurations — one row per exam type"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Exams', link: '/exams' },
+      { label: 'Exam Config' }
+    ]"
+    actionLabel="New Config"
+    actionIcon="add"
+    actionLink="/exams/config/new"
+  ></app-page-header>
+
+  <!-- Loading -->
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <!-- Empty state -->
+  <mat-card class="empty-card" *ngIf="!isLoading && configs.length === 0">
+    <mat-card-content>
+      <mat-icon class="empty-icon">playlist_add</mat-icon>
+      <h3>No exam configs yet</h3>
+      <p>Create your first one to schedule the same exam across many classes and subjects in a single save.</p>
+      <a mat-flat-button color="primary" routerLink="/exams/config/new">
+        <mat-icon>add</mat-icon>
+        New Config
+      </a>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Config rows -->
+  <mat-card class="config-card" *ngFor="let c of configs">
+    <mat-card-content>
+      <div class="config-card__top">
+        <div class="config-card__title">
+          <mat-icon>label</mat-icon>
+          <span class="type-name">{{ c.examType }}</span>
+          <span class="muted">· {{ yearLabel(c.academicYearId) }}</span>
+        </div>
+        <div class="config-card__meta">
+          <mat-chip *ngIf="c.examsWithMarks > 0" class="marks-chip" matTooltip="Marks already entered for some exams">
+            <mat-icon>grade</mat-icon>
+            {{ c.examsWithMarks }} / {{ c.examCount }} with marks
+          </mat-chip>
+          <mat-chip *ngIf="c.examsWithMarks === 0" class="muted-chip" matTooltip="No marks entered yet">
+            <mat-icon>edit_note</mat-icon>
+            No marks yet
+          </mat-chip>
+        </div>
+      </div>
+
+      <div class="config-card__rows">
+        <div class="kv-row">
+          <span class="kv-label">Classes &amp; Sections</span>
+          <span class="kv-value">
+            <span class="chip-list">
+              <span class="kv-chip" *ngFor="let l of c.classSectionLabels">{{ l }}</span>
+            </span>
+          </span>
+        </div>
+        <div class="kv-row">
+          <span class="kv-label">Subjects</span>
+          <span class="kv-value">
+            <span class="chip-list">
+              <span class="kv-chip" *ngFor="let s of c.subjectNames">{{ s }}</span>
+            </span>
+          </span>
+        </div>
+        <div class="kv-row" *ngIf="c.examDate">
+          <span class="kv-label">Date</span>
+          <span class="kv-value">{{ c.examDate }}</span>
+        </div>
+        <div class="kv-row">
+          <span class="kv-label">Total exams</span>
+          <span class="kv-value">{{ c.examCount }}</span>
+        </div>
+      </div>
+
+      <div class="config-card__actions">
+        <button mat-stroked-button (click)="startEdit(c)" [disabled]="isProcessing">
+          <mat-icon>edit</mat-icon>
+          Edit
+        </button>
+        <button mat-stroked-button color="warn" (click)="startDelete(c)" [disabled]="isProcessing">
+          <mat-icon>delete</mat-icon>
+          Delete
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Edit / Delete warning dialog (works for both, copy varies by action). -->
+  <div class="warn-overlay" *ngIf="pendingAction && pendingConfig" (click)="cancelDialog()">
+    <div class="warn-dialog" (click)="$event.stopPropagation()">
+      <div class="warn-dialog__icon" [class.warn]="pendingHasMarks">
+        <mat-icon>{{ pendingHasMarks ? 'warning' : (pendingAction === 'delete' ? 'delete_forever' : 'edit') }}</mat-icon>
+      </div>
+
+      <h3 *ngIf="pendingAction === 'edit'">
+        Edit "{{ pendingConfig.examType }}"?
+      </h3>
+      <h3 *ngIf="pendingAction === 'delete'">
+        Delete "{{ pendingConfig.examType }}"?
+      </h3>
+
+      <!-- Edit + marks already entered -->
+      <p *ngIf="pendingAction === 'edit' && pendingHasMarks">
+        <strong>Marks are already entered</strong> for some exams in this config.
+        Editing will <strong>reset those marks</strong> — teachers will have to re-enter them.
+        <br><br>
+        Still want to continue?
+      </p>
+
+      <!-- Delete + marks already entered -->
+      <p *ngIf="pendingAction === 'delete' && pendingHasMarks">
+        <strong>Marks are already entered</strong> for some exams in this config.
+        Deleting will <strong>permanently remove all those marks</strong> too.
+        <br><br>
+        Are you sure?
+      </p>
+
+      <!-- Delete with no marks -->
+      <p *ngIf="pendingAction === 'delete' && !pendingHasMarks">
+        This will delete <strong>{{ pendingConfig.examCount }} exam{{ pendingConfig.examCount === 1 ? '' : 's' }}</strong>
+        across {{ pendingConfig.classSectionLabels.length }} class/section pair(s).
+        <br><br>
+        No marks have been entered yet, so nothing else is lost. Continue?
+      </p>
+
+      <div class="warn-dialog__actions">
+        <button mat-button (click)="cancelDialog()" [disabled]="isProcessing">Cancel</button>
+        <button mat-flat-button
+                [color]="pendingAction === 'delete' ? 'warn' : 'primary'"
+                (click)="confirmDialog()"
+                [disabled]="isProcessing">
+          <mat-spinner diameter="16" *ngIf="isProcessing"></mat-spinner>
+          {{ pendingAction === 'delete' ? 'Delete' : 'Continue to Edit' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

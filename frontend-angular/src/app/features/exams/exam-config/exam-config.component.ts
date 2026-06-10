@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, FormArray, Validators, FormControl } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -18,9 +18,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
-import { ApiService, BulkCreateExamRequest, BulkCreateExamSubjectConfig, BulkCreateExamComponentConfig } from '../../../core/services/api.service';
+import { ApiService, BulkCreateExamRequest, BulkCreateExamSubjectConfig, BulkCreateExamComponentConfig, ExamConfigDetail } from '../../../core/services/api.service';
 import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
 import { SchoolClass, AcademicYear } from '../../../core/models';
+import { forkJoin } from 'rxjs';
 
 /** One (classId, sectionId) pair rendered as a checkbox in the pair grid. */
 interface PairOption {
@@ -111,11 +112,19 @@ export class ExamConfigComponent implements OnInit {
    */
   private subjectsFetchToken = 0;
 
+  /** Edit-mode state: when set, save deletes the original config and recreates. */
+  editMode = false;
+  editingExamType: string | null = null;
+  editingAcademicYearId: string | null = null;
+  /** Pending detail from the backend — applied after classes + subjects load. */
+  private pendingDetail: ExamConfigDetail | null = null;
+
   constructor(
     private fb: FormBuilder,
     private api: ApiService,
     private subjectService: SubjectService,
     private router: Router,
+    private route: ActivatedRoute,
     private snackBar: MatSnackBar,
   ) {}
 
@@ -129,6 +138,15 @@ export class ExamConfigComponent implements OnInit {
       description: [''],
     });
 
+    // Edit mode? URL param :examType + ?academicYearId query.
+    const typeParam = this.route.snapshot.paramMap.get('examType');
+    const yearParam = this.route.snapshot.queryParamMap.get('academicYearId');
+    if (typeParam && yearParam) {
+      this.editMode = true;
+      this.editingExamType = decodeURIComponent(typeParam);
+      this.editingAcademicYearId = yearParam;
+    }
+
     this.api.getExamTypes().subscribe({
       next: (res) => { this.examTypes = res?.data || []; },
     });
@@ -137,13 +155,70 @@ export class ExamConfigComponent implements OnInit {
       next: (res) => {
         const data = res.data;
         this.academicYears = Array.isArray(data) ? data : (data as any)?.content || [];
-        const current = this.academicYears.find((y) => y.current);
-        if (current) {
-          this.form.patchValue({ academicYearId: current.academicYearId });
-          this.loadClassesForYear(current.academicYearId);
+
+        if (this.editMode && this.editingAcademicYearId) {
+          // Year pre-selected from URL; load the config detail then the
+          // pair grid + subjects.
+          this.form.patchValue({ academicYearId: this.editingAcademicYearId });
+          this.loadConfigDetail();
+        } else {
+          const current = this.academicYears.find((y) => y.current);
+          if (current) {
+            this.form.patchValue({ academicYearId: current.academicYearId });
+            this.loadClassesForYear(current.academicYearId);
+          }
         }
       },
     });
+  }
+
+  /**
+   * Fetch the existing config + classes; apply the pre-fill once both are
+   * loaded so the pair grid actually has entries to tick.
+   */
+  private loadConfigDetail(): void {
+    if (!this.editingAcademicYearId || !this.editingExamType) return;
+    this.isLoading = true;
+    forkJoin({
+      detail: this.api.getExamConfigDetail(this.editingAcademicYearId, this.editingExamType),
+      classes: this.api.getClasses(this.editingAcademicYearId),
+    }).subscribe({
+      next: (res) => {
+        // Classes ready first — populate the pair grid before applying ticks.
+        this.classes = Array.isArray(res.classes.data) ? res.classes.data : [];
+        this.buildPairOptions();
+        // Then apply the saved detail.
+        this.pendingDetail = res.detail?.data || null;
+        this.applyPendingDetail();
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.snackBar.open('Failed to load config for editing.', 'Close', { duration: 4000 });
+      },
+    });
+  }
+
+  /**
+   * Apply the pre-fill detail: tick the (class, section) checkboxes and
+   * pre-populate picked subject rows with the saved max/pass values.
+   */
+  private applyPendingDetail(): void {
+    const d = this.pendingDetail;
+    if (!d) return;
+    this.form.patchValue({
+      examType: d.examType,
+      academicYearId: d.academicYearId,
+      examDate: d.examDate ? new Date(d.examDate) : null,
+      startTime: d.startTime || '',
+      endTime: d.endTime || '',
+      description: d.description || '',
+    });
+    this.pickedPairKeys = new Set(
+      (d.pairs || []).map(p => `${p.classId}::${p.sectionId}`)
+    );
+    // Subjects need a service round-trip to resolve names + components.
+    this.refreshAvailableSubjects(d.subjectConfigs);
   }
 
   onAcademicYearChange(): void {
@@ -162,23 +237,28 @@ export class ExamConfigComponent implements OnInit {
     this.api.getClasses(yearId).subscribe({
       next: (res) => {
         this.classes = Array.isArray(res.data) ? res.data : [];
-        const opts: PairOption[] = [];
-        for (const cls of this.classes) {
-          for (const sec of (cls.sections || [])) {
-            opts.push({
-              key: `${cls.classId}::${sec.sectionId}`,
-              classId: cls.classId,
-              sectionId: sec.sectionId,
-              className: cls.name,
-              sectionName: sec.name,
-            });
-          }
-        }
-        opts.sort((a, b) => a.className.localeCompare(b.className, undefined, { numeric: true }) ||
-                              a.sectionName.localeCompare(b.sectionName, undefined, { numeric: true }));
-        this.pairOptions = opts;
+        this.buildPairOptions();
       },
     });
+  }
+
+  /** Flatten `this.classes` into the pair-grid options used by the form. */
+  private buildPairOptions(): void {
+    const opts: PairOption[] = [];
+    for (const cls of this.classes) {
+      for (const sec of (cls.sections || [])) {
+        opts.push({
+          key: `${cls.classId}::${sec.sectionId}`,
+          classId: cls.classId,
+          sectionId: sec.sectionId,
+          className: cls.name,
+          sectionName: sec.name,
+        });
+      }
+    }
+    opts.sort((a, b) => a.className.localeCompare(b.className, undefined, { numeric: true }) ||
+                          a.sectionName.localeCompare(b.sectionName, undefined, { numeric: true }));
+    this.pairOptions = opts;
   }
 
   // ── Pair selection ───────────────────────────────────────────────────
@@ -223,8 +303,16 @@ export class ExamConfigComponent implements OnInit {
     return Array.from(map.values());
   }
 
-  /** Refresh the subject pool whenever the pair selection changes. */
-  private refreshAvailableSubjects(): void {
+  /**
+   * Refresh the subject pool whenever the pair selection changes.
+   *
+   * @param preloadedSubjectConfigs optional — for edit mode, the saved
+   *   subject configs the form should pre-populate once available
+   *   subjects load. Replaces (not merges with) `pickedSubjectRows`.
+   */
+  private refreshAvailableSubjects(
+    preloadedSubjectConfigs?: BulkCreateExamSubjectConfig[]
+  ): void {
     // Bump the token first so any in-flight subscribe callback from a prior
     // call drops its response on arrival (race fix — see token doc above).
     const myToken = ++this.subjectsFetchToken;
@@ -235,12 +323,18 @@ export class ExamConfigComponent implements OnInit {
       this.pickedSubjectRows = [];
       return;
     }
+    // Union of section subjectIds across picked pairs PLUS any subjects from
+    // the preload (so an edit-mode load can resolve subject names even if
+    // the section's subjectIds were edited later).
     const subjectIds = new Set<string>();
     for (const key of this.pickedPairKeys) {
       const [classId, sectionId] = key.split('::');
       const cls = this.classes.find(c => c.classId === classId);
       const sec = cls?.sections?.find(s => s.sectionId === sectionId);
       (sec?.subjectIds || []).forEach(id => subjectIds.add(id));
+    }
+    for (const cfg of (preloadedSubjectConfigs || [])) {
+      if (cfg?.subjectId) subjectIds.add(cfg.subjectId);
     }
     if (subjectIds.size === 0) {
       this.availableSubjects = [];
@@ -255,9 +349,39 @@ export class ExamConfigComponent implements OnInit {
           .filter(s => s.components && s.components.length > 0)
           // Sort alphabetically — admin picks from a long list, deterministic order helps.
           .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        // Drop picked rows whose subject is no longer in the pool.
-        const avail = new Set(this.availableSubjects.map(s => s.subjectId));
-        this.pickedSubjectRows = this.pickedSubjectRows.filter(r => avail.has(r.subjectId));
+
+        if (preloadedSubjectConfigs && preloadedSubjectConfigs.length > 0) {
+          // Edit-mode pre-fill — build picked subject rows from saved config.
+          this.pickedSubjectRows = preloadedSubjectConfigs
+            .map(cfg => {
+              const sub = this.availableSubjects.find(s => s.subjectId === cfg.subjectId)
+                       ?? subs.find(s => s.subjectId === cfg.subjectId);
+              if (!sub) return null;
+              const hasMultiple = (cfg.components?.length ?? 0) > 1
+                                || ((sub.components?.length ?? 0) > 1);
+              return {
+                subjectId: sub.subjectId,
+                subjectName: sub.name,
+                combined: !!cfg.combined,
+                hasMultipleComponents: hasMultiple,
+                components: (cfg.components || []).map(c => ({
+                  key: c.key,
+                  label: c.label,
+                  // Look up the assessment mode from the subject (saved
+                  // exam doc doesn't carry it).
+                  assessmentMode: (sub.components?.find(sc => sc.key === c.key)?.assessmentMode
+                                  || 'EXAM') as 'EXAM' | 'INTERNAL',
+                  maxMarks: c.maxMarks ?? null,
+                  passingMarks: c.passingMarks ?? null,
+                })),
+              } as SubjectRow;
+            })
+            .filter((r): r is SubjectRow => !!r);
+        } else {
+          // Drop picked rows whose subject is no longer in the pool.
+          const avail = new Set(this.availableSubjects.map(s => s.subjectId));
+          this.pickedSubjectRows = this.pickedSubjectRows.filter(r => avail.has(r.subjectId));
+        }
       },
     });
   }
@@ -358,6 +482,28 @@ export class ExamConfigComponent implements OnInit {
     };
 
     this.isSaving = true;
+
+    // Edit mode = delete + recreate so changes apply to a clean slate
+    // (and any "edit will reset marks" warning the admin saw is honoured).
+    if (this.editMode && this.editingExamType && this.editingAcademicYearId) {
+      this.api.deleteExamConfig(this.editingAcademicYearId, this.editingExamType).subscribe({
+        next: () => this.runBulkCreate(payload, true),
+        error: (err) => {
+          this.isSaving = false;
+          this.snackBar.open(
+            err?.error?.message || 'Failed to delete the old config before editing.',
+            'Close', { duration: 4000 });
+        },
+      });
+      return;
+    }
+
+    this.runBulkCreate(payload, false);
+  }
+
+  /** Send the bulkCreate request and handle the response uniformly for
+   *  both create and edit-save paths. */
+  private runBulkCreate(payload: BulkCreateExamRequest, isEdit: boolean): void {
     this.api.bulkCreateExams(payload).subscribe({
       next: (res) => {
         this.isSaving = false;
@@ -365,26 +511,48 @@ export class ExamConfigComponent implements OnInit {
         const created = out?.created ?? 0;
         const dup = out?.skippedDuplicate ?? 0;
         const skip = out?.skippedNotConfigured ?? 0;
-        let msg = `Created ${created} exam${created === 1 ? '' : 's'}`;
+        let msg = isEdit
+          ? `Updated config — ${created} exam${created === 1 ? '' : 's'} recreated`
+          : `Created ${created} exam${created === 1 ? '' : 's'}`;
         if (dup > 0) msg += ` · ${dup} duplicate${dup === 1 ? '' : 's'} skipped`;
         if (skip > 0) msg += ` · ${skip} combination${skip === 1 ? '' : 's'} not configured`;
         this.snackBar.open(msg, 'Close', { duration: 5000 });
-        // Stay on the page so admin can configure another exam type
-        // without re-picking everything. Clear only the pickedSubjectRows
-        // and reset Date — the year + pairs persist.
-        this.pickedSubjectRows = [];
-        this.form.patchValue({ examType: '', examDate: null, startTime: '', endTime: '', description: '' });
+
+        if (isEdit) {
+          // Done with edit — back to the list view.
+          this.router.navigate(['/exams/config']);
+        } else {
+          // Stay on the page so admin can configure another exam type
+          // without re-picking everything.
+          this.pickedSubjectRows = [];
+          this.form.patchValue({ examType: '', examDate: null, startTime: '', endTime: '', description: '' });
+        }
       },
       error: (err) => {
         this.isSaving = false;
         this.snackBar.open(
-          err?.error?.message || 'Failed to create exams.',
+          err?.error?.message || (isEdit ? 'Failed to save edits.' : 'Failed to create exams.'),
           'Close', { duration: 4000 });
       },
     });
   }
 
   goToExams(): void {
-    this.router.navigate(['/exams']);
+    this.router.navigate(['/exams/config']);
+  }
+
+  get pageTitle(): string {
+    return this.editMode ? 'Edit Exam Config' : 'Exam Config';
+  }
+
+  get pageSubtitle(): string {
+    return this.editMode
+      ? 'Saving will replace the existing exams in this config with the values below'
+      : 'Create exams in bulk — one exam type across many classes & subjects in a single save';
+  }
+
+  get submitLabel(): string {
+    if (this.isSaving) return this.editMode ? 'Saving…' : 'Creating…';
+    return this.editMode ? 'Save Changes' : 'Create Exams';
   }
 }

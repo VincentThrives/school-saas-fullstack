@@ -1,11 +1,12 @@
 <div class="exam-config-container">
   <app-page-header
-    title="Exam Config"
-    [subtitle]="'Create exams in bulk — one exam type across many classes & subjects in a single save'"
+    [title]="pageTitle"
+    [subtitle]="pageSubtitle"
     [breadcrumbs]="[
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'Exams', link: '/exams' },
-      { label: 'Exam Config' }
+      { label: 'Exam Config', link: '/exams/config' },
+      { label: editMode ? 'Edit' : 'New' }
     ]"
   ></app-page-header>
 
@@ -208,12 +209,12 @@
     <div class="form-actions">
       <button mat-stroked-button type="button" (click)="goToExams()">
         <mat-icon>arrow_back</mat-icon>
-        Back to Exams
+        Back to Configs
       </button>
       <button mat-flat-button color="primary" type="submit" [disabled]="isSubmitDisabled">
         <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
-        <mat-icon *ngIf="!isSaving">playlist_add_check</mat-icon>
-        {{ isSaving ? 'Creating…' : 'Create Exams' }}
+        <mat-icon *ngIf="!isSaving">{{ editMode ? 'save' : 'playlist_add_check' }}</mat-icon>
+        {{ submitLabel }}
       </button>
     </div>
   </form>

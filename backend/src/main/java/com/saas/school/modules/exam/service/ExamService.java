@@ -6,6 +6,8 @@ import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.modules.exam.dto.BulkCreateExamRequest;
 import com.saas.school.modules.exam.dto.BulkCreateExamResponse;
 import com.saas.school.modules.exam.dto.EnterMarksRequest;
+import com.saas.school.modules.exam.dto.ExamConfigDetail;
+import com.saas.school.modules.exam.dto.ExamConfigSummary;
 import com.saas.school.modules.exam.model.Exam;
 import com.saas.school.modules.exam.model.ExamMark;
 import com.saas.school.modules.exam.model.StudentAssessments;
@@ -589,6 +591,233 @@ public class ExamService {
                 + ", notConfigured=" + skippedNotConfigured + ")");
 
         return new BulkCreateExamResponse(created, skippedDuplicate, skippedNotConfigured, createdExamIds);
+    }
+
+    // ── Exam Config list / detail / delete (the View page) ───────────────
+
+    /**
+     * Roll up every exam doc into one row per (academicYearId, examType)
+     * tuple. The Exam Config list page renders this directly — class +
+     * subject counts plus a marks-entered indicator so the user knows
+     * whether editing or deleting will lose data.
+     */
+    public List<ExamConfigSummary> listConfigs() {
+        List<Exam> all = examRepository.findAll();
+        // Group key: yearId::examType
+        Map<String, List<Exam>> grouped = new java.util.LinkedHashMap<>();
+        for (Exam e : all) {
+            if (e.getExamType() == null || e.getExamType().isBlank()) continue;
+            String key = (e.getAcademicYearId() == null ? "" : e.getAcademicYearId())
+                    + "::" + e.getExamType();
+            grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(e);
+        }
+
+        // Marks check: which of these exam ids have a StudentAssessments doc
+        // with non-empty entries? Single bulk read instead of N round trips.
+        Set<String> examIdsWithMarks = new HashSet<>();
+        for (StudentAssessments doc : assessmentsRepository.findAll()) {
+            if (doc.getEntries() != null && !doc.getEntries().isEmpty()) {
+                examIdsWithMarks.add(doc.getExamId());
+            }
+        }
+
+        List<ExamConfigSummary> out = new ArrayList<>();
+        for (var entry : grouped.entrySet()) {
+            List<Exam> exams = entry.getValue();
+            ExamConfigSummary s = new ExamConfigSummary();
+            s.setAcademicYearId(exams.get(0).getAcademicYearId());
+            s.setExamType(exams.get(0).getExamType());
+            s.setExamCount(exams.size());
+
+            // Distinct class+section labels (e.g. "1st - A").
+            java.util.LinkedHashSet<String> labels = new java.util.LinkedHashSet<>();
+            java.util.LinkedHashSet<String> subjectNames = new java.util.LinkedHashSet<>();
+            List<String> examIds = new ArrayList<>();
+            int marksCount = 0;
+            String earliestDate = null;
+            for (Exam e : exams) {
+                String cl = e.getClassName() != null ? e.getClassName() : e.getClassId();
+                String sec = e.getSectionName() != null ? e.getSectionName() : e.getSectionId();
+                labels.add(cl + " - " + sec);
+                if (e.getSubjectName() != null) subjectNames.add(e.getSubjectName());
+                examIds.add(e.getExamId());
+                if (examIdsWithMarks.contains(e.getExamId())) marksCount++;
+                if (e.getExamDate() != null) {
+                    String d = e.getExamDate().toString();
+                    if (earliestDate == null || d.compareTo(earliestDate) < 0) earliestDate = d;
+                }
+            }
+            s.setClassSectionLabels(new ArrayList<>(labels));
+            s.setSubjectNames(new ArrayList<>(subjectNames));
+            s.setExamIds(examIds);
+            s.setExamsWithMarks(marksCount);
+            s.setExamDate(earliestDate);
+            out.add(s);
+        }
+        return out;
+    }
+
+    /**
+     * Pre-fill payload for the edit form — reconstructs the original
+     * Exam Config submission from the existing Exam docs in this group.
+     * Combined exams contribute their full components[] list; per-component
+     * exams contribute one component each, grouped by subjectId.
+     */
+    public ExamConfigDetail getConfigDetail(String academicYearId, String examType) {
+        List<Exam> exams = examRepository
+                .findByAcademicYearIdAndExamType(academicYearId, examType);
+        if (exams.isEmpty()) {
+            throw new ResourceNotFoundException(
+                    "No exams found for type='" + examType + "' in this academic year.");
+        }
+
+        ExamConfigDetail out = new ExamConfigDetail();
+        out.setAcademicYearId(academicYearId);
+        out.setExamType(examType);
+        // Carry the first exam's schedule fields as a default (admin can
+        // override on save). Different exams in the group may legitimately
+        // have different dates after manual editing — we surface one.
+        Exam sample = exams.get(0);
+        out.setExamDate(sample.getExamDate());
+        out.setStartTime(sample.getStartTime());
+        out.setEndTime(sample.getEndTime());
+        out.setDescription(sample.getDescription());
+
+        // Distinct (classId, sectionId) pairs.
+        java.util.LinkedHashMap<String, BulkCreateExamRequest.ClassSection> pairs =
+                new java.util.LinkedHashMap<>();
+        for (Exam e : exams) {
+            if (e.getClassId() == null || e.getSectionId() == null) continue;
+            String key = e.getClassId() + "::" + e.getSectionId();
+            pairs.computeIfAbsent(key, k -> new BulkCreateExamRequest.ClassSection(
+                    e.getClassId(), e.getSectionId()));
+        }
+        out.setPairs(new ArrayList<>(pairs.values()));
+
+        // Subject configs: group exams by subjectId, then collapse to one
+        // SubjectConfig per subject. Combined mode wins if any exam in the
+        // group carries components[] (admin can flip the toggle on save).
+        java.util.LinkedHashMap<String, BulkCreateExamRequest.SubjectConfig> bySubject =
+                new java.util.LinkedHashMap<>();
+        for (Exam e : exams) {
+            if (e.getSubjectId() == null) continue;
+            BulkCreateExamRequest.SubjectConfig sc = bySubject.get(e.getSubjectId());
+            if (sc == null) {
+                sc = new BulkCreateExamRequest.SubjectConfig();
+                sc.setSubjectId(e.getSubjectId());
+                sc.setCombined(false);
+                sc.setComponents(new ArrayList<>());
+                bySubject.put(e.getSubjectId(), sc);
+            }
+            if (e.getComponents() != null && !e.getComponents().isEmpty()) {
+                sc.setCombined(true);
+                // Replace components from this combined exam — last write wins,
+                // safe because every combined exam for the same subject in the
+                // same config carries the same component config.
+                List<BulkCreateExamRequest.ComponentConfig> ccs = new ArrayList<>();
+                for (Exam.ExamComponent ec : e.getComponents()) {
+                    BulkCreateExamRequest.ComponentConfig cc = new BulkCreateExamRequest.ComponentConfig();
+                    cc.setKey(ec.getKey());
+                    cc.setLabel(ec.getLabel());
+                    cc.setMaxMarks(ec.getMaxMarks());
+                    cc.setPassingMarks(ec.getPassingMarks());
+                    ccs.add(cc);
+                }
+                sc.setComponents(ccs);
+            } else {
+                // Per-component exam — accumulate one ComponentConfig per
+                // distinct componentKey for this subject.
+                boolean exists = sc.getComponents().stream()
+                        .anyMatch(c -> java.util.Objects.equals(c.getKey(), e.getComponentKey()));
+                if (!exists) {
+                    BulkCreateExamRequest.ComponentConfig cc = new BulkCreateExamRequest.ComponentConfig();
+                    cc.setKey(e.getComponentKey());
+                    // Label fallback: prettify the key when we don't have a
+                    // subject component label handy (Subject.componentByKey
+                    // wouldn't help if subject doc was edited later).
+                    cc.setLabel(prettifyKey(e.getComponentKey()));
+                    cc.setMaxMarks(e.getMaxMarks());
+                    cc.setPassingMarks(e.getPassingMarks());
+                    sc.getComponents().add(cc);
+                }
+            }
+        }
+        out.setSubjectConfigs(new ArrayList<>(bySubject.values()));
+
+        // Marks-status check — drives the warning popup the admin sees
+        // before editing.
+        Set<String> examIds = exams.stream().map(Exam::getExamId)
+                .collect(Collectors.toSet());
+        boolean anyMarks = assessmentsRepository.findByExamIdIn(new ArrayList<>(examIds))
+                .stream()
+                .anyMatch(a -> a.getEntries() != null && !a.getEntries().isEmpty());
+        out.setAnyMarksEntered(anyMarks);
+        return out;
+    }
+
+    /**
+     * Delete every exam matching (year, examType) AND its student marks.
+     * Used by both the Delete action on the Configs list AND the edit
+     * save path (edit = delete-then-recreate so config changes apply
+     * cleanly to a fresh slate).
+     *
+     * <p>Marks-locked exams are also wiped — caller already confirmed the
+     * intent via the warning popup, and a partial deletion would leave
+     * the config in a half-state that's harder to recover from than a
+     * clean restart.
+     */
+    public Map<String, Object> deleteConfig(String academicYearId, String examType) {
+        List<Exam> exams = examRepository
+                .findByAcademicYearIdAndExamType(academicYearId, examType);
+        int deletedExams = 0;
+        int deletedMarkDocs = 0;
+        for (Exam e : exams) {
+            String id = e.getExamId();
+            examRepository.deleteById(id);
+            deletedExams++;
+            var batchOpt = assessmentsRepository.findByExamId(id);
+            if (batchOpt.isPresent()) {
+                assessmentsRepository.delete(batchOpt.get());
+                deletedMarkDocs++;
+            }
+            // Wipe any legacy ExamMark rows too (per-student records from
+            // the old data model).
+            List<ExamMark> legacy = markRepository.findByExamId(id);
+            if (legacy != null && !legacy.isEmpty()) {
+                markRepository.deleteAll(legacy);
+            }
+        }
+        auditService.log("DELETE_EXAM_CONFIG", "Exam", examType,
+                "Deleted exam config '" + examType + "' (" + deletedExams
+                + " exams, " + deletedMarkDocs + " mark docs).");
+        Map<String, Object> out = new HashMap<>();
+        out.put("deletedExams", deletedExams);
+        out.put("deletedMarkDocs", deletedMarkDocs);
+        return out;
+    }
+
+    /** True when any exam in this config group has at least one mark entry. */
+    public boolean hasMarksForConfig(String academicYearId, String examType) {
+        List<Exam> exams = examRepository
+                .findByAcademicYearIdAndExamType(academicYearId, examType);
+        if (exams.isEmpty()) return false;
+        List<String> ids = exams.stream().map(Exam::getExamId).toList();
+        return assessmentsRepository.findByExamIdIn(ids).stream()
+                .anyMatch(a -> a.getEntries() != null && !a.getEntries().isEmpty());
+    }
+
+    /** "internal_assessment" → "Internal Assessment"; "theory" → "Theory". */
+    private String prettifyKey(String key) {
+        if (key == null || key.isBlank()) return "Component";
+        String[] parts = key.replace('_', ' ').replace('-', ' ').split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String p : parts) {
+            if (p.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(Character.toUpperCase(p.charAt(0)));
+            if (p.length() > 1) sb.append(p.substring(1));
+        }
+        return sb.toString();
     }
 
     private Exam newExam(BulkCreateExamRequest req, BulkCreateExamRequest.ClassSection pair,

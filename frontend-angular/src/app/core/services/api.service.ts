@@ -273,6 +273,31 @@ export interface BulkCreateExamResponse {
   createdExamIds: string[];
 }
 
+/** One row on the Exam Config list page. */
+export interface ExamConfigSummary {
+  academicYearId: string;
+  examType: string;
+  examCount: number;
+  classSectionLabels: string[];
+  subjectNames: string[];
+  examsWithMarks: number;
+  examDate?: string | null;
+  examIds: string[];
+}
+
+/** Full pre-fill payload for the Exam Config edit form. */
+export interface ExamConfigDetail {
+  academicYearId: string;
+  examType: string;
+  examDate?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  description?: string | null;
+  pairs: BulkCreateExamPair[];
+  subjectConfigs: BulkCreateExamSubjectConfig[];
+  anyMarksEntered: boolean;
+}
+
 /** Row in the SMS audit log table. */
 export interface SmsAuditLogDto {
   id: string;
@@ -689,6 +714,35 @@ export class ApiService {
    */
   bulkCreateExams(payload: BulkCreateExamRequest): Observable<ApiResponse<BulkCreateExamResponse>> {
     return this.http.post<ApiResponse<BulkCreateExamResponse>>(`${this.API}/exams/bulk`, payload);
+  }
+
+  /** List of existing Exam Configs (one per [year, examType]). */
+  listExamConfigs(): Observable<ApiResponse<ExamConfigSummary[]>> {
+    return this.http.get<ApiResponse<ExamConfigSummary[]>>(`${this.API}/exams/configs`);
+  }
+
+  /** Full pre-fill payload for the edit form. */
+  getExamConfigDetail(academicYearId: string, examType: string): Observable<ApiResponse<ExamConfigDetail>> {
+    let params = new HttpParams()
+      .set('academicYearId', academicYearId)
+      .set('examType', examType);
+    return this.http.get<ApiResponse<ExamConfigDetail>>(`${this.API}/exams/configs/detail`, { params });
+  }
+
+  /** Light marks-status probe — drives the edit/delete warning popup. */
+  getExamConfigMarksStatus(academicYearId: string, examType: string): Observable<ApiResponse<{ anyMarksEntered: boolean }>> {
+    let params = new HttpParams()
+      .set('academicYearId', academicYearId)
+      .set('examType', examType);
+    return this.http.get<ApiResponse<{ anyMarksEntered: boolean }>>(`${this.API}/exams/configs/marks-status`, { params });
+  }
+
+  /** Wipe every exam + marks doc tied to this config. */
+  deleteExamConfig(academicYearId: string, examType: string): Observable<ApiResponse<{ deletedExams: number; deletedMarkDocs: number }>> {
+    let params = new HttpParams()
+      .set('academicYearId', academicYearId)
+      .set('examType', examType);
+    return this.http.delete<ApiResponse<{ deletedExams: number; deletedMarkDocs: number }>>(`${this.API}/exams/configs`, { params });
   }
 
   // ── MCQ ────────────────────────────────────────────────────────────────

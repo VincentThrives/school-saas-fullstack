@@ -244,10 +244,26 @@ export const routes: Routes = [
         data: { feature: 'exams' },
       },
       {
-        // Bulk-create page — admin picks exam type + class/sections +
-        // subjects and fans out into many Exam docs in one save. Sits
-        // alongside the legacy single-exam create form.
+        // Exam Config list view — one row per [year, examType] tuple.
         path: 'exams/config',
+        loadComponent: () =>
+          import('./features/exams/exam-config-list/exam-config-list.component').then(m => m.ExamConfigListComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN], feature: 'exams' },
+      },
+      {
+        // Bulk-create form — admin picks exam type + class/sections +
+        // subjects and fans out into many Exam docs in one save.
+        path: 'exams/config/new',
+        loadComponent: () =>
+          import('./features/exams/exam-config/exam-config.component').then(m => m.ExamConfigComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN], feature: 'exams' },
+      },
+      {
+        // Edit an existing config — same form, pre-loaded with current state.
+        // Saving deletes + recreates the config so changes apply cleanly.
+        path: 'exams/config/:examType/edit',
         loadComponent: () =>
           import('./features/exams/exam-config/exam-config.component').then(m => m.ExamConfigComponent),
         canActivate: [roleGuard, featureGuard],

@@ -4,6 +4,8 @@ import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.exam.dto.BulkCreateExamRequest;
 import com.saas.school.modules.exam.dto.BulkCreateExamResponse;
 import com.saas.school.modules.exam.dto.EnterMarksRequest;
+import com.saas.school.modules.exam.dto.ExamConfigDetail;
+import com.saas.school.modules.exam.dto.ExamConfigSummary;
 import com.saas.school.modules.exam.model.Exam;
 import com.saas.school.modules.exam.model.ExamMark;
 import com.saas.school.modules.exam.repository.ExamMarkRepository;
@@ -59,6 +61,45 @@ public class ExamController {
                 + (out.getSkippedDuplicate() > 0 ? " · " + out.getSkippedDuplicate() + " duplicate(s) skipped" : "")
                 + (out.getSkippedNotConfigured() > 0 ? " · " + out.getSkippedNotConfigured() + " combination(s) not configured" : "");
         return ResponseEntity.ok(ApiResponse.success(out, msg));
+    }
+
+    // ── Exam Config list / detail / delete (the View page) ───────────
+
+    /** List existing Exam Configs (one row per [year, examType] tuple). */
+    @GetMapping("/configs")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<List<ExamConfigSummary>>> listConfigs() {
+        return ResponseEntity.ok(ApiResponse.success(examService.listConfigs()));
+    }
+
+    /** Pre-fill payload for the edit form. */
+    @GetMapping("/configs/detail")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<ExamConfigDetail>> getConfigDetail(
+            @RequestParam String academicYearId,
+            @RequestParam String examType) {
+        return ResponseEntity.ok(ApiResponse.success(
+                examService.getConfigDetail(academicYearId, examType)));
+    }
+
+    /** Light marks-status probe — drives the warning popup before edit/delete. */
+    @GetMapping("/configs/marks-status")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> getConfigMarksStatus(
+            @RequestParam String academicYearId,
+            @RequestParam String examType) {
+        boolean has = examService.hasMarksForConfig(academicYearId, examType);
+        return ResponseEntity.ok(ApiResponse.success(Map.of("anyMarksEntered", has)));
+    }
+
+    /** Delete every exam + marks doc tied to this config. Cascades. */
+    @DeleteMapping("/configs")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> deleteConfig(
+            @RequestParam String academicYearId,
+            @RequestParam String examType) {
+        Map<String, Object> out = examService.deleteConfig(academicYearId, examType);
+        return ResponseEntity.ok(ApiResponse.success(out, "Config deleted"));
     }
 
     @PutMapping("/{examId}")

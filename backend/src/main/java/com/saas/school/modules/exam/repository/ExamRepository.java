@@ -18,4 +18,11 @@ public interface ExamRepository extends MongoRepository<Exam, String> {
      */
     List<Exam> findByAcademicYearIdAndExamTypeAndClassIdAndSectionIdAndSubjectId(
             String academicYearId, String examType, String classId, String sectionId, String subjectId);
+
+    /**
+     * Every exam belonging to an Exam Config group — the (year, examType)
+     * tuple uniquely identifies a config that fanned out into many Exam
+     * docs. Used by the Configs list, edit, and delete endpoints.
+     */
+    List<Exam> findByAcademicYearIdAndExamType(String academicYearId, String examType);
 }
