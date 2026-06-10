@@ -8,6 +8,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @Document(collection = "student_assessments")
 @CompoundIndex(name = "exam_unique", def = "{'examId':1}", unique = true)
@@ -66,6 +67,17 @@ public class StudentAssessments {
     public static class MarkEntry {
         private String studentId;
         private Double marksObtained;
+        /**
+         * For combined-mode exams (where the Exam doc carries multiple
+         * components), this map holds per-component obtained marks keyed by
+         * component key (e.g. {"theory": 35.0, "ia": 8.0}). For per-component
+         * mode, this stays null and {@link #marksObtained} alone is used.
+         *
+         * <p>{@code marksObtained} is also populated in combined mode (as the
+         * sum across components) so legacy readers still see a meaningful
+         * total without changing.
+         */
+        private Map<String, Double> componentMarks;
         private String grade;
         private String remarks;
         private boolean isPassed;
@@ -85,6 +97,9 @@ public class StudentAssessments {
 
         public Double getMarksObtained() { return marksObtained; }
         public void setMarksObtained(Double marksObtained) { this.marksObtained = marksObtained; }
+
+        public Map<String, Double> getComponentMarks() { return componentMarks; }
+        public void setComponentMarks(Map<String, Double> componentMarks) { this.componentMarks = componentMarks; }
 
         public String getGrade() { return grade; }
         public void setGrade(String grade) { this.grade = grade; }

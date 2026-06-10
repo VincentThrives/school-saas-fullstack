@@ -6,10 +6,19 @@
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'Exams' }
     ]"
-    actionLabel="Create Exam"
-    actionIcon="add"
-    actionLink="/exams/new"
+    actionLabel="Exam Config (Bulk)"
+    actionIcon="playlist_add_check"
+    actionLink="/exams/config"
   ></app-page-header>
+
+  <!-- Quick link to the legacy single-exam form for one-off exams (re-tests,
+       makeup exams) that don't fit the bulk Exam Config flow. -->
+  <div class="secondary-action-row">
+    <a mat-stroked-button routerLink="/exams/new" class="single-exam-link">
+      <mat-icon>add</mat-icon>
+      Single Exam
+    </a>
+  </div>
 
   <!-- Filters -->
   <mat-card class="filters-card">
@@ -84,7 +93,14 @@
         <div class="r-card__inline">
           <span><strong>{{ exam.className || getClassName(exam.classId) }}</strong><span *ngIf="exam.sectionName || getSectionName(exam.sectionId)"> - {{ exam.sectionName || getSectionName(exam.sectionId) }}</span></span>
           <span>{{ exam.examDate }}</span>
-          <span><strong>{{ exam.maxMarks }}</strong> marks (Pass: {{ exam.passingMarks }})</span>
+          <ng-container *ngIf="exam.components && exam.components.length > 1; else singleMobileMax">
+            <span *ngFor="let c of exam.components">
+              <strong>{{ c.label }}</strong> {{ c.maxMarks }}/{{ c.passingMarks }}
+            </span>
+          </ng-container>
+          <ng-template #singleMobileMax>
+            <span><strong>{{ exam.maxMarks }}</strong> marks (Pass: {{ exam.passingMarks }})</span>
+          </ng-template>
         </div>
 
         <!-- Primary action row: marks + results buttons. On mobile this stays
@@ -158,8 +174,20 @@
       <ng-container matColumnDef="maxMarks">
         <th mat-header-cell *matHeaderCellDef>Max Marks</th>
         <td mat-cell *matCellDef="let exam">
-          <strong>{{ exam.maxMarks }}</strong>
-          <span class="passing-marks">(Pass: {{ exam.passingMarks }})</span>
+          <ng-container *ngIf="exam.components && exam.components.length > 1; else singleMax">
+            <!-- Combined-mode exam: show each component's max/pass. The legacy
+                 exam.maxMarks mirrors the first component, so showing it on its
+                 own would mislead — list each slice instead. -->
+            <div class="combined-comp-list">
+              <span *ngFor="let c of exam.components" class="combined-comp">
+                <strong>{{ c.label }}:</strong> {{ c.maxMarks }} / {{ c.passingMarks }}
+              </span>
+            </div>
+          </ng-container>
+          <ng-template #singleMax>
+            <strong>{{ exam.maxMarks }}</strong>
+            <span class="passing-marks">(Pass: {{ exam.passingMarks }})</span>
+          </ng-template>
         </td>
       </ng-container>
 

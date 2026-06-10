@@ -23,16 +23,26 @@
         <span class="info-value">{{ getClassName() }}</span>
       </mat-card-content>
     </mat-card>
-    <mat-card class="info-card">
+    <mat-card class="info-card" *ngIf="!isCombined">
       <mat-card-content>
         <span class="info-label">Max Marks</span>
         <span class="info-value">{{ exam.maxMarks }}</span>
       </mat-card-content>
     </mat-card>
-    <mat-card class="info-card">
+    <mat-card class="info-card" *ngIf="!isCombined">
       <mat-card-content>
         <span class="info-label">Passing Marks</span>
         <span class="info-value">{{ exam.passingMarks }}</span>
+      </mat-card-content>
+    </mat-card>
+    <mat-card class="info-card" *ngIf="isCombined">
+      <mat-card-content>
+        <span class="info-label">Components</span>
+        <span class="info-value">
+          <span *ngFor="let c of examComponents; let last = last">
+            {{ c.label }} ({{ c.maxMarks }}/{{ c.passingMarks }}){{ last ? '' : ', ' }}
+          </span>
+        </span>
       </mat-card-content>
     </mat-card>
   </div>
@@ -54,23 +64,52 @@
           </div>
           <span class="r-card__pill">#{{ student.rollNumber }}</span>
         </div>
-        <mat-form-field appearance="outline" class="marks-field" style="width:100%;">
-          <mat-label>Marks (/{{ maxMarks }})</mat-label>
-          <input
-            matInput
-            type="number"
-            [value]="student.marksObtained"
-            (input)="onMarksChange(student, $any($event.target).value, $event)"
-            [min]="0"
-            [max]="maxMarks"
-            placeholder="--"
-          >
-        </mat-form-field>
-        <div class="r-card__inline" *ngIf="student.marksObtained !== null">
-          <mat-chip [class]="isPassing(student.marksObtained) ? 'chip-pass' : 'chip-fail'">
-            {{ isPassing(student.marksObtained) ? 'Pass' : 'Fail' }} ({{ getGrade(student.marksObtained) }})
-          </mat-chip>
-        </div>
+
+        <!-- Combined-mode: per-component inputs stacked vertically -->
+        <ng-container *ngIf="isCombined">
+          <mat-form-field appearance="outline" class="marks-field"
+                          *ngFor="let comp of examComponents" style="width:100%;">
+            <mat-label>{{ comp.label }} (/{{ comp.maxMarks }})</mat-label>
+            <input
+              matInput
+              type="number"
+              [value]="student.componentMarks[comp.key]"
+              (input)="onComponentMarksChange(student, comp, $any($event.target).value, $event)"
+              [min]="0"
+              [max]="comp.maxMarks"
+              placeholder="--"
+            >
+          </mat-form-field>
+          <div class="r-card__inline" *ngIf="hasAnyCombinedEntry(student)">
+            <strong>Total: {{ totalFor(student) }} / {{ maxMarks }}</strong>
+            &nbsp;
+            <mat-chip [class]="isCombinedPassing(student) ? 'chip-pass' : 'chip-fail'">
+              {{ isCombinedPassing(student) ? 'Pass' : 'Fail' }}
+            </mat-chip>
+          </div>
+        </ng-container>
+
+        <!-- Per-component-mode: single marks input -->
+        <ng-container *ngIf="!isCombined">
+          <mat-form-field appearance="outline" class="marks-field" style="width:100%;">
+            <mat-label>Marks (/{{ maxMarks }})</mat-label>
+            <input
+              matInput
+              type="number"
+              [value]="student.marksObtained"
+              (input)="onMarksChange(student, $any($event.target).value, $event)"
+              [min]="0"
+              [max]="maxMarks"
+              placeholder="--"
+            >
+          </mat-form-field>
+          <div class="r-card__inline" *ngIf="student.marksObtained !== null">
+            <mat-chip [class]="isPassing(student.marksObtained) ? 'chip-pass' : 'chip-fail'">
+              {{ isPassing(student.marksObtained) ? 'Pass' : 'Fail' }} ({{ getGrade(student.marksObtained) }})
+            </mat-chip>
+          </div>
+        </ng-container>
+
         <mat-form-field appearance="outline" class="remarks-field" style="width:100%;">
           <mat-label>Remarks</mat-label>
           <input matInput [(ngModel)]="student.remarks" placeholder="Remarks...">
@@ -94,6 +133,7 @@
         </td>
       </ng-container>
 
+      <!-- Per-component marks (legacy single-component exams) -->
       <ng-container matColumnDef="marksObtained">
         <th mat-header-cell *matHeaderCellDef>Marks (/{{ maxMarks }})</th>
         <td mat-cell *matCellDef="let student">
@@ -111,16 +151,52 @@
         </td>
       </ng-container>
 
+      <!-- One column per component (combined-mode exams) -->
+      <ng-container *ngFor="let comp of examComponents" [matColumnDef]="'comp_' + comp.key">
+        <th mat-header-cell *matHeaderCellDef>{{ comp.label }} (/{{ comp.maxMarks }})</th>
+        <td mat-cell *matCellDef="let student">
+          <mat-form-field appearance="outline" class="marks-field">
+            <input
+              matInput
+              type="number"
+              [value]="student.componentMarks[comp.key]"
+              (input)="onComponentMarksChange(student, comp, $any($event.target).value, $event)"
+              [min]="0"
+              [max]="comp.maxMarks"
+              placeholder="--"
+            >
+          </mat-form-field>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="total">
+        <th mat-header-cell *matHeaderCellDef>Total (/{{ maxMarks }})</th>
+        <td mat-cell *matCellDef="let student" class="total-cell">
+          <strong *ngIf="hasAnyCombinedEntry(student)">{{ totalFor(student) }}</strong>
+          <span *ngIf="!hasAnyCombinedEntry(student)" class="no-marks">-</span>
+        </td>
+      </ng-container>
+
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef>Pass/Fail</th>
         <td mat-cell *matCellDef="let student">
-          <ng-container *ngIf="student.marksObtained !== null">
-            <mat-chip [class]="isPassing(student.marksObtained) ? 'chip-pass' : 'chip-fail'">
-              {{ isPassing(student.marksObtained) ? 'Pass' : 'Fail' }}
-              ({{ getGrade(student.marksObtained) }})
-            </mat-chip>
+          <ng-container *ngIf="isCombined; else perComponentStatus">
+            <ng-container *ngIf="hasAnyCombinedEntry(student)">
+              <mat-chip [class]="isCombinedPassing(student) ? 'chip-pass' : 'chip-fail'">
+                {{ isCombinedPassing(student) ? 'Pass' : 'Fail' }}
+              </mat-chip>
+            </ng-container>
+            <span *ngIf="!hasAnyCombinedEntry(student)" class="no-marks">-</span>
           </ng-container>
-          <span *ngIf="student.marksObtained === null" class="no-marks">-</span>
+          <ng-template #perComponentStatus>
+            <ng-container *ngIf="student.marksObtained !== null">
+              <mat-chip [class]="isPassing(student.marksObtained) ? 'chip-pass' : 'chip-fail'">
+                {{ isPassing(student.marksObtained) ? 'Pass' : 'Fail' }}
+                ({{ getGrade(student.marksObtained) }})
+              </mat-chip>
+            </ng-container>
+            <span *ngIf="student.marksObtained === null" class="no-marks">-</span>
+          </ng-template>
         </td>
       </ng-container>
 

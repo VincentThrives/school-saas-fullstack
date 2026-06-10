@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
@@ -27,6 +27,7 @@ import { SchoolClass, AcademicYear, UserRole } from '../../../core/models';
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     MatCardModule,
     MatTableModule,
     MatPaginatorModule,

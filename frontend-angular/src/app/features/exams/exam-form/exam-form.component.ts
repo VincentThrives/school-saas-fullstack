@@ -58,10 +58,16 @@ export class ExamFormComponent implements OnInit {
   subjectsList: SubjectItem[] = [];
   examTypes: any[] = [];
 
-  /** EXAM-mode components on the currently-selected subject. Empty for
-   *  legacy single-type subjects (no components configured) and for
-   *  subjects whose only component is EXAM mode (we hide the picker). */
+  /** Available components on the currently-selected subject (both EXAM and
+   *  INTERNAL — IA marks now flow through the same exam mark-entry page
+   *  as regular exam marks). Empty for single-component subjects (we hide
+   *  the picker). */
   componentChoices: Array<{ key: string; label: string }> = [];
+
+  /** Pre-loaded combined-mode exam components, when editing such an exam.
+   *  Edit form just shows a read-only summary — admin should delete and
+   *  re-run the Exam Config flow to change a combined exam's structure. */
+  combinedComponents: Array<{ key: string; label: string; maxMarks: number; passingMarks: number }> = [];
 
   private pendingSubjectId: string | null = null;
   private pendingClassId: string | null = null;
@@ -112,19 +118,21 @@ export class ExamFormComponent implements OnInit {
       this.refreshComponentChoices(sub);
     });
 
-    // Pull maxMarks + passingMarks from the chosen component. The Theory
-    // component on English is 70/35; using the parent subject's total
-    // (100) here would let admins enter marks > the component's cap and
-    // wreck the report card. Component-level numbers are the truth.
+    // Optionally pre-fill maxMarks + passingMarks from the chosen component
+    // when the subject still carries those values (legacy data). The
+    // authoritative max/pass now lives on the Exam doc itself — admin can
+    // freely override these values per exam.
     this.examForm.get('componentKey')?.valueChanges.subscribe((key) => {
       if (!key) return;
       const sub = this.subjectsList.find(s => s.subjectId === this.examForm.get('subjectId')?.value);
       const comp = sub?.components?.find(c => c.key === key);
       if (!comp) return;
-      this.examForm.patchValue({
-        maxMarks: comp.maxMarks,
-        passingMarks: comp.passMarks,
-      }, { emitEvent: false });
+      const patch: any = {};
+      if (comp.maxMarks != null && comp.maxMarks > 0) patch.maxMarks = comp.maxMarks;
+      if (comp.passMarks != null && comp.passMarks >= 0) patch.passingMarks = comp.passMarks;
+      if (Object.keys(patch).length > 0) {
+        this.examForm.patchValue(patch, { emitEvent: false });
+      }
     });
 
     // Load exam types for the picker; auto-fill maxMarks from the catalog when empty/default
@@ -199,6 +207,17 @@ export class ExamFormComponent implements OnInit {
           const e = res.data;
           this.pendingSubjectId = e.subjectId || null;
           this.pendingClassId = e.classId || null;
+          // Combined-mode exam? Surface its components read-only so admin
+          // sees the per-component max/pass and doesn't try to edit the
+          // single maxMarks field (which mirrors only the first component).
+          this.combinedComponents = Array.isArray(e.components)
+              ? e.components.map((c: any) => ({
+                  key: c.key,
+                  label: c.label || c.key,
+                  maxMarks: Number(c.maxMarks) || 0,
+                  passingMarks: Number(c.passingMarks) || 0,
+                }))
+              : [];
 
           this.examForm.patchValue({
             examType: e.examType || '',
@@ -365,16 +384,20 @@ export class ExamFormComponent implements OnInit {
    * records, so picking one would always fail backend validation.
    */
   private refreshComponentChoices(subject: SubjectItem | undefined): void {
-    const exam = subject?.components?.filter(c => c.assessmentMode === 'EXAM') ?? [];
+    // Internal Assessment marks now go through the regular exam mark-entry
+    // page, so INTERNAL components are picker-eligible too. Schools that
+    // still want a separate IA entry path can use the legacy Internal
+    // Marks page (route kept active for back-compat).
+    const all = subject?.components ?? [];
     const ctrl = this.examForm.get('componentKey');
-    if (exam.length > 1) {
-      this.componentChoices = exam.map(c => ({ key: c.key, label: c.label }));
+    if (all.length > 1) {
+      this.componentChoices = all.map(c => ({ key: c.key, label: c.label }));
       ctrl?.setValidators([Validators.required]);
     } else {
       this.componentChoices = [];
       ctrl?.clearValidators();
       // Auto-fill from the only component (or clear if there are none).
-      ctrl?.setValue(exam[0]?.key ?? '');
+      ctrl?.setValue(all[0]?.key ?? '');
     }
     ctrl?.updateValueAndValidity({ emitEvent: false });
   }

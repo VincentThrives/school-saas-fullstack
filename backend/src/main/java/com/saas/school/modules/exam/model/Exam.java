@@ -33,6 +33,19 @@ public class Exam {
     private String academicYearId;
     private int maxMarks;
     private int passingMarks;
+    /**
+     * For "combined-mode" exams — one Exam doc carries multiple components
+     * (e.g. a single "Math UT1" exam with Theory and IA columns side-by-side
+     * in mark entry). When this list is non-empty the exam is combined; the
+     * legacy {@link #componentKey} / {@link #maxMarks} / {@link #passingMarks}
+     * fields are still populated (mirroring the first component) so legacy
+     * code reading them keeps working, but the source of truth is this list.
+     *
+     * <p>When this list is null or empty the exam is per-component (legacy
+     * shape): the doc scores a single component identified by {@code
+     * componentKey}, with its own max/pass.</p>
+     */
+    private List<ExamComponent> components;
     private LocalDate examDate;
     private ExamStatus status;
     private boolean marksLocked;
@@ -231,7 +244,55 @@ public class Exam {
         this.sectionName = sectionName;
     }
 
+    public List<ExamComponent> getComponents() {
+        return components;
+    }
+
+    public void setComponents(List<ExamComponent> components) {
+        this.components = components;
+    }
+
+    /** True when this exam carries 2+ components in one doc (combined-mode). */
+    public boolean isCombined() {
+        return components != null && components.size() > 1;
+    }
+
     // ── Nested types ──────────────────────────────────────────────
 
     public enum ExamStatus { SCHEDULED, ONGOING, COMPLETED, CANCELLED }
+
+    /**
+     * One slice of a combined-mode exam. Mirrors the relevant fields of
+     * {@code Subject.Component} (key + label) plus this exam's own
+     * per-component max/pass. Per-component max/pass is independent of
+     * the subject's component max/pass — schools commonly run "Unit Test
+     * 1" at 40+10 and "Final" at 80+20 against the same Math subject.
+     */
+    public static class ExamComponent {
+        private String key;
+        private String label;
+        private Integer maxMarks;
+        private Integer passingMarks;
+
+        public ExamComponent() {}
+
+        public ExamComponent(String key, String label, Integer maxMarks, Integer passingMarks) {
+            this.key = key;
+            this.label = label;
+            this.maxMarks = maxMarks;
+            this.passingMarks = passingMarks;
+        }
+
+        public String getKey() { return key; }
+        public void setKey(String key) { this.key = key; }
+
+        public String getLabel() { return label; }
+        public void setLabel(String label) { this.label = label; }
+
+        public Integer getMaxMarks() { return maxMarks; }
+        public void setMaxMarks(Integer maxMarks) { this.maxMarks = maxMarks; }
+
+        public Integer getPassingMarks() { return passingMarks; }
+        public void setPassingMarks(Integer passingMarks) { this.passingMarks = passingMarks; }
+    }
 }

@@ -21,8 +21,25 @@ interface StudentMark {
   rollNumber: string;
   firstName: string;
   lastName: string;
+  /**
+   * Per-component-mode entry: a single obtained marks value against the
+   * exam's own max/pass.
+   */
   marksObtained: number | null;
+  /**
+   * Combined-mode entry: per-component obtained marks keyed by component
+   * key. Empty {} when the exam isn't combined-mode.
+   */
+  componentMarks: Record<string, number | null>;
   remarks: string;
+}
+
+/** Component slice rendered as its own column when the exam is combined-mode. */
+interface ExamComponentDef {
+  key: string;
+  label: string;
+  maxMarks: number;
+  passingMarks: number;
 }
 
 @Component({
@@ -50,10 +67,18 @@ export class EnterMarksComponent implements OnInit {
   examId: string = '';
   exam: any = null;
   students: StudentMark[] = [];
-  displayedColumns = ['rollNumber', 'name', 'marksObtained', 'status', 'remarks'];
+  displayedColumns: string[] = [];
   isLoading = false;
   isSaving = false;
   classMap: Record<string, string> = {};
+
+  /** Component columns for combined-mode exams. Empty for per-component. */
+  examComponents: ExamComponentDef[] = [];
+
+  /** True when this exam is a combined-mode exam (one doc carrying multiple components). */
+  get isCombined(): boolean {
+    return this.examComponents.length > 0;
+  }
 
 
   constructor(
@@ -99,6 +124,8 @@ export class EnterMarksComponent implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           this.exam = res.data;
+          this.examComponents = this.resolveExamComponents(res.data);
+          this.displayedColumns = this.buildDisplayedColumns();
         }
         this.loadStudents();
       },
@@ -107,6 +134,33 @@ export class EnterMarksComponent implements OnInit {
         this.snackBar.open('Failed to load exam', 'Close', { duration: 3000 });
       },
     });
+  }
+
+  /**
+   * Extract the component column definitions for a combined-mode exam.
+   * Returns [] for per-component exams (single column path, legacy shape).
+   */
+  private resolveExamComponents(exam: any): ExamComponentDef[] {
+    const comps = exam?.components;
+    if (!Array.isArray(comps) || comps.length === 0) return [];
+    return comps.map((c: any) => ({
+      key: c.key,
+      label: c.label || c.key,
+      maxMarks: Number(c.maxMarks) || 0,
+      passingMarks: Number(c.passingMarks) || 0,
+    }));
+  }
+
+  /** Column set for the marks table — adapts to combined vs per-component. */
+  private buildDisplayedColumns(): string[] {
+    if (this.examComponents.length > 0) {
+      // Combined: one column per component instead of a single marksObtained.
+      const cols = ['rollNumber', 'name'];
+      for (const c of this.examComponents) cols.push('comp_' + c.key);
+      cols.push('total', 'status', 'remarks');
+      return cols;
+    }
+    return ['rollNumber', 'name', 'marksObtained', 'status', 'remarks'];
   }
 
   private loadStudents(): void {
@@ -151,8 +205,15 @@ export class EnterMarksComponent implements OnInit {
       firstName: s.firstName || `Student ${s.admissionNumber || ''}`,
       lastName: s.lastName || '',
       marksObtained: null,
+      componentMarks: this.emptyComponentMarks(),
       remarks: '',
     }));
+  }
+
+  private emptyComponentMarks(): Record<string, number | null> {
+    const out: Record<string, number | null> = {};
+    for (const c of this.examComponents) out[c.key] = null;
+    return out;
   }
 
   /**
@@ -177,9 +238,19 @@ export class EnterMarksComponent implements OnInit {
             const existing = byStudent[s.studentId];
             if (!existing) return s;
             const raw = existing.marksObtained;
+            // For combined-mode exams, also pre-load any saved per-component
+            // values so the teacher sees the existing entries when they reopen.
+            const compMarks = this.emptyComponentMarks();
+            if (this.isCombined && existing.componentMarks && typeof existing.componentMarks === 'object') {
+              for (const c of this.examComponents) {
+                const v = existing.componentMarks[c.key];
+                compMarks[c.key] = (v === null || v === undefined || v === '') ? null : Number(v);
+              }
+            }
             return {
               ...s,
               marksObtained: raw === null || raw === undefined || raw === '' ? null : Number(raw),
+              componentMarks: compMarks,
               remarks: existing.remarks || s.remarks || '',
             };
           });
@@ -194,15 +265,53 @@ export class EnterMarksComponent implements OnInit {
   }
 
   get maxMarks(): number {
+    if (this.isCombined) {
+      return this.examComponents.reduce((s, c) => s + (c.maxMarks || 0), 0);
+    }
     return this.exam?.maxMarks || 100;
   }
 
   get passingMarks(): number {
+    if (this.isCombined) {
+      return this.examComponents.reduce((s, c) => s + (c.passingMarks || 0), 0);
+    }
     return this.exam?.passingMarks || 35;
   }
 
   isPassing(marks: number | null): boolean {
     return marks !== null && marks >= this.passingMarks;
+  }
+
+  /** Sum of obtained marks across components — used as the displayed total. */
+  totalFor(student: StudentMark): number {
+    if (!this.isCombined) return Number(student.marksObtained) || 0;
+    let sum = 0;
+    for (const c of this.examComponents) {
+      const v = student.componentMarks[c.key];
+      if (v !== null && v !== undefined) sum += Number(v);
+    }
+    return sum;
+  }
+
+  /** Pass/fail across combined components — every component must clear its own
+   *  pass cap (the PER_COMPONENT default; report card aggregator does the
+   *  authoritative subject-level call). */
+  isCombinedPassing(student: StudentMark): boolean {
+    for (const c of this.examComponents) {
+      const v = student.componentMarks[c.key];
+      if (v === null || v === undefined) return false;
+      if (Number(v) < (c.passingMarks || 0)) return false;
+    }
+    return this.examComponents.length > 0;
+  }
+
+  /** True when any component has a marks entry — drives the pass/fail chip
+   *  visibility in combined mode (only show after teacher starts typing). */
+  hasAnyCombinedEntry(student: StudentMark): boolean {
+    return this.examComponents.some(c => {
+      const v = student.componentMarks[c.key];
+      return v !== null && v !== undefined;
+    });
   }
 
   getGrade(marks: number | null): string {
@@ -251,15 +360,62 @@ export class EnterMarksComponent implements OnInit {
     student.marksObtained = numVal;
   }
 
+  /** Clamp + validate per-component cell input on combined-mode exams. */
+  onComponentMarksChange(student: StudentMark, comp: ExamComponentDef, value: string, event?: Event): void {
+    if (value === '' || value == null) {
+      student.componentMarks[comp.key] = null;
+      return;
+    }
+    let numVal = parseInt(value, 10);
+    if (isNaN(numVal)) {
+      student.componentMarks[comp.key] = null;
+      return;
+    }
+    if (numVal < 0) numVal = 0;
+    if (numVal > comp.maxMarks) {
+      numVal = comp.maxMarks;
+      this.snackBar.open(
+        `${comp.label} max is ${comp.maxMarks}. Capped.`,
+        'Close', { duration: 2500 });
+      const target = event?.target as HTMLInputElement | undefined;
+      if (target) target.value = String(numVal);
+    }
+    student.componentMarks[comp.key] = numVal;
+  }
+
   saveMarks(): void {
-    const validMarks = this.students
-      .filter((s) => s.marksObtained !== null)
-      .map((s) => ({
-        studentId: s.studentId,
-        subjectId: this.exam?.subjectId || '',
-        marksObtained: s.marksObtained as number,
-        remarks: s.remarks || '',
-      }));
+    let validMarks: any[];
+    if (this.isCombined) {
+      // Combined mode: send componentMarks map per student. Include a student
+      // if AT LEAST ONE component has a value — partial entries are allowed
+      // so a teacher can save mid-exam and finish later.
+      validMarks = this.students
+        .filter((s) => this.hasAnyCombinedEntry(s))
+        .map((s) => {
+          // Strip null/empty cells before sending so the backend doesn't
+          // misread "0" intent vs "not entered".
+          const map: Record<string, number> = {};
+          for (const c of this.examComponents) {
+            const v = s.componentMarks[c.key];
+            if (v !== null && v !== undefined) map[c.key] = Number(v);
+          }
+          return {
+            studentId: s.studentId,
+            subjectId: this.exam?.subjectId || '',
+            componentMarks: map,
+            remarks: s.remarks || '',
+          };
+        });
+    } else {
+      validMarks = this.students
+        .filter((s) => s.marksObtained !== null)
+        .map((s) => ({
+          studentId: s.studentId,
+          subjectId: this.exam?.subjectId || '',
+          marksObtained: s.marksObtained as number,
+          remarks: s.remarks || '',
+        }));
+    }
 
     if (validMarks.length === 0) {
       this.snackBar.open('No marks to save', 'Close', { duration: 3000 });

@@ -143,7 +143,40 @@
           <mat-icon class="section-icon">grade</mat-icon>
           Marks Configuration
         </h3>
-        <div class="form-grid">
+
+        <!-- Combined-mode summary: read-only per-component breakdown. Editing
+             the structure of a combined exam (which components, their max/pass)
+             isn't supported from this form — admin should delete + recreate via
+             Exam Config to ensure all linked marks stay consistent. -->
+        <div class="combined-summary" *ngIf="combinedComponents.length > 0">
+          <p class="combined-summary__note">
+            <mat-icon>info</mat-icon>
+            This is a <strong>combined-mode</strong> exam created via Exam Config.
+            Per-component marks live on the exam doc itself — delete this exam and
+            re-run Exam Config to change the structure.
+          </p>
+          <table class="combined-summary__table">
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Max</th>
+                <th>Pass</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let c of combinedComponents">
+                <td><strong>{{ c.label }}</strong></td>
+                <td>{{ c.maxMarks }}</td>
+                <td>{{ c.passingMarks }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Per-component (legacy single-component) marks fields. Hidden for
+             combined exams since the per-component caps live in the summary
+             table above. -->
+        <div class="form-grid" *ngIf="combinedComponents.length === 0">
           <mat-form-field appearance="outline">
             <mat-label>Maximum Marks *</mat-label>
             <input matInput type="number" formControlName="maxMarks" min="1">

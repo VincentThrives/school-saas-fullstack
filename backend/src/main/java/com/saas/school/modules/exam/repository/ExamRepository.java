@@ -9,4 +9,13 @@ public interface ExamRepository extends MongoRepository<Exam, String> {
     List<Exam> findByClassId(String classId);
     long countByExamType(String examType);
     List<Exam> findByExamDate(java.time.LocalDate examDate);
+
+    /**
+     * Used by the bulk-create endpoint to detect duplicates before inserting.
+     * Returns every exam matching (year, type, class, section, subject) — the
+     * service then narrows by componentKey (per-component mode) or by
+     * components-non-empty (combined mode).
+     */
+    List<Exam> findByAcademicYearIdAndExamTypeAndClassIdAndSectionIdAndSubjectId(
+            String academicYearId, String examType, String classId, String sectionId, String subjectId);
 }

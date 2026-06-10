@@ -423,10 +423,16 @@ public class ClassController {
             if (c.getLabel() == null || c.getLabel().isBlank()) {
                 throw new IllegalArgumentException("Component '" + c.getKey() + "' must have a label");
             }
-            if (c.getMaxMarks() == null || c.getMaxMarks() < 0) {
+            // Marks (max + pass) are no longer required on Subject — they
+            // live on the Exam doc now, so admin can run UT1 at 40+10 and
+            // Final at 80+20 for the same Math · Theory component. If the
+            // request still sends them (legacy clients), keep them sane.
+            if (c.getMaxMarks() != null && c.getMaxMarks() < 0) {
                 throw new IllegalArgumentException("Component '" + c.getKey() + "' maxMarks must be >= 0");
             }
-            if (c.getPassMarks() == null || c.getPassMarks() < 0 || c.getPassMarks() > c.getMaxMarks()) {
+            if (c.getPassMarks() != null
+                    && (c.getPassMarks() < 0
+                        || (c.getMaxMarks() != null && c.getPassMarks() > c.getMaxMarks()))) {
                 throw new IllegalArgumentException(
                         "Component '" + c.getKey() + "' passMarks must be between 0 and maxMarks");
             }

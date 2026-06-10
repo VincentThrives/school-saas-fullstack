@@ -1,0 +1,178 @@
+.exam-config-container {
+  padding: 16px 20px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.step-card {
+  border-radius: 12px;
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  .step-icon {
+    color: #2563eb;
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .step-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+  }
+  .step-hint {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  .step-count {
+    margin-left: auto;
+    background: #eef2ff;
+    color: #3730a3;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.full-width { width: 100%; }
+
+mat-form-field {
+  width: 100%;
+}
+
+.empty-hint {
+  color: #9ca3af;
+  font-style: italic;
+  padding: 8px 4px;
+}
+
+// ── Class & section pair grid ────────────────────────────────────────
+.class-block {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+
+  &__header {
+    margin-bottom: 6px;
+    .muted { color: #9ca3af; font-weight: 400; font-size: 12px; }
+  }
+}
+
+.pair-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 6px;
+  padding-left: 24px;
+}
+
+// ── Subject chip row ─────────────────────────────────────────────────
+.subject-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.subject-chip {
+  min-width: 0;
+  border-radius: 999px !important;
+  padding: 2px 12px !important;
+
+  &.picked {
+    background-color: #dbeafe !important;
+    border-color: #2563eb !important;
+    color: #1d4ed8 !important;
+  }
+
+  .muted { color: inherit; opacity: 0.7; font-size: 11px; margin-left: 4px; }
+}
+
+// ── Picked-subject config card ───────────────────────────────────────
+.subject-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+
+    strong {
+      flex-shrink: 0;
+      font-size: 14px;
+      color: #1f2937;
+    }
+    mat-slide-toggle {
+      margin-left: auto;
+    }
+  }
+}
+
+.component-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 4px;
+
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #374151;
+    font-size: 13px;
+
+    .comp-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #6366f1;
+    }
+    .muted { color: #9ca3af; font-size: 11px; }
+  }
+
+  .comp-input {
+    margin-bottom: -1.34375em; // align inputs with label baseline
+  }
+}
+
+// ── Form actions ─────────────────────────────────────────────────────
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+// Mobile
+@media (max-width: 720px) {
+  .grid-2, .grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .component-row {
+    grid-template-columns: 1fr;
+    .component-row__label { margin-bottom: 4px; }
+  }
+}

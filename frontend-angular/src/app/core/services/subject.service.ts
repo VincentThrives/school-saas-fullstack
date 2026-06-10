@@ -17,8 +17,15 @@ export interface SubjectComponent {
   key: string;
   /** Human-readable label shown on the report card. */
   label: string;
-  maxMarks: number;
-  passMarks: number;
+  /**
+   * Optional from this version on — max/pass marks now live on the Exam
+   * doc, not the subject. The fields are kept here so the deserializer
+   * accepts legacy data without complaint, but the Subject form no longer
+   * collects them and the report card aggregator pulls effective max/pass
+   * from the exam, not from this field.
+   */
+  maxMarks?: number | null;
+  passMarks?: number | null;
   /** Off for IA / Project components — they're not class-based. */
   trackAttendance: boolean;
   assessmentMode: AssessmentMode;

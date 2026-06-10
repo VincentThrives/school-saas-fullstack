@@ -244,6 +244,16 @@ export const routes: Routes = [
         data: { feature: 'exams' },
       },
       {
+        // Bulk-create page — admin picks exam type + class/sections +
+        // subjects and fans out into many Exam docs in one save. Sits
+        // alongside the legacy single-exam create form.
+        path: 'exams/config',
+        loadComponent: () =>
+          import('./features/exams/exam-config/exam-config.component').then(m => m.ExamConfigComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN], feature: 'exams' },
+      },
+      {
         path: 'exams/new',
         loadComponent: () =>
           import('./features/exams/exam-form/exam-form.component').then(m => m.ExamFormComponent),

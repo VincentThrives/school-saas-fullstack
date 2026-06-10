@@ -1,0 +1,220 @@
+<div class="exam-config-container">
+  <app-page-header
+    title="Exam Config"
+    [subtitle]="'Create exams in bulk — one exam type across many classes & subjects in a single save'"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Exams', link: '/exams' },
+      { label: 'Exam Config' }
+    ]"
+  ></app-page-header>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <!-- ── 1. Exam Type & Year ───────────────────────────────── -->
+    <mat-card class="step-card">
+      <mat-card-content>
+        <div class="step-header">
+          <mat-icon class="step-icon">label</mat-icon>
+          <div>
+            <div class="step-title">1. Exam type & academic year</div>
+            <div class="step-hint">Every exam in this batch belongs to this type (UT1, Final, …)</div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Exam Type *</mat-label>
+            <mat-select formControlName="examType">
+              <mat-option *ngFor="let t of examTypes" [value]="t.name" [matTooltip]="t.description || ''">
+                {{ t.name }}
+              </mat-option>
+            </mat-select>
+            <mat-hint *ngIf="examTypes.length === 0">
+              No exam types yet — add one under Exam Types
+            </mat-hint>
+            <mat-error>Exam type is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Academic Year *</mat-label>
+            <mat-select formControlName="academicYearId" (selectionChange)="onAcademicYearChange()">
+              <mat-option *ngFor="let yr of academicYears" [value]="yr.academicYearId">
+                {{ yr.label }} {{ yr.current ? '(Current)' : '' }}
+              </mat-option>
+            </mat-select>
+            <mat-error>Academic year is required</mat-error>
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- ── 2. Classes & Sections ─────────────────────────────── -->
+    <mat-card class="step-card">
+      <mat-card-content>
+        <div class="step-header">
+          <mat-icon class="step-icon">school</mat-icon>
+          <div>
+            <div class="step-title">2. Classes & sections</div>
+            <div class="step-hint">Pick every class/section that should get this exam</div>
+          </div>
+          <span class="step-count" *ngIf="pickedPairKeys.size > 0">{{ pickedPairKeys.size }} picked</span>
+        </div>
+
+        <div class="empty-hint" *ngIf="pairOptions.length === 0">
+          Pick an academic year first.
+        </div>
+
+        <div class="class-block" *ngFor="let g of pairOptionsByClass">
+          <div class="class-block__header">
+            <mat-checkbox
+              [checked]="isClassFullyPicked(g.classId)"
+              [indeterminate]="isClassPartiallyPicked(g.classId)"
+              (change)="pickAllPairsInClass(g.classId, $event.checked)"
+            >
+              <strong>{{ g.className }}</strong>
+              <span class="muted"> · all sections</span>
+            </mat-checkbox>
+          </div>
+          <div class="pair-grid">
+            <mat-checkbox
+              *ngFor="let p of g.pairs"
+              [checked]="pickedPairKeys.has(p.key)"
+              (change)="togglePair(p, $event.checked)"
+            >
+              {{ p.sectionName }}
+            </mat-checkbox>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- ── 3. Subjects ───────────────────────────────────────── -->
+    <mat-card class="step-card">
+      <mat-card-content>
+        <div class="step-header">
+          <mat-icon class="step-icon">menu_book</mat-icon>
+          <div>
+            <div class="step-title">3. Subjects</div>
+            <div class="step-hint">Picked subjects expand below with max/pass marks per component</div>
+          </div>
+          <span class="step-count" *ngIf="pickedSubjectRows.length > 0">{{ pickedSubjectRows.length }} picked</span>
+        </div>
+
+        <div class="empty-hint" *ngIf="pickedPairKeys.size === 0">
+          Pick at least one class & section first to see its subjects.
+        </div>
+        <div class="empty-hint" *ngIf="pickedPairKeys.size > 0 && availableSubjects.length === 0">
+          No subjects configured for the picked sections.
+        </div>
+
+        <div class="subject-chip-row" *ngIf="availableSubjects.length > 0">
+          <button
+            type="button"
+            mat-stroked-button
+            class="subject-chip"
+            *ngFor="let s of availableSubjects"
+            [class.picked]="isSubjectPicked(s.subjectId)"
+            (click)="toggleSubject(s, !isSubjectPicked(s.subjectId))"
+          >
+            <mat-icon *ngIf="isSubjectPicked(s.subjectId)">check</mat-icon>
+            <mat-icon *ngIf="!isSubjectPicked(s.subjectId)">add</mat-icon>
+            {{ s.name }}
+            <span class="muted" *ngIf="s.components && s.components.length > 1">
+              · {{ s.components.length }} components
+            </span>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- ── 4. Per-subject component config ───────────────────── -->
+    <mat-card class="step-card" *ngIf="pickedSubjectRows.length > 0">
+      <mat-card-content>
+        <div class="step-header">
+          <mat-icon class="step-icon">grade</mat-icon>
+          <div>
+            <div class="step-title">4. Max & pass marks per component</div>
+            <div class="step-hint">Set what THIS exam scores. Subjects with multiple components default to Combined (one row in mark entry, columns per component).</div>
+          </div>
+        </div>
+
+        <div class="subject-card" *ngFor="let row of pickedSubjectRows">
+          <div class="subject-card__head">
+            <strong>{{ row.subjectName }}</strong>
+            <mat-slide-toggle
+              *ngIf="row.hasMultipleComponents"
+              [(ngModel)]="row.combined"
+              [ngModelOptions]="{ standalone: true }"
+              matTooltip="ON: one exam, multi-column mark entry. OFF: separate exam per component."
+            >
+              Combined entry
+            </mat-slide-toggle>
+            <button mat-icon-button type="button" (click)="removeSubjectRow(row.subjectId)" matTooltip="Remove">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <div class="component-row" *ngFor="let c of row.components">
+            <div class="component-row__label">
+              <mat-icon class="comp-icon">{{ c.assessmentMode === 'INTERNAL' ? 'assignment' : 'edit_note' }}</mat-icon>
+              <span>{{ c.label }}</span>
+              <span class="muted" *ngIf="c.assessmentMode === 'INTERNAL'">· Internal</span>
+            </div>
+            <mat-form-field appearance="outline" class="comp-input">
+              <mat-label>Max Marks *</mat-label>
+              <input matInput type="number" [(ngModel)]="c.maxMarks" [ngModelOptions]="{ standalone: true }" min="1">
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="comp-input">
+              <mat-label>Pass Marks *</mat-label>
+              <input matInput type="number" [(ngModel)]="c.passingMarks" [ngModelOptions]="{ standalone: true }" min="0">
+            </mat-form-field>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- ── 5. Schedule (optional) ────────────────────────────── -->
+    <mat-card class="step-card">
+      <mat-card-content>
+        <div class="step-header">
+          <mat-icon class="step-icon">event</mat-icon>
+          <div>
+            <div class="step-title">5. Schedule (optional)</div>
+            <div class="step-hint">A default date/time applied to every created exam. Admin can edit each exam individually after creation.</div>
+          </div>
+        </div>
+        <div class="grid-3">
+          <mat-form-field appearance="outline">
+            <mat-label>Exam Date</mat-label>
+            <input matInput [matDatepicker]="datePicker" formControlName="examDate">
+            <mat-datepicker-toggle matIconSuffix [for]="datePicker"></mat-datepicker-toggle>
+            <mat-datepicker #datePicker></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Start Time</mat-label>
+            <input matInput type="time" formControlName="startTime">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>End Time</mat-label>
+            <input matInput type="time" formControlName="endTime">
+          </mat-form-field>
+        </div>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Description</mat-label>
+          <textarea matInput formControlName="description" rows="2" placeholder="Optional"></textarea>
+        </mat-form-field>
+      </mat-card-content>
+    </mat-card>
+
+    <div class="form-actions">
+      <button mat-stroked-button type="button" (click)="goToExams()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to Exams
+      </button>
+      <button mat-flat-button color="primary" type="submit" [disabled]="isSubmitDisabled">
+        <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
+        <mat-icon *ngIf="!isSaving">playlist_add_check</mat-icon>
+        {{ isSaving ? 'Creating…' : 'Create Exams' }}
+      </button>
+    </div>
+  </form>
+</div>

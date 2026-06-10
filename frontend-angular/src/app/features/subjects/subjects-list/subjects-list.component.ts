@@ -65,7 +65,11 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
   // component-shaped subjects. Added totalMarks + passRule columns so
   // the admin can see the full subject configuration without opening
   // Edit on every row.
-  displayedColumns: string[] = ['name', 'code', 'class', 'summary', 'totalMarks', 'passRule', 'actions'];
+  // Total column removed — max/pass moved to the Exam doc, so a per-subject
+  // total is no longer meaningful (Math Theory could be 40 in UT1 and 80
+  // in the Final). Pass rule still drives whether report card sums or
+  // checks each component.
+  displayedColumns: string[] = ['name', 'code', 'class', 'summary', 'passRule', 'actions'];
   dataSource = new MatTableDataSource<SubjectItem>([]);
   isLoading = false;
 
@@ -347,11 +351,15 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
     trackAttendance: boolean, assessmentMode: 'EXAM' | 'INTERNAL',
     internalSchedule: 'PER_TERM' | 'PER_YEAR' = 'PER_TERM',
   ): FormGroup {
+    // Max + pass marks moved to the Exam doc — admin sets them per exam in
+    // Exam Config so the same Math · Theory can be 40+10 for UT1 and 80+20
+    // for the Final. The fields stay on the form group so legacy data
+    // still serializes back to the API; we just don't render inputs.
     return this.fb.group({
       key: [key, Validators.required],
       label: [label, Validators.required],
-      maxMarks: [maxMarks, [Validators.required, Validators.min(0)]],
-      passMarks: [passMarks, [Validators.required, Validators.min(0)]],
+      maxMarks: [maxMarks ?? 0, [Validators.min(0)]],
+      passMarks: [passMarks ?? 0, [Validators.min(0)]],
       trackAttendance: [trackAttendance],
       assessmentMode: [assessmentMode, Validators.required],
       internalSchedule: [internalSchedule],
@@ -578,7 +586,7 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
     while (comps.length) comps.removeAt(0);
     for (const c of (subject.components || [])) {
       comps.push(this.buildComponentGroup(
-        c.key, c.label, c.maxMarks, c.passMarks,
+        c.key, c.label, c.maxMarks ?? 0, c.passMarks ?? 0,
         c.trackAttendance, c.assessmentMode, c.internalSchedule || 'PER_TERM'));
     }
     // Default to "Custom" preset so the components stay editable.
@@ -651,10 +659,8 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
     const components = raw.components as Array<any>;
     const keys = new Set<string>();
     for (const c of components) {
-      if (c.passMarks > c.maxMarks) {
-        this.snackBar.open(`Pass marks for "${c.label}" cannot exceed max marks.`, 'Close', { duration: 4000 });
-        return;
-      }
+      // Max/pass marks moved to the Exam doc — no per-component check needed
+      // here. Subject form is now structure-only (label, mode, attendance).
       if (keys.has(c.key)) {
         this.snackBar.open(`Duplicate component key "${c.key}". Each component needs a unique key.`, 'Close', { duration: 4000 });
         return;

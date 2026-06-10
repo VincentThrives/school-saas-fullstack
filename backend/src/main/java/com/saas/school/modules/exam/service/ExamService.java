@@ -3,11 +3,15 @@ package com.saas.school.modules.exam.service;
 import com.saas.school.common.audit.AuditService;
 import com.saas.school.common.exception.BusinessException;
 import com.saas.school.common.exception.ResourceNotFoundException;
+import com.saas.school.modules.exam.dto.BulkCreateExamRequest;
+import com.saas.school.modules.exam.dto.BulkCreateExamResponse;
 import com.saas.school.modules.exam.dto.EnterMarksRequest;
 import com.saas.school.modules.exam.model.Exam;
 import com.saas.school.modules.exam.model.ExamMark;
 import com.saas.school.modules.exam.model.StudentAssessments;
+import com.saas.school.modules.classes.model.SchoolClass;
 import com.saas.school.modules.classes.model.Subject;
+import com.saas.school.modules.classes.repository.SchoolClassRepository;
 import com.saas.school.modules.classes.repository.SubjectRepository;
 import com.saas.school.modules.exam.repository.ExamMarkRepository;
 import com.saas.school.modules.exam.repository.ExamRepository;
@@ -27,6 +31,7 @@ public class ExamService {
     @Autowired private AuditService auditService;
     @Autowired private com.saas.school.modules.student.repository.StudentRepository studentRepository;
     @Autowired private SubjectRepository subjectRepository;
+    @Autowired private SchoolClassRepository schoolClassRepository;
 
     public Exam createExam(Exam req) {
         if (req.getSubjectId() == null || req.getSubjectId().isEmpty()) {
@@ -36,30 +41,13 @@ public class ExamService {
             throw new IllegalArgumentException("Class is required");
         }
         validateComponent(req);
-        snapMarksToComponent(req);
+        // Max/pass marks are now owned by the EXAM itself, not snapped to
+        // Subject.Component caps. Schools commonly run UT1 at 40+10 and Final
+        // at 80+20 against the same Math subject — forcing exam marks to
+        // match subject caps blocks that, so we trust the request's values.
         req.setExamId(UUID.randomUUID().toString());
         req.setStatus(Exam.ExamStatus.SCHEDULED);
         return examRepository.save(req);
-    }
-
-    /**
-     * Force the exam's max + pass marks to match the component's own
-     * caps. Without this, a client could submit maxMarks=100 for an
-     * English Theory exam whose cap is 70 — admins would enter marks
-     * above the cap and the report card aggregation would explode.
-     *
-     * <p>Subject not found OR component not resolved → silent no-op;
-     * {@link #validateComponent} already rejects truly bad inputs, this
-     * just enforces consistency on the way through.
-     */
-    private void snapMarksToComponent(Exam req) {
-        if (req.getComponentKey() == null || req.getComponentKey().isBlank()) return;
-        Subject subject = subjectRepository.findById(req.getSubjectId()).orElse(null);
-        if (subject == null) return;
-        Subject.Component comp = subject.componentByKey(req.getComponentKey());
-        if (comp == null) return;
-        if (comp.getMaxMarks() > 0) req.setMaxMarks(comp.getMaxMarks());
-        if (comp.getPassMarks() > 0) req.setPassingMarks(comp.getPassMarks());
     }
 
     /**
@@ -68,16 +56,23 @@ public class ExamService {
      *
      * <p>Rules:
      * <ul>
-     *   <li>If the subject has a single component, {@code componentKey} is
-     *       auto-filled from that component (so older clients which don't
-     *       send the field still work).</li>
+     *   <li>Combined-mode exams (components[] non-empty) skip the
+     *       componentKey check — components are listed explicitly inside
+     *       the doc; we only verify each key resolves to a real component
+     *       on the subject.</li>
+     *   <li>For per-component exams: if the subject has a single
+     *       component, {@code componentKey} is auto-filled from that
+     *       component (so older clients which don't send the field still
+     *       work).</li>
      *   <li>If the subject has multiple components, the request MUST
      *       carry a {@code componentKey} that resolves to an existing
      *       component.</li>
-     *   <li>The referenced component MUST be in {@code EXAM} assessment
-     *       mode — INTERNAL components don't go through Exam records;
-     *       their marks come from ComponentInternalMark.</li>
      * </ul>
+     *
+     * <p>Both EXAM and INTERNAL mode components are now exam-eligible.
+     * Internal Assessment marks now flow through the same exam mark-entry
+     * page as regular exam marks (the separate Internal Marks page is
+     * legacy, kept for old data only).
      */
     private void validateComponent(Exam req) {
         Subject subject = subjectRepository.findById(req.getSubjectId()).orElse(null);
@@ -92,7 +87,23 @@ public class ExamService {
                     "Subject '" + subject.getName() + "' has no components configured.");
         }
 
-        // Caller supplied a key → validate it directly.
+        // Combined-mode exam: validate every listed component resolves.
+        if (req.getComponents() != null && !req.getComponents().isEmpty()) {
+            for (Exam.ExamComponent ec : req.getComponents()) {
+                if (ec == null || ec.getKey() == null || ec.getKey().isBlank()) {
+                    throw new IllegalArgumentException(
+                            "Each combined-mode component must have a key.");
+                }
+                if (subject.componentByKey(ec.getKey()) == null) {
+                    throw new IllegalArgumentException(
+                            "Component '" + ec.getKey() + "' does not exist on subject '"
+                                    + subject.getName() + "'.");
+                }
+            }
+            return;
+        }
+
+        // Per-component exam: caller supplied a key → validate it directly.
         if (req.getComponentKey() != null && !req.getComponentKey().isBlank()) {
             Subject.Component target = subject.componentByKey(req.getComponentKey());
             if (target == null) {
@@ -100,37 +111,20 @@ public class ExamService {
                         "Component '" + req.getComponentKey() + "' does not exist on subject '"
                                 + subject.getName() + "'.");
             }
-            if (target.getAssessmentMode() == Subject.AssessmentMode.INTERNAL) {
-                throw new IllegalArgumentException(
-                        "Component '" + target.getLabel() + "' is INTERNAL — its marks come from "
-                                + "the Internal Marks form, not an exam.");
-            }
             return;
         }
 
-        // No key supplied — auto-pick from EXAM-mode components only (INTERNAL
-        // components have their own entry path so excluding them from this
-        // dropdown is correct). Math example: Theory (EXAM) + IA (INTERNAL) →
-        // only Theory is exam-eligible, auto-pick it. No componentKey needed.
-        List<Subject.Component> examComps = comps.stream()
-                .filter(c -> c != null && c.getAssessmentMode() == Subject.AssessmentMode.EXAM)
-                .toList();
-
-        if (examComps.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Subject '" + subject.getName() + "' has no exam-mode components. "
-                            + "Add at least one EXAM-mode component before scheduling an exam.");
-        }
-        if (examComps.size() == 1) {
-            req.setComponentKey(examComps.get(0).getKey());
+        // No key supplied — auto-pick when there's only one component overall.
+        // For multi-component subjects, force the caller to pick.
+        if (comps.size() == 1) {
+            req.setComponentKey(comps.get(0).getKey());
             return;
         }
-        // 2+ exam-mode components (e.g. Theory + Practical) — caller must pick.
-        String labels = examComps.stream()
+        String labels = comps.stream()
                 .map(Subject.Component::getLabel)
                 .collect(java.util.stream.Collectors.joining(", "));
         throw new IllegalArgumentException(
-                "Subject '" + subject.getName() + "' has multiple exam-mode components ("
+                "Subject '" + subject.getName() + "' has multiple components ("
                         + labels + "). Pick which one this exam is for.");
     }
 
@@ -147,7 +141,6 @@ public class ExamService {
         // Re-validate component if the subject (or component) is being changed.
         if (req.getSubjectId() != null && !req.getSubjectId().isBlank()) {
             validateComponent(req);
-            snapMarksToComponent(req);
         }
         req.setExamId(examId);
         req.setStatus(exam.getStatus());
@@ -197,16 +190,16 @@ public class ExamService {
 
         assessment.setTeacherId(teacherId);
 
+        boolean combined = exam.getComponents() != null && !exam.getComponents().isEmpty();
+
         // Build entries
         List<StudentAssessments.MarkEntry> entries = new ArrayList<>();
         for (var e : req.getMarks()) {
-            if (e.getMarksObtained() < 0 || e.getMarksObtained() > exam.getMaxMarks()) {
-                throw new BusinessException("Marks must be between 0 and " + exam.getMaxMarks());
+            if (combined) {
+                entries.add(buildCombinedEntry(exam, e));
+            } else {
+                entries.add(buildPerComponentEntry(exam, e));
             }
-            boolean passed = e.getMarksObtained() >= exam.getPassingMarks();
-            String grade = computeGrade(e.getMarksObtained(), exam.getMaxMarks());
-            entries.add(new StudentAssessments.MarkEntry(
-                    e.getStudentId(), e.getMarksObtained(), grade, e.getRemarks(), passed));
         }
         assessment.setEntries(entries);
 
@@ -214,6 +207,82 @@ public class ExamService {
         auditService.log("ENTER_MARKS", "StudentAssessments", assessment.getId(),
                 "Batch marks entered for " + entries.size() + " students, exam: " + exam.getName());
         return assessment;
+    }
+
+    /**
+     * Build a mark entry for a combined-mode exam. The request carries a
+     * per-component marks map; we validate each cell against its own component
+     * max, then write the map back AND populate aggregate fields (sum,
+     * isPassed, grade) so legacy readers still get usable values.
+     *
+     * <p>Subject pass rule:
+     * <ul>
+     *   <li>PER_COMPONENT (default) — student passes iff every component met
+     *       its own pass cap.</li>
+     *   <li>COMBINED — student passes iff total obtained ≥ sum of pass caps.</li>
+     * </ul>
+     */
+    private StudentAssessments.MarkEntry buildCombinedEntry(Exam exam, EnterMarksRequest.MarkEntry e) {
+        Map<String, Double> inMap = e.getComponentMarks() == null
+                ? Collections.emptyMap() : e.getComponentMarks();
+        Map<String, Double> outMap = new java.util.LinkedHashMap<>();
+        double total = 0;
+        int totalMax = 0;
+        int totalPass = 0;
+        boolean allComponentsPassed = true;
+
+        for (Exam.ExamComponent ec : exam.getComponents()) {
+            int maxMarks = ec.getMaxMarks() == null ? 0 : ec.getMaxMarks();
+            int passMarks = ec.getPassingMarks() == null ? 0 : ec.getPassingMarks();
+            Double obtained = inMap.get(ec.getKey());
+            if (obtained == null) {
+                // Component left blank for this student — record nothing, don't
+                // fabricate a 0 (matches per-component-mode behavior of "skip
+                // students with null marks").
+                allComponentsPassed = false;
+                totalMax += maxMarks;
+                totalPass += passMarks;
+                continue;
+            }
+            if (obtained < 0 || obtained > maxMarks) {
+                throw new BusinessException(
+                        "Marks for component '" + ec.getLabel() + "' must be between 0 and " + maxMarks);
+            }
+            outMap.put(ec.getKey(), obtained);
+            total += obtained;
+            totalMax += maxMarks;
+            totalPass += passMarks;
+            if (obtained < passMarks) allComponentsPassed = false;
+        }
+
+        // Default pass rule = PER_COMPONENT (CBSE/ICSE style). Without
+        // loading the Subject doc here we approximate; the report card
+        // aggregator does the authoritative per-subject roll-up.
+        boolean passed = allComponentsPassed;
+        String grade = totalMax > 0 ? computeGrade(total, totalMax) : "-";
+
+        StudentAssessments.MarkEntry entry = new StudentAssessments.MarkEntry(
+                e.getStudentId(), total, grade, e.getRemarks(), passed);
+        entry.setComponentMarks(outMap);
+        return entry;
+    }
+
+    /**
+     * Per-component (legacy) mark entry: one obtained number against the
+     * exam's single max/pass. Kept identical to pre-combined-mode behaviour
+     * so existing exams keep working without change.
+     */
+    private StudentAssessments.MarkEntry buildPerComponentEntry(Exam exam, EnterMarksRequest.MarkEntry e) {
+        if (e.getMarksObtained() == null) {
+            throw new BusinessException("Marks are required for student " + e.getStudentId());
+        }
+        if (e.getMarksObtained() < 0 || e.getMarksObtained() > exam.getMaxMarks()) {
+            throw new BusinessException("Marks must be between 0 and " + exam.getMaxMarks());
+        }
+        boolean passed = e.getMarksObtained() >= exam.getPassingMarks();
+        String grade = computeGrade(e.getMarksObtained(), exam.getMaxMarks());
+        return new StudentAssessments.MarkEntry(
+                e.getStudentId(), e.getMarksObtained(), grade, e.getRemarks(), passed);
     }
 
     // ── Get marks for an exam (from batch) ──
@@ -382,6 +451,166 @@ public class ExamService {
             }
         }
         return out;
+    }
+
+    // ── Bulk create (Exam Config page) ────────────────────────────────────
+
+    /**
+     * Fan a single Exam Config submission into individual Exam docs — one
+     * per (class+section pair × subject config). Each subject config can be
+     * COMBINED (one exam doc carrying all components) or PER-COMPONENT (N
+     * exam docs, one per component).
+     *
+     * <p>Skips silently when:
+     * <ul>
+     *   <li>Subject not configured for the (classId, sectionId) — the bulk
+     *       form doesn't enforce subject availability, so the backend
+     *       quietly drops impossible combinations.</li>
+     *   <li>An exam with the same (year, examType, classId, sectionId,
+     *       subjectId, mode signature) already exists — admin must delete
+     *       the existing one and re-run if they want fresh max/pass.</li>
+     * </ul>
+     */
+    public BulkCreateExamResponse bulkCreate(BulkCreateExamRequest req) {
+        if (req.getExamType() == null || req.getExamType().isBlank()) {
+            throw new IllegalArgumentException("Exam type is required");
+        }
+        if (req.getAcademicYearId() == null || req.getAcademicYearId().isBlank()) {
+            throw new IllegalArgumentException("Academic year is required");
+        }
+        if (req.getPairs() == null || req.getPairs().isEmpty()) {
+            throw new IllegalArgumentException("Pick at least one class & section");
+        }
+        if (req.getSubjectConfigs() == null || req.getSubjectConfigs().isEmpty()) {
+            throw new IllegalArgumentException("Pick at least one subject");
+        }
+
+        // Resolve class + section names once for stamping onto exam docs (the
+        // legacy list view reads these labels straight off the doc).
+        Map<String, String> classNameById = new HashMap<>();
+        Map<String, String> sectionNameById = new HashMap<>();
+        for (var p : req.getPairs()) {
+            if (p == null || p.getClassId() == null) continue;
+            SchoolClass cls = schoolClassRepository.findById(p.getClassId()).orElse(null);
+            if (cls == null) continue;
+            classNameById.put(p.getClassId(), cls.getName());
+            if (cls.getSections() != null) {
+                for (var sec : cls.getSections()) {
+                    if (sec != null && sec.getSectionId() != null) {
+                        sectionNameById.put(sec.getSectionId(), sec.getName());
+                    }
+                }
+            }
+        }
+
+        int created = 0;
+        int skippedDuplicate = 0;
+        int skippedNotConfigured = 0;
+        List<String> createdExamIds = new ArrayList<>();
+
+        for (var pair : req.getPairs()) {
+            if (pair == null || pair.getClassId() == null || pair.getSectionId() == null) continue;
+            for (var sc : req.getSubjectConfigs()) {
+                if (sc == null || sc.getSubjectId() == null) continue;
+                Subject subject = subjectRepository.findById(sc.getSubjectId()).orElse(null);
+                if (subject == null) { skippedNotConfigured++; continue; }
+
+                // Subject must be assigned to (classId, sectionId).
+                List<String> sectionsForClass = subject.sectionIdsForClass(pair.getClassId());
+                if (!sectionsForClass.contains(pair.getSectionId())) {
+                    skippedNotConfigured++;
+                    continue;
+                }
+
+                List<BulkCreateExamRequest.ComponentConfig> compCfgs = sc.getComponents();
+                if (compCfgs == null || compCfgs.isEmpty()) {
+                    skippedNotConfigured++;
+                    continue;
+                }
+
+                // Existing exams for this (year, type, class, section, subject).
+                List<Exam> existing = examRepository
+                        .findByAcademicYearIdAndExamTypeAndClassIdAndSectionIdAndSubjectId(
+                                req.getAcademicYearId(), req.getExamType(),
+                                pair.getClassId(), pair.getSectionId(), sc.getSubjectId());
+
+                if (sc.isCombined() && compCfgs.size() > 1) {
+                    // Combined mode: one exam doc holding all components.
+                    boolean hasCombined = existing.stream()
+                            .anyMatch(e -> e.getComponents() != null && !e.getComponents().isEmpty());
+                    if (hasCombined) { skippedDuplicate++; continue; }
+
+                    Exam exam = newExam(req, pair, subject, classNameById, sectionNameById);
+                    List<Exam.ExamComponent> ecs = new ArrayList<>();
+                    for (var cc : compCfgs) {
+                        if (cc == null || cc.getKey() == null) continue;
+                        ecs.add(new Exam.ExamComponent(
+                                cc.getKey(), cc.getLabel(),
+                                cc.getMaxMarks(), cc.getPassingMarks()));
+                    }
+                    exam.setComponents(ecs);
+                    // Primary fields mirror first component for legacy readers
+                    // (list view "Max" column, downstream code that hasn't
+                    // learned about components[] yet).
+                    var first = compCfgs.get(0);
+                    exam.setComponentKey(first.getKey());
+                    exam.setMaxMarks(first.getMaxMarks() == null ? 0 : first.getMaxMarks());
+                    exam.setPassingMarks(first.getPassingMarks() == null ? 0 : first.getPassingMarks());
+                    exam.setName(req.getExamType() + " — " + subject.getName());
+                    Exam saved = examRepository.save(exam);
+                    createdExamIds.add(saved.getExamId());
+                    created++;
+                } else {
+                    // Per-component mode: one exam per component.
+                    for (var cc : compCfgs) {
+                        if (cc == null || cc.getKey() == null) continue;
+                        boolean dup = existing.stream().anyMatch(e ->
+                                (e.getComponents() == null || e.getComponents().isEmpty())
+                                && cc.getKey().equals(e.getComponentKey()));
+                        if (dup) { skippedDuplicate++; continue; }
+
+                        Exam exam = newExam(req, pair, subject, classNameById, sectionNameById);
+                        exam.setComponentKey(cc.getKey());
+                        exam.setMaxMarks(cc.getMaxMarks() == null ? 0 : cc.getMaxMarks());
+                        exam.setPassingMarks(cc.getPassingMarks() == null ? 0 : cc.getPassingMarks());
+                        exam.setName(req.getExamType() + " — " + subject.getName()
+                                + (compCfgs.size() > 1 ? " (" + cc.getLabel() + ")" : ""));
+                        Exam saved = examRepository.save(exam);
+                        createdExamIds.add(saved.getExamId());
+                        created++;
+                    }
+                }
+            }
+        }
+
+        auditService.log("BULK_CREATE_EXAMS", "Exam", req.getExamType(),
+                "Created " + created + " exams via Exam Config (type=" + req.getExamType()
+                + ", duplicates=" + skippedDuplicate
+                + ", notConfigured=" + skippedNotConfigured + ")");
+
+        return new BulkCreateExamResponse(created, skippedDuplicate, skippedNotConfigured, createdExamIds);
+    }
+
+    private Exam newExam(BulkCreateExamRequest req, BulkCreateExamRequest.ClassSection pair,
+                         Subject subject,
+                         Map<String, String> classNameById,
+                         Map<String, String> sectionNameById) {
+        Exam exam = new Exam();
+        exam.setExamId(UUID.randomUUID().toString());
+        exam.setExamType(req.getExamType());
+        exam.setAcademicYearId(req.getAcademicYearId());
+        exam.setClassId(pair.getClassId());
+        exam.setSectionId(pair.getSectionId());
+        exam.setSubjectId(subject.getSubjectId());
+        exam.setSubjectName(subject.getName());
+        exam.setClassName(classNameById.getOrDefault(pair.getClassId(), ""));
+        exam.setSectionName(sectionNameById.getOrDefault(pair.getSectionId(), ""));
+        exam.setExamDate(req.getExamDate());
+        exam.setStartTime(req.getStartTime());
+        exam.setEndTime(req.getEndTime());
+        exam.setDescription(req.getDescription());
+        exam.setStatus(Exam.ExamStatus.SCHEDULED);
+        return exam;
     }
 
     public List<Exam> getUpcomingExams() {

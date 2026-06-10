@@ -154,7 +154,11 @@ public class ReportCardService {
 
         // Fetch marks — try StudentAssessments (batch) first, fallback to ExamMark (legacy)
         // Build a simple list of (examId, marksObtained) per student
-        Map<String, Double> examMarksMap = new HashMap<>(); // examId -> marks obtained
+        Map<String, Double> examMarksMap = new HashMap<>(); // examId -> marks obtained (aggregate for combined)
+        // For combined-mode exams, also collect the per-component breakdown so
+        // the aggregator can fill component rows on the report card without
+        // re-reading the assessments collection.
+        Map<String, Map<String, Double>> componentMarksByExamId = new HashMap<>();
 
         // Check batch marks (StudentAssessments)
         List<StudentAssessments> batchList = assessmentsRepository.findByExamIdIn(examIds);
@@ -163,6 +167,9 @@ public class ReportCardService {
             for (StudentAssessments.MarkEntry entry : batch.getEntries()) {
                 if (studentId.equals(entry.getStudentId())) {
                     examMarksMap.put(batch.getExamId(), entry.getMarksObtained() != null ? entry.getMarksObtained() : 0.0);
+                    if (entry.getComponentMarks() != null && !entry.getComponentMarks().isEmpty()) {
+                        componentMarksByExamId.put(batch.getExamId(), entry.getComponentMarks());
+                    }
                 }
             }
         }
@@ -269,7 +276,8 @@ public class ReportCardService {
             boolean subjectPassed = !isAbsent;
             if (subject != null && subject.getComponents() != null && !subject.getComponents().isEmpty()) {
                 ComponentAggregate agg = aggregateComponents(
-                        subject, studentId, academicYearId, exams, examMarksMap, allInternalMarks);
+                        subject, studentId, academicYearId, exams,
+                        examMarksMap, componentMarksByExamId, allInternalMarks);
                 componentGrades = agg.componentGrades;
                 obtained = agg.totalObtained;
                 max = agg.totalMax;
@@ -713,6 +721,7 @@ public class ReportCardService {
             String academicYearId,
             List<Exam> exams,
             Map<String, Double> examMarksByExamId,
+            Map<String, Map<String, Double>> componentMarksByExamId,
             List<ComponentInternalMark> allInternalMarks) {
         ComponentAggregate out = new ComponentAggregate();
         Subject.PassRule passRule = subject.getPassRule() == null
@@ -725,37 +734,76 @@ public class ReportCardService {
             ReportCard.ComponentGrade cg = new ReportCard.ComponentGrade();
             cg.setKey(comp.getKey());
             cg.setLabel(comp.getLabel());
+            // Fallback caps come from Subject.Component (legacy data). The exam
+            // resolution below overrides these with the exam doc's own max/pass —
+            // schools commonly run UT1 at 40+10 and Final at 80+20 against the
+            // same subject, so the truth lives on the exam, not the subject.
             cg.setMaxMarks(comp.getMaxMarks() == null ? 0 : comp.getMaxMarks());
             cg.setPassMarks(comp.getPassMarks() == null ? 0 : comp.getPassMarks());
             cg.setAssessmentMode(comp.getAssessmentMode() == null ? "EXAM" : comp.getAssessmentMode().name());
 
             double obtained = 0;
-            if (comp.getAssessmentMode() == Subject.AssessmentMode.INTERNAL) {
-                // Sum INTERNAL marks for this (subject, component). For
-                // PER_TERM components this sums across terms; for PER_YEAR
-                // it's a single row.
+            double effectiveMax = cg.getMaxMarks();
+            double effectivePass = cg.getPassMarks();
+            boolean matchedAnyExam = false;
+            boolean isSingleComponent = subject.getComponents().size() == 1;
+
+            for (Exam exam : exams) {
+                if (!subject.getSubjectId().equals(exam.getSubjectId())) continue;
+
+                // Combined-mode exam: look for this component inside the
+                // exam's components[] list and pull max/pass + obtained from
+                // there.
+                if (exam.getComponents() != null && !exam.getComponents().isEmpty()) {
+                    Exam.ExamComponent ec = null;
+                    for (Exam.ExamComponent candidate : exam.getComponents()) {
+                        if (candidate != null && comp.getKey().equals(candidate.getKey())) {
+                            ec = candidate;
+                            break;
+                        }
+                    }
+                    if (ec == null) continue;
+                    matchedAnyExam = true;
+                    effectiveMax = ec.getMaxMarks() == null ? 0 : ec.getMaxMarks();
+                    effectivePass = ec.getPassingMarks() == null ? 0 : ec.getPassingMarks();
+                    Map<String, Double> compMarks = componentMarksByExamId.get(exam.getExamId());
+                    if (compMarks != null) {
+                        Double m = compMarks.get(comp.getKey());
+                        if (m != null) obtained = m;
+                    }
+                    // Found the combined exam carrying this component — done.
+                    break;
+                }
+
+                // Per-component exam: match by componentKey. Single-component
+                // subjects may carry a null componentKey on legacy exams; treat
+                // null as a match in that case.
+                String examCk = exam.getComponentKey();
+                boolean componentMatches = comp.getKey().equals(examCk)
+                        || (isSingleComponent && (examCk == null || examCk.isBlank()));
+                if (!componentMatches) continue;
+                matchedAnyExam = true;
+                effectiveMax = exam.getMaxMarks();
+                effectivePass = exam.getPassingMarks();
+                Double m = examMarksByExamId.get(exam.getExamId());
+                if (m != null) obtained = m;
+                break;
+            }
+
+            // INTERNAL component with no matching exam → fall back to the
+            // legacy ComponentInternalMark collection so old data still renders.
+            if (!matchedAnyExam && comp.getAssessmentMode() == Subject.AssessmentMode.INTERNAL) {
                 for (ComponentInternalMark m : allInternalMarks) {
                     if (!subject.getSubjectId().equals(m.getSubjectId())) continue;
                     if (!comp.getKey().equals(m.getComponentKey())) continue;
                     if (m.getMarksObtained() != null) obtained += m.getMarksObtained();
                 }
-            } else {
-                // EXAM mode — match exams by componentKey. For single-component
-                // subjects exam.componentKey may be null (legacy clients);
-                // treat null as a match in that case.
-                boolean isSingleComponent = subject.getComponents().size() == 1;
-                for (Exam exam : exams) {
-                    if (!subject.getSubjectId().equals(exam.getSubjectId())) continue;
-                    String examCk = exam.getComponentKey();
-                    boolean componentMatches = comp.getKey().equals(examCk)
-                            || (isSingleComponent && (examCk == null || examCk.isBlank()));
-                    if (!componentMatches) continue;
-                    Double m = examMarksByExamId.get(exam.getExamId());
-                    if (m != null) obtained += m;
-                }
             }
+
+            cg.setMaxMarks(effectiveMax);
+            cg.setPassMarks(effectivePass);
             cg.setMarksObtained(obtained);
-            boolean componentPassed = obtained >= cg.getPassMarks();
+            boolean componentPassed = obtained >= effectivePass;
             cg.setPassed(componentPassed);
 
             // Per-component attendance % for trackAttendance components.
@@ -766,8 +814,8 @@ public class ReportCardService {
 
             out.componentGrades.add(cg);
             out.totalObtained += obtained;
-            out.totalMax += cg.getMaxMarks();
-            sumPassMarks += cg.getPassMarks();
+            out.totalMax += effectiveMax;
+            sumPassMarks += effectivePass;
             if (!componentPassed) everyComponentPassed = false;
         }
 

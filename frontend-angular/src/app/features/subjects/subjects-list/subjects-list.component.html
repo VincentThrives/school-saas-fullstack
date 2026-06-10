@@ -81,13 +81,11 @@
             <span *ngFor="let c of componentChips(subject)" class="component-chip"
                   [class.mode-internal]="c.mode === 'INTERNAL'"
                   [matTooltip]="
-                    c.label + ' · Max ' + c.maxMarks + ' · Pass ' + c.passMarks +
-                    ' · ' + (c.mode === 'INTERNAL' ? 'Internal Assessment' : 'Exam') +
+                    c.label + ' · ' + (c.mode === 'INTERNAL' ? 'Internal Assessment' : 'Exam') +
                     (c.trackAttendance ? ' · attendance tracked' : '')
                   ">
               <mat-icon class="comp-icon">{{ c.mode === 'INTERNAL' ? 'assignment' : 'edit_note' }}</mat-icon>
               <span class="comp-label">{{ c.label }}</span>
-              <span class="comp-marks">{{ c.maxMarks }}</span>
               <mat-icon *ngIf="c.trackAttendance" class="comp-att" matTooltip="Attendance tracked">event_available</mat-icon>
             </span>
           </div>
@@ -238,7 +236,6 @@
             <span class="preset-chip" *ngFor="let g of components.controls">
               <mat-icon>{{ g.get('assessmentMode')?.value === 'INTERNAL' ? 'assignment' : 'edit_note' }}</mat-icon>
               <strong>{{ g.get('label')?.value }}</strong>
-              <span class="chip-meta">{{ g.get('maxMarks')?.value }} marks</span>
               <span class="chip-meta" *ngIf="g.get('trackAttendance')?.value">· attendance</span>
             </span>
           </div>
@@ -297,18 +294,11 @@
               </mat-form-field>
             </div>
 
-            <div class="form-row">
+            <!-- Max + Pass marks moved to the Exam doc. Admin sets them
+                 per exam in Exam Config — the same Math · Theory can run
+                 40+10 for Unit Test 1 and 80+20 for the Final. -->
+            <div class="form-row" *ngIf="g.get('assessmentMode')?.value === 'INTERNAL'">
               <mat-form-field appearance="outline">
-                <mat-label>Max Marks</mat-label>
-                <input matInput type="number" formControlName="maxMarks" min="0">
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Pass Marks</mat-label>
-                <input matInput type="number" formControlName="passMarks" min="0">
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" *ngIf="g.get('assessmentMode')?.value === 'INTERNAL'">
                 <mat-label>Internal Schedule</mat-label>
                 <mat-select formControlName="internalSchedule">
                   <mat-option value="PER_TERM">Per term</mat-option>

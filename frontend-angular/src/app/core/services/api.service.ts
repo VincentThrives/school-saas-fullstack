@@ -230,6 +230,49 @@ export interface SendAbsentTodayResponse {
   dispatchedAt: string;
 }
 
+// ── Exam Config (bulk-create) DTOs ────────────────────────────────────
+
+export interface BulkCreateExamComponentConfig {
+  key: string;
+  label: string;
+  maxMarks: number;
+  passingMarks: number;
+}
+
+export interface BulkCreateExamSubjectConfig {
+  subjectId: string;
+  /**
+   * True → one Exam doc carrying all components (mark entry shows N columns).
+   * False → N Exam docs, one per component (mark entry shows N separate rows).
+   * Ignored for single-component subjects (always one doc, one row).
+   */
+  combined: boolean;
+  components: BulkCreateExamComponentConfig[];
+}
+
+export interface BulkCreateExamPair {
+  classId: string;
+  sectionId: string;
+}
+
+export interface BulkCreateExamRequest {
+  examType: string;
+  academicYearId: string;
+  examDate?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  description?: string | null;
+  pairs: BulkCreateExamPair[];
+  subjectConfigs: BulkCreateExamSubjectConfig[];
+}
+
+export interface BulkCreateExamResponse {
+  created: number;
+  skippedDuplicate: number;
+  skippedNotConfigured: number;
+  createdExamIds: string[];
+}
+
 /** Row in the SMS audit log table. */
 export interface SmsAuditLogDto {
   id: string;
@@ -637,6 +680,15 @@ export class ApiService {
 
   deleteExam(examId: string): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.API}/exams/${examId}`);
+  }
+
+  /**
+   * Bulk-create exams from one Exam Config submission. Backend fans the
+   * payload into individual Exam docs (one per pair × subject config),
+   * skipping duplicates and impossible combinations.
+   */
+  bulkCreateExams(payload: BulkCreateExamRequest): Observable<ApiResponse<BulkCreateExamResponse>> {
+    return this.http.post<ApiResponse<BulkCreateExamResponse>>(`${this.API}/exams/bulk`, payload);
   }
 
   // ── MCQ ────────────────────────────────────────────────────────────────

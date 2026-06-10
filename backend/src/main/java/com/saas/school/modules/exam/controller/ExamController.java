@@ -1,6 +1,8 @@
 package com.saas.school.modules.exam.controller;
 
 import com.saas.school.common.response.ApiResponse;
+import com.saas.school.modules.exam.dto.BulkCreateExamRequest;
+import com.saas.school.modules.exam.dto.BulkCreateExamResponse;
 import com.saas.school.modules.exam.dto.EnterMarksRequest;
 import com.saas.school.modules.exam.model.Exam;
 import com.saas.school.modules.exam.model.ExamMark;
@@ -41,6 +43,22 @@ public class ExamController {
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<ApiResponse<Exam>> create(@RequestBody Exam req) {
         return ResponseEntity.ok(ApiResponse.success(examService.createExam(req), "Exam created"));
+    }
+
+    /**
+     * Bulk-create exams from a single Exam Config submission — admin picks
+     * an exam type, multi-selects class+section pairs and subjects, and the
+     * server fans out into individual Exam docs. Skips duplicates and
+     * un-configured combinations silently; the response reports the counts.
+     */
+    @PostMapping("/bulk")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<BulkCreateExamResponse>> bulkCreate(@RequestBody BulkCreateExamRequest req) {
+        BulkCreateExamResponse out = examService.bulkCreate(req);
+        String msg = "Created " + out.getCreated() + " exam(s)"
+                + (out.getSkippedDuplicate() > 0 ? " · " + out.getSkippedDuplicate() + " duplicate(s) skipped" : "")
+                + (out.getSkippedNotConfigured() > 0 ? " · " + out.getSkippedNotConfigured() + " combination(s) not configured" : "");
+        return ResponseEntity.ok(ApiResponse.success(out, msg));
     }
 
     @PutMapping("/{examId}")

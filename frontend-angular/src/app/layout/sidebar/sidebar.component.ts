@@ -228,6 +228,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
           title: 'Exams', path: '', icon: 'assignment',
           children: [
             { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams' },
+            // Bulk-create entry — admin picks exam type + class/sections +
+            // subjects and the backend fans out into many Exam docs in one
+            // save. Lives next to the regular Exams list. Admin-only.
+            { title: 'Exam Config', path: '/exams/config', icon: 'playlist_add_check', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN] },
             { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams' },
             { title: 'Exam Types', path: '/exam-types', icon: 'category', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
             { title: 'MCQ Exams', path: '/mcq', icon: 'quiz', feature: 'mcq' },
