@@ -13,6 +13,7 @@ import com.saas.school.modules.student.model.Student;
 import com.saas.school.modules.student.repository.StudentRepository;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -150,6 +151,28 @@ public class StudentImportService {
             }
             students.createFreezePane(0, 1);
 
+            // ── Excel-level duplicate guard for Admission Number + Roll Number ──
+            //
+            // Adds in-cell data validation that flags the row red the moment
+            // the admin types a duplicate, well before they upload. Backend
+            // still re-checks server-side (defence in depth) but this catches
+            // mistakes during data entry.
+            //
+            // Range covers rows 2..1001 (data rows; row 1 is header). Anyone
+            // importing 1000+ students at once can re-download or extend the
+            // template — that's already past the size-sweet-spot of one Excel
+            // sheet anyway.
+            addUniqueColumnValidation(
+                    students, COL_ADM_NUM,
+                    "Admission Number must be unique",
+                    "This admission number is already used in another row of this file. "
+                            + "Each student needs a unique admission number.");
+            addUniqueColumnValidation(
+                    students, COL_ROLL_NUM,
+                    "Roll Number must be unique",
+                    "This roll number is already used in another row. "
+                            + "Each student in the same upload needs a unique roll number.");
+
             // ── Sheet 2: Instructions ──
             Sheet info = wb.createSheet("Instructions");
             CellStyle bold = wb.createCellStyle();
@@ -169,7 +192,8 @@ public class StudentImportService {
             writeRow(info, r++, null,  "Gender", "MALE, FEMALE or OTHER (case-insensitive).");
             writeRow(info, r++, null,  "Class", "Exact class name as it appears in the system (case-insensitive).");
             writeRow(info, r++, null,  "Section", "Section name within that class (case-insensitive — stored UPPERCASE).");
-            writeRow(info, r++, null,  "Admission Number", "Must be unique. Duplicates across this file or against existing students are rejected.");
+            writeRow(info, r++, null,  "Admission Number", "Must be unique. Duplicates across this file or against existing students are rejected. Excel will warn you if you type a duplicate.");
+            writeRow(info, r++, null,  "Roll Number", "Must be unique within this upload. Excel will warn you if you repeat a value.");
             writeRow(info, r++, null,  "Parent Phone", "Exactly 10 digits (spaces, dashes, +91 prefix are stripped automatically).");
             writeRow(info, r++, null,  "Email", "Optional. If present, must look like name@domain.tld. Stored lowercase.");
             writeRow(info, r++, null,  "Blood Group", "One of: A+, A-, B+, B-, O+, O-, AB+, AB-.");
@@ -231,6 +255,48 @@ public class StudentImportService {
         if (style != null) c1.setCellStyle(style);
     }
 
+    /**
+     * Attach an Excel-native uniqueness validator to the given column.
+     *
+     * <p>Uses a custom formula <code>COUNTIF($X$2:$X$1001, X2) &le; 1</code>
+     * which evaluates per-cell — Excel marks the cell with an error popup
+     * the moment the value would create a second occurrence in the column.
+     * Empty cells pass (COUNTIF of "" against the range will count every
+     * other empty cell, so we explicitly allow empties by OR-ing
+     * <code>X2=""</code>).
+     *
+     * @param sheet      the Students sheet
+     * @param colIndex   0-based column number (matches COL_* constants)
+     * @param errorTitle short title shown in the Excel error popup
+     * @param errorBody  body text shown in the Excel error popup
+     */
+    private void addUniqueColumnValidation(Sheet sheet, int colIndex,
+                                            String errorTitle, String errorBody) {
+        DataValidationHelper helper = sheet.getDataValidationHelper();
+        // Excel uses 1-based column letters; convert from our 0-based index.
+        String colLetter = org.apache.poi.ss.util.CellReference
+                .convertNumToColString(colIndex);
+        String range = "$" + colLetter + "$2:$" + colLetter + "$1001";
+        String cellRef = colLetter + "2";
+        // Allow empties (so Roll Number column doesn't trip on the many
+        // blank rows admins might leave). The COUNTIF wins for non-blank
+        // values: only the first occurrence counts as 1, every later
+        // duplicate counts >= 2 and gets flagged.
+        String formula = "OR(" + cellRef + "=\"\", COUNTIF(" + range + "," + cellRef + ")=1)";
+
+        DataValidationConstraint constraint = helper.createCustomConstraint(formula);
+        CellRangeAddressList addresses = new CellRangeAddressList(
+                1, 1000, colIndex, colIndex);
+        DataValidation validation = helper.createValidation(constraint, addresses);
+        validation.setErrorStyle(DataValidation.ErrorStyle.STOP);
+        validation.setShowErrorBox(true);
+        validation.createErrorBox(errorTitle, errorBody);
+        // suppressDropDownArrow has no effect for custom constraints, but
+        // explicitly turning it on is harmless and consistent with intent.
+        validation.setSuppressDropDownArrow(true);
+        sheet.addValidationData(validation);
+    }
+
     // ── Import / parse ───────────────────────────────────────────────────
 
     /**
@@ -261,6 +327,7 @@ public class StudentImportService {
         StudentImportErrorReport report = new StudentImportErrorReport();
         List<CreateStudentRequest> toCreate = new ArrayList<>();
         Set<String> admissionsInFile = new HashSet<>();
+        Set<String> rollNumbersInFile = new HashSet<>();
 
         try (Workbook wb = WorkbookFactory.create(file.getInputStream())) {
             Sheet sheet = wb.getSheetAt(0);
@@ -292,10 +359,14 @@ public class StudentImportService {
 
                 int rowNumber = rowIdx + 1; // 1-indexed for human-readable errors
                 StudentImportErrorReport.RowError rowError = new StudentImportErrorReport.RowError(rowNumber);
-                CreateStudentRequest req = parseRow(row, rowError, classByLowerName, admissionsInFile, year);
+                CreateStudentRequest req = parseRow(row, rowError, classByLowerName,
+                        admissionsInFile, rollNumbersInFile, year);
                 if (rowError.getErrors().isEmpty() && req != null) {
                     toCreate.add(req);
                     admissionsInFile.add(req.getAdmissionNumber());
+                    if (req.getRollNumber() != null && !req.getRollNumber().isBlank()) {
+                        rollNumbersInFile.add(req.getRollNumber());
+                    }
                 } else {
                     report.getErrors().add(rowError);
                 }
@@ -356,6 +427,7 @@ public class StudentImportService {
             StudentImportErrorReport.RowError rowError,
             Map<String, SchoolClass> classByLowerName,
             Set<String> admissionsInFile,
+            Set<String> rollNumbersInFile,
             AcademicYear year) {
         CreateStudentRequest req = new CreateStudentRequest();
 
@@ -431,7 +503,18 @@ public class StudentImportService {
         }
         req.setAdmissionNumber(adm);
 
-        req.setRollNumber(cellString(row.getCell(COL_ROLL_NUM)));
+        String rollNum = cellString(row.getCell(COL_ROLL_NUM));
+        if (rollNum != null) {
+            // Roll-number uniqueness mirrors the Excel template's in-cell
+            // validator: each upload's roll numbers must be distinct. We
+            // don't check against the DB here — admin can legitimately
+            // re-use roll numbers across academic years / classes — only
+            // within THIS file.
+            if (rollNumbersInFile.contains(rollNum)) {
+                rowError.add("Roll Number", "Duplicate within this file.");
+            }
+            req.setRollNumber(rollNum);
+        }
 
         String studentPhone = cellString(row.getCell(COL_STUDENT_PHONE));
         if (studentPhone != null) {
