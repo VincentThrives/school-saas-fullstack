@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -344,6 +345,148 @@ public class StudentService {
         auditService.log("BULK_PROMOTE", "Student", "bulk",
                 "Promoted " + promoted + " students to class " + req.getToClassId());
         return new BulkPromoteResult(promoted, skipped);
+    }
+
+    // ── Bulk import (Excel) ─────────────────────────────────────────
+
+    /**
+     * Insert many students at once, fast. Used by the Excel import path
+     * where the regular per-row createStudent() would be unacceptable —
+     * each call does ~6 DB round-trips plus a 100ms BCrypt hash, so 1800
+     * rows would take 3-5 minutes and time the dialog out.
+     *
+     * <p>What this does differently:
+     * <ol>
+     *   <li><b>One uniqueness scan</b> — batch-load existing admission
+     *       numbers in a single query; the importer pre-checked for dupes
+     *       in the file, so we only need to confirm none collide with the
+     *       DB right now.</li>
+     *   <li><b>Parallel BCrypt</b> — each row needs a hashed password for
+     *       the auto-created User account; parallelStream spreads that
+     *       CPU work across cores.</li>
+     *   <li><b>Two bulk writes</b> — one saveAll for Users, one saveAll
+     *       for Students. Replaces ~10,800 single inserts (for 1800 rows)
+     *       with two batched operations.</li>
+     *   <li><b>One audit log entry</b> — covers the whole import. Per-row
+     *       audit would otherwise dominate the response time.</li>
+     * </ol>
+     *
+     * <p>Returns the list of created student ids in input order.
+     */
+    public List<String> bulkInsertFromImport(List<CreateStudentRequest> reqs) {
+        if (reqs == null || reqs.isEmpty()) return List.of();
+
+        // Final-mile uniqueness guard. The importer already de-duped
+        // within-file; this catches the case where another admin created
+        // a student with one of these admission numbers between the
+        // validation pass and now.
+        List<String> admissionNumbers = reqs.stream()
+                .map(CreateStudentRequest::getAdmissionNumber)
+                .filter(Objects::nonNull)
+                .toList();
+        List<Student> conflicting = studentRepository
+                .findByAdmissionNumberInAndDeletedAtIsNull(admissionNumbers);
+        if (!conflicting.isEmpty()) {
+            String first = conflicting.get(0).getAdmissionNumber();
+            throw new BusinessException(
+                    "Admission number already exists: " + first
+                    + " (and " + (conflicting.size() - 1) + " more). "
+                    + "Re-download the template to refresh, then re-upload.");
+        }
+
+        String tenantId = TenantContext.getTenantId();
+        Instant now = Instant.now();
+
+        // Build User + Student docs in parallel — BCrypt is the most
+        // expensive single step per row, so parallelStream spreads that
+        // across CPU cores. Each tuple stays in (req-order) by zipping
+        // results back to a list at the end.
+        List<UserStudentPair> pairs = reqs.parallelStream()
+                .map(req -> buildPair(req, tenantId, now))
+                .toList();
+
+        List<User> users = new ArrayList<>(pairs.size());
+        List<Student> students = new ArrayList<>(pairs.size());
+        for (UserStudentPair p : pairs) {
+            users.add(p.user);
+            students.add(p.student);
+        }
+
+        // Two bulk writes — Mongo treats saveAll as an ordered batch
+        // operation, which is dramatically faster than N single saves.
+        userRepository.saveAll(users);
+        studentRepository.saveAll(students);
+
+        auditService.log("BULK_IMPORT_STUDENTS", "Student", String.valueOf(students.size()),
+                "Imported " + students.size() + " students via Excel upload");
+
+        return students.stream().map(Student::getStudentId).toList();
+    }
+
+    /** Pair carrier so the parallel stream returns both halves at once. */
+    private static final class UserStudentPair {
+        final User user;
+        final Student student;
+        UserStudentPair(User user, Student student) { this.user = user; this.student = student; }
+    }
+
+    /** Build one (User, Student) pair from a request. No DB I/O. */
+    private UserStudentPair buildPair(CreateStudentRequest req, String tenantId, Instant now) {
+        String studentId = UUID.randomUUID().toString();
+        String firstName = StudentFieldNormalizer.titleCase(req.getFirstName());
+        String lastName  = StudentFieldNormalizer.titleCase(req.getLastName());
+        int birthYear = req.getDateOfBirth() != null ? req.getDateOfBirth().getYear() : 2000;
+        String defaultPassword = (firstName != null ? firstName : "Student") + "@" + birthYear;
+        String loginId = req.getAdmissionNumber();
+        String emailRaw = req.getEmail() != null && !req.getEmail().isEmpty()
+                ? req.getEmail() : loginId + "@student.school";
+        String userEmail = StudentFieldNormalizer.lower(emailRaw);
+
+        User user = new User();
+        user.setUserId(UUID.randomUUID().toString());
+        user.setTenantId(tenantId);
+        user.setEmail(userEmail);
+        user.setUsername(loginId);
+        user.setPasswordHash(passwordEncoder.encode(defaultPassword));   // <-- the slow bit, parallelised
+        user.setRole(UserRole.STUDENT);
+        user.setFirstName(firstName);
+        user.setLastName(lastName);
+        user.setPhone(StudentFieldNormalizer.phoneDigits(req.getPhone()));
+        user.setActive(true);
+        user.setLocked(false);
+        user.setFailedLoginAttempts(0);
+        user.setCreatedAt(now);
+
+        Student student = new Student();
+        student.setStudentId(studentId);
+        student.setUserId(user.getUserId());
+        student.setFirstName(firstName);
+        student.setLastName(lastName);
+        student.setPhone(StudentFieldNormalizer.phoneDigits(req.getPhone()));
+        student.setEmail(StudentFieldNormalizer.lower(req.getEmail()));
+        student.setAdmissionNumber(StudentFieldNormalizer.trimToNull(req.getAdmissionNumber()));
+        student.setRollNumber(StudentFieldNormalizer.trimToNull(req.getRollNumber()));
+        student.setClassId(req.getClassId());
+        student.setSectionId(req.getSectionId());
+        student.setAcademicYearId(req.getAcademicYearId());
+        student.setParentIds(req.getParentIds());
+        student.setDateOfBirth(req.getDateOfBirth());
+        student.setGender(req.getGender());
+        student.setBloodGroup(StudentFieldNormalizer.upper(req.getBloodGroup()));
+        student.setAddress(normaliseAddress(mapAddress(req.getAddress())));
+        student.setParentName(StudentFieldNormalizer.titleCase(req.getParentName()));
+        student.setParentPhone(StudentFieldNormalizer.phoneDigits(req.getParentPhone()));
+        student.setParentEmail(StudentFieldNormalizer.lower(req.getParentEmail()));
+        student.setSubjectIds(req.getSubjectIds());
+
+        Student.AcademicRecord record = new Student.AcademicRecord(
+                req.getAcademicYearId(), req.getClassId(), req.getSectionId(),
+                req.getSubjectIds(), true);
+        List<Student.AcademicRecord> records = new ArrayList<>(1);
+        records.add(record);
+        student.setAcademicRecords(records);
+
+        return new UserStudentPair(user, student);
     }
 
     // ── Auto User Creation ─────────────────────────────────────────

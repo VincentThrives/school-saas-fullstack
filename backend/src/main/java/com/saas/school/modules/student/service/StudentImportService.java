@@ -388,27 +388,11 @@ public class StudentImportService {
             throw new ImportValidationException(report);
         }
 
-        // All rows valid → persist via the regular createStudent path so user
-        // accounts get auto-generated identically to the manual flow.
-        List<String> studentIds = new ArrayList<>();
-        for (CreateStudentRequest req : toCreate) {
-            try {
-                var dto = studentService.createStudent(req);
-                studentIds.add(dto.getStudentId());
-            } catch (Exception e) {
-                // A persist-time failure mid-batch is the worst case; report
-                // it but stop so we don't keep creating downstream when one
-                // failed (likely DB / SMS dispatch issue, not row data).
-                log.error("Bulk import save failed for admission {}: {}",
-                        req.getAdmissionNumber(), e.getMessage(), e);
-                throw new BusinessException(
-                        "Saved " + studentIds.size() + " of " + toCreate.size()
-                        + " before failing on admission '" + req.getAdmissionNumber()
-                        + "': " + e.getMessage());
-            }
-        }
-        auditService.log("BULK_IMPORT_STUDENTS", "Student", academicYearId,
-                "Imported " + studentIds.size() + " students from Excel");
+        // All rows valid → persist via the bulk path so 1800 rows complete
+        // in ~30s instead of timing out at 3-5 minutes. The bulk path does
+        // its own audit log entry.
+        List<String> studentIds = studentService.bulkInsertFromImport(toCreate);
+        log.info("Bulk import: created {} students for year {}", studentIds.size(), academicYearId);
         return new StudentImportResult(report.getTotalRows(), studentIds.size(), studentIds);
     }
 

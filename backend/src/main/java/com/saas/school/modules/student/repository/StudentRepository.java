@@ -27,6 +27,10 @@ public interface StudentRepository extends MongoRepository<Student, String> {
     Optional<Student> findByAdmissionNumberAndDeletedAtIsNull(String admissionNumber);
     Optional<Student> findByStudentIdAndDeletedAtIsNull(String studentId);
 
+    /** Bulk-import final-mile uniqueness check — pulls every conflicting
+     *  student in one query so the importer doesn't make N round-trips. */
+    List<Student> findByAdmissionNumberInAndDeletedAtIsNull(List<String> admissionNumbers);
+
     List<Student> findByClassIdAndSectionIdAndDeletedAtIsNull(String classId, String sectionId);
 
     List<Student> findByParentIdsContainingAndDeletedAtIsNull(String parentId);
