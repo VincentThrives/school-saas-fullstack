@@ -39,6 +39,10 @@ public class NotificationService {
         req.setCreatedBy(sentBy);
         req.setSentAt(Instant.now());
         req.setReadBy(new ArrayList<>());
+        // Stamp the sender's name on the body so recipients see who sent it
+        // (e.g. "Come to class - Hemanth"). The same body flows into push +
+        // email below, so they get the suffix too without separate plumbing.
+        req.setBody(appendSenderSignature(req.getBody(), sentBy));
         Notification saved = notificationRepository.save(req);
         if (req.getChannel() == Notification.Channel.EMAIL
                 || req.getChannel() == Notification.Channel.BOTH) {
@@ -167,6 +171,44 @@ public class NotificationService {
                 .map(User::getRole)
                 .map(Enum::name)
                 .orElse("");
+    }
+
+    /**
+     * Append "- &lt;Sender Name&gt;" to the notification body so recipients
+     * see who sent it. Skips appending when:
+     * <ul>
+     *   <li>the sender's user record can't be resolved (anonymous / service
+     *       account — better to send no signature than "- Unknown"),</li>
+     *   <li>the body already ends with the same signature (double-send,
+     *       resend, or a server retry).</li>
+     * </ul>
+     *
+     * <p>Output uses a newline separator so the signature stays visually
+     * distinct in both the in-app inbox and the FCM push body.
+     */
+    private String appendSenderSignature(String body, String senderUserId) {
+        if (senderUserId == null || senderUserId.isBlank()) return body;
+        User sender = userRepository.findById(senderUserId).orElse(null);
+        if (sender == null) return body;
+        String name = displayName(sender);
+        if (name == null) return body;
+        String signature = "- " + name;
+        String safeBody = (body == null) ? "" : body.trim();
+        // Avoid the double-signature case (resend, server retry, etc.).
+        if (safeBody.endsWith(signature)) return safeBody;
+        return safeBody.isEmpty() ? signature : safeBody + "\n" + signature;
+    }
+
+    /** Best-effort "Firstname Lastname" with fallbacks. Returns null when
+     *  even the email is missing — caller skips the signature in that case. */
+    private String displayName(User u) {
+        if (u == null) return null;
+        String first = u.getFirstName() == null ? "" : u.getFirstName().trim();
+        String last  = u.getLastName()  == null ? "" : u.getLastName().trim();
+        String full = (first + " " + last).trim();
+        if (!full.isEmpty()) return full;
+        if (u.getEmail() != null && !u.getEmail().isBlank()) return u.getEmail();
+        return null;
     }
 
     /**
