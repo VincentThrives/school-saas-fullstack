@@ -68,6 +68,62 @@
         {{ state === 'uploading' ? 'Uploading…' : 'Upload & Import' }}
       </button>
     </div>
+
+    <div class="auto-grow-row">
+      <mat-checkbox [(ngModel)]="autoGrowCapacity" [disabled]="state === 'uploading'">
+        Auto-increase section capacity if exceeded
+      </mat-checkbox>
+      <div class="auto-grow-hint">
+        Bumps each section's capacity to fit the imported rows.
+        Leave off for mid-year imports so accidents don't silently grow sections.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Capacity overflow panel ─────────────────────────────────────
+       Shown above the row errors because it's usually the cause of the
+       upload failing for fresh schools — admin either ticks the
+       Auto-increase checkbox above and re-uploads, OR opens Classes
+       and bumps capacity manually, OR trims the Excel. -->
+  <div class="capacity-report"
+       *ngIf="errorReport && errorReport.capacityIssues && errorReport.capacityIssues.length > 0">
+    <div class="capacity-report__head">
+      <mat-icon class="warn-icon">groups</mat-icon>
+      <div>
+        <div class="capacity-title">
+          {{ errorReport.capacityIssues.length }}
+          section{{ errorReport.capacityIssues.length === 1 ? '' : 's' }} won't fit
+        </div>
+        <div class="capacity-sub">
+          Tick <strong>"Auto-increase section capacity if exceeded"</strong> above and re-upload,
+          OR bump capacity on the Classes page first, OR remove rows from the Excel.
+        </div>
+      </div>
+    </div>
+    <table class="capacity-table">
+      <thead>
+        <tr>
+          <th>Class</th>
+          <th>Section</th>
+          <th>Capacity</th>
+          <th>Already in</th>
+          <th>This upload</th>
+          <th>Total</th>
+          <th>Short by</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let c of errorReport.capacityIssues">
+          <td><strong>{{ c.className }}</strong></td>
+          <td><strong>{{ c.sectionName }}</strong></td>
+          <td>{{ c.capacity }}</td>
+          <td>{{ c.existingCount }}</td>
+          <td>{{ c.addingCount }}</td>
+          <td>{{ c.totalAfter }}</td>
+          <td class="short-by">+{{ c.shortBy }}</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
   <!-- ── Error report ───────────────────────────────────────────────── -->

@@ -160,8 +160,10 @@ public class StudentController {
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<StudentImportResult>> importStudents(
             @RequestPart("file") MultipartFile file,
-            @RequestParam("academicYearId") String academicYearId) {
-        StudentImportResult result = studentImportService.importFromExcel(file, academicYearId);
+            @RequestParam("academicYearId") String academicYearId,
+            @RequestParam(value = "autoGrowCapacity", defaultValue = "false") boolean autoGrowCapacity) {
+        StudentImportResult result = studentImportService.importFromExcel(
+                file, academicYearId, autoGrowCapacity);
         return ResponseEntity.ok(ApiResponse.success(
                 result, "Imported " + result.getCreated() + " students"));
     }

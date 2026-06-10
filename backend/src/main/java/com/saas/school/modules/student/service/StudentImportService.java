@@ -306,6 +306,18 @@ public class StudentImportService {
      * students join that year's active record.
      */
     public StudentImportResult importFromExcel(MultipartFile file, String academicYearId) {
+        return importFromExcel(file, academicYearId, false);
+    }
+
+    /**
+     * Same as {@link #importFromExcel(MultipartFile, String)} but with an
+     * {@code autoGrowCapacity} switch. When true, any section that would
+     * overflow has its capacity bumped to fit (and the class doc saved)
+     * instead of failing the import. Useful for fresh-school imports where
+     * the original capacity guess was just wrong.
+     */
+    public StudentImportResult importFromExcel(MultipartFile file, String academicYearId,
+                                                boolean autoGrowCapacity) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException("No file uploaded.");
         }
@@ -385,6 +397,17 @@ public class StudentImportService {
         }
         if (report.hasAnyErrors()) {
             // All-or-nothing — DB stays untouched.
+            throw new ImportValidationException(report);
+        }
+
+        // ── Capacity check ──────────────────────────────────────────────
+        // Count what each (classId, sectionId) would hold AFTER import:
+        // current DB rows + rows in this upload. Compare against the
+        // section's configured capacity from SchoolClass.Section.capacity.
+        // If autoGrow is on, bump the capacity to fit and save the class.
+        // Otherwise emit a CapacityIssue per offender and reject.
+        applyCapacityCheck(toCreate, classesInYear, report, autoGrowCapacity);
+        if (report.hasAnyErrors()) {
             throw new ImportValidationException(report);
         }
 
@@ -614,6 +637,101 @@ public class StudentImportService {
             }
         } catch (Exception ignored) { /* fall through */ }
         return null;
+    }
+
+    /**
+     * Compare each section's projected total against its configured
+     * capacity. Either auto-grows the capacity to fit (when
+     * {@code autoGrow} is true) or records a {@link
+     * StudentImportErrorReport.CapacityIssue} per overflowing section.
+     *
+     * <p>Existing DB counts come from a single bulk query (one per class)
+     * rather than per-section to keep this fast even with 30+ sections.
+     * Class docs that auto-grow are saved on the spot — done outside the
+     * student bulk insert so a partial failure there doesn't leave a
+     * capacity bump without students.
+     */
+    private void applyCapacityCheck(List<CreateStudentRequest> toCreate,
+                                     List<SchoolClass> classesInYear,
+                                     StudentImportErrorReport report,
+                                     boolean autoGrow) {
+        // Per (classId, sectionId) → number of rows we're about to add.
+        Map<String, Integer> addsByPair = new HashMap<>();
+        for (CreateStudentRequest req : toCreate) {
+            if (req.getClassId() == null || req.getSectionId() == null) continue;
+            String key = req.getClassId() + "::" + req.getSectionId();
+            addsByPair.merge(key, 1, Integer::sum);
+        }
+
+        // Index classes by id for capacity / section-name lookup.
+        Map<String, SchoolClass> classById = new HashMap<>();
+        for (SchoolClass cls : classesInYear) {
+            if (cls.getClassId() != null) classById.put(cls.getClassId(), cls);
+        }
+
+        // Track which classes need a save (auto-grow path).
+        Set<String> classesToSave = new HashSet<>();
+
+        for (Map.Entry<String, Integer> entry : addsByPair.entrySet()) {
+            String[] parts = entry.getKey().split("::", 2);
+            String classId = parts[0];
+            String sectionId = parts[1];
+            int adding = entry.getValue();
+
+            SchoolClass cls = classById.get(classId);
+            if (cls == null || cls.getSections() == null) continue;
+
+            SchoolClass.Section section = null;
+            for (SchoolClass.Section s : cls.getSections()) {
+                if (sectionId.equals(s.getSectionId())) { section = s; break; }
+            }
+            if (section == null) continue;
+            int capacity = section.getCapacity();
+            if (capacity <= 0) continue; // 0/negative capacity = "unlimited"
+
+            int existing = (int) studentRepository
+                    .countByClassIdAndSectionIdAndDeletedAtIsNull(classId, sectionId);
+            int totalAfter = existing + adding;
+            if (totalAfter <= capacity) continue;
+
+            if (autoGrow) {
+                section.setCapacity(totalAfter);
+                classesToSave.add(classId);
+            } else {
+                StudentImportErrorReport.CapacityIssue issue =
+                        new StudentImportErrorReport.CapacityIssue();
+                issue.setClassId(classId);
+                issue.setClassName(cls.getName());
+                issue.setSectionId(sectionId);
+                issue.setSectionName(section.getName());
+                issue.setCapacity(capacity);
+                issue.setExistingCount(existing);
+                issue.setAddingCount(adding);
+                issue.setTotalAfter(totalAfter);
+                issue.setShortBy(totalAfter - capacity);
+                report.getCapacityIssues().add(issue);
+            }
+        }
+
+        // Persist auto-grown classes once, deterministic order so logs are stable.
+        for (String classId : new java.util.TreeSet<>(classesToSave)) {
+            SchoolClass cls = classById.get(classId);
+            if (cls != null) {
+                schoolClassRepository.save(cls);
+                log.info("Auto-grew section capacities on class {} for bulk import", cls.getName());
+            }
+        }
+
+        // Sort issues by class then section for a tidy UI listing.
+        if (!report.getCapacityIssues().isEmpty()) {
+            report.getCapacityIssues().sort((a, b) -> {
+                int c = (a.getClassName() == null ? "" : a.getClassName())
+                        .compareTo(b.getClassName() == null ? "" : b.getClassName());
+                if (c != 0) return c;
+                return (a.getSectionName() == null ? "" : a.getSectionName())
+                        .compareTo(b.getSectionName() == null ? "" : b.getSectionName());
+            });
+        }
     }
 
     private boolean isEmptyRow(Row row) {

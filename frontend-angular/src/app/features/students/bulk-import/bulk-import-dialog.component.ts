@@ -4,7 +4,9 @@ import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { FormsModule } from '@angular/forms';
 import { ApiService, StudentImportErrorReport, StudentImportResult } from '../../../core/services/api.service';
 
 interface DialogData {
@@ -17,10 +19,12 @@ interface DialogData {
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    MatCheckboxModule,
     MatSnackBarModule,
   ],
   templateUrl: './bulk-import-dialog.component.html',
@@ -32,6 +36,10 @@ export class BulkImportDialogComponent {
   selectedFile: File | null = null;
   errorReport: StudentImportErrorReport | null = null;
   importResult: StudentImportResult | null = null;
+  /** When ticked, backend bumps section capacity to fit instead of failing
+   *  the upload. Off by default — keeps mid-year imports safe from
+   *  accidentally growing sections. */
+  autoGrowCapacity = false;
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: DialogData,
@@ -97,7 +105,7 @@ export class BulkImportDialogComponent {
     this.state = 'uploading';
     this.errorReport = null;
 
-    this.api.bulkImportStudents(this.selectedFile, this.data.academicYearId).subscribe({
+    this.api.bulkImportStudents(this.selectedFile, this.data.academicYearId, this.autoGrowCapacity).subscribe({
       next: (res) => {
         this.importResult = res?.data || null;
         this.state = 'idle';
@@ -109,8 +117,11 @@ export class BulkImportDialogComponent {
       },
       error: (err) => {
         // Backend returns 400 with the StudentImportErrorReport in err.error.data.
+        // The report can carry row errors, capacity issues, or both.
         const report = err?.error?.data as StudentImportErrorReport | undefined;
-        if (report && report.errors && report.errors.length > 0) {
+        const hasRowErrors = !!(report?.errors && report.errors.length > 0);
+        const hasCapacityIssues = !!(report?.capacityIssues && report.capacityIssues.length > 0);
+        if (report && (hasRowErrors || hasCapacityIssues)) {
           this.errorReport = report;
           this.state = 'errors';
         } else {

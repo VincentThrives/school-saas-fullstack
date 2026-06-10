@@ -42,6 +42,8 @@ public interface StudentRepository extends MongoRepository<Student, String> {
     List<Student> findByDeletedAtIsNull();
 
     long countByClassIdAndDeletedAtIsNull(String classId);
+    /** Used by the bulk-import capacity check — per-section occupancy. */
+    long countByClassIdAndSectionIdAndDeletedAtIsNull(String classId, String sectionId);
     long countByDeletedAtIsNull();
 
     Optional<Student> findByUserIdAndDeletedAtIsNull(String userId);

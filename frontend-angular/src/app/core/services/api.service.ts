@@ -285,10 +285,23 @@ export interface StudentImportRowError {
   errors: StudentImportFieldError[];
 }
 
+export interface StudentImportCapacityIssue {
+  classId: string;
+  className: string;
+  sectionId: string;
+  sectionName: string;
+  capacity: number;
+  existingCount: number;
+  addingCount: number;
+  totalAfter: number;
+  shortBy: number;
+}
+
 export interface StudentImportErrorReport {
   totalRows: number;
   validRows: number;
   errors: StudentImportRowError[];
+  capacityIssues: StudentImportCapacityIssue[];
 }
 
 export interface StudentImportResult {
@@ -517,11 +530,17 @@ export class ApiService {
 
   /** Upload a filled .xlsx — all-or-nothing import. On 400 the body contains
    *  the {@link StudentImportErrorReport}; the caller catches HttpErrorResponse
-   *  and reads err.error.data to render the row-by-row table. */
-  bulkImportStudents(file: File, academicYearId: string): Observable<ApiResponse<StudentImportResult>> {
+   *  and reads err.error.data to render the row-by-row table.
+   *
+   *  When {@code autoGrowCapacity} is true the backend bumps each overflowing
+   *  section's capacity to fit instead of failing — useful for fresh-school
+   *  imports where the original capacity guess was just wrong. Off by default. */
+  bulkImportStudents(file: File, academicYearId: string,
+                      autoGrowCapacity = false): Observable<ApiResponse<StudentImportResult>> {
     const fd = new FormData();
     fd.append('file', file, file.name);
     fd.append('academicYearId', academicYearId);
+    if (autoGrowCapacity) fd.append('autoGrowCapacity', 'true');
     return this.http.post<ApiResponse<StudentImportResult>>(
       `${this.API}/students/import`, fd);
   }
