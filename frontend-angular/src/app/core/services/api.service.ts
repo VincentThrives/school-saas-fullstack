@@ -273,6 +273,30 @@ export interface BulkCreateExamResponse {
   createdExamIds: string[];
 }
 
+// ── Student bulk-import DTOs ─────────────────────────────────────────
+
+export interface StudentImportFieldError {
+  field: string;
+  message: string;
+}
+
+export interface StudentImportRowError {
+  rowNumber: number;
+  errors: StudentImportFieldError[];
+}
+
+export interface StudentImportErrorReport {
+  totalRows: number;
+  validRows: number;
+  errors: StudentImportRowError[];
+}
+
+export interface StudentImportResult {
+  totalRows: number;
+  created: number;
+  studentIds: string[];
+}
+
 /** One row on the Exam Config list page. */
 export interface ExamConfigSummary {
   academicYearId: string;
@@ -475,6 +499,30 @@ export class ApiService {
     toAcademicYearId: string; excludedStudentIds?: string[];
   }): Observable<ApiResponse<{ promoted: number; skipped: number }>> {
     return this.http.post<ApiResponse<{ promoted: number; skipped: number }>>(`${this.API}/students/bulk-promote`, payload);
+  }
+
+  // ── Student Excel bulk import ─────────────────────────────────────────
+
+  /** Download the .xlsx template (header row + sample row + instructions
+   *  tab listing configured classes/sections for the picked academic year). */
+  downloadStudentImportTemplate(academicYearId?: string): Observable<Blob> {
+    let params = new HttpParams();
+    if (academicYearId) params = params.set('academicYearId', academicYearId);
+    return this.http.get(`${this.API}/students/import/template`, {
+      params,
+      responseType: 'blob',
+    });
+  }
+
+  /** Upload a filled .xlsx — all-or-nothing import. On 400 the body contains
+   *  the {@link StudentImportErrorReport}; the caller catches HttpErrorResponse
+   *  and reads err.error.data to render the row-by-row table. */
+  bulkImportStudents(file: File, academicYearId: string): Observable<ApiResponse<StudentImportResult>> {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    fd.append('academicYearId', academicYearId);
+    return this.http.post<ApiResponse<StudentImportResult>>(
+      `${this.API}/students/import`, fd);
   }
 
   // ── Employees (formerly Teachers) ───────────────────────────────────

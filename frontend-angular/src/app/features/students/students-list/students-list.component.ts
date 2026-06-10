@@ -14,9 +14,11 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { Student, SchoolClass, User } from '../../../core/models';
+import { BulkImportDialogComponent } from '../bulk-import/bulk-import-dialog.component';
 
 @Component({
   selector: 'app-students-list',
@@ -36,6 +38,7 @@ import { Student, SchoolClass, User } from '../../../core/models';
     MatTooltipModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    MatDialogModule,
     PageHeaderComponent,
   ],
   templateUrl: './students-list.component.html',
@@ -70,6 +73,7 @@ export class StudentsListComponent implements OnInit {
     private apiService: ApiService,
     private router: Router,
     private snackBar: MatSnackBar,
+    private dialog: MatDialog,
   ) {}
 
   ngOnInit(): void {
@@ -266,7 +270,29 @@ export class StudentsListComponent implements OnInit {
   }
 
   navigateToBulkImport(): void {
-    this.router.navigate(['/students/import']);
+    // Open the Excel import dialog inline. Scoped to the academic year
+    // currently picked on the page — falls back to "current year" if the
+    // admin is viewing "All Years" so we never import into limbo.
+    const yearId = this.academicYearFilter
+      || this.academicYears.find((y: any) => y?.current)?.academicYearId
+      || (this.academicYears[0]?.academicYearId ?? '');
+    if (!yearId) {
+      this.snackBar.open(
+        'No academic year configured yet — add one first.',
+        'Close', { duration: 3000 });
+      return;
+    }
+    const yearLabel = this.academicYears.find((y: any) => y?.academicYearId === yearId)?.label;
+    const ref = this.dialog.open(BulkImportDialogComponent, {
+      data: { academicYearId: yearId, academicYearLabel: yearLabel },
+      width: '720px',
+      maxWidth: '95vw',
+      maxHeight: '85vh',
+      autoFocus: false,
+    });
+    ref.afterClosed().subscribe((imported) => {
+      if (imported) this.loadStudents();
+    });
   }
 
   editStudent(student: Student): void {

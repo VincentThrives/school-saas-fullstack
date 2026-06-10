@@ -85,6 +85,20 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage() == null ? "Invalid request" : ex.getMessage()));
     }
 
+    /**
+     * Student bulk-import row validation failure — the body carries the
+     * full row-by-row report so the frontend can render a fix-it table.
+     */
+    @ExceptionHandler(com.saas.school.modules.student.service.StudentImportService.ImportValidationException.class)
+    public ResponseEntity<ApiResponse<com.saas.school.modules.student.dto.StudentImportErrorReport>>
+            handleStudentImportValidation(
+                    com.saas.school.modules.student.service.StudentImportService.ImportValidationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiResponse<>(false,
+                        "Some rows could not be imported — please fix the issues and re-upload.",
+                        ex.getReport(), java.time.Instant.now().toString()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneric(Exception ex) {
         log.error("Unhandled exception", ex);

@@ -1,0 +1,113 @@
+<h2 mat-dialog-title>
+  <mat-icon class="title-icon">upload_file</mat-icon>
+  Bulk Import Students
+</h2>
+
+<mat-dialog-content class="dialog-content">
+  <p class="lead" *ngIf="data.academicYearLabel">
+    Importing into <strong>{{ data.academicYearLabel }}</strong>. Class &amp; section
+    names in the file must match the ones configured for this year.
+  </p>
+
+  <!-- ── Card 1: Download template ──────────────────────────────────── -->
+  <div class="step-card">
+    <div class="step-card__head">
+      <div class="step-num">1</div>
+      <div>
+        <div class="step-title">Download the template</div>
+        <div class="step-hint">Excel with all the required columns and a sample row.</div>
+      </div>
+    </div>
+    <div class="step-card__action">
+      <button mat-stroked-button color="primary" (click)="downloadTemplate()"
+              [disabled]="state === 'downloading' || state === 'uploading'">
+        <mat-spinner diameter="18" *ngIf="state === 'downloading'"></mat-spinner>
+        <mat-icon *ngIf="state !== 'downloading'">download</mat-icon>
+        {{ state === 'downloading' ? 'Downloading…' : 'Download .xlsx' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Card 2: Upload filled sheet ─────────────────────────────────── -->
+  <div class="step-card">
+    <div class="step-card__head">
+      <div class="step-num">2</div>
+      <div>
+        <div class="step-title">Upload your filled sheet</div>
+        <div class="step-hint">
+          All-or-nothing — if any row has a problem we'll list every issue
+          and nothing is saved until you fix them and re-upload.
+        </div>
+      </div>
+    </div>
+    <div class="step-card__action upload-action">
+      <input
+        type="file"
+        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        #fileInput
+        (change)="onFilePicked($event)"
+        hidden
+      >
+      <button mat-stroked-button (click)="fileInput.click()"
+              [disabled]="state === 'uploading' || state === 'downloading'">
+        <mat-icon>folder_open</mat-icon>
+        {{ selectedFile ? 'Change file' : 'Choose file' }}
+      </button>
+      <div class="file-pill" *ngIf="selectedFile">
+        <mat-icon>description</mat-icon>
+        <span class="file-name">{{ selectedFile.name }}</span>
+        <button mat-icon-button (click)="clearFile()" matTooltip="Remove">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      <button mat-flat-button color="primary"
+              (click)="upload()"
+              [disabled]="!selectedFile || state === 'uploading'">
+        <mat-spinner diameter="18" *ngIf="state === 'uploading'"></mat-spinner>
+        <mat-icon *ngIf="state !== 'uploading'">upload</mat-icon>
+        {{ state === 'uploading' ? 'Uploading…' : 'Upload & Import' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Error report ───────────────────────────────────────────────── -->
+  <div class="error-report" *ngIf="errorReport && errorReport.errors.length > 0">
+    <div class="error-report__head">
+      <mat-icon class="warn-icon">error_outline</mat-icon>
+      <div>
+        <div class="error-title">
+          {{ errorReport.errors.length }} row{{ errorReport.errors.length === 1 ? '' : 's' }} need attention
+        </div>
+        <div class="error-sub">
+          {{ errorReport.validRows }} of {{ errorReport.totalRows }} rows were valid.
+          Fix the problems below in your Excel file and re-upload — nothing has been saved yet.
+        </div>
+      </div>
+    </div>
+
+    <table class="error-table">
+      <thead>
+        <tr>
+          <th class="col-row">Row</th>
+          <th class="col-field">Column</th>
+          <th>Problem</th>
+        </tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let row of errorReport.errors">
+          <tr *ngFor="let err of row.errors; let i = index">
+            <td class="col-row">
+              <span *ngIf="i === 0">{{ row.rowNumber }}</span>
+            </td>
+            <td class="col-field"><strong>{{ err.field }}</strong></td>
+            <td>{{ err.message }}</td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">Close</button>
+</mat-dialog-actions>

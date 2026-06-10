@@ -44,6 +44,7 @@ public class ClassController {
     @PostMapping("/classes")
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<SchoolClass>> createClass(@RequestBody SchoolClass req) {
+        normaliseSectionNames(req);
         validateUniqueClassAndSections(req, null);
         req.setClassId(UUID.randomUUID().toString());
         if (req.getSections() != null) {
@@ -60,6 +61,7 @@ public class ClassController {
             @PathVariable String classId, @RequestBody SchoolClass req) {
         classRepo.findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Class not found"));
+        normaliseSectionNames(req);
         validateUniqueClassAndSections(req, classId);
         req.setClassId(classId);
         // Generate sectionId for new sections
@@ -71,6 +73,20 @@ public class ClassController {
             });
         }
         return ResponseEntity.ok(ApiResponse.success(classRepo.save(req), "Updated"));
+    }
+
+    /**
+     * Force section names to UPPERCASE on every class save so "a"/"A"/" a "
+     * always lands as "A". Keeps the SMS recipient body, exam config picker,
+     * and student admission lists visually consistent across the app.
+     */
+    private void normaliseSectionNames(SchoolClass req) {
+        if (req == null || req.getSections() == null) return;
+        for (SchoolClass.Section s : req.getSections()) {
+            if (s == null || s.getName() == null) continue;
+            String trimmed = s.getName().trim();
+            if (!trimmed.isEmpty()) s.setName(trimmed.toUpperCase(java.util.Locale.ROOT));
+        }
     }
 
     /**

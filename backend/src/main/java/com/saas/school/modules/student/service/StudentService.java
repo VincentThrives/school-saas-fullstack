@@ -164,23 +164,26 @@ public class StudentService {
         Student student = new Student();
         student.setStudentId(UUID.randomUUID().toString());
         student.setUserId(req.getUserId());
-        student.setFirstName(req.getFirstName());
-        student.setLastName(req.getLastName());
-        student.setPhone(req.getPhone());
-        student.setEmail(req.getEmail());
-        student.setAdmissionNumber(req.getAdmissionNumber());
-        student.setRollNumber(req.getRollNumber());
+        // Title-case names; lowercase email; digits-only phone; UPPERCASE
+        // blood group. Same normalisation the bulk import uses so manual
+        // entries and imports land in the DB with one consistent shape.
+        student.setFirstName(StudentFieldNormalizer.titleCase(req.getFirstName()));
+        student.setLastName(StudentFieldNormalizer.titleCase(req.getLastName()));
+        student.setPhone(StudentFieldNormalizer.phoneDigits(req.getPhone()));
+        student.setEmail(StudentFieldNormalizer.lower(req.getEmail()));
+        student.setAdmissionNumber(StudentFieldNormalizer.trimToNull(req.getAdmissionNumber()));
+        student.setRollNumber(StudentFieldNormalizer.trimToNull(req.getRollNumber()));
         student.setClassId(req.getClassId());
         student.setSectionId(req.getSectionId());
         student.setAcademicYearId(req.getAcademicYearId());
         student.setParentIds(req.getParentIds());
         student.setDateOfBirth(req.getDateOfBirth());
         student.setGender(req.getGender());
-        student.setBloodGroup(req.getBloodGroup());
-        student.setAddress(mapAddress(req.getAddress()));
-        student.setParentName(req.getParentName());
-        student.setParentPhone(req.getParentPhone());
-        student.setParentEmail(req.getParentEmail());
+        student.setBloodGroup(StudentFieldNormalizer.upper(req.getBloodGroup()));
+        student.setAddress(normaliseAddress(mapAddress(req.getAddress())));
+        student.setParentName(StudentFieldNormalizer.titleCase(req.getParentName()));
+        student.setParentPhone(StudentFieldNormalizer.phoneDigits(req.getParentPhone()));
+        student.setParentEmail(StudentFieldNormalizer.lower(req.getParentEmail()));
         student.setSubjectIds(req.getSubjectIds());
 
         // Create first academic record
@@ -210,20 +213,22 @@ public class StudentService {
         String oldFirstName = s.getFirstName();
         java.time.LocalDate oldDob = s.getDateOfBirth();
 
-        if (req.getFirstName()     != null) s.setFirstName(req.getFirstName());
-        if (req.getLastName()      != null) s.setLastName(req.getLastName());
-        if (req.getPhone()         != null) s.setPhone(req.getPhone());
-        if (req.getEmail()         != null) s.setEmail(req.getEmail());
-        if (req.getRollNumber()    != null) s.setRollNumber(req.getRollNumber());
+        // Same normalisation as createStudent — Title-case names, digits-only
+        // phone, lowercase email, UPPERCASE blood group.
+        if (req.getFirstName()     != null) s.setFirstName(StudentFieldNormalizer.titleCase(req.getFirstName()));
+        if (req.getLastName()      != null) s.setLastName(StudentFieldNormalizer.titleCase(req.getLastName()));
+        if (req.getPhone()         != null) s.setPhone(StudentFieldNormalizer.phoneDigits(req.getPhone()));
+        if (req.getEmail()         != null) s.setEmail(StudentFieldNormalizer.lower(req.getEmail()));
+        if (req.getRollNumber()    != null) s.setRollNumber(StudentFieldNormalizer.trimToNull(req.getRollNumber()));
         if (req.getClassId()       != null) s.setClassId(req.getClassId());
         if (req.getSectionId()     != null) s.setSectionId(req.getSectionId());
         if (req.getGender()        != null) s.setGender(req.getGender());
         if (req.getDateOfBirth()   != null) s.setDateOfBirth(req.getDateOfBirth());
-        if (req.getBloodGroup()    != null) s.setBloodGroup(req.getBloodGroup());
-        if (req.getAddress()       != null) s.setAddress(mapAddress(req.getAddress()));
-        if (req.getParentName()    != null) s.setParentName(req.getParentName());
-        if (req.getParentPhone()   != null) s.setParentPhone(req.getParentPhone());
-        if (req.getParentEmail()   != null) s.setParentEmail(req.getParentEmail());
+        if (req.getBloodGroup()    != null) s.setBloodGroup(StudentFieldNormalizer.upper(req.getBloodGroup()));
+        if (req.getAddress()       != null) s.setAddress(normaliseAddress(mapAddress(req.getAddress())));
+        if (req.getParentName()    != null) s.setParentName(StudentFieldNormalizer.titleCase(req.getParentName()));
+        if (req.getParentPhone()   != null) s.setParentPhone(StudentFieldNormalizer.phoneDigits(req.getParentPhone()));
+        if (req.getParentEmail()   != null) s.setParentEmail(StudentFieldNormalizer.lower(req.getParentEmail()));
         if (req.getSubjectIds()    != null) s.setSubjectIds(req.getSubjectIds());
 
         // Sync active academic record with updated top-level fields
@@ -410,6 +415,27 @@ public class StudentService {
         address.setState(dto.getState());
         address.setZip(dto.getZip());
         return address;
+    }
+
+    /**
+     * Apply Title Case + digit-only normalisation to an Address. Returns null
+     * when the input is null, and silently drops the address altogether when
+     * every field ends up blank (so a row that only set city wins doesn't
+     * persist as an {street: null, city: "X", state: null, zip: null}).
+     */
+    Student.Address normaliseAddress(Student.Address address) {
+        if (address == null) return null;
+        String street = StudentFieldNormalizer.titleCase(address.getStreet());
+        String city = StudentFieldNormalizer.titleCase(address.getCity());
+        String state = StudentFieldNormalizer.titleCase(address.getState());
+        String zip = StudentFieldNormalizer.trimToNull(address.getZip());
+        if (street == null && city == null && state == null && zip == null) return null;
+        Student.Address out = new Student.Address();
+        out.setStreet(street);
+        out.setCity(city);
+        out.setState(state);
+        out.setZip(zip);
+        return out;
     }
 
     public StudentDto toDto(Student s) {
