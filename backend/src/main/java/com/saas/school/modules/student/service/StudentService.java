@@ -72,21 +72,49 @@ public class StudentService {
 
     public PageResponse<StudentDto> listStudents(int page, int size,
                                                   String classId, String sectionId, String search) {
-        PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<Student> result;
+        return listStudents(page, size, null, classId, sectionId, search);
+    }
 
+    /**
+     * Paginated list with composable filters — every filter is optional and
+     * stacks as an AND. Replaces a chain of "if classId else if search else …"
+     * that couldn't mix filters (e.g. "search inside this academic year") and
+     * forced the frontend to fetch 500 rows then re-filter in JavaScript.
+     *
+     * <p>Search matches against firstName, lastName, parentName, admissionNumber
+     * and rollNumber. Case-insensitive substring.
+     */
+    public PageResponse<StudentDto> listStudents(int page, int size,
+                                                  String academicYearId,
+                                                  String classId, String sectionId, String search) {
+        Criteria criteria = Criteria.where("deletedAt").is(null);
+        if (academicYearId != null && !academicYearId.isBlank()) {
+            criteria.and("academicYearId").is(academicYearId);
+        }
+        if (classId != null && !classId.isBlank()) {
+            criteria.and("classId").is(classId);
+        }
+        if (sectionId != null && !sectionId.isBlank()) {
+            criteria.and("sectionId").is(sectionId);
+        }
         if (search != null && !search.isBlank()) {
-            result = studentRepository.searchStudents(search, pageable);
-        } else if (classId != null && sectionId != null) {
-            result = studentRepository.findByClassIdAndSectionIdAndDeletedAtIsNull(classId, sectionId, pageable);
-        } else if (classId != null) {
-            result = studentRepository.findByClassIdAndDeletedAtIsNull(classId, pageable);
-        } else {
-            result = studentRepository.findByDeletedAtIsNull(pageable);
+            String regex = java.util.regex.Pattern.quote(search.trim());
+            criteria.orOperator(
+                    Criteria.where("firstName").regex(regex, "i"),
+                    Criteria.where("lastName").regex(regex, "i"),
+                    Criteria.where("parentName").regex(regex, "i"),
+                    Criteria.where("admissionNumber").regex(regex, "i"),
+                    Criteria.where("rollNumber").regex(regex, "i")
+            );
         }
 
-        return PageResponse.of(result.getContent().stream().map(this::toDto).toList(),
-                result.getTotalElements(), page, size);
+        Query query = new Query(criteria).with(Sort.by("createdAt").descending());
+        long total = mongoTemplate.count(query, Student.class);
+        query.skip((long) page * size).limit(size);
+        List<Student> students = mongoTemplate.find(query, Student.class);
+
+        return PageResponse.of(students.stream().map(this::toDto).toList(),
+                total, page, size);
     }
 
     /** Resolve the currently logged-in student's record by their user id. */

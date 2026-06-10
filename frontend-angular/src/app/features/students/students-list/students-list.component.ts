@@ -185,34 +185,23 @@ export class StudentsListComponent implements OnInit {
 
   loadStudents(): void {
     this.isLoading = true;
+    // All filters now compose server-side — no more "fetch 500 then filter
+    // in JavaScript" trick that broke pagination beyond row 500 and meant
+    // searching by name silently returned nothing past that cutoff.
     const params: any = {};
-    if (this.classFilter) params.classId = this.classFilter;
-    if (this.sectionFilter) params.sectionId = this.sectionFilter;
-    if (this.searchQuery) params.search = this.searchQuery;
+    if (this.academicYearFilter) params.academicYearId = this.academicYearFilter;
+    if (this.classFilter)        params.classId = this.classFilter;
+    if (this.sectionFilter)      params.sectionId = this.sectionFilter;
+    if (this.searchQuery)        params.search = this.searchQuery;
 
-    // When filtering by academic year (without a specific class) we must filter client-side.
-    // The backend paginates before the filter runs, so ask for a bigger slice to avoid
-    // showing an empty page just because the current page happened to miss this year's classes.
-    const yearOnly = !!this.academicYearFilter && !this.classFilter;
-    const page = yearOnly ? 0 : this.pageIndex;
-    const size = yearOnly ? 500 : this.pageSize;
-
-    this.apiService.getStudents(page, size, Object.keys(params).length > 0 ? params : undefined).subscribe({
+    this.apiService.getStudents(
+        this.pageIndex, this.pageSize,
+        Object.keys(params).length > 0 ? params : undefined).subscribe({
       next: (response) => {
         if (response.success && response.data) {
-          let students = response.data.content || [];
-          // Filter by academic year if selected (and no class filter — class already filters by year)
-          if (yearOnly) {
-            const classIdsForYear = this.classes.map(c => c.classId);
-            if (classIdsForYear.length > 0) {
-              students = students.filter((s: any) => classIdsForYear.includes(s.classId));
-            } else {
-              // No classes for this year → no students belong to it
-              students = [];
-            }
-          }
+          const students = response.data.content || [];
           this.dataSource.data = students;
-          this.totalElements = yearOnly ? students.length : (response.data.totalElements ?? students.length);
+          this.totalElements = response.data.totalElements ?? students.length;
 
           // Load user data for students that have userId
           const userIds = this.dataSource.data

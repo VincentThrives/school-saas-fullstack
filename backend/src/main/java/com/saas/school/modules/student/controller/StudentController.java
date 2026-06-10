@@ -29,11 +29,12 @@ public class StudentController {
     public ResponseEntity<ApiResponse<PageResponse<StudentDto>>> list(
             @RequestParam(defaultValue="0") int page,
             @RequestParam(defaultValue="20") int size,
+            @RequestParam(required=false) String academicYearId,
             @RequestParam(required=false) String classId,
             @RequestParam(required=false) String sectionId,
             @RequestParam(required=false) String search) {
         return ResponseEntity.ok(ApiResponse.success(
-            studentService.listStudents(page, size, classId, sectionId, search)));
+            studentService.listStudents(page, size, academicYearId, classId, sectionId, search)));
     }
 
     @GetMapping("/{id}")
