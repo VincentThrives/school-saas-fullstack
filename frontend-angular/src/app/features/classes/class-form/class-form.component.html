@@ -62,6 +62,13 @@
               <mat-error>Capacity must be at least 1</mat-error>
             </mat-form-field>
 
+            <!--
+            ── Class Teacher dropdown ────────────────────────────────────
+            Hidden for now — class-teacher assignments will be managed via
+            the Teacher Assignment module instead so they stay editable
+            without re-saving the whole class. The formControl stays in
+            the FormGroup so the API payload shape doesn't change.
+
             <mat-form-field appearance="outline" class="section-teacher-field">
               <mat-label>Class Teacher</mat-label>
               <mat-select formControlName="classTeacherId">
@@ -72,6 +79,8 @@
               </mat-select>
               <mat-hint>Assign a class teacher to this section</mat-hint>
             </mat-form-field>
+            -->
+
 
             <mat-form-field appearance="outline" class="section-subjects-field">
               <mat-label>Subjects</mat-label>
