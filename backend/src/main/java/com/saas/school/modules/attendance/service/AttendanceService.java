@@ -18,7 +18,9 @@ import com.saas.school.modules.sms.service.SmsService;
 import com.saas.school.modules.student.model.Student;
 import com.saas.school.modules.student.repository.StudentRepository;
 import com.saas.school.modules.teacher.model.Teacher;
+import com.saas.school.modules.teacher.model.TeacherSubjectAssignment;
 import com.saas.school.modules.teacher.repository.TeacherRepository;
+import com.saas.school.modules.teacher.repository.TeacherSubjectAssignmentRepository;
 import com.saas.school.modules.timetable.model.Timetable;
 import com.saas.school.modules.timetable.repository.TimetableRepository;
 import org.slf4j.Logger;
@@ -42,6 +44,7 @@ public class AttendanceService {
     @Autowired private SubjectRepository subjectRepository;
     @Autowired private SchoolClassRepository schoolClassRepository;
     @Autowired private TeacherRepository teacherRepository;
+    @Autowired private TeacherSubjectAssignmentRepository assignmentRepository;
     @Autowired private SchoolEventRepository eventRepository;
     @Autowired private StudentRepository studentRepository;
     @Autowired private NotificationRuleEngine ruleEngine;
@@ -138,6 +141,18 @@ public class AttendanceService {
                     && !req.getDate().isBefore(h.getStartDate()) && !req.getDate().isAfter(h.getEndDate())) {
                 throw new IllegalArgumentException("Cannot mark attendance on holiday: " + h.getTitle());
             }
+        }
+
+        // ── Day-wise gate ────────────────────────────────────────────
+        // Only the section's assigned class teacher (per the Teacher
+        // Assignment module — TeacherSubjectAssignment with role
+        // CLASS_TEACHER) may mark day-wise attendance. Admins /
+        // principals fall through (no Teacher row under their userId,
+        // so the lookup is empty → skip). Subject-wise marks
+        // (req.subjectId set) keep the existing component-key path
+        // with no extra gate.
+        if (req.getSubjectId() == null || req.getSubjectId().isBlank()) {
+            assertClassTeacherForDayWise(req, markedBy);
         }
 
         int period = req.getPeriodNumber();  // 0 for day-wise
@@ -384,6 +399,65 @@ public class AttendanceService {
      * resolves so the caller falls back to a safe placeholder rather than
      * sending a blank variable.
      */
+    /**
+     * Enforce "only the assigned class teacher marks day-wise attendance".
+     * The assignment lives in TeacherSubjectAssignment (the Teacher
+     * Assignment module), not on the Class doc — so this gate stays
+     * editable without re-saving the whole class every time a class
+     * teacher rotates.
+     *
+     * <p>Logic:
+     * <ul>
+     *   <li>Resolve the caller's Teacher record by userId. If empty,
+     *       the caller is a SCHOOL_ADMIN / PRINCIPAL (no Teacher row) →
+     *       allow through.</li>
+     *   <li>Look up TeacherSubjectAssignment rows for that teacher in the
+     *       request's academic year. If any active row matches the
+     *       request's classId + sectionId AND has role CLASS_TEACHER →
+     *       allow.</li>
+     *   <li>If no class-teacher row exists for this section at all, the
+     *       section is in "setup mode" — allow any teacher through so
+     *       attendance doesn't freeze before admins finish wiring up
+     *       assignments.</li>
+     *   <li>Otherwise reject with a friendly 400.</li>
+     * </ul>
+     */
+    private void assertClassTeacherForDayWise(MarkAttendanceRequest req, String markedByUserId) {
+        if (markedByUserId == null || markedByUserId.isBlank()) return;
+        var teacherOpt = teacherRepository.findByUserIdAndDeletedAtIsNull(markedByUserId);
+        if (teacherOpt.isEmpty()) return;  // Admin / principal — no Teacher row.
+        String myTeacherId = teacherOpt.get().getTeacherId();
+        String yearId = req.getAcademicYearId();
+
+        // All assignments for this section in this year — used to decide
+        // both "is the caller the class teacher" and "does a class teacher
+        // exist at all" (the setup-mode fallback).
+        List<TeacherSubjectAssignment> sectionAssignments = (yearId == null || yearId.isBlank())
+                ? Collections.emptyList()
+                : assignmentRepository.findByClassIdAndSectionIdAndAcademicYearId(
+                        req.getClassId(), req.getSectionId(), yearId);
+
+        boolean callerIsClassTeacher = sectionAssignments.stream()
+                .anyMatch(a -> a != null
+                        && a.getStatus() == TeacherSubjectAssignment.Status.ACTIVE
+                        && a.getRoles() != null
+                        && a.getRoles().contains(TeacherSubjectAssignment.Role.CLASS_TEACHER)
+                        && myTeacherId.equals(a.getTeacherId()));
+        if (callerIsClassTeacher) return;
+
+        boolean anyClassTeacherAssigned = sectionAssignments.stream()
+                .anyMatch(a -> a != null
+                        && a.getStatus() == TeacherSubjectAssignment.Status.ACTIVE
+                        && a.getRoles() != null
+                        && a.getRoles().contains(TeacherSubjectAssignment.Role.CLASS_TEACHER));
+        if (!anyClassTeacherAssigned) return;  // Setup mode — no one assigned yet.
+
+        throw new IllegalArgumentException(
+                "Only the assigned class teacher can mark day-wise attendance "
+              + "for this section. Ask the school admin to update the class "
+              + "teacher in Teacher Assignment if this is wrong.");
+    }
+
     private String resolveClassLabel(String classId, String sectionId) {
         if (classId == null || classId.isBlank()) return null;
         try {

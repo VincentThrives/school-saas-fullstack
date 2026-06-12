@@ -16,8 +16,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { TenantFeatureService } from '../../../core/services/tenant-feature.service';
-import { SchoolClass, AcademicYear } from '../../../core/models';
+import { SchoolClass, AcademicYear, UserRole } from '../../../core/models';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -75,6 +76,15 @@ export class MarkAttendanceComponent implements OnInit {
   private cachedHolidays: any[] = [];
   private cachedEvents: any[] = [];
 
+  /** Teacher-mode scoping. When true, only sections this teacher is the
+   *  CLASS_TEACHER of (per Teacher Assignment) are shown in the dropdowns.
+   *  Admin / principal users bypass. */
+  private isTeacherMode = false;
+  /** (classId::sectionId) keys this teacher is the CLASS_TEACHER of. Empty
+   *  set when not in teacher mode OR teacher has no class-teacher
+   *  assignments yet (in which case they see no sections). */
+  private myClassTeacherSections = new Set<string>();
+
   readonly statusOptions = [
     { value: 'PRESENT', label: 'Present', icon: 'check_circle', color: '#4caf50' },
     { value: 'ABSENT', label: 'Absent', icon: 'cancel', color: '#f44336' },
@@ -84,12 +94,38 @@ export class MarkAttendanceComponent implements OnInit {
 
   constructor(
     private api: ApiService,
+    private auth: AuthService,
     private snackBar: MatSnackBar,
     public features: TenantFeatureService,
   ) {}
 
   ngOnInit(): void {
-    this.loadAcademicYears();
+    this.isTeacherMode = this.auth.currentRole === UserRole.TEACHER;
+    if (this.isTeacherMode) {
+      // Pull this teacher's assignments and keep only the CLASS_TEACHER
+      // rows. Year filter is intentionally omitted — the year picker on
+      // this page drives loadClasses; this list is small enough to
+      // filter client-side once.
+      this.api.getMyTeacherAssignments().subscribe({
+        next: (res) => {
+          const rows = (res?.data || []) as any[];
+          this.myClassTeacherSections = new Set(
+            rows
+              .filter(r => Array.isArray(r?.roles) && r.roles.includes('CLASS_TEACHER'))
+              .map(r => `${r.classId}::${r.sectionId}`)
+          );
+          this.loadAcademicYears();
+        },
+        error: () => {
+          // Profile fetch failed — fall back to no-class state rather than
+          // showing every class to a teacher who shouldn't see them.
+          this.myClassTeacherSections = new Set<string>();
+          this.loadAcademicYears();
+        },
+      });
+    } else {
+      this.loadAcademicYears();
+    }
   }
 
   loadAcademicYears(): void {
@@ -161,14 +197,38 @@ export class MarkAttendanceComponent implements OnInit {
   loadClasses(): void {
     this.api.getClasses(this.selectedAcademicYearId).subscribe({
       next: (res) => {
-        this.classes = res.data || [];
+        let raw = (res.data || []) as SchoolClass[];
+        if (this.isTeacherMode) {
+          // Filter to sections this teacher is class teacher of. Backend
+          // re-enforces on /attendance/mark — this is UX so the dropdown
+          // doesn't bait the teacher into picking something they can't save.
+          raw = raw
+            .map(c => ({
+              ...c,
+              sections: (c.sections || []).filter(s => this.isMyAssignedSection(c.classId, s.sectionId)),
+            }))
+            .filter(c => (c.sections || []).length > 0);
+        }
+        this.classes = raw;
       },
     });
   }
 
+  /** True when the teacher has a CLASS_TEACHER assignment for this section. */
+  private isMyAssignedSection(classId: string, sectionId: string): boolean {
+    return this.myClassTeacherSections.has(`${classId}::${sectionId}`);
+  }
+
   onClassChange(): void {
     const selectedClass = this.classes.find((c) => c.classId === this.selectedClassId);
-    this.sections = selectedClass?.sections || [];
+    let sections = (selectedClass?.sections || []) as any[];
+    // Already pre-filtered in loadClasses() for teachers; keep this guard
+    // so any future code path that mutates `this.classes` can't slip an
+    // unassigned section in.
+    if (this.isTeacherMode) {
+      sections = sections.filter(s => this.isMyAssignedSection(this.selectedClassId, s.sectionId));
+    }
+    this.sections = sections;
     this.selectedSectionId = '';
     this.students = [];
     this.studentsLoaded = false;
