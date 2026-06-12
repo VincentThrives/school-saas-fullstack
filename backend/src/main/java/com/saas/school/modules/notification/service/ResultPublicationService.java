@@ -16,6 +16,11 @@ import com.saas.school.modules.notification.dto.PublishResultResponse;
 import com.saas.school.modules.notification.model.Notification;
 import com.saas.school.modules.notification.model.ResultPublication;
 import com.saas.school.modules.notification.repository.ResultPublicationRepository;
+import com.saas.school.modules.sms.dto.ConductedExamTypeDto;
+import com.saas.school.modules.sms.dto.SendResultNoticeRequest;
+import com.saas.school.modules.sms.dto.SendResultNoticeResponse;
+import com.saas.school.modules.sms.model.SmsTrigger;
+import com.saas.school.modules.sms.service.SmsService;
 import com.saas.school.modules.student.model.Student;
 import com.saas.school.modules.student.repository.StudentRepository;
 import org.slf4j.Logger;
@@ -59,6 +64,11 @@ public class ResultPublicationService {
     @Autowired private ResultPublicationRepository publicationRepository;
     @Autowired private AuditService auditService;
     @Autowired private SubjectRepository subjectRepository;
+    /** Injected so the multi-section SMS publisher can fan results out to
+     *  parents via the RESULT_COMBINED DLT template. SMS sending is async,
+     *  gated by the 4-layer SmsService check (global / tenant / trigger /
+     *  budget) — we never bypass it. */
+    @Autowired private SmsService smsService;
 
     // ── Public API ─────────────────────────────────────────────
 
@@ -191,6 +201,314 @@ public class ResultPublicationService {
                 prior.isPresent(),
                 pub.getPublishedAt()
         );
+    }
+
+    /**
+     * Pickers data for the "Publish Result SMS" card — every distinct
+     * {@code Exam.examType} in the tenant, grouped with the (classId,
+     * sectionId) pairs it appears in. Catalog exam types that have no
+     * Exam docs (never conducted) drop out, so the dropdown only shows
+     * results the admin can actually publish.
+     *
+     * <p>One query scans the {@code exams} collection in full. Per-tenant
+     * exam counts are bounded by school size — the query stays fast even
+     * across multiple academic years.</p>
+     */
+    public List<ConductedExamTypeDto> listConductedExamTypes() {
+        List<Exam> all = examRepository.findAll();
+
+        // examType -> map of "classId::sectionId" -> ClassSection
+        // (LinkedHashMap so exam types appear in first-encounter order;
+        // a TreeMap of section keys would alphabetise but we'd lose the
+        // natural "as-created" ordering admins expect.)
+        LinkedHashMap<String, LinkedHashMap<String, ConductedExamTypeDto.ClassSection>> bucket =
+                new LinkedHashMap<>();
+
+        for (Exam ex : all) {
+            if (ex == null) continue;
+            String type = ex.getExamType();
+            if (type == null || type.isBlank()) continue;
+
+            // Register the exam type unconditionally — same rule the
+            // Notifications page uses ("examType set → show it"). Exam
+            // docs that lack classId / sectionId (legacy data, class-wide
+            // exams) still surface their type in the dropdown rather than
+            // disappearing silently.
+            LinkedHashMap<String, ConductedExamTypeDto.ClassSection> sections =
+                    bucket.computeIfAbsent(type.trim(), k -> new LinkedHashMap<>());
+
+            // Section narrowing list only includes rows where BOTH ids
+            // are present — that's the only case where we can target a
+            // specific (class, section) SMS fan-out. Missing-id rows
+            // still keep their type registered above; the frontend
+            // falls back to "all tenant classes + sections" for the
+            // multi-select when this list comes back empty.
+            String classId = ex.getClassId();
+            String sectionId = ex.getSectionId();
+            if (classId == null || classId.isBlank()) continue;
+            if (sectionId == null || sectionId.isBlank()) continue;
+            String key = classId + "::" + sectionId;
+            // computeIfAbsent so the FIRST exam doc for a given section
+            // wins the label battle — labels rarely diverge but this
+            // gives us deterministic behaviour either way.
+            sections.computeIfAbsent(key, k -> new ConductedExamTypeDto.ClassSection(
+                    classId, sectionId, ex.getClassName(), ex.getSectionName()));
+        }
+
+        List<ConductedExamTypeDto> out = new ArrayList<>(bucket.size());
+        for (Map.Entry<String, LinkedHashMap<String, ConductedExamTypeDto.ClassSection>> e
+                : bucket.entrySet()) {
+            out.add(new ConductedExamTypeDto(e.getKey(),
+                    new ArrayList<>(e.getValue().values())));
+        }
+        return out;
+    }
+
+    /**
+     * Multi-section result SMS broadcaster — fired from the
+     * "Publish Result SMS" card on the school admin's SMS Notifications
+     * page. Distinct from {@link #publish}, which fans out personalised
+     * IN-APP notifications for a single (class, section).
+     *
+     * <p>For each (classId, sectionId) target in the request:</p>
+     * <ol>
+     *   <li>Loads students in that section</li>
+     *   <li>Loads exams matching {@code examType} (+ optional academic year)
+     *       for that class+section, plus their marks (legacy + new
+     *       assessments)</li>
+     *   <li>Per student: computes total% from their marks, dispatches a
+     *       RESULT_COMBINED SMS with vars (studentName, examName, "X%")
+     *       to BOTH the linked Parent User accounts (parentIds) AND the
+     *       raw parentPhone on the Student doc. Phone-level dedupe in
+     *       SmsService.resolveRecipients guarantees one SMS per phone.</li>
+     * </ol>
+     *
+     * <p>Students with neither parentPhone nor any parentIds are counted
+     * in {@code skippedNoPhone} so the admin sees how many rows need
+     * cleanup before re-running.</p>
+     *
+     * <p>The 4-layer SMS gate (global / tenant / trigger / budget) is
+     * enforced inside {@code dispatchAsync} per recipient. We DO check
+     * the trigger gate up-front here so the admin gets a clear synchronous
+     * error ("Result SMS is disabled for your school") instead of a
+     * silent SKIPPED-row-in-audit-log no-op.</p>
+     */
+    public SendResultNoticeResponse publishMultiSectionSms(
+            SendResultNoticeRequest req, String adminUserId) {
+
+        if (req == null) throw new BusinessException("Result SMS payload is required.");
+        if (req.getExamType() == null || req.getExamType().isBlank())
+            throw new BusinessException("examType is required.");
+        if (req.getTargets() == null || req.getTargets().isEmpty())
+            throw new BusinessException("Pick at least one class + section.");
+
+        // examName is optional in the request — the picker dropdown
+        // value (Exam.examType) is already a friendly label like
+        // "Unit Test 1", so we use it as the SMS body's exam-name
+        // fragment when the request doesn't override.
+        String examNameForSms = (req.getExamName() != null && !req.getExamName().isBlank())
+                ? req.getExamName().trim()
+                : req.getExamType().trim();
+
+        // Loop over every target. Each iteration is a one-section publish.
+        int recipientCount = 0;     // # SMS queued (per-student dispatch count)
+        int studentsCovered = 0;    // # students who had at least one SMS path
+        int skippedNoPhone = 0;     // # students with no parentPhone AND no parentIds
+        int sectionsCovered = 0;    // # targets actually processed
+
+        for (SendResultNoticeRequest.TargetSection target : req.getTargets()) {
+            if (target == null
+                    || target.getClassId() == null  || target.getClassId().isBlank()
+                    || target.getSectionId() == null || target.getSectionId().isBlank()) {
+                continue;
+            }
+
+            // Reuse the existing scope loader by constructing a
+            // PublishResultRequest for this one section. No subject filter
+            // — the multi-section SMS path is always the combined
+            // (all-subjects) view, since the admin is broadcasting a
+            // full-term result rather than a single-subject mark.
+            PublishResultRequest scoped = new PublishResultRequest();
+            scoped.setExamType(req.getExamType());
+            scoped.setClassId(target.getClassId());
+            scoped.setSectionId(target.getSectionId());
+            scoped.setAcademicYearId(blankToNull(req.getAcademicYearId()));
+            scoped.setSubjectId(null);
+
+            ScopeData scope = loadScope(scoped);
+            sectionsCovered++;
+            if (scope.students.isEmpty()) continue;
+
+            // var2 is constant per target — "<className> <sectionName> in
+            // <examName>" pulled from the section's first exam (Exam carries
+            // denormalised className + sectionName). Computed once here so
+            // we don't rebuild it on every student.
+            String classSectionExam = renderResultSmsVar2(scope, examNameForSms);
+
+            // Build per-student summary + dispatch.
+            for (Student student : scope.students) {
+                List<String> parentIds = new ArrayList<>();
+                if (student.getParentIds() != null) {
+                    for (String pid : student.getParentIds()) {
+                        if (pid != null && !pid.isBlank()) parentIds.add(pid);
+                    }
+                }
+                List<String> extraPhones = new ArrayList<>();
+                if (student.getParentPhone() != null && !student.getParentPhone().isBlank()) {
+                    extraPhones.add(student.getParentPhone().trim());
+                }
+                if (parentIds.isEmpty() && extraPhones.isEmpty()) {
+                    skippedNoPhone++;
+                    continue;
+                }
+
+                String studentName = displayName(student);
+                String breakdown = renderResultSmsVar3(student, scope);
+
+                Map<String, String> vars = new LinkedHashMap<>();
+                // Positional aliases — DLT templates registered with {#var#}
+                // placeholders match by var1/var2/var3 order. We stamp
+                // semantic keys alongside so either registration style works.
+                //
+                // Mapped to the school's RESULT_COMBINED template body:
+                //   "Dear Parent, {var1} of {var2} secured {var3} in the
+                //    recent exams. Detailed marksheet …"
+                //
+                //   var1 = student name
+                //   var2 = "1st A in Unit Test 1"
+                //   var3 = "English 80/100, Math 85/100, … Total 250/300 (83.3%)"
+                vars.put("var1", studentName);
+                vars.put("var2", classSectionExam);
+                vars.put("var3", breakdown);
+                vars.put("studentName", studentName);
+                vars.put("classSectionExam", classSectionExam);
+                vars.put("result", breakdown);
+
+                // dispatchAsync handles the 4-layer gate + phone-level
+                // dedupe across parentIds and parentPhone. Async — the
+                // admin doesn't wait per-student.
+                smsService.dispatchAsync(SmsTrigger.RESULT_COMBINED,
+                        parentIds, extraPhones, vars,
+                        adminUserId, "ResultPublication-SMS",
+                        student.getStudentId());
+
+                studentsCovered++;
+                // Rough recipient count — actual phone count after dedupe
+                // may be slightly lower (e.g. parent linked AND parentPhone
+                // is the same number). Audit log has the precise figures.
+                recipientCount += parentIds.size() + extraPhones.size();
+            }
+        }
+
+        auditService.log("SMS_RESULT_NOTICE", "ResultPublication", req.getExamType(),
+                "Multi-section result SMS by " + adminUserId
+                        + " examType=" + req.getExamType()
+                        + " examName=" + req.getExamName()
+                        + " sections=" + sectionsCovered
+                        + " studentsCovered=" + studentsCovered
+                        + " skippedNoPhone=" + skippedNoPhone
+                        + " recipients=" + recipientCount);
+
+        return new SendResultNoticeResponse(
+                recipientCount, studentsCovered, skippedNoPhone, sectionsCovered,
+                Instant.now());
+    }
+
+    /** {@code var2} renderer for the RESULT_COMBINED SMS — combines the
+     *  section's class name + section name + the request's exam name
+     *  into the "1st A in Unit Test 1" shape. {@code className} and
+     *  {@code sectionName} are stored denormalised on Exam at creation
+     *  so we don't have to hit SchoolClass / Section here.
+     *
+     *  <p>Falls back gracefully when either piece is missing — e.g.
+     *  if no exam has a className the var becomes just "in Unit Test 1"
+     *  rather than throwing.</p> */
+    private String renderResultSmsVar2(ScopeData scope, String examName) {
+        String className = "";
+        String sectionName = "";
+        for (Exam ex : scope.exams) {
+            if (className.isEmpty() && ex.getClassName() != null && !ex.getClassName().isBlank()) {
+                className = ex.getClassName().trim();
+            }
+            if (sectionName.isEmpty() && ex.getSectionName() != null && !ex.getSectionName().isBlank()) {
+                sectionName = ex.getSectionName().trim();
+            }
+            if (!className.isEmpty() && !sectionName.isEmpty()) break;
+        }
+        StringBuilder sb = new StringBuilder();
+        if (!className.isEmpty()) sb.append(className);
+        if (!sectionName.isEmpty()) {
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(sectionName);
+        }
+        String name = examName == null ? "" : examName.trim();
+        if (sb.length() == 0) return name;
+        if (!name.isEmpty()) sb.append(" in ").append(name);
+        return sb.toString();
+    }
+
+    /** {@code var3} renderer — per-subject marks + grand total + percentage,
+     *  in the shape parents expect in the template's third slot:
+     *
+     *  <pre>
+     *    "English 80/100, Math 85/100, Science 78/100. Total 243/300 (81.0%)"
+     *  </pre>
+     *
+     *  <p>Hybrid subjects (Theory + Practical, etc.) are folded into a single
+     *  per-subject line by summing across components — keeps the SMS short
+     *  and matches the parent's mental model ("Maths overall"). When the
+     *  student has no marks yet (admin hit Publish before saving), we return
+     *  "result available" so the SMS still reads sensibly.</p>
+     *
+     *  <p>Iteration order = exam creation order in scope.exams, so subjects
+     *  appear in the same sequence as in the marks-entry sheet.</p> */
+    private String renderResultSmsVar3(Student student, ScopeData scope) {
+        List<ExamMark> marks = scope.marksByStudent.getOrDefault(
+                student.getStudentId(), List.of());
+        if (marks.isEmpty()) return "result available";
+
+        // exam lookup — sub-O(n²) for the typical 8-subject case.
+        Map<String, Exam> examById = scope.exams.stream()
+                .collect(Collectors.toMap(Exam::getExamId, e -> e, (a, b) -> a));
+
+        // subjectId → (obtained, max) accumulator. LinkedHashMap preserves
+        // first-encounter order — keeps the SMS reading naturally.
+        LinkedHashMap<String, double[]> bySubject = new LinkedHashMap<>();
+        Map<String, String> nameBySubject = new HashMap<>();
+
+        for (ExamMark m : marks) {
+            Exam ex = examById.get(m.getExamId());
+            if (ex == null) continue;
+            String subjectId = ex.getSubjectId() == null
+                    ? "unknown:" + m.getExamId() : ex.getSubjectId();
+            String subjectName = ex.getSubjectName() == null || ex.getSubjectName().isBlank()
+                    ? "Subject" : ex.getSubjectName().trim();
+            nameBySubject.putIfAbsent(subjectId, subjectName);
+            double[] cur = bySubject.computeIfAbsent(subjectId, k -> new double[]{0, 0});
+            cur[0] += m.getMarksObtained() == null ? 0 : m.getMarksObtained();
+            cur[1] += ex.getMaxMarks();
+        }
+        if (bySubject.isEmpty()) return "result available";
+
+        double totalObt = 0;
+        double totalMax = 0;
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, double[]> e : bySubject.entrySet()) {
+            if (sb.length() > 0) sb.append(", ");
+            double obt = e.getValue()[0];
+            double max = e.getValue()[1];
+            sb.append(nameBySubject.get(e.getKey())).append(' ')
+              .append(formatMarks(obt)).append('/').append(formatMarks(max));
+            totalObt += obt;
+            totalMax += max;
+        }
+        if (totalMax > 0) {
+            double pct = (totalObt / totalMax) * 100.0;
+            sb.append(". Total ")
+              .append(formatMarks(totalObt)).append('/').append(formatMarks(totalMax))
+              .append(String.format(" (%.1f%%)", pct));
+        }
+        return sb.toString();
     }
 
     // ── Internals ──────────────────────────────────────────────

@@ -408,6 +408,108 @@
     </div>
   </mat-card>
 
+  <!-- ── Publish Result SMS card ──────────────────────────────
+       Per-student RESULT_COMBINED SMS across multiple (class, section)
+       pairs picked from the multi-select. The exam-type dropdown only
+       lists results that have been CONDUCTED (Exam docs exist) — catalog
+       entries that were never used don't clutter the picker. Phone
+       numbers come from Student.parentPhone + any linked Parent User
+       accounts; phone-level dedupe at the SMS layer guarantees one SMS
+       per phone. -->
+  <mat-card class="sv-holiday-card" *ngIf="features.smsEnabled()">
+    <div class="sv-card-head">
+      <mat-icon>leaderboard</mat-icon>
+      <h3>Publish result SMS</h3>
+    </div>
+    <p class="sv-card-sub">
+      Send each parent a personalised SMS with their child's name,
+      class + section, exam name, and per-subject marks. Phone numbers
+      are read from Student.parentPhone (plus any linked parent accounts),
+      deduped per phone.
+    </p>
+
+    <!-- Exam type dropdown — only conducted exam types (Exam docs in DB) -->
+    <div class="sv-holiday-fields">
+      <mat-form-field appearance="outline" class="sv-holiday-reason">
+        <mat-label>Exam</mat-label>
+        <mat-select [(value)]="resultExamTypeId"
+                    [disabled]="isLoadingExamTypes"
+                    (selectionChange)="onResultExamTypeChange()">
+          <mat-option *ngFor="let t of conductedExamTypes" [value]="t.examType">
+            {{ t.examType }}
+          </mat-option>
+        </mat-select>
+        <mat-hint *ngIf="isLoadingExamTypes">Loading conducted exams…</mat-hint>
+        <mat-hint *ngIf="!isLoadingExamTypes && conductedExamTypes.length === 0">
+          No conducted exams found — create exams and enter marks first.
+        </mat-hint>
+      </mat-form-field>
+    </div>
+
+    <!-- Class + section multi-select — narrowed to sections that
+         actually have exams of the picked type. -->
+    <div class="sv-holiday-fields">
+      <mat-form-field appearance="outline" class="sv-holiday-reason">
+        <mat-label>Class &amp; section (pick one or more)</mat-label>
+        <mat-select [(value)]="resultPickedKeys"
+                    multiple
+                    [disabled]="!resultExamTypeId">
+          <mat-option *ngFor="let row of resultSectionOptions; trackBy: trackByResultSectionKey"
+                      [value]="row.key">
+            {{ row.label }}
+          </mat-option>
+        </mat-select>
+        <mat-hint *ngIf="!resultExamTypeId">
+          Pick an exam first.
+        </mat-hint>
+        <mat-hint *ngIf="resultExamTypeId && resultSectionOptions.length === 0">
+          No sections found for this exam.
+        </mat-hint>
+        <mat-hint *ngIf="resultExamTypeId && resultPickedKeys.length > 0" align="end">
+          {{ resultPickedKeys.length }} picked
+        </mat-hint>
+      </mat-form-field>
+    </div>
+
+    <!-- Sender pill + brief preview -->
+    <div class="sv-preview-wrap">
+      <div class="sv-preview-head">
+        <span class="sv-preview-label">Sender</span>
+        <span class="sv-sender-pill" matTooltip="Sender header for RESULT_COMBINED">
+          {{ resultSender() }}
+        </span>
+      </div>
+      <div class="sv-preview-body">
+        Each parent gets the school's RESULT_COMBINED template body with
+        their child's name, the picked class + section + exam, and a
+        per-subject marks summary slotted in.
+      </div>
+    </div>
+
+    <!-- Helpful warnings -->
+    <p class="sv-holiday-warn"
+       *ngIf="!isLoadingTemplates && !isTemplateReady(resultTemplate)">
+      <mat-icon>error_outline</mat-icon>
+      RESULT_COMBINED template is not configured. Ask your platform admin
+      to register a DLT template and sender for it.
+    </p>
+    <p class="sv-holiday-warn"
+       *ngIf="settings && !settings.resultPublishEnabled">
+      <mat-icon>info</mat-icon>
+      Result publish SMS trigger is currently disabled in your SMS settings.
+    </p>
+
+    <div class="sv-broadcast-actions">
+      <button mat-flat-button color="primary"
+              [disabled]="!canSendResult()"
+              (click)="sendResult()">
+        <mat-icon *ngIf="!isSendingResult">send</mat-icon>
+        <mat-spinner *ngIf="isSendingResult" diameter="18" class="sv-inline-spinner"></mat-spinner>
+        {{ isSendingResult ? 'Sending…' : 'Send result SMS' }}
+      </button>
+    </div>
+  </mat-card>
+
   <!-- ── Audit log link ───────────────────────────────────────
        The embedded audit table moved to its own /settings/sms/audit-log
        page so this view doesn't bloat as tenant SMS volume grows. The

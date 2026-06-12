@@ -10,8 +10,11 @@ import com.saas.school.modules.sms.dto.SendCustomNoticeRequest;
 import com.saas.school.modules.sms.dto.SendCustomNoticeResponse;
 import com.saas.school.modules.sms.dto.SendEventNoticeRequest;
 import com.saas.school.modules.sms.dto.SendEventNoticeResponse;
+import com.saas.school.modules.sms.dto.ConductedExamTypeDto;
 import com.saas.school.modules.sms.dto.SendHolidayNoticeRequest;
 import com.saas.school.modules.sms.dto.SendHolidayNoticeResponse;
+import com.saas.school.modules.sms.dto.SendResultNoticeRequest;
+import com.saas.school.modules.sms.dto.SendResultNoticeResponse;
 import com.saas.school.modules.sms.dto.SendTestSmsRequest;
 import com.saas.school.modules.sms.dto.SmsAuditLogDto;
 import com.saas.school.modules.sms.dto.TenantSmsSettingsDto;
@@ -20,6 +23,7 @@ import com.saas.school.modules.sms.model.TenantSmsSettings;
 import com.saas.school.modules.sms.model.SmsTrigger;
 import com.saas.school.modules.sms.repository.SmsAuditLogRepository;
 import com.saas.school.modules.sms.service.SmsService;
+import com.saas.school.modules.notification.service.ResultPublicationService;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -53,6 +57,10 @@ public class SmsController {
     @Autowired private SmsService smsService;
     @Autowired private SmsAuditLogRepository auditRepo;
     @Autowired private MongoTemplate mongoTemplate;
+    /** Reaches into the notification module to fan result SMS out across
+     *  multiple sections. ResultPublicationService owns the exam/mark
+     *  load-and-summarise pipeline; the controller stays thin. */
+    @Autowired private ResultPublicationService resultPublicationService;
 
     /** Read-only view of THIS tenant's SMS settings. Returns sensible
      *  defaults (everything off) if no settings doc exists yet — avoids
@@ -252,6 +260,42 @@ public class SmsController {
         SendEventNoticeResponse res = smsService.sendEventNotice(req, userId);
         return ResponseEntity.ok(ApiResponse.success(
                 res, "Event notice queued to " + res.getRecipientCount() + " recipient(s)"));
+    }
+
+    /**
+     * Picker data for the "Publish Result SMS" card — every distinct
+     * Exam.examType in the tenant grouped with the (classId, sectionId)
+     * pairs it appears in. Catalog exam types that have no Exam docs
+     * (never conducted) drop out, so the dropdown only lists results
+     * the admin can actually publish.
+     */
+    @GetMapping("/result-notice/exam-types")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN', 'PRINCIPAL')")
+    public ResponseEntity<ApiResponse<List<ConductedExamTypeDto>>> listConductedExamTypes() {
+        return ResponseEntity.ok(ApiResponse.success(
+                resultPublicationService.listConductedExamTypes()));
+    }
+
+    /**
+     * Multi-section "Publish Result SMS" — fan a RESULT_COMBINED SMS out
+     * to every parent in the picked (classId, sectionId) pairs. Each SMS
+     * is personalised: var1=student name, var2=exam name, var3=result
+     * summary computed from THAT student's marks.
+     *
+     * <p>Phone numbers come from both {@code Student.parentPhone} (raw
+     * field) AND linked Parent User accounts, deduped by phone inside
+     * SmsService.</p>
+     */
+    @PostMapping("/result-notice")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN', 'PRINCIPAL')")
+    public ResponseEntity<ApiResponse<SendResultNoticeResponse>> sendResultNotice(
+            @Valid @RequestBody SendResultNoticeRequest req,
+            @AuthenticationPrincipal String userId) {
+        SendResultNoticeResponse res = resultPublicationService.publishMultiSectionSms(req, userId);
+        return ResponseEntity.ok(ApiResponse.success(
+                res,
+                "Result SMS queued — " + res.getStudentsCovered() + " student(s) across "
+                        + res.getSectionsCovered() + " section(s)"));
     }
 
     /**

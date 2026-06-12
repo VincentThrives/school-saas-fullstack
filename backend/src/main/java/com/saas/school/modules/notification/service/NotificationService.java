@@ -128,11 +128,16 @@ public class NotificationService {
             alreadyEveryone = true;
         }
 
-        // SCHOOL_ADMIN / PRINCIPAL also get the push for every audience-
-        // narrowed notification so the supervision channel buzzes even
-        // for a single-class homework note. Skip when audience was ALL
-        // (admins are already in there — no point re-adding).
-        if (!alreadyEveryone) {
+        // SCHOOL_ADMIN / PRINCIPAL get a supervision-channel push for every
+        // BROADCAST (ROLE / CLASS) — so a single-class homework note still
+        // pings them. We skip:
+        //   - INDIVIDUAL: usually a per-student message (or a bulk fan-out
+        //     like Publish Result that creates one doc per student); the
+        //     admin inbox doesn't surface these, so don't push them either.
+        //   - ALL: admins are already in the recipient set.
+        boolean isBroadcast = type == Notification.RecipientType.ROLE
+                || type == Notification.RecipientType.CLASS;
+        if (isBroadcast && !alreadyEveryone) {
             addAdminAndPrincipalUserIds(ids);
         }
         return new ArrayList<>(ids);
@@ -154,13 +159,16 @@ public class NotificationService {
     }
 
     /** List notifications visible to the logged-in user (all four targeting modes).
-     *  SCHOOL_ADMIN / PRINCIPAL get the full tenant feed — anything sent
-     *  by anyone, to any audience — so they can supervise the channel. */
+     *  SCHOOL_ADMIN / PRINCIPAL see every BROADCAST in the tenant
+     *  (ALL / ROLE / CLASS) so they can supervise the channel, plus any
+     *  INDIVIDUAL notification addressed to them personally. Per-student
+     *  bulk fan-outs (Publish Result for 50 students, etc.) stop flooding
+     *  the supervision inbox. */
     public Page<Notification> listForUser(String userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("sentAt").descending());
         String role = roleOf(userId);
         if (isAdminLikeRole(role)) {
-            return notificationRepository.findAllByOrderBySentAtDesc(pageable);
+            return notificationRepository.findForAdmin(userId, pageable);
         }
         Collection<String> classIds = classIdsOf(userId);
         return notificationRepository.findForUser(userId, role, classIds, pageable);
@@ -185,9 +193,10 @@ public class NotificationService {
     public long countUnread(String userId) {
         String role = roleOf(userId);
         if (isAdminLikeRole(role)) {
-            // Admin badge reflects "every tenant notification I haven't
-            // acknowledged" so the supervision channel actually pings.
-            return notificationRepository.countUnreadAllForUser(userId);
+            // Admin badge tracks broadcasts + individually-addressed
+            // notifications — matches {@link #listForUser} so the badge
+            // and inbox stay in lockstep.
+            return notificationRepository.countUnreadForAdmin(userId);
         }
         Collection<String> classIds = classIdsOf(userId);
         return notificationRepository.findUnreadForUser(userId, role, classIds).size();

@@ -31,6 +31,9 @@ import {
   SmsTriggerKey,
   SmsAudience,
   SendHolidayNoticeRequest,
+  SendResultNoticeRequest,
+  ResultNoticeTarget,
+  ConductedExamType,
 } from '../../../core/services/api.service';
 import { SchoolClass } from '../../../core/models';
 import { TenantFeatureService } from '../../../core/services/tenant-feature.service';
@@ -112,6 +115,34 @@ export class SmsViewComponent implements OnInit {
   testPhone = '';
   isSendingTest = false;
 
+  // ── Publish Result SMS form ───────────────────────────────
+  /** Conducted exam types loaded from /api/v1/sms/result-notice/exam-types.
+   *  Each entry carries the (classId, sectionId) pairs the type appears
+   *  in — drives BOTH the exam-type dropdown and the (narrowed) sections
+   *  multi-select. Catalog types with no Exam docs drop out, so the
+   *  picker only shows results the admin can actually publish. */
+  conductedExamTypes: ConductedExamType[] = [];
+  isLoadingExamTypes = false;
+  /** Picked exam type (matches Exam.examType verbatim). Also doubles as
+   *  the friendly exam-name fragment in var2 — the school's exam-type
+   *  labels ("Unit Test 1", "Final Exam") are already SMS-ready, so the
+   *  separate "Exam name" input got dropped. */
+  resultExamTypeId = '';
+  /** Multi-pick value bound to <mat-select multiple>. Stored as
+   *  "classId::sectionId" string keys — same shape as the picker rows
+   *  served by the conducted-exam-types endpoint so toggling between
+   *  exam types just re-filters the available options. */
+  resultPickedKeys: string[] = [];
+  /** Cached section options shown in the multi-select. Recomputed only
+   *  when {@link #resultExamTypeId} changes or one of the data sources
+   *  (conducted exam types, class catalog) finishes loading. The
+   *  template binds to this field rather than calling a method — a
+   *  method call inside *ngFor would return a fresh array reference on
+   *  every change-detection cycle, which causes Angular to re-render
+   *  the dropdown options endlessly and freezes the page. */
+  resultSectionOptions: { key: string; label: string }[] = [];
+  isSendingResult = false;
+
   // ── Today's absent students (manual SMS) ─────────────────
   /** Loaded picker rows. Null = not loaded yet, [] = loaded but empty. */
   absentToday: AbsentTodayDto[] | null = null;
@@ -155,6 +186,9 @@ export class SmsViewComponent implements OnInit {
     this.loadSettings();
     this.loadLogs();
     this.loadTemplates();
+    // Pre-load conducted exam types so the picker dropdowns render with
+    // data on first scroll rather than waiting for a focus event.
+    this.ensureResultCardData();
   }
 
   // ── Templates ─────────────────────────────────────────────
@@ -712,6 +746,231 @@ export class SmsViewComponent implements OnInit {
         this.snackBar.open(
           err?.error?.message || 'Failed to send holiday notice',
           'Close', { duration: 5000 },
+        );
+      },
+    });
+  }
+
+  // ── Publish Result SMS ────────────────────────────────────
+
+  /** Lazy-load both the conducted exam types AND the tenant's class
+   *  catalog. The classes feed the section multi-select's fallback path
+   *  (used when the picked exam type has no sectionId on its Exam docs —
+   *  legacy data, class-wide exams). Cheap when called again — guarded
+   *  by the isLoading flags. */
+  ensureResultCardData(): void {
+    if (this.conductedExamTypes.length === 0 && !this.isLoadingExamTypes) {
+      this.isLoadingExamTypes = true;
+      this.api.getConductedResultExamTypes().subscribe({
+        next: (res) => {
+          this.conductedExamTypes = res?.data ?? [];
+          this.isLoadingExamTypes = false;
+          this.recomputeResultSectionOptions();
+        },
+        error: () => {
+          this.conductedExamTypes = [];
+          this.isLoadingExamTypes = false;
+        },
+      });
+    }
+    if (this.classes.length === 0 && !this.isLoadingClasses) {
+      this.isLoadingClasses = true;
+      this.api.getClasses().subscribe({
+        next: (res) => {
+          this.classes = res?.data ?? [];
+          this.isLoadingClasses = false;
+          // Class catalog feeds the fallback section list — recompute
+          // so a picked-but-unnarrowed exam type gets its options.
+          this.recomputeResultSectionOptions();
+        },
+        error: () => { this.isLoadingClasses = false; },
+      });
+    }
+  }
+
+  /** Rebuild {@link #resultSectionOptions} from the current inputs.
+   *  Called only on real input changes (exam type picked, data loaded)
+   *  — NOT from the template. The template binds to the field directly
+   *  to keep array identity stable across change-detection cycles.
+   *
+   *  Two-tier resolution:
+   *
+   *  1. Preferred: the picked exam type's narrowed (classId, sectionId)
+   *     list — only sections that actually have exams of that type.
+   *
+   *  2. Fallback: every (classId, sectionId) in the tenant's class
+   *     catalog. Kicks in when the picked exam type's Exam docs lack
+   *     classId / sectionId (legacy or class-wide exams) — admin can
+   *     still target whichever section actually sat the exam. */
+  private recomputeResultSectionOptions(): void {
+    if (!this.resultExamTypeId) {
+      this.resultSectionOptions = [];
+      return;
+    }
+    const bucket = this.conductedExamTypes.find(
+      e => e.examType === this.resultExamTypeId,
+    );
+    const narrowed = bucket?.sections ?? [];
+    if (narrowed.length > 0) {
+      this.resultSectionOptions = narrowed.map(s => ({
+        key: `${s.classId}::${s.sectionId}`,
+        label: this.sectionDisplayLabel(s.classLabel, s.sectionLabel),
+      }));
+      return;
+    }
+    // Fallback — flatten every class+section in the tenant.
+    const all: { key: string; label: string }[] = [];
+    for (const c of this.classes) {
+      if (!c.sections) continue;
+      for (const s of c.sections) {
+        all.push({
+          key: `${c.classId}::${s.sectionId}`,
+          label: this.sectionDisplayLabel(c.name, s.name),
+        });
+      }
+    }
+    this.resultSectionOptions = all;
+  }
+
+  /** trackBy for the section multi-select — keeps DOM stable across
+   *  the rare full-array swaps (e.g. classes load after exam types). */
+  trackByResultSectionKey(_index: number, row: { key: string }): string {
+    return row.key;
+  }
+
+  /** "1st A" when both pieces are present; falls back gracefully. */
+  private sectionDisplayLabel(classLabel?: string, sectionLabel?: string): string {
+    const c = (classLabel ?? '').trim();
+    const s = (sectionLabel ?? '').trim();
+    if (c && s) return `${c} - ${s}`;
+    if (c) return c;
+    if (s) return s;
+    return 'Section';
+  }
+
+  /** Wipe section picks when the exam type changes — the previously
+   *  picked keys may not even be valid options under the new type —
+   *  and recompute the cached section list for the new pick. */
+  onResultExamTypeChange(): void {
+    this.resultPickedKeys = [];
+    this.recomputeResultSectionOptions();
+  }
+
+  /** True for the RESULT_COMBINED template — drives the disabled-button
+   *  warning that explains why Send is greyed out. */
+  get resultTemplate(): SmsTemplate | undefined {
+    return this.templates?.RESULT_COMBINED;
+  }
+
+  resultSender(): string {
+    return this.resultTemplate?.senderId || '—';
+  }
+
+  /** Send-button gate — feature on, template ready, trigger ticked in
+   *  tenant settings, exam type picked, at least one section picked. */
+  canSendResult(): boolean {
+    if (!this.features.smsEnabled()) return false;
+    if (this.isSendingResult) return false;
+    if (!this.settings?.resultPublishEnabled) return false;
+    if (!this.isTemplateReady(this.resultTemplate)) return false;
+    if (!this.resultExamTypeId) return false;
+    if (this.resultPickedKeys.length === 0) return false;
+    return true;
+  }
+
+  /** Human-readable summary of the picked sections — used in the confirm
+   *  dialog so the admin sees exactly which sections will get SMS'd.
+   *  Caps at 4 entries with "… +N more" to stay readable. */
+  resultScopeLabel(): string {
+    if (this.resultPickedKeys.length === 0) return 'no sections';
+    const labelByKey = new Map<string, string>();
+    for (const row of this.resultSectionOptions) {
+      labelByKey.set(row.key, row.label);
+    }
+    const parts = this.resultPickedKeys
+      .map(k => labelByKey.get(k) || k)
+      .slice(0, 4);
+    let out = parts.join(' · ');
+    if (this.resultPickedKeys.length > 4) {
+      out += ` · +${this.resultPickedKeys.length - 4} more`;
+    }
+    return out;
+  }
+
+  sendResult(): void {
+    if (!this.canSendResult()) return;
+
+    const data: SmsConfirmData = {
+      icon: 'leaderboard',
+      title: 'Send the result SMS to these sections?',
+      audience: this.resultScopeLabel(),
+      messagePreview:
+        `Each parent gets a body shaped like:\n\n` +
+        `"Dear Parent, <Student> of <Class Section> in ${this.resultExamTypeId} ` +
+        `secured <Eng 80/100, Math 85/100, … Total X/Y (Z%)> in the recent exams. ` +
+        `Detailed marksheet available at Website/Application. - <School>"\n\n` +
+        `Phone numbers come from parent phone on the student record + ` +
+        `linked parent accounts (deduped per phone).`,
+      recipientCount: 1,
+      costPerSms: this.COST_PER_SMS,
+      footnote:
+        'One SMS per student — students with no parent phone on record are ' +
+        'skipped and reported back. Each delivery costs approx ₹0.25.',
+      confirmLabel: 'Send result SMS',
+    };
+
+    this.dialog.open(SmsConfirmDialogComponent, {
+      width: '480px',
+      maxWidth: '95vw',
+      data,
+      autoFocus: 'first-tabbable',
+    }).afterClosed().subscribe((confirmed) => {
+      if (!confirmed) return;
+      this.dispatchResult();
+    });
+  }
+
+  /** Map the picked keys back into the request shape, then dispatch. */
+  private dispatchResult(): void {
+    this.isSendingResult = true;
+
+    const targets: ResultNoticeTarget[] = [];
+    for (const key of this.resultPickedKeys) {
+      const [classId, sectionId] = key.split('::');
+      if (classId && sectionId) targets.push({ classId, sectionId });
+    }
+
+    // examName omitted — backend falls back to examType (already a
+    // friendly label like "Unit Test 1"). One less field for the admin
+    // to retype.
+    const req: SendResultNoticeRequest = {
+      examType: this.resultExamTypeId,
+      targets,
+    };
+    this.api.sendResultNoticeSms(req).subscribe({
+      next: (res) => {
+        this.isSendingResult = false;
+        const d = res?.data;
+        const recipients = d?.recipientCount ?? 0;
+        const students   = d?.studentsCovered ?? 0;
+        const skipped    = d?.skippedNoPhone ?? 0;
+        const sections   = d?.sectionsCovered ?? 0;
+        this.snackBar.open(
+          `Queued ${recipients} SMS for ${students} student(s) across ${sections} section(s)` +
+          (skipped > 0 ? ` · ${skipped} had no parent phone` : ''),
+          'OK', { duration: 7000 },
+        );
+        // Reset picks so a stray double-click can't re-send. Exam type
+        // stays — admins often broadcast multiple sections in a row.
+        this.resultPickedKeys = [];
+        this.loadLogs();
+        this.loadSettings();
+      },
+      error: (err) => {
+        this.isSendingResult = false;
+        this.snackBar.open(
+          err?.error?.message || 'Failed to send result SMS',
+          'Close', { duration: 6000 },
         );
       },
     });

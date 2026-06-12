@@ -179,6 +179,57 @@ export interface SendEventNoticeResponse {
   queuedAt: string;
 }
 
+/** One (classId, sectionId) pair in the multi-target picker on the
+ *  "Publish Result SMS" card. The send fans out per-student SMS across
+ *  every section in this list. */
+export interface ResultNoticeTarget {
+  classId: string;
+  sectionId: string;
+}
+
+/** One row inside a conducted-exam-type bucket. */
+export interface ConductedClassSection {
+  classId: string;
+  sectionId: string;
+  classLabel?: string;
+  sectionLabel?: string;
+}
+
+/** Picker shape for GET /api/v1/sms/result-notice/exam-types — every
+ *  distinct Exam.examType in the tenant, grouped with the (classId,
+ *  sectionId) pairs it actually appears in. Catalog exam types with no
+ *  Exam docs (never conducted) don't show up here. */
+export interface ConductedExamType {
+  examType: string;
+  sections: ConductedClassSection[];
+}
+
+/** Body for POST /api/v1/sms/result-notice.
+ *  Unlike Holiday / Event notices, RESULT SMS is per-student: each
+ *  parent gets THEIR child's name + result summary slotted into the
+ *  school's RESULT_COMBINED DLT template (var1=student name,
+ *  var2="<class> <section> in <exam>", var3=per-subject + total).
+ *  Phone numbers come from BOTH Student.parentPhone AND linked
+ *  Parent User accounts — phone-level dedupe at the SMS layer.
+ *
+ *  {@code examName} is optional — when omitted, backend uses
+ *  {@code examType} (already a friendly label like "Unit Test 1"). */
+export interface SendResultNoticeRequest {
+  examType: string;
+  examName?: string;
+  academicYearId?: string;
+  targets: ResultNoticeTarget[];
+}
+
+/** Ack from POST /sms/result-notice. */
+export interface SendResultNoticeResponse {
+  recipientCount: number;
+  studentsCovered: number;
+  skippedNoPhone: number;
+  sectionsCovered: number;
+  queuedAt: string;
+}
+
 /** One value of the audience picker. Multi-select — the broadcast goes
  *  to the UNION of every picked audience, deduped by phone downstream. */
 export type SmsBroadcastAudience = 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' | 'CLASS';
@@ -1044,6 +1095,27 @@ export class ApiService {
   sendEventNoticeSms(req: SendEventNoticeRequest): Observable<ApiResponse<SendEventNoticeResponse>> {
     return this.http.post<ApiResponse<SendEventNoticeResponse>>(
       `${this.API}/sms/event-notice`, req);
+  }
+
+  /** Fan a per-student RESULT_COMBINED SMS out across every (classId,
+   *  sectionId) pair in the request. Each parent gets a personalised
+   *  body (var1=child name, var2="<class> <section> in <exam>",
+   *  var3=per-subject + total). Phone numbers come from BOTH
+   *  Student.parentPhone and linked Parent User accounts, deduped by
+   *  phone server-side. */
+  sendResultNoticeSms(req: SendResultNoticeRequest): Observable<ApiResponse<SendResultNoticeResponse>> {
+    return this.http.post<ApiResponse<SendResultNoticeResponse>>(
+      `${this.API}/sms/result-notice`, req);
+  }
+
+  /** Picker for the "Publish Result SMS" card — only exam types that
+   *  have at least one Exam document in the tenant (catalog types that
+   *  were never used drop out), each grouped with the (classId,
+   *  sectionId) pairs they appear in so the section dropdown can be
+   *  narrowed by the picked exam type. */
+  getConductedResultExamTypes(): Observable<ApiResponse<ConductedExamType[]>> {
+    return this.http.get<ApiResponse<ConductedExamType[]>>(
+      `${this.API}/sms/result-notice/exam-types`);
   }
 
   // ── SMS Notifications (super admin — full control) ────────────────────
