@@ -74,6 +74,7 @@ export class NotificationsPageComponent implements OnInit {
     { value: 'ANNOUNCEMENT', label: 'Announcement', icon: 'campaign'      },
     { value: 'EXAM',         label: 'Exam',         icon: 'assignment'    },
     { value: 'ATTENDANCE',   label: 'Attendance',   icon: 'event_note'    },
+    { value: 'HOMEWORK',     label: 'Home Work',    icon: 'menu_book'     },
     { value: 'FEE',          label: 'Fee',          icon: 'payments'      },
     { value: 'GENERAL',      label: 'General',      icon: 'info'          },
     { value: 'ALERT',        label: 'Alert',        icon: 'warning'       },
@@ -540,8 +541,37 @@ export class NotificationsPageComponent implements OnInit {
     this.channelEmail = false;
   }
 
+  // ── Send-now confirmation popup ───────────────────────────────────
+  // Open a recap dialog before firing — avoids accidental school-wide
+  // broadcasts and gives the sender one last look at title + body +
+  // audience before commit.
+  confirmDialogOpen = false;
+
+  /** Bound to the "Send now" button. Validates first, then opens the
+   *  confirmation popup. Actual dispatch happens in {@link sendNow}
+   *  when the user clicks Confirm in the popup. */
+  openSendConfirm(): void {
+    if (!this.canSend) return;
+    this.confirmDialogOpen = true;
+  }
+
+  cancelSendConfirm(): void {
+    this.confirmDialogOpen = false;
+  }
+
+  /** Friendly label for the picked type — used in the popup header. */
+  get typeLabel(): string {
+    return this.typeOptions.find(t => t.value === this.type)?.label || this.type;
+  }
+
+  /** Friendly label for the picked priority — used in the popup header. */
+  get priorityLabel(): string {
+    return this.priorityOptions.find(p => p.value === this.priority)?.label || this.priority;
+  }
+
   sendNow(): void {
     if (!this.canSend) return;
+    this.confirmDialogOpen = false;
     this.isSending = true;
 
     const payload: any = {

@@ -21,7 +21,7 @@ public class Notification {
     private Instant sentAt;
     @CreatedDate private Instant createdAt;
 
-    public enum NotificationType { ANNOUNCEMENT, EXAM, ATTENDANCE, FEE, GENERAL, ALERT }
+    public enum NotificationType { ANNOUNCEMENT, EXAM, ATTENDANCE, FEE, GENERAL, ALERT, HOMEWORK }
     public enum Channel { IN_APP, EMAIL, BOTH }
     public enum RecipientType { ALL, ROLE, CLASS, INDIVIDUAL }
 

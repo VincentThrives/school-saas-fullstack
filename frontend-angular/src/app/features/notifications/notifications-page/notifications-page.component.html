@@ -227,13 +227,48 @@
             <button mat-stroked-button type="button" (click)="clearForm()" [disabled]="isSending">
               <mat-icon>refresh</mat-icon> Clear
             </button>
-            <button mat-flat-button color="primary" [disabled]="!canSend || isSending" (click)="sendNow()">
+            <button mat-flat-button color="primary" [disabled]="!canSend || isSending" (click)="openSendConfirm()">
               <mat-spinner diameter="18" *ngIf="isSending"></mat-spinner>
               <mat-icon *ngIf="!isSending">send</mat-icon>
               {{ isSending ? 'Sending…' : 'Send now' }}
             </button>
           </div>
         </mat-card>
+      </div>
+
+      <!-- ── Send-now confirmation dialog ───────────────────────────
+           Recap of title + body + audience + channels so the sender
+           has one last look before a school-wide broadcast goes out. -->
+      <div class="send-confirm-overlay" *ngIf="confirmDialogOpen" (click)="cancelSendConfirm()">
+        <div class="send-confirm-dialog" (click)="$event.stopPropagation()">
+          <div class="send-confirm-dialog__head">
+            <mat-icon class="send-confirm-dialog__icon">send</mat-icon>
+            <h3>Send this notification?</h3>
+          </div>
+
+          <div class="send-confirm-dialog__rows">
+            <div class="kv"><span class="k">Title</span><span class="v">{{ title }}</span></div>
+            <div class="kv kv--body"><span class="k">Body</span><span class="v">{{ body }}</span></div>
+            <div class="kv"><span class="k">Category</span><span class="v">{{ typeLabel }}</span></div>
+            <div class="kv"><span class="k">Priority</span><span class="v">{{ priorityLabel }}</span></div>
+            <div class="kv"><span class="k">Audience</span><span class="v">{{ audienceLabel }}</span></div>
+            <div class="kv"><span class="k">Channels</span><span class="v">{{ channelLabel }}</span></div>
+          </div>
+
+          <p class="send-confirm-dialog__note">
+            <mat-icon>info</mat-icon>
+            Once sent, recipients can't be un-notified. Double-check the audience and body above.
+          </p>
+
+          <div class="send-confirm-dialog__actions">
+            <button mat-button (click)="cancelSendConfirm()" [disabled]="isSending">Cancel</button>
+            <button mat-flat-button color="primary" (click)="sendNow()" [disabled]="isSending">
+              <mat-spinner diameter="16" *ngIf="isSending"></mat-spinner>
+              <mat-icon *ngIf="!isSending">send</mat-icon>
+              {{ isSending ? 'Sending…' : 'Confirm & Send' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Templates tab -->
