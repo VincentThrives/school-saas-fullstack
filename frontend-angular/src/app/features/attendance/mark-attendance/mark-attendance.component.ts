@@ -219,6 +219,15 @@ export class MarkAttendanceComponent implements OnInit {
     return this.myClassTeacherSections.has(`${classId}::${sectionId}`);
   }
 
+  /** True when a TEACHER is logged in but has no CLASS_TEACHER assignment
+   *  at all — drives the "you're not a class teacher of anything" empty
+   *  state on the page so the dropdowns don't sit there looking interactive. */
+  get isTeacherWithNoAssignments(): boolean {
+    return this.isTeacherMode
+        && !!this.selectedAcademicYearId
+        && this.myClassTeacherSections.size === 0;
+  }
+
   onClassChange(): void {
     const selectedClass = this.classes.find((c) => c.classId === this.selectedClassId);
     let sections = (selectedClass?.sections || []) as any[];
