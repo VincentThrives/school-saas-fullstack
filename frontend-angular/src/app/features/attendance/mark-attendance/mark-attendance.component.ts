@@ -87,11 +87,14 @@ export class MarkAttendanceComponent implements OnInit {
    *  assignments yet (in which case they see no sections). */
   private myClassTeacherSections = new Set<string>();
 
+  // LATE and HALF_DAY are hidden in the UI per the school's request —
+  // commented (not deleted) so they're easy to restore. Backend still
+  // accepts those statuses; this is purely a frontend trim.
   readonly statusOptions = [
     { value: 'PRESENT', label: 'Present', icon: 'check_circle', color: '#4caf50' },
     { value: 'ABSENT', label: 'Absent', icon: 'cancel', color: '#f44336' },
-    { value: 'LATE', label: 'Late', icon: 'schedule', color: '#ff9800' },
-    { value: 'HALF_DAY', label: 'Half Day', icon: 'hourglass_bottom', color: '#2196f3' },
+    // { value: 'LATE', label: 'Late', icon: 'schedule', color: '#ff9800' },
+    // { value: 'HALF_DAY', label: 'Half Day', icon: 'hourglass_bottom', color: '#2196f3' },
   ];
 
   constructor(

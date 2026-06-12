@@ -91,6 +91,11 @@
               <mat-icon>cancel</mat-icon>
               Absent: {{ summary.absent }}
             </mat-chip>
+            <!--
+            ── Late / Half Day chips hidden ────────────────────────────
+            School asked to keep attendance Present/Absent only for now.
+            Backend still tracks LATE / HALF_DAY; uncomment to bring back.
+
             <mat-chip class="chip-late">
               <mat-icon>schedule</mat-icon>
               Late: {{ summary.late }}
@@ -99,6 +104,7 @@
               <mat-icon>hourglass_bottom</mat-icon>
               Half Day: {{ summary.halfDay }}
             </mat-chip>
+            -->
           </mat-chip-set>
         </div>
       </div>
