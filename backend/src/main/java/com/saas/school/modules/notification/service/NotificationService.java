@@ -95,14 +95,14 @@ public class NotificationService {
     private List<String> expandRecipientsForPush(Notification n) {
         Set<String> ids = new LinkedHashSet<>();
         Notification.RecipientType type = n.getRecipientType();
+        boolean alreadyEveryone = false;
+
         // No type set → fall back to whatever recipientIds the caller supplied.
         if (type == null || type == Notification.RecipientType.INDIVIDUAL) {
             if (n.getRecipientIds() != null) {
                 n.getRecipientIds().stream().filter(Objects::nonNull).forEach(ids::add);
             }
-            return new ArrayList<>(ids);
-        }
-        if (type == Notification.RecipientType.ROLE) {
+        } else if (type == Notification.RecipientType.ROLE) {
             String roleStr = n.getRecipientRole();
             if (roleStr != null && !roleStr.isBlank()) {
                 try {
@@ -114,9 +114,7 @@ public class NotificationService {
                             n.getNotificationId(), roleStr);
                 }
             }
-            return new ArrayList<>(ids);
-        }
-        if (type == Notification.RecipientType.CLASS) {
+        } else if (type == Notification.RecipientType.CLASS) {
             String classId = n.getRecipientClassId();
             if (classId != null && !classId.isBlank()) {
                 studentRepository.findAllByClassIdAndDeletedAtIsNull(classId).stream()
@@ -124,20 +122,46 @@ public class NotificationService {
                 teacherRepository.findAllByAnyClassId(classId).stream()
                         .map(Teacher::getUserId).filter(Objects::nonNull).forEach(ids::add);
             }
-            return new ArrayList<>(ids);
-        }
-        if (type == Notification.RecipientType.ALL) {
+        } else if (type == Notification.RecipientType.ALL) {
             userRepository.findAllByDeletedAtIsNull().stream()
                     .map(User::getUserId).filter(Objects::nonNull).forEach(ids::add);
-            return new ArrayList<>(ids);
+            alreadyEveryone = true;
+        }
+
+        // SCHOOL_ADMIN / PRINCIPAL also get the push for every audience-
+        // narrowed notification so the supervision channel buzzes even
+        // for a single-class homework note. Skip when audience was ALL
+        // (admins are already in there — no point re-adding).
+        if (!alreadyEveryone) {
+            addAdminAndPrincipalUserIds(ids);
         }
         return new ArrayList<>(ids);
     }
 
-    /** List notifications visible to the logged-in user (all four targeting modes). */
+    /** Append SCHOOL_ADMIN + PRINCIPAL user ids to the set in place.
+     *  Used so the supervision channel sees every notification regardless
+     *  of how narrow the audience was. */
+    private void addAdminAndPrincipalUserIds(Set<String> ids) {
+        try {
+            userRepository.findAllByRoleAndDeletedAtIsNull(UserRole.SCHOOL_ADMIN).stream()
+                    .map(User::getUserId).filter(Objects::nonNull).forEach(ids::add);
+            userRepository.findAllByRoleAndDeletedAtIsNull(UserRole.PRINCIPAL).stream()
+                    .map(User::getUserId).filter(Objects::nonNull).forEach(ids::add);
+        } catch (Exception e) {
+            // Don't break a regular send just because admin fan-out failed.
+            log.warn("Admin / principal push fan-out failed: {}", e.getMessage());
+        }
+    }
+
+    /** List notifications visible to the logged-in user (all four targeting modes).
+     *  SCHOOL_ADMIN / PRINCIPAL get the full tenant feed — anything sent
+     *  by anyone, to any audience — so they can supervise the channel. */
     public Page<Notification> listForUser(String userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("sentAt").descending());
         String role = roleOf(userId);
+        if (isAdminLikeRole(role)) {
+            return notificationRepository.findAllByOrderBySentAtDesc(pageable);
+        }
         Collection<String> classIds = classIdsOf(userId);
         return notificationRepository.findForUser(userId, role, classIds, pageable);
     }
@@ -160,8 +184,18 @@ public class NotificationService {
 
     public long countUnread(String userId) {
         String role = roleOf(userId);
+        if (isAdminLikeRole(role)) {
+            // Admin badge reflects "every tenant notification I haven't
+            // acknowledged" so the supervision channel actually pings.
+            return notificationRepository.countUnreadAllForUser(userId);
+        }
         Collection<String> classIds = classIdsOf(userId);
         return notificationRepository.findUnreadForUser(userId, role, classIds).size();
+    }
+
+    /** True for tenant-scoped supervisor roles that see every notification. */
+    private boolean isAdminLikeRole(String role) {
+        return "SCHOOL_ADMIN".equals(role) || "PRINCIPAL".equals(role);
     }
 
     // ── helpers ────────────────────────────────────────────────

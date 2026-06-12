@@ -41,5 +41,22 @@ public interface NotificationRepository extends MongoRepository<Notification, St
 
     /** Notifications the admin/teacher themselves sent — used by the History tab. */
     Page<Notification> findByCreatedByOrderBySentAtDesc(String createdBy, Pageable pageable);
+
+    /**
+     * Tenant-wide notifications, newest first. School admins / principals
+     * see EVERY notification in their tenant (regardless of audience) so
+     * they're aware of anything sent under their watch — class-scoped
+     * homework reminders, role-scoped announcements, individual nudges.
+     */
+    Page<Notification> findAllByOrderBySentAtDesc(Pageable pageable);
+
+    /**
+     * Count notifications the given user hasn't marked read yet — used by
+     * the admin/principal unread badge so it reflects "all notifications
+     * in the tenant I haven't acknowledged" rather than "ones that targeted
+     * me directly".
+     */
+    @Query(value = "{ 'readBy': { '$nin': [?0] } }", count = true)
+    long countUnreadAllForUser(String userId);
 }
 
