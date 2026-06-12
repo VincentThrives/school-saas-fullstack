@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
@@ -37,6 +38,7 @@ interface StudentAttendance {
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     MatCardModule,
     MatFormFieldModule,
     MatSelectModule,

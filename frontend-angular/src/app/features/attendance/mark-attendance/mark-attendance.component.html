@@ -224,14 +224,23 @@
     <span>Please select an academic year first.</span>
   </mat-card>
   <!-- Teacher with no class-teacher assignment in this year — distinct
-       wording so they know it's an assignment problem, not a UI one. -->
-  <mat-card class="info-alert" *ngIf="isTeacherWithNoAssignments">
+       wording so they know it's an assignment problem, not a UI one.
+       Also offers a quick-link to Attendance Report so the page isn't a
+       dead-end for non-class-teachers (they can still review attendance
+       their colleagues have marked). -->
+  <mat-card class="info-alert info-alert--actionable" *ngIf="isTeacherWithNoAssignments">
     <mat-icon>info</mat-icon>
-    <span>
-      You're not assigned as a class teacher of any section yet, so there's
-      no class to mark attendance for. Ask your school admin to set the
-      class-teacher assignment in Teacher Assignment.
-    </span>
+    <div class="info-alert__body">
+      <span>
+        You're not assigned as a class teacher of any section yet, so there's
+        no class to mark attendance for. Ask your school admin to set the
+        class-teacher assignment in Teacher Assignment.
+      </span>
+      <a mat-flat-button color="primary" routerLink="/attendance/report" class="info-alert__cta">
+        <mat-icon>assessment</mat-icon>
+        View Attendance Report
+      </a>
+    </div>
   </mat-card>
   <mat-card class="info-alert"
             *ngIf="selectedAcademicYearId && !selectedClassId && !isTeacherWithNoAssignments">

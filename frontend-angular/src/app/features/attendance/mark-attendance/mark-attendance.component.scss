@@ -261,6 +261,24 @@ $gold-light: rgba(212, 168, 67, 0.08);
   }
 }
 
+// Variant used when the info-alert carries a CTA — stacks text + button
+// instead of squashing them on a single line, and aligns the icon to the
+// top so longer copy reads cleanly.
+.info-alert--actionable {
+  align-items: flex-start;
+
+  .info-alert__body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+  }
+
+  .info-alert__cta {
+    align-self: flex-start;
+  }
+}
+
 // SMS pre-save banner — shown above the Save button when there are
 // absentees AND the tenant has SMS+absence-alert enabled. Acts as a
 // "you're about to fire SMS" warning so the teacher isn't surprised.
