@@ -328,12 +328,20 @@ public class StudentImportService {
                 .orElseThrow(() -> new BusinessException("Academic year not found."));
 
         // Build name → SchoolClass index (case-insensitive) for the chosen year.
+        // Each class gets indexed under MULTIPLE keys so the Excel cell can use
+        // any reasonable spelling:
+        //   - "10th"  → class doc                (exact saved name)
+        //   - "10"    → class doc                (bare number form)
+        //   - "10TH"  → class doc                (uppercase, via lowercase normalisation)
+        //   - "LKG"   → class doc                (pre-primary stays as-is)
+        // This matters because the class form auto-formats "10" → "10th" on
+        // save, but most schools' Excel templates still use plain numbers in
+        // the Class column. Without bidirectional indexing the import errors
+        // with "Class '10' not found" even though the class exists.
         List<SchoolClass> classesInYear = schoolClassRepository.findByAcademicYearId(academicYearId);
         Map<String, SchoolClass> classByLowerName = new HashMap<>();
         for (SchoolClass cls : classesInYear) {
-            if (cls.getName() != null) {
-                classByLowerName.put(cls.getName().trim().toLowerCase(Locale.ROOT), cls);
-            }
+            indexClassUnderAllKeys(cls, classByLowerName);
         }
 
         StudentImportErrorReport report = new StudentImportErrorReport();
@@ -771,6 +779,63 @@ public class StudentImportService {
             if (v != null && !v.isBlank()) return false;
         }
         return true;
+    }
+
+    /**
+     * Pre-compiled matcher for ordinal-suffixed class names — "10th", "1st",
+     * "23rd", etc. Used by {@link #indexClassUnderAllKeys} to peel the suffix
+     * off so a class saved as "10th" also responds to lookups by "10".
+     */
+    private static final java.util.regex.Pattern ORDINAL_CLASS_PATTERN =
+            java.util.regex.Pattern.compile("^(\\d+)(?:st|nd|rd|th)$");
+
+    /**
+     * Register the given class under every reasonable spelling so the bulk
+     * importer's lookup tolerates the format mismatch that happens when:
+     *
+     * <ul>
+     *   <li>The class form auto-formats "10" → "10th" on save (which it does).</li>
+     *   <li>The school's Excel template still uses plain "10" in the Class column.</li>
+     *   <li>Or vice versa — saved as "10", Excel has "10th".</li>
+     * </ul>
+     *
+     * <p>For a class saved as "10th" we index three keys: {@code "10th"},
+     * {@code "10"}. For "LKG" / "UKG" / "Nursery" / any non-numeric name we
+     * just index the lowercase form. Excel uppercase variants ("10TH" / "lkg")
+     * resolve via {@code .toLowerCase(Locale.ROOT)} on the lookup side.</p>
+     */
+    private static void indexClassUnderAllKeys(SchoolClass cls,
+                                               java.util.Map<String, SchoolClass> dest) {
+        if (cls == null || cls.getName() == null) return;
+        String trimmed = cls.getName().trim();
+        if (trimmed.isEmpty()) return;
+        String lower = trimmed.toLowerCase(java.util.Locale.ROOT);
+        dest.put(lower, cls);
+
+        // Bidirectional ordinal mapping.
+        java.util.regex.Matcher m = ORDINAL_CLASS_PATTERN.matcher(lower);
+        if (m.matches()) {
+            // Saved as "10th" → also accept "10".
+            dest.put(m.group(1), cls);
+        } else if (lower.matches("\\d+")) {
+            // Saved as "10" → also accept "10th". Handles legacy data that
+            // pre-dates the auto-format-on-save behaviour.
+            int num = Integer.parseInt(lower);
+            dest.put(num + ordinalSuffixFor(num), cls);
+        }
+    }
+
+    /** "th"/"st"/"nd"/"rd" for an integer — same rule the class form uses. */
+    private static String ordinalSuffixFor(int n) {
+        int mod10 = n % 10;
+        int mod100 = n % 100;
+        if (mod100 >= 11 && mod100 <= 13) return "th";
+        return switch (mod10) {
+            case 1 -> "st";
+            case 2 -> "nd";
+            case 3 -> "rd";
+            default -> "th";
+        };
     }
 
     /**
