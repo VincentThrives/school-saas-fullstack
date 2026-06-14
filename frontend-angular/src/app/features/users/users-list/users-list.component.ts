@@ -57,6 +57,16 @@ export class UsersListComponent implements OnInit {
 
   userRoles = Object.values(UserRole);
 
+  /**
+   * Debounce timer for live search. Search hits the backend (can't be
+   * client-side — total users grows with students + staff), so we wait
+   * 300 ms after the last keystroke before round-tripping. setTimeout
+   * over an RxJS Subject for the same reason as students-list: one
+   * input, no need for distinctUntilChanged plumbing.
+   */
+  private searchDebounceTimer?: any;
+  private readonly SEARCH_DEBOUNCE_MS = 300;
+
   deleteDialogOpen = false;
   selectedUser: User | null = null;
 
@@ -109,6 +119,18 @@ export class UsersListComponent implements OnInit {
   onSearch(): void {
     this.pageIndex = 0;
     this.loadUsers();
+  }
+
+  /**
+   * Debounced live-search hook — fires per keystroke via ngModelChange
+   * but only round-trips after typing pauses. See SEARCH_DEBOUNCE_MS.
+   */
+  onSearchChange(): void {
+    if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+    this.searchDebounceTimer = setTimeout(() => {
+      this.pageIndex = 0;
+      this.loadUsers();
+    }, this.SEARCH_DEBOUNCE_MS);
   }
 
   onFilterChange(): void {

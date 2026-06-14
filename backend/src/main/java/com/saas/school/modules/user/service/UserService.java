@@ -19,6 +19,9 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,6 +38,7 @@ public class UserService {
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     @Autowired private UserRepository userRepository;
+    @Autowired private MongoTemplate mongoTemplate;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private AuditService auditService;
     /** Reads from the central DB so tenant admins see the same row the
@@ -44,34 +48,57 @@ public class UserService {
 
     // ── List / Search ──────────────────────────────────────────────
 
+    /**
+     * Paginated list with composable filters — every filter is optional and
+     * stacks as an AND. Replaces the earlier if/else cascade where the
+     * "search" branch silently bypassed the role + status filters, so
+     * picking a Role dropdown after typing a search query appeared to do
+     * nothing (the search-only repository method ran, ignoring the role).
+     *
+     * <p>Search is tokenised on whitespace: each token must match SOME
+     * searchable field (firstName / lastName / email / phone) — case-
+     * insensitive substring. AND across tokens, OR across fields per
+     * token. So "John D" matches a user whose firstName is "John" and
+     * lastName starts with "D"; "kalika k" matches firstName "kalika"
+     * + lastName starting with "k".</p>
+     */
     public PageResponse<UserDto> listUsers(int page, int size, UserRole role,
                                             String status, String search) {
-        PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<User> result;
+        Criteria criteria = Criteria.where("deletedAt").is(null);
 
-        boolean hasStatus = status != null && !status.isBlank();
-        boolean hasRole = role != null;
-        Boolean active = null;
-        if (hasStatus) {
-            // Accept "active"/"inactive" in any case
-            active = "active".equalsIgnoreCase(status);
+        if (role != null) {
+            criteria.and("role").is(role);
         }
-
+        if (status != null && !status.isBlank()) {
+            // "active" / "inactive" — case-insensitive.
+            boolean active = "active".equalsIgnoreCase(status);
+            criteria.and("isActive").is(active);
+        }
         if (search != null && !search.isBlank()) {
-            result = userRepository.searchByName(search, pageable);
-        } else if (hasRole && hasStatus) {
-            result = userRepository.findByRoleAndIsActive(role, active, pageable);
-        } else if (hasRole) {
-            result = userRepository.findByRoleAndDeletedAtIsNull(role, pageable);
-        } else if (hasStatus) {
-            // Status-only filter now works on its own (previously silently ignored).
-            result = userRepository.findByIsActive(active, pageable);
-        } else {
-            result = userRepository.findByDeletedAtIsNull(pageable);
+            String[] tokens = search.trim().split("\\s+");
+            java.util.List<Criteria> tokenCriterias = new java.util.ArrayList<>(tokens.length);
+            for (String token : tokens) {
+                if (token.isEmpty()) continue;
+                String regex = java.util.regex.Pattern.quote(token);
+                tokenCriterias.add(new Criteria().orOperator(
+                        Criteria.where("firstName").regex(regex, "i"),
+                        Criteria.where("lastName").regex(regex, "i"),
+                        Criteria.where("email").regex(regex, "i"),
+                        Criteria.where("phone").regex(regex, "i")
+                ));
+            }
+            if (!tokenCriterias.isEmpty()) {
+                criteria.andOperator(tokenCriterias.toArray(new Criteria[0]));
+            }
         }
 
-        List<UserDto> dtos = result.getContent().stream().map(this::toDto).toList();
-        return PageResponse.of(dtos, result.getTotalElements(), page, size);
+        Query query = new Query(criteria).with(Sort.by("createdAt").descending());
+        long total = mongoTemplate.count(query, User.class);
+        query.skip((long) page * size).limit(size);
+        List<User> rows = mongoTemplate.find(query, User.class);
+
+        List<UserDto> dtos = rows.stream().map(this::toDto).toList();
+        return PageResponse.of(dtos, total, page, size);
     }
 
     public UserDto getUser(String userId) {
