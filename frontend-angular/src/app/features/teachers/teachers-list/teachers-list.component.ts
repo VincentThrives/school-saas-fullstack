@@ -1,9 +1,9 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
-import { MatPaginatorModule, MatPaginator, PageEvent } from '@angular/material/paginator';
+import { MatPaginatorModule, MatPaginator } from '@angular/material/paginator';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -38,12 +38,10 @@ import { Teacher } from '../../../core/models';
   templateUrl: './teachers-list.component.html',
   styleUrl: './teachers-list.component.scss',
 })
-export class TeachersListComponent implements OnInit {
+export class TeachersListComponent implements OnInit, AfterViewInit {
   displayedColumns: string[] = ['name', 'employeeId', 'role', 'qualification', 'subjects', 'actions'];
   dataSource = new MatTableDataSource<Teacher>([]);
-  totalElements = 0;
   pageSize = 10;
-  pageIndex = 0;
   isLoading = false;
 
   searchQuery = '';
@@ -60,16 +58,45 @@ export class TeachersListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Custom filter so the search box hits every field a school admin
+    // might type: first/last name, full name, employee ID, email, phone.
+    // MatTableDataSource's default filter only checks the toString of
+    // the row, which for an object is "[object Object]" — i.e. matches
+    // nothing useful.
+    this.dataSource.filterPredicate = (t: Teacher, query: string): boolean => {
+      if (!query) return true;
+      const q = query.trim().toLowerCase();
+      const full = `${t.firstName || ''} ${t.lastName || ''}`.trim();
+      const haystack = [t.firstName, t.lastName, full, t.employeeId, t.email, t.phone]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    };
     this.loadTeachers();
+  }
+
+  ngAfterViewInit(): void {
+    // Hand off pagination to MatTableDataSource so it owns page-size +
+    // filter together. Without this the search would clear the current
+    // page slice instead of filtering the full dataset.
+    this.dataSource.paginator = this.paginator;
   }
 
   loadTeachers(): void {
     this.isLoading = true;
-    this.apiService.getTeachers(this.pageIndex, this.pageSize).subscribe({
+    // Pull every employee in one shot. Schools cap at ~40-100 staff in
+    // practice; 500 is the safe upper bound for the long tail. Lets the
+    // browser handle search + pagination over the full set instead of
+    // re-querying on every keystroke.
+    this.apiService.getTeachers(0, 500).subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.dataSource.data = response.data.content || [];
-          this.totalElements = response.data.totalElements || 0;
+          // Re-apply any active search after a refresh so the user
+          // doesn't see all rows reappear when they hit Refresh while
+          // a query is in the box.
+          this.applySearchFilter();
         }
         this.isLoading = false;
       },
@@ -79,15 +106,16 @@ export class TeachersListComponent implements OnInit {
     });
   }
 
-  onPageChange(event: PageEvent): void {
-    this.pageIndex = event.pageIndex;
-    this.pageSize = event.pageSize;
-    this.loadTeachers();
+  /** Live-search hook — fires on every keystroke via ngModelChange. */
+  onSearchChange(): void {
+    this.applySearchFilter();
   }
 
-  onSearch(): void {
-    this.pageIndex = 0;
-    this.loadTeachers();
+  private applySearchFilter(): void {
+    this.dataSource.filter = (this.searchQuery || '').trim().toLowerCase();
+    if (this.dataSource.paginator) {
+      this.dataSource.paginator.firstPage();
+    }
   }
 
   navigateToAddTeacher(): void {

@@ -182,8 +182,13 @@ export class TeacherFormComponent implements OnInit {
     const formData = this.employeeForm.value;
 
     const payload: any = {
-      firstName: formData.firstName,
-      lastName: formData.lastName,
+      // Normalise to Title Case on save so "kan" -> "Kan", "MAITHRI shree"
+      // -> "Maithri Shree". Stored consistently regardless of how the
+      // admin happened to type it. Multi-word names are handled per word
+      // so compound first names ("Mary Ann") and double surnames
+      // ("Reddy Gowda") render correctly.
+      firstName: this.toTitleCase(formData.firstName),
+      lastName: this.toTitleCase(formData.lastName),
       email: formData.email || null,
       phone: formData.phone || null,
       employeeId: formData.employeeId,
@@ -243,5 +248,31 @@ export class TeacherFormComponent implements OnInit {
 
   cancel(): void {
     this.router.navigate(['/employees']);
+  }
+
+  /**
+   * Title-case a name field — first letter of each whitespace-delimited
+   * word uppercased, rest lowercased.
+   *
+   * <p>Why on save (not on blur): mutating the input mid-typing surprises
+   * users typing "MC" deliberately, and a school admin pasting a name
+   * shouldn't watch it change shape. Format at submit and the form value
+   * stays exactly as typed until commit.</p>
+   *
+   * <p>Edge cases that stay simple by design — we don't try to preserve
+   * "McDonald" / "O'Brien" / "van der Berg" specially. Indian school
+   * staff names are overwhelmingly space-separated, no apostrophes, no
+   * particles, so the naive transform is correct for ~99% of real input.
+   * Admins can manually edit the rare exception.</p>
+   */
+  private toTitleCase(value: any): string {
+    if (value == null) return '';
+    const trimmed = String(value).trim();
+    if (!trimmed) return '';
+    return trimmed
+      .toLowerCase()
+      .split(/\s+/)
+      .map(w => w.length ? w.charAt(0).toUpperCase() + w.slice(1) : w)
+      .join(' ');
   }
 }

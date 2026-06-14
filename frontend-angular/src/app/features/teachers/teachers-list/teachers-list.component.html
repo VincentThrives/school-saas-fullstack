@@ -12,7 +12,10 @@
   <div class="filters-card">
     <mat-form-field appearance="outline" class="search-field">
       <mat-label>Search employees</mat-label>
-      <input matInput [(ngModel)]="searchQuery" (keyup.enter)="onSearch()" placeholder="Search by name or employee ID...">
+      <input matInput
+             [(ngModel)]="searchQuery"
+             (ngModelChange)="onSearchChange()"
+             placeholder="Search by name, employee ID, email or phone...">
       <mat-icon matPrefix>search</mat-icon>
     </mat-form-field>
 
@@ -98,12 +101,13 @@
       </tr>
     </table>
 
+    <!-- Paginator binds to dataSource via dataSource.paginator (see
+         ngAfterViewInit). MatTableDataSource derives [length] from the
+         filtered set, so search + page-size work together without any
+         (page) handler wiring. -->
     <mat-paginator
-      [length]="totalElements"
       [pageSize]="pageSize"
-      [pageIndex]="pageIndex"
-      [pageSizeOptions]="[5, 10, 25, 50]"
-      (page)="onPageChange($event)"
+      [pageSizeOptions]="[5, 10, 25, 50, 100]"
       showFirstLastButtons>
     </mat-paginator>
   </div>
