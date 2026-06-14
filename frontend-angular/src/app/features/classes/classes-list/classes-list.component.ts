@@ -13,6 +13,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { sortClassesByName } from '../../../shared/utils/class-sort';
 import { ApiService } from '../../../core/services/api.service';
 import { SchoolClass, AcademicYear, Teacher } from '../../../core/models';
 
@@ -144,7 +145,13 @@ export class ClassesListComponent implements OnInit {
     this.apiService.getClasses(yearFilter).subscribe({
       next: (response) => {
         if (response.success && response.data) {
-          this.allClasses = Array.isArray(response.data) ? response.data : [];
+          // Sort by canonical school order so the list reads
+          // Nursery → LKG → UKG → 1st → 2nd → … → 12th, regardless of
+          // the order rows were inserted in Mongo. Without this LKG/UKG
+          // surface at the bottom after 12th.
+          this.allClasses = sortClassesByName(
+            Array.isArray(response.data) ? [...response.data] : []
+          );
 
           // If the picked class isn't in the new year-scoped list, clear it.
           if (this.selectedClassId && !this.allClasses.some(c => c.classId === this.selectedClassId)) {

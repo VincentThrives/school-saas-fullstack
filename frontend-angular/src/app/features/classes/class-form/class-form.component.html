@@ -21,9 +21,17 @@
         <div class="form-grid">
           <mat-form-field appearance="outline">
             <mat-label>Class</mat-label>
-            <input matInput formControlName="name" type="number" min="1" max="12" placeholder="e.g., 1, 2, 10">
-            <mat-hint>Enter class number (1-12)</mat-hint>
-            <mat-error>Class number is required</mat-error>
+            <!-- type="text" (not "number") because real schools have
+                 LKG, UKG, Nursery, Pre-KG alongside 1st-12th. The old
+                 type="number" min="1" max="12" silently blocked every
+                 letter the admin tried to type. Backend stores the
+                 name as a string with no numeric parsing anywhere, so
+                 this is purely a UI loosen-up.  formatClassName()
+                 still turns "1" into "1st" and leaves "UKG" alone. -->
+            <input matInput formControlName="name" type="text"
+                   maxlength="20" placeholder="e.g., LKG, UKG, 1, 2, 10">
+            <mat-hint>Numbered grades (1-12) auto-format to 1st, 2nd, … or use LKG / UKG / Nursery.</mat-hint>
+            <mat-error>Class name is required</mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline">

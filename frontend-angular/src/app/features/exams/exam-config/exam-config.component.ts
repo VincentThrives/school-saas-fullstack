@@ -18,6 +18,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { compareClassNames } from '../../../shared/utils/class-sort';
 import { ApiService, BulkCreateExamRequest, BulkCreateExamSubjectConfig, BulkCreateExamComponentConfig, ExamConfigDetail } from '../../../core/services/api.service';
 import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
 import { SchoolClass, AcademicYear } from '../../../core/models';
@@ -256,8 +257,10 @@ export class ExamConfigComponent implements OnInit {
         });
       }
     }
-    opts.sort((a, b) => a.className.localeCompare(b.className, undefined, { numeric: true }) ||
-                          a.sectionName.localeCompare(b.sectionName, undefined, { numeric: true }));
+    // Sort by class first (canonical Indian-school order: LKG/UKG
+    // before 1st-12th — see {@link classSortKey}), section second.
+    opts.sort((a, b) => compareClassNames(a.className, b.className)
+                        || a.sectionName.localeCompare(b.sectionName, undefined, { numeric: true }));
     this.pairOptions = opts;
   }
 

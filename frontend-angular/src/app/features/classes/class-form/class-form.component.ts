@@ -279,10 +279,20 @@ export class ClassFormComponent implements OnInit {
   }
 
   private formatClassName(value: any): string {
-    const num = parseInt(value, 10);
-    if (isNaN(num)) return String(value);
-    const suffix = this.getOrdinalSuffix(num);
-    return `${num}${suffix}`;
+    // Trim whitespace once at the top so " 1 " / " UKG " normalise the
+    // same way before we branch.
+    const raw = (value == null ? '' : String(value)).trim();
+    if (!raw) return '';
+    const num = parseInt(raw, 10);
+    // Numeric input ("1", "10") → ordinal ("1st", "10th").
+    if (!isNaN(num) && String(num) === raw) {
+      return `${num}${this.getOrdinalSuffix(num)}`;
+    }
+    // Anything else (LKG, UKG, Nursery, Pre-KG, etc.) lands UPPERCASE
+    // so the dropdown reads consistently. Backend already does a
+    // case-insensitive uniqueness check so "ukg" + "UKG" collide as
+    // the same class regardless.
+    return raw.toUpperCase();
   }
 
   private parseClassNumber(value: any): number | string {
