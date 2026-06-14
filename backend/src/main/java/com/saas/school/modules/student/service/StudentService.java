@@ -101,14 +101,38 @@ public class StudentService {
             criteria.and("sectionId").is(sectionId);
         }
         if (search != null && !search.isBlank()) {
-            String regex = java.util.regex.Pattern.quote(search.trim());
-            criteria.orOperator(
-                    Criteria.where("firstName").regex(regex, "i"),
-                    Criteria.where("lastName").regex(regex, "i"),
-                    Criteria.where("parentName").regex(regex, "i"),
-                    Criteria.where("admissionNumber").regex(regex, "i"),
-                    Criteria.where("rollNumber").regex(regex, "i")
-            );
+            // Tokenize on whitespace so multi-word queries like "Priya H" or
+            // "Hegde Priya" match a student whose firstName + lastName
+            // together satisfy every token — even though no SINGLE field
+            // contains the whole phrase. The earlier implementation did one
+            // OR across fields with the raw query, so anything past the
+            // first space silently returned nothing because "Priya H" was
+            // never a substring of firstName ("Priya") or lastName
+            // ("Hegde") taken alone.
+            //
+            // Semantics now:
+            //   - Each whitespace-delimited token must match SOME searchable
+            //     field (firstName / lastName / parentName / admissionNumber
+            //     / rollNumber) — case-insensitive substring.
+            //   - AND across tokens, OR across fields per token.
+            //   - Word order does not matter ("Hegde Priya" works too).
+            //   - A trailing space (still typing) is ignored.
+            String[] tokens = search.trim().split("\\s+");
+            java.util.List<Criteria> tokenCriterias = new java.util.ArrayList<>(tokens.length);
+            for (String token : tokens) {
+                if (token.isEmpty()) continue;
+                String regex = java.util.regex.Pattern.quote(token);
+                tokenCriterias.add(new Criteria().orOperator(
+                        Criteria.where("firstName").regex(regex, "i"),
+                        Criteria.where("lastName").regex(regex, "i"),
+                        Criteria.where("parentName").regex(regex, "i"),
+                        Criteria.where("admissionNumber").regex(regex, "i"),
+                        Criteria.where("rollNumber").regex(regex, "i")
+                ));
+            }
+            if (!tokenCriterias.isEmpty()) {
+                criteria.andOperator(tokenCriterias.toArray(new Criteria[0]));
+            }
         }
 
         Query query = new Query(criteria).with(Sort.by("createdAt").descending());
