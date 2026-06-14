@@ -96,9 +96,14 @@ public class ReportCardController {
     public ResponseEntity<ApiResponse<List<ReportCard>>> generateClassReportCards(
             @PathVariable String classId,
             @RequestParam String academicYearId,
-            @RequestParam String examType) {
-        logger.info("Request to generate bulk report cards: classId={}, academicYearId={}, examType={}", classId, academicYearId, examType);
-        List<ReportCard> reportCards = reportCardService.generateBulkReportCards(classId, academicYearId, examType);
+            @RequestParam String examType,
+            @RequestParam(required = false) String sectionId) {
+        logger.info("Request to generate bulk report cards: classId={}, sectionId={}, academicYearId={}, examType={}",
+                classId, sectionId, academicYearId, examType);
+        // Section is optional — when supplied the bulk path narrows the
+        // student set up front instead of generating cards for the whole
+        // class and discarding the unwanted ones in the UI.
+        List<ReportCard> reportCards = reportCardService.generateBulkReportCards(classId, sectionId, academicYearId, examType);
         return ResponseEntity.ok(ApiResponse.success(reportCards, "Report cards generated for " + reportCards.size() + " students"));
     }
 

@@ -97,6 +97,22 @@ public class ReportCardService {
     private com.saas.school.modules.academicyear.repository.AcademicYearRepository academicYearRepository;
 
     public ReportCard generateReportCard(String studentId, String academicYearId, String examType) {
+        return generateReportCard(studentId, academicYearId, examType, true);
+    }
+
+    /**
+     * Generate a report card with control over whether the result is
+     * persisted immediately.
+     *
+     * <p>The {@code persistImmediately} flag exists for the bulk path —
+     * generating 50 report cards used to write each one twice (once in
+     * this method, then again in the rank loop), turning a single
+     * classroom request into 100 Mongo writes. Bulk callers now pass
+     * {@code false} here, set ranks in memory, and {@code saveAll}
+     * once at the end.</p>
+     */
+    public ReportCard generateReportCard(String studentId, String academicYearId, String examType,
+                                          boolean persistImmediately) {
         logger.info("Generating report card for studentId={}, academicYearId={}, examType={}", studentId, academicYearId, examType);
         if (examType == null || examType.isBlank()) {
             throw new IllegalArgumentException("Exam type is required. Please select an exam type (e.g. Sem 1, Final) before generating a report card.");
@@ -139,8 +155,13 @@ public class ReportCardService {
             }
         }
 
-        // Fetch exams for the student's class and academic year, optionally filtered by exam type
-        List<Exam> exams = examRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
+        // Fetch exams for the student's class and academic year, optionally filtered by exam type.
+        // Bulk path pre-populates a ThreadLocal so we don't re-issue this
+        // query 50× for a 50-student class (see generateBulkReportCards).
+        BulkPrefetch prefetch = BULK_PREFETCH.get();
+        List<Exam> exams = (prefetch != null)
+                ? prefetch.examsByClassYear
+                : examRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
         if (examType != null && !examType.isEmpty()) {
             exams = exams.stream().filter(e -> examType.equals(e.getExamType())).collect(Collectors.toList());
         }
@@ -160,8 +181,13 @@ public class ReportCardService {
         // re-reading the assessments collection.
         Map<String, Map<String, Double>> componentMarksByExamId = new HashMap<>();
 
-        // Check batch marks (StudentAssessments)
-        List<StudentAssessments> batchList = assessmentsRepository.findByExamIdIn(examIds);
+        // Check batch marks (StudentAssessments). Bulk path re-uses
+        // the prefetched list, filtered to the examIds for THIS student's
+        // exam scope — the prefetch loaded by classId+year covers every
+        // student's exams since they share that scope.
+        List<StudentAssessments> batchList = (prefetch != null)
+                ? prefetch.assessmentsByExamIds
+                : assessmentsRepository.findByExamIdIn(examIds);
         for (StudentAssessments batch : batchList) {
             if (batch.getEntries() == null) continue;
             for (StudentAssessments.MarkEntry entry : batch.getEntries()) {
@@ -188,7 +214,11 @@ public class ReportCardService {
         // for any subject the school hasn't named after one of these
         // common Indian-board patterns.
         Map<String, String> allSubjects = new java.util.LinkedHashMap<>();
-        for (Subject s : subjectRepository.findAll()) {
+        // Subjects catalog is the same for every student in a tenant —
+        // bulk path uses the prefetched list to avoid hitting Mongo 50×
+        // for the identical findAll() result.
+        List<Subject> subjectSource = (prefetch != null) ? prefetch.subjects : subjectRepository.findAll();
+        for (Subject s : subjectSource) {
             if (s.getSubjectId() != null && s.getName() != null) {
                 allSubjects.put(s.getSubjectId(), s.getName());
             }
@@ -226,7 +256,11 @@ public class ReportCardService {
                     subjectId, exam.getSubjectName() != null ? exam.getSubjectName() : subjectId);
                 subjectNamesFromExams.put(subjectId, subjectName);
 
-                subjectMaxMarks.put(subjectId, (double) exam.getMaxMarks());
+                // Effective max sums all components for combined-mode
+                // exams (Theory + IA), so a 80/20 Math exam reads as a
+                // 100-mark denominator instead of the legacy 80 that
+                // pushed percentages over 100.
+                subjectMaxMarks.put(subjectId, (double) exam.getEffectiveMaxMarks());
                 Double obtained = examMarksMap.get(exam.getExamId());
                 if (obtained != null) {
                     subjectMarksObtained.put(subjectId, obtained);
@@ -245,7 +279,10 @@ public class ReportCardService {
                 String subjectName = allSubjects.getOrDefault(subjectId, exam.getSubjectName() != null ? exam.getSubjectName() : subjectId);
                 subjectNamesFromExams.putIfAbsent(subjectId, subjectName);
                 subjectMarksObtained.merge(subjectId, entry.getValue(), Double::sum);
-                subjectMaxMarks.merge(subjectId, (double) exam.getMaxMarks(), Double::sum);
+                // Same combined-exam fix as above — effective max
+                // covers Theory + IA + … so the cumulative denominator
+                // matches the cumulative obtained marks.
+                subjectMaxMarks.merge(subjectId, (double) exam.getEffectiveMaxMarks(), Double::sum);
             }
         }
 
@@ -341,6 +378,10 @@ public class ReportCardService {
                 && subjectGrades.stream().allMatch(ReportCard.SubjectGrade::isPassed);
         reportCard.setPassed(allSubjectsPassed);
 
+        if (!persistImmediately) {
+            // Bulk path will saveAll() once after ranks are computed.
+            return reportCard;
+        }
         ReportCard saved = reportCardRepository.save(reportCard);
         logger.info("Report card generated and saved for studentId={}, id={}", studentId, saved.getId());
         return saved;
@@ -621,29 +662,100 @@ public class ReportCardService {
         }
     }
 
-    public List<ReportCard> generateBulkReportCards(String classId, String academicYearId, String examType) {
-        logger.info("Generating bulk report cards for classId={}, academicYearId={}, examType={}", classId, academicYearId, examType);
+    /**
+     * Thread-local prefetch cache for {@link #generateBulkReportCards}.
+     * The per-student {@link #generateReportCard} method used to re-fetch
+     * the same exam list, assessments list, and subjects catalog 50×
+     * for a 50-student class. Setting this once before the loop and
+     * having the per-student path read from it collapses those reads
+     * to a single round trip each.
+     */
+    private static final ThreadLocal<BulkPrefetch> BULK_PREFETCH = new ThreadLocal<>();
 
-        List<Student> students = studentRepository.findByClassIdAndDeletedAtIsNull(classId, Pageable.unpaged()).getContent();
+    private static final class BulkPrefetch {
+        final List<Exam> examsByClassYear;
+        final List<StudentAssessments> assessmentsByExamIds;
+        final List<Subject> subjects;
+        BulkPrefetch(List<Exam> exams, List<StudentAssessments> assessments, List<Subject> subjects) {
+            this.examsByClassYear = exams;
+            this.assessmentsByExamIds = assessments;
+            this.subjects = subjects;
+        }
+    }
+
+    public List<ReportCard> generateBulkReportCards(String classId, String academicYearId, String examType) {
+        return generateBulkReportCards(classId, null, academicYearId, examType);
+    }
+
+    /**
+     * Overload that narrows the student set to a specific section before
+     * generating report cards. Critical for performance — a "1st" class
+     * with 4 sections × 50 students = 200 cards otherwise, even when
+     * the admin only wants Section A. With the sectionId filter we cut
+     * that to ~50 cards. Null sectionId keeps the legacy whole-class
+     * behaviour for callers (e.g. the bulk PDF download) that genuinely
+     * want every section.
+     */
+    public List<ReportCard> generateBulkReportCards(String classId, String sectionId,
+                                                     String academicYearId, String examType) {
+        long start = System.currentTimeMillis();
+        logger.info("Generating bulk report cards for classId={}, sectionId={}, academicYearId={}, examType={}",
+                classId, sectionId, academicYearId, examType);
+
+        List<Student> students = (sectionId != null && !sectionId.isBlank())
+                ? studentRepository.findByClassIdAndSectionIdAndDeletedAtIsNull(classId, sectionId)
+                : studentRepository.findByClassIdAndDeletedAtIsNull(classId, Pageable.unpaged()).getContent();
         List<ReportCard> reportCards = new ArrayList<>();
 
-        for (Student student : students) {
-            try {
-                ReportCard rc = generateReportCard(student.getStudentId(), academicYearId, examType);
-                reportCards.add(rc);
-            } catch (Exception e) {
-                logger.error("Error generating report card for studentId={}: {}", student.getStudentId(), e.getMessage());
+        // ── One-shot prefetch of the shared data ──
+        // Without this each per-student call re-runs the same three
+        // queries — for a 50-student class that's 150 extra Mongo
+        // round-trips on the hot path. Set the prefetch BEFORE the
+        // loop; the per-student method reads it via the ThreadLocal.
+        List<Exam> prefetchedExams = examRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
+        List<String> examIds = prefetchedExams.stream().map(Exam::getExamId).collect(Collectors.toList());
+        List<StudentAssessments> prefetchedAssessments = examIds.isEmpty()
+                ? java.util.Collections.emptyList()
+                : assessmentsRepository.findByExamIdIn(examIds);
+        List<Subject> prefetchedSubjects = subjectRepository.findAll();
+        BULK_PREFETCH.set(new BulkPrefetch(prefetchedExams, prefetchedAssessments, prefetchedSubjects));
+
+        try {
+            // Build each report card in memory ONLY — the
+            // persistImmediately=false flag suppresses the per-student
+            // save() that used to fire 50× for a 50-student class. We
+            // do one bulk saveAll() at the end after ranks are
+            // assigned, dropping write count from 2N to a single batch.
+            for (Student student : students) {
+                try {
+                    ReportCard rc = generateReportCard(student.getStudentId(), academicYearId, examType, false);
+                    reportCards.add(rc);
+                } catch (Exception e) {
+                    logger.error("Error generating report card for studentId={}: {}", student.getStudentId(), e.getMessage());
+                }
             }
+        } finally {
+            // ThreadLocals MUST be cleared after use — otherwise a
+            // worker thread pulled from Tomcat's pool would carry the
+            // stale prefetch into an unrelated request.
+            BULK_PREFETCH.remove();
         }
 
-        // Recalculate ranks based on percentage
+        // Rank by percentage (descending), then bulk-write everything in one
+        // round trip. Previously this loop save()d each card individually,
+        // turning 50 students into 50 extra Mongo writes that happened
+        // AFTER the 50 writes already done by generateReportCard above.
         reportCards.sort((a, b) -> Double.compare(b.getPercentage(), a.getPercentage()));
         for (int i = 0; i < reportCards.size(); i++) {
             reportCards.get(i).setRank(i + 1);
-            reportCardRepository.save(reportCards.get(i));
+        }
+        if (!reportCards.isEmpty()) {
+            reportCardRepository.saveAll(reportCards);
         }
 
-        logger.info("Bulk report cards generated: {} cards for classId={}", reportCards.size(), classId);
+        long elapsed = System.currentTimeMillis() - start;
+        logger.info("Bulk report cards generated: {} cards for classId={} in {} ms",
+                reportCards.size(), classId, elapsed);
         return reportCards;
     }
 
@@ -783,8 +895,13 @@ public class ReportCardService {
                         || (isSingleComponent && (examCk == null || examCk.isBlank()));
                 if (!componentMatches) continue;
                 matchedAnyExam = true;
-                effectiveMax = exam.getMaxMarks();
-                effectivePass = exam.getPassingMarks();
+                // Combined-exam fix: when the subject component matches
+                // by NULL key, the whole multi-component exam contributes
+                // here — its effective max/pass is the sum across all
+                // components, not the legacy scalar (which was only the
+                // first component's max).
+                effectiveMax = exam.getEffectiveMaxMarks();
+                effectivePass = exam.getEffectivePassingMarks();
                 Double m = examMarksByExamId.get(exam.getExamId());
                 if (m != null) obtained = m;
                 break;

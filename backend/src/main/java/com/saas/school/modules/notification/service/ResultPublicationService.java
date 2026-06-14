@@ -688,7 +688,9 @@ public class ResultPublicationService {
             boolean multipleComponents = rows.size() > 1;
             StringBuilder parts = new StringBuilder();
             for (MarkRow r : rows) {
-                int max = r.exam.getMaxMarks();
+                // Effective max sums across components for combined exams;
+                // single-component exams keep the legacy scalar value.
+                int max = r.exam.getEffectiveMaxMarks();
                 double obtained = r.mark.getMarksObtained() == null ? 0 : r.mark.getMarksObtained();
                 subjectObtained += obtained;
                 subjectMax += max;

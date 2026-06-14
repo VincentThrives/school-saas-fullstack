@@ -278,11 +278,19 @@ public class ExamService {
         if (e.getMarksObtained() == null) {
             throw new BusinessException("Marks are required for student " + e.getStudentId());
         }
-        if (e.getMarksObtained() < 0 || e.getMarksObtained() > exam.getMaxMarks()) {
-            throw new BusinessException("Marks must be between 0 and " + exam.getMaxMarks());
+        // Use the SUM across all components for combined-mode exams.
+        // The legacy scalar getMaxMarks() returns only the first
+        // component's max (e.g. 80 on a Theory 80 + IA 20 = 100 exam),
+        // so a student with 85 total would have been wrongly rejected
+        // here. getEffectiveMaxMarks falls back to the scalar for
+        // single-component exams, so the validation is identical there.
+        int effMax = exam.getEffectiveMaxMarks();
+        int effPass = exam.getEffectivePassingMarks();
+        if (e.getMarksObtained() < 0 || e.getMarksObtained() > effMax) {
+            throw new BusinessException("Marks must be between 0 and " + effMax);
         }
-        boolean passed = e.getMarksObtained() >= exam.getPassingMarks();
-        String grade = computeGrade(e.getMarksObtained(), exam.getMaxMarks());
+        boolean passed = e.getMarksObtained() >= effPass;
+        String grade = computeGrade(e.getMarksObtained(), effMax);
         return new StudentAssessments.MarkEntry(
                 e.getStudentId(), e.getMarksObtained(), grade, e.getRemarks(), passed);
     }
@@ -333,7 +341,10 @@ public class ExamService {
                     t.put("studentId", m.getStudentId());
                     t.put("marksObtained", m.getMarksObtained());
                     t.put("grade", m.getGrade());
-                    t.put("percentage", Math.round(m.getMarksObtained() / exam.getMaxMarks() * 1000.0) / 10.0);
+                    // Effective max = sum of component maxes for combined
+                    // exams (Theory + IA + …), avoiding the 108% bug
+                    // produced by dividing 85 by the legacy 80.
+                    t.put("percentage", Math.round(m.getMarksObtained() / (double) exam.getEffectiveMaxMarks() * 1000.0) / 10.0);
                     return t;
                 }).toList();
 
@@ -353,8 +364,13 @@ public class ExamService {
         result.put("examName", exam.getName());
         result.put("className", exam.getClassName());
         result.put("subjectName", exam.getSubjectName());
-        result.put("maxMarks", exam.getMaxMarks());
-        result.put("passingMarks", exam.getPassingMarks());
+        // Front-of-the-API response carries the EFFECTIVE max/pass so
+        // the results page renders "85 / 100" not "85 / 80" on combined
+        // exams. The frontend has its own getter that re-derives from
+        // components if present, but stamping the right value here also
+        // covers the SMS publisher and any direct API consumers.
+        result.put("maxMarks", exam.getEffectiveMaxMarks());
+        result.put("passingMarks", exam.getEffectivePassingMarks());
         result.put("totalStudents", total);
         result.put("passed", passed);
         result.put("failed", failed);

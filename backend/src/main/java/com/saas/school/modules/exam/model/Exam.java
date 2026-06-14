@@ -257,6 +257,53 @@ public class Exam {
         return components != null && components.size() > 1;
     }
 
+    /**
+     * Effective maximum marks for the WHOLE exam doc.
+     *
+     * <p>The scalar {@link #maxMarks} field is only the FIRST component's
+     * max — it was kept around as a legacy convenience for single-mode
+     * exams and the bulk-create path that seeded combined exams stamped
+     * it from the first ExamComponent. Reading it directly on a combined
+     * exam gave "85 / 80" on the results page and cascaded to inflated
+     * percentages (87 / 80 = 108%) in report cards + class rankings.</p>
+     *
+     * <p>This helper returns the SUM of every component's max when the
+     * exam is combined, and falls back to the scalar field otherwise.
+     * Use it everywhere a percentage or a "/ max" denominator is being
+     * computed. Existing callers that legitimately want the
+     * single-component max can keep using {@link #getMaxMarks()}.</p>
+     */
+    public int getEffectiveMaxMarks() {
+        if (components != null && !components.isEmpty()) {
+            int sum = 0;
+            for (ExamComponent c : components) {
+                if (c != null && c.getMaxMarks() != null) {
+                    sum += c.getMaxMarks();
+                }
+            }
+            if (sum > 0) return sum;
+        }
+        return maxMarks;
+    }
+
+    /**
+     * Effective passing threshold for the WHOLE exam doc — same
+     * reasoning as {@link #getEffectiveMaxMarks()}. Falls back to the
+     * scalar {@link #passingMarks} when components aren't populated.
+     */
+    public int getEffectivePassingMarks() {
+        if (components != null && !components.isEmpty()) {
+            int sum = 0;
+            for (ExamComponent c : components) {
+                if (c != null && c.getPassingMarks() != null) {
+                    sum += c.getPassingMarks();
+                }
+            }
+            if (sum > 0) return sum;
+        }
+        return passingMarks;
+    }
+
     // ── Nested types ──────────────────────────────────────────────
 
     public enum ExamStatus { SCHEDULED, ONGOING, COMPLETED, CANCELLED }

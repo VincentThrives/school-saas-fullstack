@@ -71,9 +71,28 @@ public class TenantService {
     /**
      * Resolve tenant by subdomain or tenantId — used by the public resolve-tenant endpoint.
      * Returns only safe public fields (no DB name, no internal config).
+     *
+     * <p>Lookup is case-INSENSITIVE so a school admin who types "TEST" /
+     * "Test" / "test" on the landing page all land on the same tenant.
+     * Earlier behaviour required an exact-case match and parents on
+     * autocapitalising mobile keyboards routinely hit "School not found"
+     * even though their tenant existed.</p>
+     *
+     * <p>Two-step lookup:</p>
+     * <ol>
+     *   <li>Exact match via the repository — fast path, hits the standard
+     *       index on subdomain/tenantId and covers the common case where
+     *       the typed string already matches the stored value verbatim.</li>
+     *   <li>Anchored, regex-escaped, case-insensitive match via the
+     *       central MongoTemplate. Only runs on miss, so the existing
+     *       index remains the dominant query path. Input is passed
+     *       through {@link java.util.regex.Pattern#quote} so a user
+     *       typing "school.*" can't sneak a wildcard match.</li>
+     * </ol>
      */
     public TenantPublicInfo resolveTenant(String schoolId) {
         Tenant tenant = tenantRepository.findBySubdomainOrTenantId(schoolId)
+                .or(() -> findTenantCaseInsensitive(schoolId))
                 .orElseThrow(() -> new ResourceNotFoundException("School not found. Please check your School ID."));
 
         if (tenant.getStatus() == TenantStatus.SUSPENDED) {
@@ -89,6 +108,38 @@ public class TenantService {
                 tenant.getLogoUrl(),
                 tenant.getStatus().name()
         );
+    }
+
+    /**
+     * Case-insensitive fallback for {@link #resolveTenant}. Runs only
+     * when the exact-match repository lookup returned nothing, so the
+     * indexed query stays the dominant path for the typical case where
+     * the typed string already matches verbatim.
+     *
+     * <p>Input is regex-escaped with {@link java.util.regex.Pattern#quote}
+     * and anchored at both ends, so a user can't sneak a wildcard
+     * ("test.*") past the lookup. Same {@code deletedAt: null} filter as
+     * the original repository method so soft-deleted tenants stay
+     * hidden.</p>
+     */
+    private java.util.Optional<Tenant> findTenantCaseInsensitive(String schoolId) {
+        if (schoolId == null || schoolId.isBlank()) return java.util.Optional.empty();
+        String anchored = "^" + java.util.regex.Pattern.quote(schoolId.trim()) + "$";
+        org.springframework.data.mongodb.core.query.Criteria iRegex =
+                new org.springframework.data.mongodb.core.query.Criteria().orOperator(
+                        org.springframework.data.mongodb.core.query.Criteria
+                                .where("subdomain").regex(anchored, "i"),
+                        org.springframework.data.mongodb.core.query.Criteria
+                                .where("tenantId").regex(anchored, "i")
+                );
+        org.springframework.data.mongodb.core.query.Query q =
+                new org.springframework.data.mongodb.core.query.Query(
+                        new org.springframework.data.mongodb.core.query.Criteria()
+                                .andOperator(iRegex,
+                                        org.springframework.data.mongodb.core.query.Criteria
+                                                .where("deletedAt").is(null))
+                );
+        return java.util.Optional.ofNullable(centralMongoTemplate.findOne(q, Tenant.class));
     }
 
     /**

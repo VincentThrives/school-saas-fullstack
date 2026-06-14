@@ -71,7 +71,7 @@ public class PerformanceAnalyticsService {
                     .orElse(0);
 
             double obtained = mark.getMarksObtained() != null ? mark.getMarksObtained() : 0;
-            double maxMarks = exam.getMaxMarks();
+            double maxMarks = exam.getEffectiveMaxMarks();
             double percentage = maxMarks > 0 ? (obtained / maxMarks) * 100 : 0;
             double classAvgPct = maxMarks > 0 ? (classAvg / maxMarks) * 100 : 0;
 
@@ -125,7 +125,7 @@ public class PerformanceAnalyticsService {
         if (examId != null && !examId.isEmpty()) {
             // Single exam ranking — check both ExamMark (legacy) and StudentAssessments (batch)
             Exam exam = examRepository.findById(examId).orElse(null);
-            double maxMarks = exam != null ? exam.getMaxMarks() : 100;
+            double maxMarks = exam != null ? exam.getEffectiveMaxMarks() : 100;
 
             rankings = new ArrayList<>();
 
@@ -181,7 +181,7 @@ public class PerformanceAnalyticsService {
 
             List<String> examIds = classExams.stream().map(Exam::getExamId).collect(Collectors.toList());
             Map<String, Double> examMaxMarksMap = classExams.stream()
-                    .collect(Collectors.toMap(Exam::getExamId, e -> (double) e.getMaxMarks(), (a, b) -> a));
+                    .collect(Collectors.toMap(Exam::getExamId, e -> (double) e.getEffectiveMaxMarks(), (a, b) -> a));
 
             List<ExamMark> allMarks = examMarkRepository.findByExamIdIn(examIds);
 
@@ -269,7 +269,8 @@ public class PerformanceAnalyticsService {
             examRepository.findById(mark.getExamId()).ifPresent(exam -> {
                 String subjectId = exam.getSubjectId();
                 double obtained = mark.getMarksObtained() != null ? mark.getMarksObtained() : 0;
-                double pct = exam.getMaxMarks() > 0 ? (obtained / exam.getMaxMarks()) * 100 : 0;
+                double effMax = exam.getEffectiveMaxMarks();
+                double pct = effMax > 0 ? (obtained / effMax) * 100 : 0;
 
                 subjectMarksMap.computeIfAbsent(subjectId, k -> new ArrayList<>()).add(pct);
                 subjectNameMap.putIfAbsent(subjectId, subjectId); // Use subjectId as fallback name
@@ -312,8 +313,9 @@ public class PerformanceAnalyticsService {
         for (Exam exam : exams) {
             List<ExamMark> marks = examMarkRepository.findByExamId(exam.getExamId());
             for (ExamMark mark : marks) {
-                double pct = exam.getMaxMarks() > 0
-                        ? ((mark.getMarksObtained() != null ? mark.getMarksObtained() : 0) / exam.getMaxMarks()) * 100
+                double effMax = exam.getEffectiveMaxMarks();
+                double pct = effMax > 0
+                        ? ((mark.getMarksObtained() != null ? mark.getMarksObtained() : 0) / effMax) * 100
                         : 0;
                 classPerformance.computeIfAbsent(exam.getClassId(), k -> new ArrayList<>()).add(pct);
             }
@@ -355,7 +357,7 @@ public class PerformanceAnalyticsService {
             double maxTotal = 0;
             for (ExamMark mark : marks) {
                 Exam exam = examRepository.findById(mark.getExamId()).orElse(null);
-                if (exam != null) maxTotal += exam.getMaxMarks();
+                if (exam != null) maxTotal += exam.getEffectiveMaxMarks();
             }
             totalMarksMap.put(student.getStudentId(), total);
             maxMarksMap.put(student.getStudentId(), maxTotal);
