@@ -369,3 +369,33 @@
   font-size: 0.85rem;
   text-align: center;
 }
+
+/* "Select all (N)" / "Clear all (N)" toggle row at the top of the
+   Classes & Sections panel. Sits just under the sticky search bar and
+   acts on the currently-visible options. Styled like a mat-option so
+   the admin reads it as part of the list. */
+.select-bulk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.78);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  user-select: none;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  .bulk-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    color: #b58900;
+  }
+}

@@ -59,50 +59,51 @@ export class ClassRankingsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.api.getExams().subscribe((res) => {
-      this.allExams = res.data || [];
-    });
-
-    this.api.getAcademicYears().subscribe((res) => {
-      this.academicYears = res.data || [];
+    // forkJoin both lookups so we can default the AY to "current" only
+    // ONCE both arrived. Previously these subscribed separately and the
+    // page sat with empty Exam Type / Class / Section / Subjects
+    // dropdowns until the admin manually opened the Academic Year
+    // picker — the AY default + cascade was never wired up.
+    forkJoin({
+      exams: this.api.getExams(),
+      years: this.api.getAcademicYears(),
+    }).subscribe({
+      next: ({ exams, years }) => {
+        this.allExams = exams.data || [];
+        this.academicYears = years.data || [];
+        const current = this.academicYears.find((ay) => ay.current);
+        if (current) {
+          this.selectedAcademicYearId = current.academicYearId;
+          // Populate Exam Type from the chosen year and reset
+          // downstream filters — mirrors what the dropdown handler
+          // would do when the user picks a year manually.
+          this.onAcademicYearChange();
+        }
+      },
     });
   }
 
+  // ── Cascade order: AY → Class → Section → Exam Type → Subjects ──
+  //
+  // Earlier the cascade went AY → Exam Type → Class → Section → Subjects,
+  // which forced the admin to pick "Unit Test 1" before they knew which
+  // class even ran one. The new order matches how a principal actually
+  // thinks: pick a class first, then narrow to a section, then ask which
+  // exam type to compare. Subjects come from the matching exams so the
+  // dropdown only ever shows things that actually have rank data.
+
   onAcademicYearChange(): void {
-    this.selectedExamTypes = [];
     this.selectedClassId = '';
     this.selectedSectionId = '';
+    this.selectedExamTypes = [];
     this.selectedSubjectIds = [];
     this.classes = [];
     this.sections = [];
+    this.examTypes = [];
     this.subjects = [];
     this.rankings = [];
 
-    if (!this.selectedAcademicYearId) {
-      this.examTypes = [];
-      return;
-    }
-
-    const examsForYear = this.allExams.filter((e: any) => e.academicYearId === this.selectedAcademicYearId);
-    const types = new Set<string>();
-    examsForYear.forEach((e: any) => {
-      if (e.examType) types.add(e.examType);
-    });
-    this.examTypes = Array.from(types).sort();
-  }
-
-  onExamTypeChange(): void {
-    this.selectedClassId = '';
-    this.selectedSectionId = '';
-    this.selectedSubjectIds = [];
-    this.sections = [];
-    this.subjects = [];
-    this.rankings = [];
-
-    if (this.selectedExamTypes.length === 0) {
-      this.classes = [];
-      return;
-    }
+    if (!this.selectedAcademicYearId) return;
 
     this.api.getClasses(this.selectedAcademicYearId).subscribe((res) => {
       this.classes = res.data || [];
@@ -111,83 +112,92 @@ export class ClassRankingsComponent implements OnInit {
 
   onClassChange(): void {
     this.selectedSectionId = '';
+    this.selectedExamTypes = [];
     this.selectedSubjectIds = [];
+    this.sections = [];
+    this.examTypes = [];
+    this.subjects = [];
     this.rankings = [];
 
-    if (!this.selectedClassId) {
-      this.sections = [];
-      this.subjects = [];
-      return;
-    }
+    if (!this.selectedClassId) return;
 
     const selectedClass = this.classes.find(c => c.classId === this.selectedClassId);
     this.sections = selectedClass?.sections || [];
 
-    // Load subjects from ALL sections of this class
-    this.loadSubjectsForClass();
+    // Populate Exam Type immediately — "All Sections" is the default
+    // section state, so the admin can pick an exam type right away
+    // without first opening the Section dropdown.
+    this.populateExamTypes();
   }
 
   onSectionChange(): void {
+    this.selectedExamTypes = [];
+    this.selectedSubjectIds = [];
+    this.examTypes = [];
+    this.subjects = [];
     this.rankings = [];
-
-    const loadAndRerank = (subjects: SubjectItem[]) => {
-      this.subjects = subjects;
-      // Keep only previously selected subjects that are still valid
-      const validIds = subjects.map(s => s.subjectId);
-      this.selectedSubjectIds = this.selectedSubjectIds.filter(id => validIds.includes(id));
-      // Auto-load rankings if subjects are still selected
-      if (this.selectedSubjectIds.length > 0) {
-        this.loadRankings();
-      }
-    };
-
-    if (this.selectedSectionId) {
-      const selectedSection = this.sections.find(s => s.sectionId === this.selectedSectionId);
-      const subjectIds = selectedSection?.subjectIds || [];
-      if (subjectIds.length > 0) {
-        this.subjectService.getSubjectsByIds(subjectIds).subscribe(loadAndRerank);
-      } else {
-        this.subjects = [];
-        this.selectedSubjectIds = [];
-      }
-    } else {
-      // No section selected — load subjects from all sections
-      const allSubjectIds = new Set<string>();
-      this.sections.forEach(sec => {
-        (sec.subjectIds || []).forEach(id => allSubjectIds.add(id));
-      });
-      const ids = Array.from(allSubjectIds);
-      if (ids.length > 0) {
-        this.subjectService.getSubjectsByIds(ids).subscribe(loadAndRerank);
-      } else {
-        this.subjects = [];
-        this.selectedSubjectIds = [];
-      }
-    }
+    // Re-narrow exam types by the new (class, section) pair.
+    this.populateExamTypes();
   }
 
-  private loadSubjectsForClass(): void {
-    // Merge subjectIds from all sections of the selected class
-    const allSubjectIds = new Set<string>();
-    this.sections.forEach(sec => {
-      (sec.subjectIds || []).forEach(id => allSubjectIds.add(id));
-    });
-
-    const ids = Array.from(allSubjectIds);
-    if (ids.length > 0) {
-      this.subjectService.getSubjectsByIds(ids).subscribe((subjects) => {
-        this.subjects = subjects;
-      });
-    } else {
-      this.subjects = [];
+  /**
+   * Compute the Exam Type options from {@link allExams} filtered by the
+   * currently-picked Academic Year + Class + (optional) Section. Schools
+   * with section-specific exams (rare but happens — half-day grades that
+   * skip a paper) will see a narrower list when a section is chosen.
+   */
+  private populateExamTypes(): void {
+    if (!this.selectedAcademicYearId || !this.selectedClassId) {
+      this.examTypes = [];
+      return;
     }
+    const matching = this.allExams.filter((e: any) => {
+      if (e.academicYearId !== this.selectedAcademicYearId) return false;
+      if (e.classId !== this.selectedClassId) return false;
+      // Section filter is permissive: if no section is picked OR the exam
+      // wasn't tagged with one, treat it as a match. Avoids hiding exams
+      // that were scheduled at the class level rather than per-section.
+      if (this.selectedSectionId && e.sectionId && e.sectionId !== this.selectedSectionId) return false;
+      return !!e.examType;
+    });
+    const types = new Set<string>();
+    matching.forEach((e: any) => { types.add(e.examType); });
+    this.examTypes = Array.from(types).sort();
+  }
+
+  onExamTypeChange(): void {
+    this.selectedSubjectIds = [];
+    this.subjects = [];
+    this.rankings = [];
+
+    if (this.selectedExamTypes.length === 0) return;
+
+    // Subjects come from the exams matching every upstream filter, so
+    // the list never offers a subject without rank data behind it. This
+    // also dodges the earlier bug where section.subjectIds was empty
+    // for newly-created classes and the dropdown silently emptied out.
+    const matching = this.allExams.filter((e: any) => {
+      if (e.academicYearId !== this.selectedAcademicYearId) return false;
+      if (e.classId !== this.selectedClassId) return false;
+      if (this.selectedSectionId && e.sectionId && e.sectionId !== this.selectedSectionId) return false;
+      if (!this.selectedExamTypes.includes(e.examType)) return false;
+      return !!e.subjectId;
+    });
+    const subjectIds = new Set<string>();
+    matching.forEach((e: any) => { subjectIds.add(e.subjectId); });
+    const ids = Array.from(subjectIds);
+    if (ids.length === 0) {
+      this.subjects = [];
+      return;
+    }
+    this.subjectService.getSubjectsByIds(ids).subscribe((subjects: SubjectItem[]) => {
+      this.subjects = subjects;
+    });
   }
 
   onSubjectChange(): void {
     this.rankings = [];
-
     if (this.selectedSubjectIds.length === 0) return;
-
     this.loadRankings();
   }
 

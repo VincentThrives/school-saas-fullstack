@@ -216,6 +216,11 @@ export class TeacherAssignmentsComponent implements OnInit {
   /** Free-text search inside the Subject dropdown. */
   subjectSearch = '';
 
+  /** Free-text search inside the Teacher dropdown — matches against the
+   *  display name (firstName + lastName) case-insensitively. Lets the
+   *  admin type a few letters instead of scrolling 40-100 staff. */
+  teacherSearch = '';
+
   /** Precomputed sections for the Class Teacher sub-panel. A getter here
    *  caused infinite change-detection in mat-select. */
   classTeacherSectionOptions: SectionLite[] = [];
@@ -678,6 +683,7 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.formClassSectionOptions = [];
     this.classSectionSearch = '';
     this.subjectSearch = '';
+    this.teacherSearch = '';
     this.formClassId = '';
     this.formSectionId = '';
     this.formSubjectId = '';
@@ -984,6 +990,48 @@ export class TeacherAssignmentsComponent implements OnInit {
     const q = (this.subjectSearch || '').trim().toLowerCase();
     if (!q) return this.formSubjectOptions;
     return this.formSubjectOptions.filter(s => s.name.toLowerCase().includes(q));
+  }
+
+  /** Free-text-filtered Teacher dropdown options. */
+  get visibleTeachers(): TeacherLite[] {
+    const q = (this.teacherSearch || '').trim().toLowerCase();
+    if (!q) return this.teachers;
+    return this.teachers.filter(t => t.name.toLowerCase().includes(q));
+  }
+
+  /**
+   * True when every currently-visible class-section pair is ticked.
+   * Used by the "Select all / Clear all" toggle in the Classes & Sections
+   * dropdown so the same row flips between modes based on current state.
+   * Acts on what's VISIBLE (after subject narrowing + search) — not the
+   * full catalog — so the toggle never silently picks rows the admin
+   * can't see.
+   */
+  get allVisibleClassSectionsSelected(): boolean {
+    const visible = this.visibleClassSectionOptions;
+    if (visible.length === 0) return false;
+    const selected = new Set(this.formClassSectionKeys);
+    return visible.every(p => selected.has(p.key));
+  }
+
+  /**
+   * Toggle bulk: if every visible pair is already ticked, untick them
+   * all; otherwise tick all visible ones (preserving any keys already
+   * selected outside the current search filter — search isn't a
+   * destructive op).
+   */
+  toggleAllVisibleClassSections(): void {
+    const visible = this.visibleClassSectionOptions;
+    if (visible.length === 0) return;
+    if (this.allVisibleClassSectionsSelected) {
+      const visibleKeys = new Set(visible.map(p => p.key));
+      this.formClassSectionKeys = this.formClassSectionKeys.filter(k => !visibleKeys.has(k));
+    } else {
+      const merged = new Set(this.formClassSectionKeys);
+      visible.forEach(p => merged.add(p.key));
+      this.formClassSectionKeys = Array.from(merged);
+    }
+    this.onFormClassSectionsChange();
   }
 
   /** Filtered view of the class-section dropdown:

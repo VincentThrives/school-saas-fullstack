@@ -153,8 +153,33 @@
       <div class="grid">
         <mat-form-field appearance="outline">
           <mat-label>Teacher</mat-label>
-          <mat-select [(ngModel)]="formTeacherId" [disabled]="!!editingId">
-            <mat-option *ngFor="let t of teachers" [value]="t.teacherId">{{ t.name }}</mat-option>
+          <mat-select [(ngModel)]="formTeacherId"
+                      [disabled]="!!editingId"
+                      (openedChange)="$event ? null : (teacherSearch = '')">
+            <!-- Sticky search bar inside the panel so the admin can type
+                 a name instead of scrolling 40-100 staff. Matches Subject
+                 + Classes & Sections dropdowns for consistency. -->
+            <div class="select-search" (click)="$event.stopPropagation()">
+              <mat-icon>search</mat-icon>
+              <input type="text"
+                     placeholder="Search teacher…"
+                     [(ngModel)]="teacherSearch"
+                     (click)="$event.stopPropagation()"
+                     (keydown)="$event.stopPropagation()"
+                     autocomplete="off">
+              <button mat-icon-button
+                      *ngIf="teacherSearch"
+                      type="button"
+                      (click)="teacherSearch = ''; $event.stopPropagation()">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+
+            <mat-option *ngFor="let t of visibleTeachers" [value]="t.teacherId">{{ t.name }}</mat-option>
+
+            <div *ngIf="visibleTeachers.length === 0 && teacherSearch" class="select-empty">
+              No matches
+            </div>
           </mat-select>
         </mat-form-field>
 
@@ -216,6 +241,23 @@
                       (click)="classSectionSearch = ''; $event.stopPropagation()">
                 <mat-icon>close</mat-icon>
               </button>
+            </div>
+
+            <!-- Bulk select-all toggle. Acts on the VISIBLE rows (after
+                 subject narrowing + free-text search), not the entire
+                 catalog — so the admin never silently picks pairs they
+                 can't see. Flips between "Select all" and "Clear all"
+                 based on the current state of the visible set. -->
+            <div class="select-bulk"
+                 *ngIf="visibleClassSectionOptions.length > 0"
+                 (click)="toggleAllVisibleClassSections(); $event.stopPropagation()">
+              <mat-icon class="bulk-icon">
+                {{ allVisibleClassSectionsSelected ? 'check_box' : 'check_box_outline_blank' }}
+              </mat-icon>
+              <span>
+                {{ allVisibleClassSectionsSelected ? 'Clear all' : 'Select all' }}
+                ({{ visibleClassSectionOptions.length }})
+              </span>
             </div>
 
             <mat-option *ngFor="let p of visibleClassSectionOptions" [value]="p.key">

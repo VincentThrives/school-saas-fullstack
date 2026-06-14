@@ -11,6 +11,10 @@
 
   <mat-card class="filter-card">
     <div class="filter-row">
+      <!-- Cascade: AY → Class → Section → Exam Type → Subjects.
+           Each dropdown below the AY stays disabled until the one above
+           it has a value, mirroring the cascade order in the component. -->
+
       <!-- Academic Year -->
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Academic Year</mat-label>
@@ -20,24 +24,16 @@
         </mat-select>
       </mat-form-field>
 
-      <!-- Exam Type (Multi-select) -->
-      <mat-form-field appearance="outline" class="filter-field">
-        <mat-label>Exam Type</mat-label>
-        <mat-select [(ngModel)]="selectedExamTypes" (selectionChange)="onExamTypeChange()" [disabled]="!selectedAcademicYearId" multiple>
-          <mat-option *ngFor="let type of examTypes" [value]="type">{{ type }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-
       <!-- Class -->
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Class</mat-label>
-        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()" [disabled]="selectedExamTypes.length === 0">
+        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()" [disabled]="!selectedAcademicYearId">
           <mat-option value="">Select Class</mat-option>
           <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
         </mat-select>
       </mat-form-field>
 
-      <!-- Section (Optional) -->
+      <!-- Section (Optional — "All Sections" is the default) -->
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Section</mat-label>
         <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSectionChange()" [disabled]="!selectedClassId">
@@ -46,10 +42,18 @@
         </mat-select>
       </mat-form-field>
 
-      <!-- Subject (Multi-select) -->
+      <!-- Exam Type (Multi-select) — populated from exams matching AY + class + section -->
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Exam Type</mat-label>
+        <mat-select [(ngModel)]="selectedExamTypes" (selectionChange)="onExamTypeChange()" [disabled]="!selectedClassId" multiple>
+          <mat-option *ngFor="let type of examTypes" [value]="type">{{ type }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Subject (Multi-select) — populated from exams matching everything above -->
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Subjects</mat-label>
-        <mat-select [(ngModel)]="selectedSubjectIds" (selectionChange)="onSubjectChange()" [disabled]="!selectedClassId" multiple>
+        <mat-select [(ngModel)]="selectedSubjectIds" (selectionChange)="onSubjectChange()" [disabled]="selectedExamTypes.length === 0" multiple>
           <mat-option *ngFor="let sub of subjects" [value]="sub.subjectId">{{ sub.name }}</mat-option>
         </mat-select>
       </mat-form-field>
