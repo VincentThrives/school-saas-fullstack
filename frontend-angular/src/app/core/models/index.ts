@@ -951,6 +951,19 @@ export interface TimetableDaySchedule {
   periods: TimetablePeriod[];
 }
 
+/** Per-timetable schedule shape — controls where lunch sits, what time
+ *  periods start, and how times render to admins and parents. Optional
+ *  on the wire (null on legacy timetables saved before this field
+ *  existed); the builder substitutes sensible defaults when missing. */
+export interface ScheduleConfig {
+  firstPeriodStart?: string;       // "HH:mm" 24-hour, default "08:00"
+  periodDurationMinutes?: number;  // default 45
+  periodsBeforeLunch?: number;     // 0 = no lunch row, default 4
+  lunchStart?: string;             // "HH:mm" 24-hour, default "11:00"
+  lunchEnd?: string;               // "HH:mm" 24-hour, default "11:30"
+  displayTimeFormat?: 'h12' | 'h24'; // default 'h12' (renders "1:00 PM")
+}
+
 export interface Timetable {
   timetableId: string;
   classId: string;
@@ -959,5 +972,6 @@ export interface Timetable {
   sectionName?: string;
   academicYearId: string;
   schedule: TimetableDaySchedule[];
+  scheduleConfig?: ScheduleConfig;
   createdAt?: string;
 }

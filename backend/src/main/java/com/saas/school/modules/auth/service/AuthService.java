@@ -62,9 +62,18 @@ public class AuthService {
         // NOW route to the tenant DB for user lookup
         TenantContext.setTenantId(req.getTenantId());
 
-        // Support login by email OR username
-        User user = userRepository.findByEmailAndDeletedAtIsNull(req.getUsername())
-                .or(() -> userRepository.findByUsernameAndDeletedAtIsNull(req.getUsername()))
+        // Support login by email OR username, case-insensitive.
+        // Student usernames are stored as lowercase first-name slugs ("varun"),
+        // so we lowercase whatever the user typed before the lookup — "Varun",
+        // "VARUN" and "varun" all resolve to the same account. Email is
+        // already stored lowercase (StudentFieldNormalizer.lower) so the same
+        // input transform works for both lookup paths.
+        String typed = req.getUsername() == null ? "" : req.getUsername().trim().toLowerCase();
+        if (typed.isEmpty()) {
+            throw new BusinessException("Invalid credentials.");
+        }
+        User user = userRepository.findByEmailAndDeletedAtIsNull(typed)
+                .or(() -> userRepository.findByUsernameAndDeletedAtIsNull(typed))
                 .orElseThrow(() -> new BusinessException("Invalid credentials."));
 
         if (user.getRole() == UserRole.SUPER_ADMIN) {

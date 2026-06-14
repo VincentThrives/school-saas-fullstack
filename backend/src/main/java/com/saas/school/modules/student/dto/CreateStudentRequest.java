@@ -19,6 +19,11 @@ public class CreateStudentRequest {
     private String phone;
     private String email;
     private String parentName;
+    /** Parent's mobile number. Required because it doubles as the
+     *  student's login username (digits-only, e.g. {@code 9876543210}).
+     *  See {@link com.saas.school.modules.student.service.StudentService}
+     *  for the username generation rule. */
+    @NotBlank(message = "Parent phone is required (used as the student's login).")
     private String parentPhone;
     private String parentEmail;
     private List<String> subjectIds;

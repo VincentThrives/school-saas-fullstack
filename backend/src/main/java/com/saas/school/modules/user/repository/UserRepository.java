@@ -36,5 +36,13 @@ public interface UserRepository extends MongoRepository<User, String> {
     Page<User> findByDeletedAtIsNull(Pageable pageable);
 
     boolean existsByEmailAndDeletedAtIsNull(String email);
+    boolean existsByUsernameAndDeletedAtIsNull(String username);
+
+    /** Username slugs already taken in the tenant — used by the bulk
+     *  import path so it can pick non-colliding suffixes (varun, varun2,
+     *  varun3, …) in one batch query rather than one DB hit per row. */
+    @Query(value = "{ 'username': { '$in': ?0 }, 'deletedAt': null }", fields = "{ 'username': 1 }")
+    List<User> findUsernamesIn(java.util.Collection<String> usernames);
+
     long countByRoleAndDeletedAtIsNull(UserRole role);
 }

@@ -98,17 +98,25 @@ export class TimetableBuilderComponent implements OnInit {
 
   subjects: SubjectOption[] = [];
 
-  defaultPeriods: { startTime: string; endTime: string }[] = [
-    { startTime: '08:00', endTime: '08:45' },
-    { startTime: '08:45', endTime: '09:30' },
-    { startTime: '09:30', endTime: '10:15' },
-    { startTime: '10:15', endTime: '11:00' },
-    // Lunch break after period 4
-    { startTime: '11:30', endTime: '12:15' },
-    { startTime: '12:15', endTime: '13:00' },
-    { startTime: '13:00', endTime: '13:45' },
-    { startTime: '13:45', endTime: '14:30' },
-  ];
+  // ── Schedule configuration ─────────────────────────────────
+  // Drives the lunch row position, default times for new periods, and
+  // how times render to admins + parents. Bound to the "Schedule
+  // settings" panel at the top of the builder. Saved alongside the
+  // schedule on the Timetable doc so each section can have a different
+  // shape (primary classes ending earlier than secondary, KG skipping
+  // lunch, etc.).
+  //
+  // The DEFAULTS replicate the legacy hardcoded values so an admin who
+  // never opens the settings panel sees exactly today's behaviour.
+  config = {
+    firstPeriodStart: '08:00',
+    periodDurationMinutes: 45,
+    periodsBeforeLunch: 4,         // 0 = no lunch row
+    lunchStart: '11:00',
+    lunchEnd: '11:30',
+    displayTimeFormat: 'h12' as 'h12' | 'h24',
+  };
+  showScheduleSettings = false;
 
   constructor(
     private api: ApiService,
@@ -336,6 +344,20 @@ export class TimetableBuilderComponent implements OnInit {
     this.isLoading = true;
     this.api.getTimetable(this.selectedClassId, this.selectedSectionId, this.selectedAcademicYearId).subscribe({
       next: (res) => {
+        // Restore schedule config from the saved doc if present. Older
+        // timetables saved before scheduleConfig existed fall through to
+        // the in-memory defaults — same behaviour as before, no regression.
+        if (res.data?.scheduleConfig) {
+          const sc = res.data.scheduleConfig;
+          this.config = {
+            firstPeriodStart: sc.firstPeriodStart || this.config.firstPeriodStart,
+            periodDurationMinutes: sc.periodDurationMinutes ?? this.config.periodDurationMinutes,
+            periodsBeforeLunch: sc.periodsBeforeLunch ?? this.config.periodsBeforeLunch,
+            lunchStart: sc.lunchStart || this.config.lunchStart,
+            lunchEnd: sc.lunchEnd || this.config.lunchEnd,
+            displayTimeFormat: sc.displayTimeFormat || this.config.displayTimeFormat,
+          };
+        }
         if (res.data && res.data.schedule && res.data.schedule.length > 0
             && res.data.schedule.some((d: any) => d.periods && d.periods.length > 0)) {
           this.timetable = res.data;
@@ -361,10 +383,125 @@ export class TimetableBuilderComponent implements OnInit {
     });
   }
 
+  /** Generate the default period grid from {@link config}. Returns
+   *  {@code periodsBeforeLunch + 4} default rows (the +4 keeps a sensible
+   *  afternoon stretch the admin can trim down). Times step by
+   *  {@code periodDurationMinutes}, with the lunch gap inserted after
+   *  the configured Nth period so the row after lunch lines up with
+   *  {@code config.lunchEnd}. */
+  private computeDefaultPeriods(): { startTime: string; endTime: string }[] {
+    const out: { startTime: string; endTime: string }[] = [];
+    const dur = Math.max(5, this.config.periodDurationMinutes || 45);
+    const beforeLunch = Math.max(0, this.config.periodsBeforeLunch || 0);
+    const totalToGenerate = beforeLunch + 4; // leave room post-lunch
+    let cursor = this.config.firstPeriodStart || '08:00';
+    for (let i = 0; i < totalToGenerate; i++) {
+      const start = cursor;
+      const end = this.addMinutes(start, dur);
+      out.push({ startTime: start, endTime: end });
+      cursor = end;
+      // After the last pre-lunch period, jump the cursor over the break
+      // so the next row begins exactly at lunchEnd.
+      if (beforeLunch > 0 && i + 1 === beforeLunch) {
+        cursor = this.config.lunchEnd || cursor;
+      }
+    }
+    return out;
+  }
+
+  /** Add {@code minutes} to a "HH:mm" string; returns "HH:mm". Pure. */
+  private addMinutes(time: string, minutes: number): string {
+    const [h, m] = (time || '00:00').split(':').map(Number);
+    const total = h * 60 + m + minutes;
+    const newH = Math.floor((total / 60) % 24);
+    const newM = total % 60;
+    return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+  }
+
+  /** Format a "HH:mm" time string for DISPLAY honouring the configured
+   *  {@code displayTimeFormat}. "13:00" → "1:00 PM" when h12, or
+   *  "13:00" when h24. Edit inputs stay native {@code <input type="time">}
+   *  so the browser handles entry; this only governs read-only labels. */
+  formatTime(value: string | undefined | null): string {
+    if (!value) return '';
+    if (this.config.displayTimeFormat === 'h24') return value;
+    const [h, m] = value.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return value;
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+  }
+
+  /** Snap the lunch start time to the END of whichever period the admin
+   *  picked from "periods before lunch". Preserves the current lunch
+   *  duration so a 30-minute break stays 30 minutes whether it sits
+   *  after period 4 or period 5. Called from three places — when the
+   *  admin tweaks first-period start, period duration, or picks a new
+   *  periods-before-lunch value. Admin can still hand-edit lunch start
+   *  afterwards if their school takes a gap before lunch (rare).
+   *  No-op when "no lunch break" is selected. */
+  private snapLunchToPeriodEnd(): void {
+    const n = this.config.periodsBeforeLunch || 0;
+    if (n <= 0) return;
+    const dur = Math.max(5, this.config.periodDurationMinutes || 45);
+    const newLunchStart = this.addMinutes(this.config.firstPeriodStart || '08:00', n * dur);
+    // Preserve the admin's current lunch duration. Default 30 min when
+    // the existing values are missing or invalid.
+    const oldStart = this.config.lunchStart || '';
+    const oldEnd = this.config.lunchEnd || '';
+    const oldDur = this.diffMinutes(oldStart, oldEnd);
+    const lunchDur = oldDur > 0 ? oldDur : 30;
+    this.config.lunchStart = newLunchStart;
+    this.config.lunchEnd = this.addMinutes(newLunchStart, lunchDur);
+  }
+
+  /** Minutes between two "HH:mm" strings, or 0 if either is malformed. */
+  private diffMinutes(a: string, b: string): number {
+    if (!a || !b) return 0;
+    const [ah, am] = a.split(':').map(Number);
+    const [bh, bm] = b.split(':').map(Number);
+    if ([ah, am, bh, bm].some(isNaN)) return 0;
+    return (bh * 60 + bm) - (ah * 60 + am);
+  }
+
+  /** Called when the admin picks a new "periods before lunch" value.
+   *  Auto-snaps lunch start to the end of the chosen period, then
+   *  re-applies the schedule to refresh the times grid. */
+  onPeriodsBeforeLunchChanged(): void {
+    this.snapLunchToPeriodEnd();
+    this.onScheduleConfigChanged();
+  }
+
+  /** Called when first-period-start or period-duration changes. Re-snaps
+   *  lunch start so the cascade stays consistent without the admin
+   *  needing to manually update three fields. */
+  onPeriodTimingChanged(): void {
+    this.snapLunchToPeriodEnd();
+    this.onScheduleConfigChanged();
+  }
+
+  /** Loaded onto the page when the admin tweaks any settings field — re-
+   *  applies times to the existing schedule so the grid reflects the
+   *  new shape immediately. Existing teacher / subject picks are kept. */
+  onScheduleConfigChanged(): void {
+    if (!this.schedule || this.schedule.length === 0) return;
+    const defaults = this.computeDefaultPeriods();
+    this.schedule.forEach((day) => {
+      day.periods.forEach((p, i) => {
+        const d = defaults[i];
+        if (d) {
+          p.startTime = d.startTime;
+          p.endTime = d.endTime;
+        }
+      });
+    });
+  }
+
   initializeEmptySchedule(): void {
+    const defaults = this.computeDefaultPeriods();
     this.schedule = this.days.map((day) => ({
       dayOfWeek: day,
-      periods: this.defaultPeriods.map((p, i) => ({
+      periods: defaults.map((p, i) => ({
         periodNumber: i + 1,
         startTime: p.startTime,
         endTime: p.endTime,
@@ -385,18 +522,23 @@ export class TimetableBuilderComponent implements OnInit {
     return daySchedule.periods?.find((p) => p.periodNumber === periodIndex + 1);
   }
 
+  /** Lunch row sits between {@code periodsBeforeLunch} and the next row.
+   *  Returns true for that boundary index. {@code periodsBeforeLunch === 0}
+   *  hides the lunch row entirely (KG / half-day classes). */
   isLunchBreak(periodIndex: number): boolean {
-    return periodIndex === 4; // Break after period 4 (0-indexed: 4 means between period 4 and 5)
+    const n = this.config.periodsBeforeLunch || 0;
+    return n > 0 && periodIndex === n;
   }
 
   addPeriod(): void {
     const maxPeriods = this.getMaxPeriods();
-    const lastPeriod = this.defaultPeriods[maxPeriods - 1] || { endTime: '14:30' };
-    const [h, m] = lastPeriod.endTime.split(':').map(Number);
-    const newStart = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    const endH = m + 45 >= 60 ? h + 1 : h;
-    const endM = (m + 45) % 60;
-    const newEnd = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+    const dur = Math.max(5, this.config.periodDurationMinutes || 45);
+    // Anchor the new period to whatever the last existing row ends at —
+    // the admin may have hand-edited times so we don't recompute from
+    // the config's defaults here.
+    const lastEnd = this.schedule[0]?.periods?.[maxPeriods - 1]?.endTime || '14:30';
+    const newStart = lastEnd;
+    const newEnd = this.addMinutes(newStart, dur);
 
     this.schedule.forEach((day) => {
       day.periods.push({
@@ -464,6 +606,9 @@ export class TimetableBuilderComponent implements OnInit {
       sectionName: sec?.name || '',
       academicYearId: this.selectedAcademicYearId,
       schedule: scheduleWithNames,
+      // Persist the schedule shape so the next reload restores the same
+      // lunch position, period duration, and display format.
+      scheduleConfig: { ...this.config },
     };
     if (this.timetable?.timetableId) {
       payload.timetableId = this.timetable.timetableId;

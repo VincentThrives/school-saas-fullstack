@@ -78,4 +78,45 @@ public final class StudentFieldNormalizer {
         String s = in.replaceAll("\\s+", " ").trim();
         return s.isEmpty() ? null : s;
     }
+
+    /**
+     * Slugify a name for use as a student login username:
+     * lowercase, alphanumeric only — drop spaces, hyphens, accents.
+     *
+     * <p>Used to convert {@code Student.firstName} into a stable login id.
+     * "Varun" → "varun", "  Varun K. " → "varunk", "Aarón" → "aaron".
+     * The auth path lowercases the typed username so login stays
+     * case-insensitive even if the admin later changes the stored value.</p>
+     *
+     * <p>Returns null when the input has no usable letters (e.g. only
+     * symbols or empty) — caller falls back to a default placeholder.</p>
+     */
+    public static String usernameSlug(String in) {
+        String s = trimToNull(in);
+        if (s == null) return null;
+        // Strip accents: NFKD then drop combining marks.
+        String stripped = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFKD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+        StringBuilder out = new StringBuilder(stripped.length());
+        for (int i = 0; i < stripped.length(); i++) {
+            char c = stripped.charAt(i);
+            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+                out.append(c);
+            } else if (c >= 'A' && c <= 'Z') {
+                out.append((char) (c + ('a' - 'A')));
+            }
+            // everything else (spaces, hyphens, dots, punctuation) is dropped
+        }
+        return out.length() == 0 ? null : out.toString();
+    }
+
+    /**
+     * Format a date of birth as the student's default password: {@code DDMMYYYY}.
+     * "2001-04-02" → "02042001". Null in → null out (caller validates DOB is
+     * required upstream).
+     */
+    public static String dobAsPassword(java.time.LocalDate dob) {
+        if (dob == null) return null;
+        return String.format("%02d%02d%04d", dob.getDayOfMonth(), dob.getMonthValue(), dob.getYear());
+    }
 }

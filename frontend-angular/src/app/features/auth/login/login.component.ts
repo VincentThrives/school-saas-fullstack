@@ -64,10 +64,13 @@ export class LoginComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
+    // Lowercase the username so "Varun" / "VARUN" / "varun" all hit the same
+    // account. Backend lowercases again as defence-in-depth; this also makes
+    // the value we send match what the user sees stored on the student card.
     this.authService
       .login({
         tenantId: this.schoolInfo.tenantId,
-        username: this.username.trim(),
+        username: this.username.trim().toLowerCase(),
         password: this.password,
       })
       .subscribe({
@@ -83,6 +86,12 @@ export class LoginComponent implements OnInit {
           if (msg.includes('locked')) {
             this.errorMessage =
               'Account locked due to multiple failed attempts. Contact your school admin.';
+          } else if (err?.status === 500) {
+            // The auth interceptor used to mask every 500 as "Unexpected error".
+            // Surface a friendlier hint that points to the most common cause —
+            // a server side issue an admin can investigate.
+            this.errorMessage =
+              'Server error while signing in. Please try again in a moment; if it persists, contact your school admin.';
           } else {
             this.errorMessage = msg || 'Incorrect username or password.';
           }

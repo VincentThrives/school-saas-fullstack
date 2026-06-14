@@ -54,6 +54,77 @@
     </div>
   </mat-card>
 
+  <!-- ── Schedule settings panel ────────────────────────────────────
+       Collapsible to keep the builder uncluttered for schools running
+       on the defaults (8 AM start, 45 min periods, lunch after period 4).
+       Visible after a timetable is loaded so the admin can tweak shape
+       before saving. -->
+  <mat-card class="settings-card" *ngIf="!isLoading && schedule.length > 0">
+    <div class="settings-head" (click)="showScheduleSettings = !showScheduleSettings">
+      <mat-icon>tune</mat-icon>
+      <span class="settings-title">Schedule settings</span>
+      <span class="settings-sub">
+        {{ formatTime(config.firstPeriodStart) }} start · {{ config.periodDurationMinutes }} min per period ·
+        <ng-container *ngIf="config.periodsBeforeLunch > 0">
+          lunch after period {{ config.periodsBeforeLunch }}
+          ({{ formatTime(config.lunchStart) }} – {{ formatTime(config.lunchEnd) }})
+        </ng-container>
+        <ng-container *ngIf="config.periodsBeforeLunch === 0">no lunch break</ng-container>
+        · {{ config.displayTimeFormat === 'h12' ? '12-hour times' : '24-hour times' }}
+      </span>
+      <mat-icon class="settings-chevron">
+        {{ showScheduleSettings ? 'expand_less' : 'expand_more' }}
+      </mat-icon>
+    </div>
+
+    <div class="settings-body" *ngIf="showScheduleSettings">
+      <mat-form-field appearance="outline" class="settings-field">
+        <mat-label>First period start</mat-label>
+        <input matInput type="time" [(ngModel)]="config.firstPeriodStart"
+               (change)="onPeriodTimingChanged()"/>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="settings-field">
+        <mat-label>Period duration (minutes)</mat-label>
+        <input matInput type="number" min="5" max="180"
+               [(ngModel)]="config.periodDurationMinutes"
+               (change)="onPeriodTimingChanged()"/>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="settings-field">
+        <mat-label>Periods before lunch</mat-label>
+        <mat-select [(ngModel)]="config.periodsBeforeLunch"
+                    (selectionChange)="onPeriodsBeforeLunchChanged()">
+          <mat-option [value]="0">No lunch break</mat-option>
+          <mat-option *ngFor="let n of [1,2,3,4,5,6,7,8]" [value]="n">After period {{ n }}</mat-option>
+        </mat-select>
+        <mat-hint>Lunch start auto-fills based on this and period duration.</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="settings-field"
+                      *ngIf="config.periodsBeforeLunch > 0">
+        <mat-label>Lunch start</mat-label>
+        <input matInput type="time" [(ngModel)]="config.lunchStart"
+               (change)="onScheduleConfigChanged()"/>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="settings-field"
+                      *ngIf="config.periodsBeforeLunch > 0">
+        <mat-label>Lunch end</mat-label>
+        <input matInput type="time" [(ngModel)]="config.lunchEnd"
+               (change)="onScheduleConfigChanged()"/>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="settings-field">
+        <mat-label>Time display format</mat-label>
+        <mat-select [(ngModel)]="config.displayTimeFormat">
+          <mat-option value="h12">12-hour (1:00 PM)</mat-option>
+          <mat-option value="h24">24-hour (13:00)</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+  </mat-card>
+
   <!-- Loading -->
   <div class="loading-row" *ngIf="isLoading">
     <mat-spinner diameter="36"></mat-spinner>
@@ -72,31 +143,54 @@
         </thead>
         <tbody>
           <ng-container *ngFor="let periodIdx of [].constructor(getMaxPeriods()); let i = index">
-            <!-- Lunch break row -->
+            <!-- Lunch break row — label reads from the schedule settings
+                 so the admin's preferred start/end times show up directly.
+                 The 11:00-11:30 fallback was a hardcoded placeholder; now
+                 it's derived from config.lunchStart / config.lunchEnd. -->
             <tr *ngIf="isLunchBreak(i)" class="lunch-break-row">
               <td [attr.colspan]="days.length + 2" class="lunch-cell">
                 <mat-icon class="lunch-icon">restaurant</mat-icon>
-                Lunch Break (11:00 - 11:30)
+                Lunch Break ({{ formatTime(config.lunchStart) }} – {{ formatTime(config.lunchEnd) }})
               </td>
             </tr>
 
             <tr class="period-row">
               <td class="period-number">{{ i + 1 }}</td>
               <td class="period-time">
+                <!-- Time inputs are the OS-native <input type="time">.
+                     Windows + most browsers ignore any locale we set and
+                     show the user's OS clock format (24h on most Indian
+                     setups). When the admin picks 12-hour display in the
+                     schedule settings, we overlay a small read-only span
+                     that shows the formatted version on top — clicks still
+                     reach the input below via pointer-events:none, so the
+                     native picker keeps working unchanged. -->
                 <div class="time-inputs" *ngIf="schedule[0] && schedule[0].periods[i]">
-                  <input
-                    type="time"
-                    [ngModel]="schedule[0].periods[i].startTime"
-                    (ngModelChange)="updateAllDaysTime(i, 'startTime', $event)"
-                    class="time-input"
-                  />
+                  <span class="time-input-wrap">
+                    <input
+                      type="time"
+                      [ngModel]="schedule[0].periods[i].startTime"
+                      (ngModelChange)="updateAllDaysTime(i, 'startTime', $event)"
+                      class="time-input"
+                    />
+                    <span class="time-input-overlay"
+                          *ngIf="config.displayTimeFormat === 'h12'">
+                      {{ formatTime(schedule[0].periods[i].startTime) }}
+                    </span>
+                  </span>
                   <span class="time-sep">-</span>
-                  <input
-                    type="time"
-                    [ngModel]="schedule[0].periods[i].endTime"
-                    (ngModelChange)="updateAllDaysTime(i, 'endTime', $event)"
-                    class="time-input"
-                  />
+                  <span class="time-input-wrap">
+                    <input
+                      type="time"
+                      [ngModel]="schedule[0].periods[i].endTime"
+                      (ngModelChange)="updateAllDaysTime(i, 'endTime', $event)"
+                      class="time-input"
+                    />
+                    <span class="time-input-overlay"
+                          *ngIf="config.displayTimeFormat === 'h12'">
+                      {{ formatTime(schedule[0].periods[i].endTime) }}
+                    </span>
+                  </span>
                 </div>
               </td>
               <td

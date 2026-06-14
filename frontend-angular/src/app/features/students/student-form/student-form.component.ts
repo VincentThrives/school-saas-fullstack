@@ -93,7 +93,11 @@ export class StudentFormComponent implements OnInit {
       academicYearId: ['', Validators.required],
       parentIds: [[]],
       parentName: [''],
-      parentPhone: [''],
+      // Required — parent phone doubles as the student's login username
+      // ("9876543210" for the first child, "9876543210pari" for siblings).
+      // Accepts an optional country-code prefix; backend strips it via
+      // StudentFieldNormalizer.phoneDigits before storing.
+      parentPhone: ['', [Validators.required, Validators.pattern(/^(\+?\d{1,3})?\d{10}$/)]],
       parentEmail: [''],
       subjectIds: [[]],
       street: [''],

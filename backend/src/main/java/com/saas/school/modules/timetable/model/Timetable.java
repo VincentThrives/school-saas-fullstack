@@ -16,6 +16,14 @@ public class Timetable {
     private String sectionName;
     private String academicYearId;
     private List<DaySchedule> schedule;
+    /**
+     * Per-timetable schedule shape — first period start, period length,
+     * where lunch sits, and how times should be displayed (12h vs 24h).
+     * Null on legacy docs created before this field existed; the builder
+     * UI shows sensible defaults (8:00 start, 45 min, lunch after period 4,
+     * 12-hour display) when null so existing flows don't regress.
+     */
+    private ScheduleConfig scheduleConfig;
     @CreatedDate private Instant createdAt;
 
     public Timetable() {
@@ -52,8 +60,66 @@ public class Timetable {
     public List<DaySchedule> getSchedule() { return schedule; }
     public void setSchedule(List<DaySchedule> schedule) { this.schedule = schedule; }
 
+    public ScheduleConfig getScheduleConfig() { return scheduleConfig; }
+    public void setScheduleConfig(ScheduleConfig scheduleConfig) { this.scheduleConfig = scheduleConfig; }
+
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    /**
+     * Embedded shape config — controls where lunch goes, what time periods
+     * start, and how times render to admins and parents. Editable on the
+     * Timetable Builder's "Schedule settings" panel; every field is
+     * optional with the per-field defaults documented inline.
+     *
+     * <p>Why embedded (not a separate doc): different sections in the same
+     * school commonly run on different shapes — primary classes might end
+     * earlier than secondary, kindergarten skips lunch entirely — so the
+     * config tracks 1:1 with each Timetable rather than living on a
+     * per-tenant settings doc. Keeping it inline also avoids an extra
+     * round-trip on every render of the builder.</p>
+     */
+    public static class ScheduleConfig {
+        /** First period's start time as "HH:mm" (24-hour). Default {@code "08:00"}. */
+        private String firstPeriodStart;
+        /** Period length in minutes. Drives the "add period" button's
+         *  default end time + any auto-fill in the builder. Default {@code 45}. */
+        private Integer periodDurationMinutes;
+        /** Number of teaching periods that come BEFORE the lunch break.
+         *  {@code 4} means lunch sits between periods 4 and 5. {@code 0}
+         *  disables the lunch row entirely (kindergarten, half-day classes).
+         *  Default {@code 4}. */
+        private Integer periodsBeforeLunch;
+        /** Lunch break start time as "HH:mm" (24-hour). Default {@code "11:00"}. */
+        private String lunchStart;
+        /** Lunch break end time as "HH:mm" (24-hour). Default {@code "11:30"}. */
+        private String lunchEnd;
+        /** Display format hint for the frontend — {@code "h12"} renders
+         *  "1:00 PM", {@code "h24"} renders "13:00". The DB always stores
+         *  "HH:mm" 24-hour strings; this only affects rendering. Default
+         *  {@code "h12"} (Indian schools convention). */
+        private String displayTimeFormat;
+
+        public ScheduleConfig() {}
+
+        public String getFirstPeriodStart() { return firstPeriodStart; }
+        public void setFirstPeriodStart(String firstPeriodStart) { this.firstPeriodStart = firstPeriodStart; }
+
+        public Integer getPeriodDurationMinutes() { return periodDurationMinutes; }
+        public void setPeriodDurationMinutes(Integer periodDurationMinutes) { this.periodDurationMinutes = periodDurationMinutes; }
+
+        public Integer getPeriodsBeforeLunch() { return periodsBeforeLunch; }
+        public void setPeriodsBeforeLunch(Integer periodsBeforeLunch) { this.periodsBeforeLunch = periodsBeforeLunch; }
+
+        public String getLunchStart() { return lunchStart; }
+        public void setLunchStart(String lunchStart) { this.lunchStart = lunchStart; }
+
+        public String getLunchEnd() { return lunchEnd; }
+        public void setLunchEnd(String lunchEnd) { this.lunchEnd = lunchEnd; }
+
+        public String getDisplayTimeFormat() { return displayTimeFormat; }
+        public void setDisplayTimeFormat(String displayTimeFormat) { this.displayTimeFormat = displayTimeFormat; }
+    }
 
     public static class DaySchedule {
         private String dayOfWeek;

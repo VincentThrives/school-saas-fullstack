@@ -396,6 +396,36 @@ public class StudentImportService {
             throw new BusinessException("No student rows found in the file.");
         }
         if (report.hasAnyErrors()) {
+            // Detect the most common "I uploaded the same file twice" case
+            // and surface a clear summary line the frontend can render as a
+            // banner instead of making the admin parse 350 identical row
+            // errors. Two patterns trip this:
+            //   - EVERY row failed with at least one "Already exists" mark
+            //     (the file is a complete re-upload of saved students)
+            //   - SOME rows failed that way (mixed file)
+            int dupRows = 0;
+            for (StudentImportErrorReport.RowError r : report.getErrors()) {
+                boolean any = false;
+                for (StudentImportErrorReport.FieldError fe : r.getErrors()) {
+                    if (fe != null && fe.getMessage() != null
+                            && fe.getMessage().toLowerCase().contains("already exists")) {
+                        any = true;
+                        break;
+                    }
+                }
+                if (any) dupRows++;
+            }
+            int totalProblemRows = report.getErrors().size();
+            if (dupRows > 0 && dupRows == totalProblemRows
+                    && totalProblemRows == report.getTotalRows()) {
+                report.setSummary(
+                        "All " + dupRows + " students in this file are already in the database. "
+                      + "Nothing was uploaded. This usually means the same file was uploaded twice.");
+            } else if (dupRows > 0) {
+                report.setSummary(
+                        dupRows + " of " + totalProblemRows + " problem rows are students that "
+                      + "already exist in the database. Remove those rows (or the duplicate file) and re-upload.");
+            }
             // All-or-nothing — DB stays untouched.
             throw new ImportValidationException(report);
         }

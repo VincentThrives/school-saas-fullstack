@@ -16,6 +16,15 @@ import java.util.List;
 public class StudentImportErrorReport {
     private int totalRows;
     private int validRows;
+    /**
+     * Optional one-line summary the frontend can render as a prominent
+     * banner above the per-row error table. Set when the failure has a
+     * single dominant cause the admin should see at a glance — most
+     * importantly the re-upload case ("All N students already exist").
+     * Null when no summary applies; frontend falls back to the generic
+     * "N rows need attention" header.
+     */
+    private String summary;
     private List<RowError> errors = new ArrayList<>();
     /**
      * Section-capacity overflow blockers (computed AFTER row-level
@@ -32,6 +41,9 @@ public class StudentImportErrorReport {
 
     public int getValidRows() { return validRows; }
     public void setValidRows(int validRows) { this.validRows = validRows; }
+
+    public String getSummary() { return summary; }
+    public void setSummary(String summary) { this.summary = summary; }
 
     public List<RowError> getErrors() { return errors; }
     public void setErrors(List<RowError> errors) { this.errors = errors; }

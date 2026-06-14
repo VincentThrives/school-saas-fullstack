@@ -45,8 +45,11 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -425,12 +428,65 @@ public class StudentService {
         String tenantId = TenantContext.getTenantId();
         Instant now = Instant.now();
 
+        // ── Pre-generate unique student usernames ────────────────────
+        // Scheme: username = parent's mobile number (digits only).
+        //   First child of a family → "9876543210"
+        //   2nd, 3rd siblings (same phone) → "9876543210varun", "9876543210pari"
+        //
+        // Sibling case appends the lowercased first name so the parent can
+        // always derive the username from "my phone + my child's first name"
+        // without looking it up. No separator — keeps usernames short and
+        // easy to type on a mobile. If even that collides (twin with same
+        // name AND same parent phone — vanishingly rare), append a numeric
+        // tail to keep things saving rather than throw mid-batch.
+        //
+        // Must be SEQUENTIAL so siblings inside this batch see each other.
+        // BCrypt still parallelises below; only this cheap math is serial.
+        // We prime the "taken" set with every existing username in the
+        // tenant so a teacher whose username happens to be "9876543210"
+        // doesn't collide with an incoming student.
+        Set<String> taken = new HashSet<>();
+        for (User u : userRepository.findAllByDeletedAtIsNull()) {
+            if (u != null && u.getUsername() != null) {
+                taken.add(u.getUsername().toLowerCase(Locale.ROOT));
+            }
+        }
+        List<String> assignedUsernames = new ArrayList<>(reqs.size());
+        for (CreateStudentRequest req : reqs) {
+            String phoneDigits = StudentFieldNormalizer.phoneDigits(req.getParentPhone());
+            if (phoneDigits == null || phoneDigits.length() < 10) {
+                // Required-field validator already runs upstream — this branch
+                // only fires on malformed-but-present rows that somehow slip
+                // through. Fall back to a unique placeholder so the import
+                // still succeeds; admin can correct the phone later.
+                phoneDigits = "no-phone-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+            }
+            String pick = phoneDigits;
+            if (taken.contains(pick)) {
+                // Sibling path — append the lowercased first name. No
+                // separator: "9876543210pari" reads as cleanly as the bare
+                // phone and stays short enough to type on a mobile.
+                String firstSlug = StudentFieldNormalizer.usernameSlug(req.getFirstName());
+                if (firstSlug == null) firstSlug = "child";
+                pick = phoneDigits + firstSlug;
+                // Twin-with-same-name fallback — append numeric tail.
+                int n = 2;
+                while (taken.contains(pick)) {
+                    pick = phoneDigits + firstSlug + n;
+                    n++;
+                }
+            }
+            taken.add(pick);
+            assignedUsernames.add(pick);
+        }
+
         // Build User + Student docs in parallel — BCrypt is the most
         // expensive single step per row, so parallelStream spreads that
         // across CPU cores. Each tuple stays in (req-order) by zipping
         // results back to a list at the end.
-        List<UserStudentPair> pairs = reqs.parallelStream()
-                .map(req -> buildPair(req, tenantId, now))
+        List<UserStudentPair> pairs = java.util.stream.IntStream.range(0, reqs.size())
+                .parallel()
+                .mapToObj(i -> buildPair(reqs.get(i), tenantId, now, assignedUsernames.get(i)))
                 .toList();
 
         List<User> users = new ArrayList<>(pairs.size());
@@ -458,23 +514,37 @@ public class StudentService {
         UserStudentPair(User user, Student student) { this.user = user; this.student = student; }
     }
 
-    /** Build one (User, Student) pair from a request. No DB I/O. */
-    private UserStudentPair buildPair(CreateStudentRequest req, String tenantId, Instant now) {
+    /** Build one (User, Student) pair from a request. No DB I/O.
+     *
+     *  @param assignedUsername the pre-generated unique slug to use as
+     *                          the student's login id. Caller computes
+     *                          these sequentially so in-batch suffixing
+     *                          ("varun2", "varun3") stays deterministic
+     *                          even though this method runs in parallel. */
+    private UserStudentPair buildPair(CreateStudentRequest req, String tenantId, Instant now,
+                                      String assignedUsername) {
         String studentId = UUID.randomUUID().toString();
         String firstName = StudentFieldNormalizer.titleCase(req.getFirstName());
         String lastName  = StudentFieldNormalizer.titleCase(req.getLastName());
-        int birthYear = req.getDateOfBirth() != null ? req.getDateOfBirth().getYear() : 2000;
-        String defaultPassword = (firstName != null ? firstName : "Student") + "@" + birthYear;
-        String loginId = req.getAdmissionNumber();
+
+        // Student login scheme — username = lowercase first-name slug
+        // (passed in pre-deduped), password = DOB as DDMMYYYY. Falls back
+        // to a safe placeholder if DOB is somehow missing so a row with
+        // a half-broken date still ends up with a working account the
+        // admin can later patch.
+        String loginUsername = assignedUsername;
+        String defaultPassword = StudentFieldNormalizer.dobAsPassword(req.getDateOfBirth());
+        if (defaultPassword == null) defaultPassword = "00000000";
+
         String emailRaw = req.getEmail() != null && !req.getEmail().isEmpty()
-                ? req.getEmail() : loginId + "@student.school";
+                ? req.getEmail() : loginUsername + "@student.school";
         String userEmail = StudentFieldNormalizer.lower(emailRaw);
 
         User user = new User();
         user.setUserId(UUID.randomUUID().toString());
         user.setTenantId(tenantId);
         user.setEmail(userEmail);
-        user.setUsername(loginId);
+        user.setUsername(loginUsername);
         user.setPasswordHash(passwordEncoder.encode(defaultPassword));   // <-- the slow bit, parallelised
         user.setRole(UserRole.STUDENT);
         user.setFirstName(firstName);
@@ -521,17 +591,45 @@ public class StudentService {
 
     private String autoCreateUserForStudent(Student student, CreateStudentRequest req) {
         try {
-            String loginId = req.getAdmissionNumber();
-            String firstName = req.getFirstName() != null ? req.getFirstName() : "Student";
-            int birthYear = req.getDateOfBirth() != null ? req.getDateOfBirth().getYear() : 2000;
-            String password = firstName + "@" + birthYear;
+            // ── Username scheme — parent's phone digits.
+            //   First child of a family → "9876543210"
+            //   Sibling (phone already taken) → "9876543210varun"
+            //   Twin same name (rare) → "9876543210varun2", "varun3" …
+            // No separator between phone and name — keeps the username short
+            // enough to comfortably type on a mobile keypad. The phone column
+            // is @NotBlank on the DTO, so a null here is a legit programmer
+            // error — we fall back to a UUID-tail slug so the account still
+            // saves and the admin can fix the phone later.
+            String phoneDigits = StudentFieldNormalizer.phoneDigits(req.getParentPhone());
+            if (phoneDigits == null || phoneDigits.length() < 10) {
+                phoneDigits = "no-phone-" + java.util.UUID.randomUUID().toString().substring(0, 6);
+            }
+            String loginUsername = phoneDigits;
+            if (userRepository.existsByUsernameAndDeletedAtIsNull(loginUsername)) {
+                String firstSlug = StudentFieldNormalizer.usernameSlug(req.getFirstName());
+                if (firstSlug == null) firstSlug = "child";
+                loginUsername = phoneDigits + firstSlug;
+                int n = 2;
+                while (userRepository.existsByUsernameAndDeletedAtIsNull(loginUsername)) {
+                    loginUsername = phoneDigits + firstSlug + n;
+                    n++;
+                }
+            }
 
-            // Check if user with this email/username already exists
+            // ── Password = DOB as DDMMYYYY. Falls back to a safe placeholder
+            // if DOB wasn't provided so the account stays usable for an admin
+            // to log in and fix the record.
+            String password = StudentFieldNormalizer.dobAsPassword(req.getDateOfBirth());
+            if (password == null) password = "00000000";
+
+            // Email defaults to <username>@student.school so we always have a
+            // unique recovery channel even when the admin didn't enter one.
+            // The username-existence loop above guarantees this is unique too.
             String email = req.getEmail() != null && !req.getEmail().isEmpty()
-                    ? req.getEmail() : loginId + "@student.school";
+                    ? StudentFieldNormalizer.lower(req.getEmail())
+                    : loginUsername + "@student.school";
             if (userRepository.existsByEmailAndDeletedAtIsNull(email)) {
-                log.warn("User with email {} already exists, skipping auto-create", email);
-                // Try to find and link existing user
+                log.warn("User with email {} already exists, linking student to it", email);
                 return userRepository.findByEmailAndDeletedAtIsNull(email)
                         .map(User::getUserId).orElse(null);
             }
@@ -540,19 +638,19 @@ public class StudentService {
             user.setUserId(UUID.randomUUID().toString());
             user.setTenantId(TenantContext.getTenantId());
             user.setEmail(email);
-            user.setUsername(loginId);
+            user.setUsername(loginUsername);
             user.setPasswordHash(passwordEncoder.encode(password));
             user.setRole(UserRole.STUDENT);
-            user.setFirstName(req.getFirstName());
-            user.setLastName(req.getLastName());
-            user.setPhone(req.getPhone());
+            user.setFirstName(StudentFieldNormalizer.titleCase(req.getFirstName()));
+            user.setLastName(StudentFieldNormalizer.titleCase(req.getLastName()));
+            user.setPhone(StudentFieldNormalizer.phoneDigits(req.getPhone()));
             user.setActive(true);
             user.setLocked(false);
             user.setFailedLoginAttempts(0);
             user.setCreatedAt(Instant.now());
 
             userRepository.save(user);
-            log.info("Auto-created User for student: loginId={}, password={}", loginId, password);
+            log.info("Auto-created Student User: username={}, password={}", loginUsername, password);
             return user.getUserId();
         } catch (Exception e) {
             log.error("Failed to auto-create User for student: {}", e.getMessage());

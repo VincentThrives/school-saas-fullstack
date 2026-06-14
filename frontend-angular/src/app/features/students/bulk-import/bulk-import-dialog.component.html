@@ -128,6 +128,16 @@
 
   <!-- ── Error report ───────────────────────────────────────────────── -->
   <div class="error-report" *ngIf="errorReport && errorReport.errors.length > 0">
+    <!-- Backend-supplied summary banner — only present for distinctive
+         failure shapes (the headline one being "every row is a duplicate"
+         after the admin uploads the same file twice). Renders prominently
+         above the per-row table so the admin sees the dominant story at
+         a glance instead of scanning 350 identical rows. -->
+    <div class="error-summary" *ngIf="errorReport.summary">
+      <mat-icon class="warn-icon">info</mat-icon>
+      <span>{{ errorReport.summary }}</span>
+    </div>
+
     <div class="error-report__head">
       <mat-icon class="warn-icon">error_outline</mat-icon>
       <div>

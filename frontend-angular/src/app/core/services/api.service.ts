@@ -351,6 +351,10 @@ export interface StudentImportCapacityIssue {
 export interface StudentImportErrorReport {
   totalRows: number;
   validRows: number;
+  /** Optional one-line summary the backend sets for the most common
+   *  failure shapes (e.g. "All N students already exist"). When present
+   *  the dialog renders it as a prominent banner above the row table. */
+  summary?: string;
   errors: StudentImportRowError[];
   capacityIssues: StudentImportCapacityIssue[];
 }

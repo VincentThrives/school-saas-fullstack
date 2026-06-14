@@ -12,6 +12,66 @@ $gold-light: rgba(212, 168, 67, 0.1);
   padding: 16px 24px;
 }
 
+// ── Schedule settings panel ─────────────────────────────────
+// Sits between the filter bar and the grid. Collapsed by default — the
+// summary row reads as a single line so an admin running on defaults
+// barely notices it. Expanded view is a soft-wrap grid of compact form
+// fields with the same gold accent the rest of the builder uses.
+.settings-card {
+  border-radius: 12px !important;
+  margin-bottom: 16px;
+  padding: 0 !important;
+  overflow: hidden;
+
+  .settings-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    cursor: pointer;
+    user-select: none;
+    background: $gold-light;
+    border-bottom: 1px solid rgba(212, 168, 67, 0.25);
+
+    mat-icon {
+      color: $gold-dark;
+    }
+
+    .settings-title {
+      font-weight: 600;
+      color: #4a4a4a;
+      font-size: 14px;
+    }
+
+    .settings-sub {
+      color: #6b7280;
+      font-size: 12.5px;
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .settings-chevron {
+      color: #9ca3af;
+    }
+  }
+
+  .settings-body {
+    padding: 16px 20px 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+
+    .settings-field {
+      flex: 1 1 180px;
+      min-width: 160px;
+      max-width: 240px;
+    }
+  }
+}
+
 .filter-row {
   display: flex;
   gap: 16px;
@@ -126,6 +186,43 @@ $gold-light: rgba(212, 168, 67, 0.1);
     border-color: $gold;
     box-shadow: 0 0 0 2px rgba(212, 168, 67, 0.2);
   }
+}
+
+// 12-hour overlay span — sits ON TOP of the native time input, masking
+// the OS-locale 24-hour text. pointer-events: none so the native picker
+// still opens on click. We leave a ~22px gap on the right so the
+// browser's clock icon stays visible and clickable. The overlay hides
+// when the input is focused so the admin can see exactly what they're
+// typing in 24-hour form.
+.time-input-wrap {
+  position: relative;
+  display: inline-block;
+  line-height: 0; // keeps the input's own line-height
+}
+
+.time-input-overlay {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 1px;
+  right: 22px;             // leave room for the native clock-icon click area
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.78);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;    // clicks pass through to the input below
+  user-select: none;
+  white-space: nowrap;
+}
+
+// Hide the overlay while the user is editing so they can see (and type)
+// the canonical HH:mm value the native picker uses.
+.time-input:focus + .time-input-overlay {
+  opacity: 0;
 }
 
 .time-sep {

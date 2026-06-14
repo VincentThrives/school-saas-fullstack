@@ -166,6 +166,30 @@
   border-radius: 10px;
   padding: 14px;
 
+  // Backend-supplied headline for the dominant failure cause (e.g. "all
+  // these students already exist"). Sits at the very top of the error
+  // panel, slightly darker than the surrounding card so the eye lands on
+  // it before scanning the row table.
+  .error-summary {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: -2px 0 12px;
+    padding: 10px 12px;
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    color: #7f1d1d;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.4;
+
+    .warn-icon {
+      color: #b91c1c;
+      flex-shrink: 0;
+    }
+  }
+
   &__head {
     display: flex;
     align-items: flex-start;
