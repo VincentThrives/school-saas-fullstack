@@ -6,21 +6,161 @@
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'Timetables' }
     ]"
-    actionLabel="Create New"
-    actionIcon="add"
-    (actionClick)="createTimetable()"
   ></app-page-header>
 
   <mat-card class="filter-card">
     <div class="filter-row">
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Academic Year</mat-label>
-        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="loadTimetables()">
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onAcademicYearChange()">
           <mat-option *ngFor="let ay of academicYears" [value]="ay.academicYearId">
             {{ ay.label }}
           </mat-option>
         </mat-select>
       </mat-form-field>
+    </div>
+  </mat-card>
+
+  <!-- ── Bulk-create panel ────────────────────────────────────────────
+       Schedule settings + Class & Section multi-select live here so a
+       school can spin up timetables for an entire grade in one click,
+       all sharing the same start time / period length / lunch shape.
+       Hidden once every class-section in the year has a timetable —
+       nothing left to create. -->
+  <mat-card class="create-card" *ngIf="pairOptions.length > 0 && selectedAcademicYearId">
+    <div class="create-head">
+      <mat-icon>add_circle</mat-icon>
+      <span class="create-title">Create timetables</span>
+      <span class="create-sub">
+        for selected class–section pairs ·
+        {{ pairOptions.length }} pair{{ pairOptions.length === 1 ? '' : 's' }} available
+      </span>
+    </div>
+
+    <!-- Class & Sections multi-select with inline search + select-all.
+         Same control shape as the Teacher Assignment dialog for muscle
+         memory. -->
+    <mat-form-field appearance="outline" class="create-field span-2">
+      <mat-label>Classes & Sections</mat-label>
+      <mat-select multiple
+                  [(ngModel)]="pickedPairKeys"
+                  (openedChange)="$event ? null : (pairSearch = '')">
+        <div class="select-search" (click)="$event.stopPropagation()">
+          <mat-icon>search</mat-icon>
+          <input type="text"
+                 placeholder="Search class or section…"
+                 [(ngModel)]="pairSearch"
+                 (click)="$event.stopPropagation()"
+                 (keydown)="$event.stopPropagation()"
+                 autocomplete="off">
+          <button mat-icon-button
+                  *ngIf="pairSearch"
+                  type="button"
+                  (click)="pairSearch = ''; $event.stopPropagation()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="select-bulk"
+             *ngIf="visiblePairOptions.length > 0"
+             (click)="toggleAllVisiblePairs(); $event.stopPropagation()">
+          <mat-icon class="bulk-icon">
+            {{ allVisiblePairsSelected ? 'check_box' : 'check_box_outline_blank' }}
+          </mat-icon>
+          <span>
+            {{ allVisiblePairsSelected ? 'Clear all' : 'Select all' }}
+            ({{ visiblePairOptions.length }})
+          </span>
+        </div>
+
+        <mat-option *ngFor="let p of visiblePairOptions" [value]="p.key">
+          {{ p.label }}
+        </mat-option>
+
+        <div *ngIf="visiblePairOptions.length === 0" class="select-empty">
+          No matches
+        </div>
+      </mat-select>
+      <mat-hint>
+        Pairs already having a timetable are hidden — see the cards below.
+      </mat-hint>
+    </mat-form-field>
+
+    <!-- Schedule settings — collapsed by default to keep the panel light.
+         Same fields and snap-on-change behaviour the builder used to
+         own; one schedule shape applies to every timetable created in
+         this batch. -->
+    <div class="settings-head" (click)="showScheduleSettings = !showScheduleSettings">
+      <mat-icon>tune</mat-icon>
+      <span class="settings-title">Schedule settings</span>
+      <span class="settings-sub">
+        {{ formatTime(config.firstPeriodStart) }} start · {{ config.periodDurationMinutes }} min per period ·
+        <ng-container *ngIf="config.periodsBeforeLunch > 0">
+          lunch after period {{ config.periodsBeforeLunch }}
+          ({{ formatTime(config.lunchStart) }} – {{ formatTime(config.lunchEnd) }})
+        </ng-container>
+        <ng-container *ngIf="config.periodsBeforeLunch === 0">no lunch break</ng-container>
+        · {{ config.displayTimeFormat === 'h12' ? '12-hour times' : '24-hour times' }}
+      </span>
+      <mat-icon class="settings-chevron">
+        {{ showScheduleSettings ? 'expand_less' : 'expand_more' }}
+      </mat-icon>
+    </div>
+
+    <div class="settings-body" *ngIf="showScheduleSettings">
+      <mat-form-field appearance="outline" class="settings-field">
+        <mat-label>First period start</mat-label>
+        <input matInput type="time" [(ngModel)]="config.firstPeriodStart"
+               (change)="onPeriodTimingChanged()"/>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="settings-field">
+        <mat-label>Period duration (minutes)</mat-label>
+        <input matInput type="number" min="5" max="180"
+               [(ngModel)]="config.periodDurationMinutes"
+               (change)="onPeriodTimingChanged()"/>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="settings-field">
+        <mat-label>Periods before lunch</mat-label>
+        <mat-select [(ngModel)]="config.periodsBeforeLunch"
+                    (selectionChange)="onPeriodsBeforeLunchChanged()">
+          <mat-option [value]="0">No lunch break</mat-option>
+          <mat-option *ngFor="let n of [1,2,3,4,5,6,7,8]" [value]="n">After period {{ n }}</mat-option>
+        </mat-select>
+        <mat-hint>Lunch start auto-fills based on this and period duration.</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="settings-field"
+                      *ngIf="config.periodsBeforeLunch > 0">
+        <mat-label>Lunch start</mat-label>
+        <input matInput type="time" [(ngModel)]="config.lunchStart"/>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="settings-field"
+                      *ngIf="config.periodsBeforeLunch > 0">
+        <mat-label>Lunch end</mat-label>
+        <input matInput type="time" [(ngModel)]="config.lunchEnd"/>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="settings-field">
+        <mat-label>Time display format</mat-label>
+        <mat-select [(ngModel)]="config.displayTimeFormat">
+          <mat-option value="h12">12-hour (1:00 PM)</mat-option>
+          <mat-option value="h24">24-hour (13:00)</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="create-actions">
+      <button mat-flat-button class="gold-btn"
+              [disabled]="isCreating || pickedPairKeys.length === 0"
+              (click)="createTimetablesForPickedPairs()">
+        <mat-spinner diameter="18" *ngIf="isCreating"></mat-spinner>
+        <mat-icon *ngIf="!isCreating">add</mat-icon>
+        Create
+        {{ pickedPairKeys.length > 0 ? '(' + pickedPairKeys.length + ')' : '' }}
+      </button>
     </div>
   </mat-card>
 
@@ -68,14 +208,10 @@
     </mat-card>
   </div>
 
-  <div class="empty-state" *ngIf="!isLoading && timetables.length === 0">
+  <div class="empty-state" *ngIf="!isLoading && timetables.length === 0 && pairOptions.length === 0">
     <mat-icon class="empty-icon">calendar_month</mat-icon>
-    <p class="empty-title">No timetables created yet</p>
-    <p class="empty-subtitle">Create a timetable to get started with scheduling classes</p>
-    <button mat-flat-button class="gold-btn" (click)="createTimetable()">
-      <mat-icon>add</mat-icon>
-      Create Timetable
-    </button>
+    <p class="empty-title">No classes available for this academic year</p>
+    <p class="empty-subtitle">Create classes from the Classes page first, then come back here to set up timetables.</p>
   </div>
 
   <!-- Delete Confirmation Dialog -->

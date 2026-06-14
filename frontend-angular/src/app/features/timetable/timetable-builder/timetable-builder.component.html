@@ -54,76 +54,11 @@
     </div>
   </mat-card>
 
-  <!-- ── Schedule settings panel ────────────────────────────────────
-       Collapsible to keep the builder uncluttered for schools running
-       on the defaults (8 AM start, 45 min periods, lunch after period 4).
-       Visible after a timetable is loaded so the admin can tweak shape
-       before saving. -->
-  <mat-card class="settings-card" *ngIf="!isLoading && schedule.length > 0">
-    <div class="settings-head" (click)="showScheduleSettings = !showScheduleSettings">
-      <mat-icon>tune</mat-icon>
-      <span class="settings-title">Schedule settings</span>
-      <span class="settings-sub">
-        {{ formatTime(config.firstPeriodStart) }} start · {{ config.periodDurationMinutes }} min per period ·
-        <ng-container *ngIf="config.periodsBeforeLunch > 0">
-          lunch after period {{ config.periodsBeforeLunch }}
-          ({{ formatTime(config.lunchStart) }} – {{ formatTime(config.lunchEnd) }})
-        </ng-container>
-        <ng-container *ngIf="config.periodsBeforeLunch === 0">no lunch break</ng-container>
-        · {{ config.displayTimeFormat === 'h12' ? '12-hour times' : '24-hour times' }}
-      </span>
-      <mat-icon class="settings-chevron">
-        {{ showScheduleSettings ? 'expand_less' : 'expand_more' }}
-      </mat-icon>
-    </div>
-
-    <div class="settings-body" *ngIf="showScheduleSettings">
-      <mat-form-field appearance="outline" class="settings-field">
-        <mat-label>First period start</mat-label>
-        <input matInput type="time" [(ngModel)]="config.firstPeriodStart"
-               (change)="onPeriodTimingChanged()"/>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="settings-field">
-        <mat-label>Period duration (minutes)</mat-label>
-        <input matInput type="number" min="5" max="180"
-               [(ngModel)]="config.periodDurationMinutes"
-               (change)="onPeriodTimingChanged()"/>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="settings-field">
-        <mat-label>Periods before lunch</mat-label>
-        <mat-select [(ngModel)]="config.periodsBeforeLunch"
-                    (selectionChange)="onPeriodsBeforeLunchChanged()">
-          <mat-option [value]="0">No lunch break</mat-option>
-          <mat-option *ngFor="let n of [1,2,3,4,5,6,7,8]" [value]="n">After period {{ n }}</mat-option>
-        </mat-select>
-        <mat-hint>Lunch start auto-fills based on this and period duration.</mat-hint>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="settings-field"
-                      *ngIf="config.periodsBeforeLunch > 0">
-        <mat-label>Lunch start</mat-label>
-        <input matInput type="time" [(ngModel)]="config.lunchStart"
-               (change)="onScheduleConfigChanged()"/>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="settings-field"
-                      *ngIf="config.periodsBeforeLunch > 0">
-        <mat-label>Lunch end</mat-label>
-        <input matInput type="time" [(ngModel)]="config.lunchEnd"
-               (change)="onScheduleConfigChanged()"/>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="settings-field">
-        <mat-label>Time display format</mat-label>
-        <mat-select [(ngModel)]="config.displayTimeFormat">
-          <mat-option value="h12">12-hour (1:00 PM)</mat-option>
-          <mat-option value="h24">24-hour (13:00)</mat-option>
-        </mat-select>
-      </mat-form-field>
-    </div>
-  </mat-card>
+  <!-- Schedule settings (start time, period duration, lunch shape, time
+       format) moved to the Timetables list page so a whole grade can be
+       stood up in one click with the same shape. The builder now edits
+       only the period grid; the saved ScheduleConfig on the doc still
+       drives time arithmetic + 12h/24h rendering on read. -->
 
   <!-- Loading -->
   <div class="loading-row" *ngIf="isLoading">
@@ -132,7 +67,7 @@
 
   <!-- Timetable Grid -->
   <div class="timetable-wrapper" *ngIf="!isLoading && schedule.length > 0">
-    <div class="timetable-scroll">
+    <div class="timetable-scroll" appDragScroll>
       <table class="timetable-table">
         <thead>
           <tr>

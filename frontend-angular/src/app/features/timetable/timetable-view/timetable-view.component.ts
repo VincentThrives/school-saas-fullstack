@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { DragScrollDirective } from '../../../shared/directives/drag-scroll.directive';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { SubjectService } from '../../../core/services/subject.service';
@@ -36,6 +37,7 @@ import {
     MatProgressSpinnerModule,
     MatChipsModule,
     PageHeaderComponent,
+    DragScrollDirective,
   ],
   templateUrl: './timetable-view.component.html',
   styleUrl: './timetable-view.component.scss',
@@ -216,8 +218,49 @@ export class TimetableViewComponent implements OnInit {
     return daySchedule?.periods?.find((p) => p.periodNumber === periodIndex + 1);
   }
 
+  /**
+   * Where does the lunch row sit? Reads {@code periodsBeforeLunch} off
+   * the saved {@link ScheduleConfig} so a timetable built with "lunch
+   * after period 3" renders the break in the right slot — instead of
+   * the legacy hardcoded position after period 4 that ignored what the
+   * schedule actually configured.
+   *
+   * <p>Backwards-compatible: a timetable without scheduleConfig (older
+   * docs) falls through to the legacy "after period 4" behaviour so
+   * nothing rendered before this change shifts under the school's feet.
+   * {@code periodsBeforeLunch === 0} means no lunch row at all
+   * (KG / half-day schools), in which case we never report a lunch row.</p>
+   */
   isLunchBreak(periodIndex: number): boolean {
+    const n = this.timetable?.scheduleConfig?.periodsBeforeLunch;
+    if (n === 0) return false;
+    if (typeof n === 'number' && n > 0) return periodIndex === n;
     return periodIndex === 4;
+  }
+
+  /**
+   * Format a "HH:mm" string honouring the timetable's
+   * {@code displayTimeFormat}. 12-hour ("1:00 PM") by default to match
+   * what Indian school parents expect; 24-hour ("13:00") if explicitly
+   * configured. Used by the period header, lunch row, and PDF export so
+   * every time on the page reads consistently.
+   */
+  formatTime(value: string | undefined | null): string {
+    if (!value) return '';
+    if (this.timetable?.scheduleConfig?.displayTimeFormat === 'h24') return value;
+    const [h, m] = value.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return value;
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+  }
+
+  /** Lunch window string for the lunch row label, e.g. "11:00 AM – 11:30 AM".
+   *  Returns '' when no lunch is configured. */
+  get lunchWindowLabel(): string {
+    const cfg = this.timetable?.scheduleConfig;
+    if (!cfg?.lunchStart || !cfg?.lunchEnd) return '';
+    return `${this.formatTime(cfg.lunchStart)} – ${this.formatTime(cfg.lunchEnd)}`;
   }
 
   isCurrentPeriod(day: string, periodIndex: number): boolean {
@@ -315,11 +358,24 @@ export class TimetableViewComponent implements OnInit {
     if (this.timetable?.schedule) {
       const maxPeriods = Math.max(...this.timetable.schedule.map(d => d.periods?.length || 0));
       for (let p = 0; p < maxPeriods; p++) {
+        // Lunch break row — honours the configured periodsBeforeLunch.
+        // Without this the printed PDF would always insert lunch after
+        // period 4 regardless of what the school actually scheduled.
+        if (this.isLunchBreak(p)) {
+          const lunchLabel = this.lunchWindowLabel
+              ? `Lunch Break · ${this.lunchWindowLabel}`
+              : 'Lunch Break';
+          win.document.write(
+            `<tr><td colspan="${days.length + 2}" style="background:#FFF8E1;font-weight:600;text-align:center;padding:8px;">${lunchLabel}</td></tr>`
+          );
+        }
         win.document.write('<tr>');
         win.document.write(`<td><strong>${p + 1}</strong></td>`);
 
         const firstDay = this.timetable.schedule[0]?.periods?.[p];
-        win.document.write(`<td class="time">${firstDay?.startTime || ''} - ${firstDay?.endTime || ''}</td>`);
+        const startStr = this.formatTime(firstDay?.startTime);
+        const endStr = this.formatTime(firstDay?.endTime);
+        win.document.write(`<td class="time">${startStr} - ${endStr}</td>`);
 
         days.forEach(day => {
           const daySchedule = this.timetable?.schedule?.find(d => d.dayOfWeek === day);

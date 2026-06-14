@@ -13,6 +13,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { DragScrollDirective } from '../../../shared/directives/drag-scroll.directive';
 import { ApiService } from '../../../core/services/api.service';
 import { SubjectService } from '../../../core/services/subject.service';
 import {
@@ -65,6 +66,7 @@ interface SubjectOption {
     MatTooltipModule,
     MatDividerModule,
     PageHeaderComponent,
+    DragScrollDirective,
   ],
   templateUrl: './timetable-builder.component.html',
   styleUrl: './timetable-builder.component.scss',
@@ -98,16 +100,21 @@ export class TimetableBuilderComponent implements OnInit {
 
   subjects: SubjectOption[] = [];
 
-  // ── Schedule configuration ─────────────────────────────────
-  // Drives the lunch row position, default times for new periods, and
-  // how times render to admins + parents. Bound to the "Schedule
-  // settings" panel at the top of the builder. Saved alongside the
-  // schedule on the Timetable doc so each section can have a different
-  // shape (primary classes ending earlier than secondary, KG skipping
-  // lunch, etc.).
-  //
-  // The DEFAULTS replicate the legacy hardcoded values so an admin who
-  // never opens the settings panel sees exactly today's behaviour.
+  // ── Schedule configuration (read-only here) ────────────────
+  // The settings panel that USED to live in the builder moved to the
+  // Timetables list page so a whole grade can be created in one shot
+  // with the same shape (see TimetableListComponent#config). The
+  // builder still keeps a local `config` object because:
+  //   1. loadTimetable() hydrates it from the saved doc — driving the
+  //      lunch row position and start/end time rendering of every
+  //      period rendered on this page.
+  //   2. computeDefaultPeriods() + addPeriod() need it to generate
+  //      default times for new rows.
+  //   3. saveTimetable() round-trips it back so the next reload sees
+  //      the same shape.
+  // The DEFAULTS still mirror what the list page generates for a brand-
+  // new timetable — so a builder that loads a partially-empty doc renders
+  // the same way the list page would.
   config = {
     firstPeriodStart: '08:00',
     periodDurationMinutes: 45,
@@ -116,7 +123,6 @@ export class TimetableBuilderComponent implements OnInit {
     lunchEnd: '11:30',
     displayTimeFormat: 'h12' as 'h12' | 'h24',
   };
-  showScheduleSettings = false;
 
   constructor(
     private api: ApiService,
@@ -430,71 +436,6 @@ export class TimetableBuilderComponent implements OnInit {
     const period = h >= 12 ? 'PM' : 'AM';
     const hour12 = h % 12 === 0 ? 12 : h % 12;
     return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
-  }
-
-  /** Snap the lunch start time to the END of whichever period the admin
-   *  picked from "periods before lunch". Preserves the current lunch
-   *  duration so a 30-minute break stays 30 minutes whether it sits
-   *  after period 4 or period 5. Called from three places — when the
-   *  admin tweaks first-period start, period duration, or picks a new
-   *  periods-before-lunch value. Admin can still hand-edit lunch start
-   *  afterwards if their school takes a gap before lunch (rare).
-   *  No-op when "no lunch break" is selected. */
-  private snapLunchToPeriodEnd(): void {
-    const n = this.config.periodsBeforeLunch || 0;
-    if (n <= 0) return;
-    const dur = Math.max(5, this.config.periodDurationMinutes || 45);
-    const newLunchStart = this.addMinutes(this.config.firstPeriodStart || '08:00', n * dur);
-    // Preserve the admin's current lunch duration. Default 30 min when
-    // the existing values are missing or invalid.
-    const oldStart = this.config.lunchStart || '';
-    const oldEnd = this.config.lunchEnd || '';
-    const oldDur = this.diffMinutes(oldStart, oldEnd);
-    const lunchDur = oldDur > 0 ? oldDur : 30;
-    this.config.lunchStart = newLunchStart;
-    this.config.lunchEnd = this.addMinutes(newLunchStart, lunchDur);
-  }
-
-  /** Minutes between two "HH:mm" strings, or 0 if either is malformed. */
-  private diffMinutes(a: string, b: string): number {
-    if (!a || !b) return 0;
-    const [ah, am] = a.split(':').map(Number);
-    const [bh, bm] = b.split(':').map(Number);
-    if ([ah, am, bh, bm].some(isNaN)) return 0;
-    return (bh * 60 + bm) - (ah * 60 + am);
-  }
-
-  /** Called when the admin picks a new "periods before lunch" value.
-   *  Auto-snaps lunch start to the end of the chosen period, then
-   *  re-applies the schedule to refresh the times grid. */
-  onPeriodsBeforeLunchChanged(): void {
-    this.snapLunchToPeriodEnd();
-    this.onScheduleConfigChanged();
-  }
-
-  /** Called when first-period-start or period-duration changes. Re-snaps
-   *  lunch start so the cascade stays consistent without the admin
-   *  needing to manually update three fields. */
-  onPeriodTimingChanged(): void {
-    this.snapLunchToPeriodEnd();
-    this.onScheduleConfigChanged();
-  }
-
-  /** Loaded onto the page when the admin tweaks any settings field — re-
-   *  applies times to the existing schedule so the grid reflects the
-   *  new shape immediately. Existing teacher / subject picks are kept. */
-  onScheduleConfigChanged(): void {
-    if (!this.schedule || this.schedule.length === 0) return;
-    const defaults = this.computeDefaultPeriods();
-    this.schedule.forEach((day) => {
-      day.periods.forEach((p, i) => {
-        const d = defaults[i];
-        if (d) {
-          p.startTime = d.startTime;
-          p.endTime = d.endTime;
-        }
-      });
-    });
   }
 
   initializeEmptySchedule(): void {

@@ -60,7 +60,7 @@
       </h2>
     </div>
 
-    <div class="timetable-scroll">
+    <div class="timetable-scroll" appDragScroll>
       <table class="timetable-table">
         <thead>
           <tr>
@@ -75,6 +75,7 @@
               <td [attr.colspan]="days.length + 1" class="lunch-cell">
                 <mat-icon class="lunch-icon">restaurant</mat-icon>
                 Lunch Break
+                <span class="lunch-time" *ngIf="lunchWindowLabel">· {{ lunchWindowLabel }}</span>
               </td>
             </tr>
 
@@ -82,7 +83,7 @@
               <td class="period-label">
                 <div class="period-num">{{ i + 1 }}</div>
                 <div class="period-time" *ngIf="getPeriod(days[0], i) as p">
-                  {{ p.startTime }} - {{ p.endTime }}
+                  {{ formatTime(p.startTime) }} - {{ formatTime(p.endTime) }}
                 </div>
               </td>
               <td
