@@ -57,6 +57,20 @@ export class StudentsListComponent implements OnInit {
   classFilter = '';
   sectionFilter = '';
 
+  /**
+   * Timer handle for the search debounce. Search hits the backend (we
+   * can't filter client-side — schools have 1500+ students), so firing
+   * a request on every keystroke would saturate the API. 300 ms gives a
+   * teacher time to finish typing a name before we go to the server.
+   *
+   * <p>We use {@code setTimeout} rather than an RxJS Subject so we don't
+   * pull in {@code debounceTime}/{@code distinctUntilChanged} just for
+   * one input. If the component unmounts mid-debounce the timer just
+   * fires harmlessly into a detached request that nobody reads.</p>
+   */
+  private searchDebounceTimer?: any;
+  private readonly SEARCH_DEBOUNCE_MS = 300;
+
   academicYears: any[] = [];
   classes: SchoolClass[] = [];
   classMap: Record<string, string> = {};
@@ -242,6 +256,22 @@ export class StudentsListComponent implements OnInit {
   onSearch(): void {
     this.pageIndex = 0;
     this.loadStudents();
+  }
+
+  /**
+   * Debounced live-search hook — fires on every keystroke via
+   * (ngModelChange) but only actually queries the backend once typing
+   * pauses for {@link SEARCH_DEBOUNCE_MS} ms.
+   *
+   * <p>Reset page index on every fire so a 50-character query
+   * doesn't try to land the user on page 5 of "no results".</p>
+   */
+  onSearchChange(): void {
+    if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+    this.searchDebounceTimer = setTimeout(() => {
+      this.pageIndex = 0;
+      this.loadStudents();
+    }, this.SEARCH_DEBOUNCE_MS);
   }
 
   onFilterChange(): void {

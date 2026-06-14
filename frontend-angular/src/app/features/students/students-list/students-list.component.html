@@ -15,7 +15,10 @@
   <div class="filters-card">
     <mat-form-field appearance="outline" class="search-field">
       <mat-label>Search students</mat-label>
-      <input matInput [(ngModel)]="searchQuery" (keyup.enter)="onSearch()" placeholder="Search by name or admission no...">
+      <input matInput
+             [(ngModel)]="searchQuery"
+             (ngModelChange)="onSearchChange()"
+             placeholder="Search by name or admission no...">
       <mat-icon matPrefix>search</mat-icon>
     </mat-form-field>
 
