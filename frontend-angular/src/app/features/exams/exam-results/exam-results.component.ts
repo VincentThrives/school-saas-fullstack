@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { GradingService } from '../../../core/services/grading.service';
 import { SubjectService } from '../../../core/services/subject.service';
 import { forkJoin } from 'rxjs';
 
@@ -68,12 +69,21 @@ export class ExamResultsComponent implements OnInit {
     private subjectService: SubjectService,
     private route: ActivatedRoute,
     private router: Router,
+    /** Shared grading helper — applies the editable scale from
+     *  Settings → Academic + standard rounding. */
+    private grading: GradingService,
   ) {}
 
   ngOnInit(): void {
     this.examId = this.route.snapshot.paramMap.get('examId') || '';
+    // Load the school's grading scale BEFORE loadResults so that the
+    // grade-distribution chart and ranked table use the configured
+    // bands. If settings haven't been saved yet the service falls back
+    // to its sensible defaults.
+    this.grading.load().subscribe(() => {
+      this.loadResults();
+    });
     this.loadClasses();
-    this.loadResults();
   }
 
   loadClasses(): void {
@@ -100,10 +110,15 @@ export class ExamResultsComponent implements OnInit {
   loadResults(): void {
     this.isLoading = true;
 
+    // Fetch the full student roster up to 5000 so the name lookup map
+    // covers schools with hundreds of students. The previous 200 cap
+    // meant the last students in the list rendered as their UUID instead
+    // of "Firstname Lastname". Proper fix is a batch-by-id endpoint but
+    // this is enough for any single-school roster we'll demo against.
     forkJoin({
       results: this.api.getExamResults(this.examId),
       exam: this.api.getExamById(this.examId),
-      students: this.api.getStudents(0, 200),
+      students: this.api.getStudents(0, 5000),
     }).subscribe({
       next: ({ results, exam, students }) => {
         // Set exam
@@ -126,22 +141,68 @@ export class ExamResultsComponent implements OnInit {
         if (data) {
           this.marks = data.allMarks || [];
           this.totalStudents = data.totalStudents || this.marks.length;
-          this.passedCount = data.passed || 0;
-          this.failedCount = data.failed || 0;
-          this.passPercentage = data.passPercentage || 0;
-          this.classAverage = data.classAverage || 0;
+          // Recompute pass/fail counters from the canonical rule rather
+          // than trust the server's pre-aggregated numbers. The server
+          // computed against a stale grading scale that didn't know
+          // about the school's editable passingMarks override, which is
+          // why the chart and the table sometimes told different stories.
+          {
+            const cPass = this.exam?.passingMarks || 35;
+            this.passedCount = this.marks.filter((m: any) => m.marksObtained >= cPass).length;
+            this.failedCount = this.totalStudents - this.passedCount;
+            this.passPercentage = this.totalStudents > 0
+              ? Math.round((this.passedCount / this.totalStudents) * 100)
+              : 0;
+            const totalScored = this.marks.reduce((s: number, m: any) => s + (m.marksObtained || 0), 0);
+            this.classAverage = this.totalStudents > 0
+              ? Math.round((totalScored / this.totalStudents) * 10) / 10
+              : 0;
+          }
 
-          // Grade distribution from API
-          const gradeDist = data.gradeDistribution || {};
-          const gradeColors: Record<string, string> = {
-            'A+': '#4caf50', A: '#66bb6a', 'B+': '#42a5f5', B: '#64b5f6',
-            C: '#ffa726', D: '#ff7043', F: '#ef5350',
-          };
-          this.gradeDistribution = Object.entries(gradeDist).map(([grade, count]) => ({
-            grade,
-            count: count as number,
-            color: gradeColors[grade] || '#9e9e9e',
-          }));
+          // Grade distribution — DON'T trust the server's bucket counts.
+          // The backend uses its own hardcoded grading scale that doesn't
+          // know about (a) the school's editable bands from Settings →
+          // Academic, (b) the rounding rule (89.5 → 90), or (c) the
+          // per-exam passingMarks anchor for the F band. Recompute the
+          // chart locally from the same {@link GradingService} the
+          // ranked table uses so both views match — saw "F: 4" on the
+          // chart while only 1 student was actually below passing.
+          {
+            const cMax = this.exam?.maxMarks || 100;
+            const cPass = this.exam?.passingMarks || 35;
+            const gradeMap: Record<string, number> = {};
+            for (const m of this.marks) {
+              const g = this.grading.gradeFor(m.marksObtained, cMax, cPass);
+              gradeMap[g] = (gradeMap[g] || 0) + 1;
+            }
+            // Stable display order — high → low so the chart always
+            // reads A+, A, B+, B, C, D, F regardless of which letters
+            // are populated.
+            const order = ['A+', 'A', 'B+', 'B', 'C', 'D', 'F'];
+            const gradeColors: Record<string, string> = {
+              'A+': '#4caf50', A: '#66bb6a', 'B+': '#42a5f5', B: '#64b5f6',
+              C: '#ffa726', D: '#ff7043', F: '#ef5350',
+            };
+            this.gradeDistribution = order
+              .filter(g => gradeMap[g])
+              .map(g => ({
+                grade: g,
+                count: gradeMap[g],
+                color: gradeColors[g] || '#9e9e9e',
+              }));
+            // Bring through any non-standard letters the school added
+            // (rare but possible — e.g. "A++" or "X" if their scale is
+            // weird) at the end of the list so they're not silently lost.
+            for (const g of Object.keys(gradeMap)) {
+              if (!order.includes(g)) {
+                this.gradeDistribution.push({
+                  grade: g,
+                  count: gradeMap[g],
+                  color: gradeColors[g] || '#9e9e9e',
+                });
+              }
+            }
+          }
 
           // Toppers from API
           this.toppers = (data.toppers || []).map((t: any, i: number) => ({
@@ -152,16 +213,31 @@ export class ExamResultsComponent implements OnInit {
           }));
 
           // Full ranked list
+          // Always recompute grade + pass from the marks + the exam's
+          // own thresholds. The persisted `m.grade` and `m.passed` can
+          // be stale (older grading rules baked in at save time).
+          //
+          // Grade F is defined as "below the school's passingMarks",
+          // NOT as "below 35%". This respects the school's explicit
+          // pass threshold — if the admin configured passingMarks=17
+          // on a 50-mark paper, 17 must read as Pass with the lowest
+          // passing letter (D). Higher letters still use percentage
+          // bands (C/B/B+/A/A+) so the top of the scale stays familiar.
+          const maxMarks = this.exam?.maxMarks || 100;
+          const passingMarks = this.exam?.passingMarks || 35;
           const sortedMarks = [...this.marks].sort((a: any, b: any) => b.marksObtained - a.marksObtained);
-          this.rankedMarks = sortedMarks.map((m: any, i: number) => ({
-            rank: i + 1,
-            studentId: m.studentId,
-            name: this.getStudentName(m.studentId),
-            marks: m.marksObtained,
-            grade: m.grade || this.getGrade(m.marksObtained, this.exam?.maxMarks || 100),
-            passed: m.passed ?? m.marksObtained >= (this.exam?.passingMarks || 35),
-            remarks: m.remarks || '',
-          }));
+          this.rankedMarks = sortedMarks.map((m: any, i: number) => {
+            const passed = m.marksObtained >= passingMarks;
+            return {
+              rank: i + 1,
+              studentId: m.studentId,
+              name: this.getStudentName(m.studentId),
+              marks: m.marksObtained,
+              grade: this.getGrade(m.marksObtained, maxMarks, passingMarks),
+              passed,
+              remarks: m.remarks || '',
+            };
+          });
         }
 
         this.isLoading = false;
@@ -189,7 +265,7 @@ export class ExamResultsComponent implements OnInit {
     const sortedMarks = [...this.marks].sort((a, b) => b.marksObtained - a.marksObtained);
 
     sortedMarks.forEach((m) => {
-      const grade = this.getGrade(m.marksObtained, maxMarks);
+      const grade = this.getGrade(m.marksObtained, maxMarks, passingMarks);
       gradeMap[grade] = (gradeMap[grade] || 0) + 1;
     });
 
@@ -217,7 +293,7 @@ export class ExamResultsComponent implements OnInit {
       studentId: m.studentId,
       name: this.getStudentName(m.studentId),
       marks: m.marksObtained,
-      grade: this.getGrade(m.marksObtained, maxMarks),
+      grade: this.getGrade(m.marksObtained, maxMarks, passingMarks),
       passed: m.marksObtained >= passingMarks,
       remarks: m.remarks || '',
     }));
@@ -226,20 +302,21 @@ export class ExamResultsComponent implements OnInit {
   getStudentName(studentId: string): string {
     const s = this.studentMap[studentId];
     if (s) {
-      return `${s.firstName} ${s.lastName}`.trim() || studentId;
+      const name = `${s.firstName} ${s.lastName}`.trim();
+      if (name) return name;
     }
-    return studentId;
+    // Roster lookup missed — show a friendlier placeholder than the
+    // raw UUID. Happens when a student's record is older than the
+    // current roster page or the lookup endpoint timed out.
+    return 'Student record missing';
   }
 
-  getGrade(marks: number, maxMarks: number): string {
-    const percentage = (marks / maxMarks) * 100;
-    if (percentage >= 90) return 'A+';
-    if (percentage >= 80) return 'A';
-    if (percentage >= 70) return 'B+';
-    if (percentage >= 60) return 'B';
-    if (percentage >= 50) return 'C';
-    if (percentage >= 35) return 'D';
-    return 'F';
+  /** Letter grade for a marks value. Delegates to {@link GradingService}
+   *  so the bands match whatever the admin saved on Settings → Academic
+   *  and standard rounding is applied (89.5 → 90, 89.4 → 89). F stays
+   *  anchored to the exam's own pass threshold inside the service. */
+  getGrade(marks: number, maxMarks: number, passingMarks: number = 35): string {
+    return this.grading.gradeFor(marks, maxMarks, passingMarks);
   }
 
   getMedalIcon(rank: number): string {

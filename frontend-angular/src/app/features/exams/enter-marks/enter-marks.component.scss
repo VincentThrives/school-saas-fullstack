@@ -112,6 +112,22 @@ $gold-dark: #B8860B;
   ::ng-deep .mat-mdc-form-field-subscript-wrapper {
     display: none;
   }
+
+  // Hide the browser's native up/down spinner arrows on type="number"
+  // inputs. They show by default on every WebKit + Firefox build, take
+  // up scarce horizontal space in a narrow cell, and hijack the mouse
+  // wheel — scrolling the page over a focused mark input was changing
+  // the value instead of scrolling. The (wheel) handler on the inputs
+  // also blurs them so even bare scrolling doesn't change values.
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 }
 
 .remarks-field {

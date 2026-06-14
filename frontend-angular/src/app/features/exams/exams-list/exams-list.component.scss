@@ -83,6 +83,12 @@ $gold-dark: #B8860B;
   font-size: 0.8rem;
   color: #E65100;
   border-color: #E65100;
+  // Keep the button content on a single line even when the row is
+  // squeezed by a long multi-line "Max Marks" cell (Theory + Internal
+  // Assessment breakdown wraps onto 3+ lines). Without this, "Edit (1)"
+  // breaks at the space and stacks the count below the word.
+  white-space: nowrap;
+  min-width: 88px;
   mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
   &:disabled { opacity: 0.4; }
 }
@@ -91,6 +97,8 @@ $gold-dark: #B8860B;
   font-size: 0.8rem;
   color: #1565C0;
   border-color: #1565C0;
+  white-space: nowrap;
+  min-width: 88px;
   mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
   &:disabled { opacity: 0.4; }
 }

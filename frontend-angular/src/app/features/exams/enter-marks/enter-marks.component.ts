@@ -14,6 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { GradingService } from '../../../core/services/grading.service';
 import { SubjectService } from '../../../core/services/subject.service';
 
 interface StudentMark {
@@ -87,10 +88,18 @@ export class EnterMarksComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private snackBar: MatSnackBar,
+    /** Shared grading helper — pulls the school's editable scale from
+     *  Settings → Academic and applies standard rounding. */
+    public grading: GradingService,
   ) {}
 
   ngOnInit(): void {
     this.examId = this.route.snapshot.paramMap.get('examId') || '';
+    // Kick off the grading-scale load so the pill in this page reflects
+    // the school's bands instead of any hardcoded defaults. The service
+    // caches across the session so this is a no-op when other pages
+    // already triggered it.
+    this.grading.load().subscribe();
     this.loadClasses();
     this.loadExamAndStudents();
   }
@@ -317,16 +326,14 @@ export class EnterMarksComponent implements OnInit {
     });
   }
 
+  /** Letter grade for the displayed pill on this page. Delegates to
+   *  {@link GradingService} so the bands match whatever the admin
+   *  configured on Settings → Academic, and standard rounding is
+   *  applied (89.5 → 90, 89.4 → 89). F is anchored to the school's
+   *  per-exam pass threshold so e.g. an exam with passingMarks=17/50
+   *  reads 17 as "Pass (D)" rather than "Pass (F)". */
   getGrade(marks: number | null): string {
-    if (marks === null) return '-';
-    const percentage = (marks / this.maxMarks) * 100;
-    if (percentage >= 90) return 'A+';
-    if (percentage >= 80) return 'A';
-    if (percentage >= 70) return 'B+';
-    if (percentage >= 60) return 'B';
-    if (percentage >= 50) return 'C';
-    if (percentage >= 35) return 'D';
-    return 'F';
+    return this.grading.gradeFor(marks, this.maxMarks, this.passingMarks);
   }
 
   /**
