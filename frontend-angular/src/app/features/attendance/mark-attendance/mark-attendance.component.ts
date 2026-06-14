@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -78,6 +78,69 @@ export class MarkAttendanceComponent implements OnInit {
   private cachedHolidays: any[] = [];
   private cachedEvents: any[] = [];
 
+  /**
+   * Attendance gate driven by the loaded timetable.
+   *
+   * <p>Two block states, each with its own banner copy:</p>
+   * <ul>
+   *   <li>{@code noTimetableConfigured} — no timetable doc exists for
+   *       this (class, section, year). Admin is told to set one up
+   *       from the Timetables page before marking attendance.</li>
+   *   <li>{@code noPeriodsToday} — the timetable exists but the picked
+   *       day-of-week has zero periods (or isn't on the schedule at
+   *       all). Typical case: Sunday on a Mon-Sat schedule.</li>
+   * </ul>
+   *
+   * <p>Either state hides the Load Students button + shows the
+   * dedicated banner. Attendance is blocked in both cases.</p>
+   */
+  noPeriodsToday = false;
+  noPeriodsDayLabel = '';
+  noTimetableConfigured = false;
+
+  /**
+   * Post-save flow. After a successful {@link saveAttendance}, the
+   * roster is hidden and a compact Summary Card replaces it — date,
+   * class-section, Present/Absent counters, and an Edit button. The
+   * teacher can read off "20 present, 2 absent" without scrolling
+   * through 54 rows to confirm what they just saved.
+   *
+   * <p>Clicking Edit drops back into the editable roster with the same
+   * data in place; the Save button label flips to "Update Attendance"
+   * so the teacher knows the record already exists.</p>
+   *
+   * <p>Auto-resets whenever the scope (class / section / date) changes
+   * so a stale summary from the previous section never lingers.</p>
+   */
+  attendanceSaved = false;
+  /** True after the teacher clicked Edit on the Summary Card. Drives
+   *  the Save button copy ("Update Attendance" vs "Save Attendance"). */
+  editMode = false;
+  /** Frozen snapshot of present/absent counts at save time. Reading the
+   *  live {@link summary} after save would still work for a single
+   *  request, but freezing keeps the card stable if the teacher fiddles
+   *  with the roster before clicking Edit. */
+  savedSummary = { present: 0, absent: 0, total: 0 };
+  /** Human-readable scope shown on the Summary Card — e.g.
+   *  "Class 1 — Section A · 15 Jun 2026". Cached at save time so a
+   *  later date change doesn't rewrite the card. */
+  savedScopeLabel = '';
+  /** Cached "dayOfWeek (lowercased)" -> period count. Populated lazily
+   *  once a (class, section, year) tuple is selected, then re-checked
+   *  synchronously on every date change. */
+  private timetablePeriodsByDay = new Map<string, number>();
+  /** True when the API returned a timetable doc for this scope, even if
+   *  its schedule array was empty. Drives strict vs permissive gating:
+   *  - doc exists → block any day whose period count is 0 (treats a
+   *    bulk-created skeleton timetable as "Sunday closed" the same way
+   *    a fully-populated one does).
+   *  - no doc → don't block (school doesn't use timetables to gate
+   *    attendance — typical of brand-new tenants). */
+  private timetableDocExists = false;
+  /** Cache key so we only refetch the timetable when one of
+   *  (class, section, year) actually changes. */
+  private timetableCacheKey = '';
+
   /** Teacher-mode scoping. When true, only sections this teacher is the
    *  CLASS_TEACHER of (per Teacher Assignment) are shown in the dropdowns.
    *  Admin / principal users bypass. */
@@ -102,7 +165,27 @@ export class MarkAttendanceComponent implements OnInit {
     private auth: AuthService,
     private snackBar: MatSnackBar,
     public features: TenantFeatureService,
+    private location: Location,
   ) {}
+
+  /**
+   * Back button — uses {@link Location#back} so the user lands on
+   * whichever page they came from (Dashboard for a class-teacher
+   * tapping "Mark Attendance", Attendance Report for a principal
+   * drilling in to fix a day, etc.). A hardcoded {@code router.navigate}
+   * to the dashboard would be wrong for half the entry paths.
+   *
+   * <p>If history is empty (deep-linked tab), falls through to the
+   * dashboard so the button is never a no-op.</p>
+   */
+  goBack(): void {
+    if (window.history.length > 1) {
+      this.location.back();
+    } else {
+      this.location.replaceState('/dashboard');
+      window.location.href = '/dashboard';
+    }
+  }
 
   ngOnInit(): void {
     this.isTeacherMode = this.auth.currentRole === UserRole.TEACHER;
@@ -197,6 +280,8 @@ export class MarkAttendanceComponent implements OnInit {
   /** Date picker (matDatepicker) change handler. */
   onDateChange(): void {
     this.refreshHolidayBanner();
+    this.refreshNoPeriodsBanner();
+    this.maybeAutoLoadStudents();
   }
 
   loadClasses(): void {
@@ -246,6 +331,181 @@ export class MarkAttendanceComponent implements OnInit {
     this.selectedSectionId = '';
     this.students = [];
     this.studentsLoaded = false;
+    // Class changed → forget the previous timetable cache; the new
+    // section pick will trigger a fresh fetch.
+    this.timetablePeriodsByDay.clear();
+    this.timetableCacheKey = '';
+    this.refreshNoPeriodsBanner();
+  }
+
+  /** Section dropdown handler — triggers the timetable cache load so
+   *  the "no periods today" banner can be evaluated before students load. */
+  onSectionChange(): void {
+    this.students = [];
+    this.studentsLoaded = false;
+    this.maybeLoadTimetableCache();
+    // Auto-load runs inside maybeLoadTimetableCache's response handler
+    // because the gate result (no-timetable / no-periods) is only known
+    // AFTER the timetable API resolves. See refreshNoPeriodsBanner +
+    // maybeAutoLoadStudents for the trigger.
+  }
+
+  /**
+   * Fire {@link loadStudents} the moment every gate clears. Replaces the
+   * old "click Load Students" button — a teacher picks AY + class +
+   * section + date and the roster appears on its own.
+   *
+   * <p>Guards:</p>
+   * <ul>
+   *   <li>All four picks present (AY, class, section, date).</li>
+   *   <li>No holiday on the date.</li>
+   *   <li>Timetable exists and the picked day-of-week has real periods.</li>
+   *   <li>Not already in flight ({@code !isLoading}) — prevents stacking
+   *       requests when the date picker spams change events.</li>
+   * </ul>
+   *
+   * <p>Idempotent: re-firing for the same (class, section, date) when
+   * students are already loaded for that scope is a no-op; the fetch
+   * itself isn't smart about staleness so we early-exit here.</p>
+   */
+  private lastAutoLoadKey = '';
+  private maybeAutoLoadStudents(): void {
+    if (!this.selectedClassId || !this.selectedSectionId || !this.selectedAcademicYearId) return;
+    if (this.isHoliday || this.noPeriodsToday || this.noTimetableConfigured) return;
+    if (this.isLoading) return;
+    const dateStr = this.formatDate(this.selectedDate);
+    const key = `${this.selectedClassId}::${this.selectedSectionId}::${this.selectedAcademicYearId}::${dateStr}`;
+    if (key === this.lastAutoLoadKey && this.studentsLoaded) return;
+    this.lastAutoLoadKey = key;
+    this.loadStudents();
+  }
+
+  /**
+   * Pull the timetable for the active (class, section, year) once and
+   * remember how many periods sit on each day-of-week. The map is the
+   * authority for {@link refreshNoPeriodsBanner} — a Sunday entry of 0
+   * (or missing) flips the banner on and blocks the Load Students
+   * button.
+   *
+   * <p>No-op when one of the three picks is missing. The cache is keyed
+   * on the (class, section, year) tuple so re-picking the same triple
+   * (e.g. closing and reopening the section dropdown) doesn't refetch.</p>
+   *
+   * <p>404 / network error is treated as "no timetable configured" —
+   * not a fault state. We don't want a Mongo blip on the timetable
+   * endpoint to lock teachers out of marking attendance.</p>
+   */
+  private maybeLoadTimetableCache(): void {
+    if (!this.selectedClassId || !this.selectedSectionId || !this.selectedAcademicYearId) {
+      this.timetablePeriodsByDay.clear();
+      this.timetableDocExists = false;
+      this.timetableCacheKey = '';
+      this.refreshNoPeriodsBanner();
+      return;
+    }
+    const key = `${this.selectedClassId}::${this.selectedSectionId}::${this.selectedAcademicYearId}`;
+    if (key === this.timetableCacheKey) {
+      this.refreshNoPeriodsBanner();
+      return;
+    }
+    this.timetableCacheKey = key;
+    this.timetablePeriodsByDay.clear();
+    this.timetableDocExists = false;
+    this.api.getTimetable(this.selectedClassId, this.selectedSectionId, this.selectedAcademicYearId).subscribe({
+      next: (res) => {
+        const doc: any = res?.data;
+        this.timetableDocExists = !!(doc && doc.timetableId);
+        const schedule = doc?.schedule || [];
+        for (const day of schedule) {
+          if (!day?.dayOfWeek) continue;
+          // Count REAL periods (with a subject assigned), not structural
+          // placeholder rows. The default Mon-Sat skeleton created by
+          // the bulk-create flow seeds every weekday with empty period
+          // rows; without this filter, attendance would load on Friday
+          // and Saturday for a section whose schedule was never actually
+          // filled in — the very case the school admin wanted blocked.
+          //
+          // We accept either field shape: subjectId or the cached
+          // subjectName, so a legacy doc that only stamped the name
+          // still counts as "real".
+          const periods: any[] = Array.isArray(day.periods) ? day.periods : [];
+          const realCount = periods.reduce((n, p) => {
+            const hasSubject = !!(p && (p.subjectId || p.subjectName));
+            return n + (hasSubject ? 1 : 0);
+          }, 0);
+          this.timetablePeriodsByDay.set(
+            String(day.dayOfWeek).toLowerCase(),
+            realCount
+          );
+        }
+        this.refreshNoPeriodsBanner();
+        this.maybeAutoLoadStudents();
+      },
+      error: () => {
+        this.timetableDocExists = false;
+        this.timetablePeriodsByDay.clear();
+        this.refreshNoPeriodsBanner();
+        // No retry of auto-load — the "Timetable not configured" banner
+        // is the right end state when this branch fires.
+      },
+    });
+  }
+
+  /** Synchronous evaluator — called from every state change that could
+   *  flip the banner: section pick, date change, fresh timetable load.
+   *
+   *  <p>Strict gate: attendance requires a configured timetable that
+   *  has periods for the picked day-of-week. Anything less blocks.</p>
+   *
+   *  <p>Gating rule (in order):</p>
+   *  <ol>
+   *    <li>(Class, section, year) not fully picked → no banner, no block.
+   *        The Load Students button is already disabled until the admin
+   *        finishes picking.</li>
+   *    <li>No timetable doc on the server → {@code noTimetableConfigured}.
+   *        Banner: "Timetable not configured" with a pointer to the
+   *        Timetables page.</li>
+   *    <li>Timetable doc exists but the selected day has 0 periods
+   *        (either missing entirely from the schedule, or present with
+   *        an empty periods array) → {@code noPeriodsToday}.
+   *        Banner: "No class scheduled on {Day}".</li>
+   *    <li>Timetable doc exists AND the day has periods → all clear.</li>
+   *  </ol> */
+  private refreshNoPeriodsBanner(): void {
+    // (1) Skip the gate until the admin has picked the full scope —
+    // showing the banner before a section is chosen would be noise.
+    if (!this.selectedClassId || !this.selectedSectionId || !this.selectedAcademicYearId) {
+      this.noTimetableConfigured = false;
+      this.noPeriodsToday = false;
+      this.noPeriodsDayLabel = '';
+      return;
+    }
+    // (2) Timetable missing entirely → block with the "set one up" banner.
+    if (!this.timetableDocExists) {
+      this.noTimetableConfigured = true;
+      this.noPeriodsToday = false;
+      this.noPeriodsDayLabel = '';
+      this.students = [];
+      this.studentsLoaded = false;
+      return;
+    }
+    // (3) Timetable exists — check the picked day.
+    this.noTimetableConfigured = false;
+    const dayLabel = this.getDayOfWeekLabel(this.selectedDate);
+    const periodCount = this.timetablePeriodsByDay.get(dayLabel.toLowerCase()) ?? 0;
+    if (periodCount === 0) {
+      this.noPeriodsToday = true;
+      this.noPeriodsDayLabel = dayLabel;
+      this.students = [];
+      this.studentsLoaded = false;
+    } else {
+      this.noPeriodsToday = false;
+      this.noPeriodsDayLabel = '';
+    }
+  }
+
+  private getDayOfWeekLabel(d: Date): string {
+    return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()];
   }
 
   loadStudents(): void {
@@ -304,6 +564,10 @@ export class MarkAttendanceComponent implements OnInit {
   }
 
   private fetchStudents(): void {
+    // Any fresh fetch invalidates the post-save summary; the teacher
+    // might be reloading because they switched section or date.
+    this.attendanceSaved = false;
+    this.editMode = false;
     this.isLoading = true;
     this.api
       .getStudents(0, 100, { classId: this.selectedClassId, sectionId: this.selectedSectionId })
@@ -366,22 +630,49 @@ export class MarkAttendanceComponent implements OnInit {
       .subscribe({
         next: () => {
           this.isSaving = false;
-          // If SMS is live for this tenant AND the absence-alert trigger
-          // is enabled AND there were absentees, mention the SMS dispatch
-          // in the success message so the teacher knows parents will be
-          // notified. Otherwise just confirm the save.
-          const absentCount = this.summary.absent;
-          const showSms = this.features.absenceAlertSms() && absentCount > 0;
-          const msg = showSms
-            ? `Attendance saved. SMS dispatched to parents of ${absentCount} absent student${absentCount === 1 ? '' : 's'}.`
-            : 'Attendance saved successfully';
-          this.snackBar.open(msg, 'Close', { duration: showSms ? 5000 : 3000 });
+          // SMS line dropped — backend stopped auto-dispatching absence
+          // SMS on save (see AttendanceService.fireAbsenceAlerts).
+          // Mentioning it here would mislead the teacher into thinking
+          // parents were already notified when they actually weren't.
+          this.snackBar.open('Attendance saved successfully', 'Close', { duration: 3000 });
+          // Freeze the summary and flip into the post-save card view.
+          const live = this.summary;
+          this.savedSummary = {
+            present: live.present,
+            absent: live.absent,
+            total: this.students.length,
+          };
+          this.savedScopeLabel = this.computeSavedScopeLabel();
+          this.attendanceSaved = true;
+          this.editMode = false;
         },
         error: (err) => {
           this.isSaving = false;
           this.snackBar.open(err?.error?.message || 'Failed to save attendance', 'Close', { duration: 3000 });
         },
       });
+  }
+
+  /** Click handler on the Summary Card's Edit button — drops back into
+   *  the editable roster with the previously-marked data intact. The
+   *  save button now reads "Update Attendance" because the row already
+   *  exists in the DB (backend's markAttendance is upsert-style). */
+  editAttendance(): void {
+    this.attendanceSaved = false;
+    this.editMode = true;
+  }
+
+  /** Build "Class 1 — Section A · 15 Jun 2026" for the Summary Card.
+   *  Falls back to ids if the lookup tables haven't filled in yet. */
+  private computeSavedScopeLabel(): string {
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
+    const sec = (cls?.sections || []).find((s: any) => s.sectionId === this.selectedSectionId);
+    const dateLabel = this.selectedDate.toLocaleDateString(undefined, {
+      day: '2-digit', month: 'short', year: 'numeric',
+    });
+    const clsLabel = cls?.name || this.selectedClassId;
+    const secLabel = (sec as any)?.name || this.selectedSectionId;
+    return `${clsLabel} — Section ${secLabel} · ${dateLabel}`;
   }
 
   private formatDate(date: Date): string {

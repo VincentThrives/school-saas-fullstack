@@ -6,6 +6,117 @@ $gold-light: rgba(212, 168, 67, 0.08);
   padding: 0;
 }
 
+/* Inline "Loading students…" indicator that replaces the old Load
+   Students button. Picked AY / class / section / date auto-loads,
+   so the user just needs to know the request is in flight. */
+.load-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: $gold-dark;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+/* Post-save Summary Card — replaces the editable roster after a
+   successful save. Designed to read at a glance: green tick, scope
+   line, present/absent/total counters, Edit button on the right. */
+.saved-summary-card {
+  border-radius: 12px !important;
+  margin-top: 16px;
+  background: linear-gradient(135deg, #FFFDF5 0%, #FFF8E1 100%);
+  border: 1px solid rgba(212, 168, 67, 0.25);
+}
+
+.saved-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.saved-summary-tick {
+  font-size: 42px;
+  width: 42px;
+  height: 42px;
+  color: #2e7d32;
+  flex-shrink: 0;
+}
+
+.saved-summary-text {
+  flex: 1;
+  min-width: 0;
+
+  h3 {
+    margin: 0 0 4px;
+    color: $gold-dark;
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+}
+
+.saved-summary-scope {
+  margin: 0 0 10px;
+  color: rgba(0, 0, 0, 0.65);
+  font-size: 0.9rem;
+}
+
+.saved-summary-counters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.saved-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: rgba(0, 0, 0, 0.75);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  strong {
+    font-weight: 700;
+    color: rgba(0, 0, 0, 0.85);
+  }
+
+  &.present mat-icon { color: #2e7d32; }
+  &.absent mat-icon { color: #c62828; }
+}
+
+.saved-edit-btn {
+  flex-shrink: 0;
+  border-color: $gold;
+  color: $gold-dark;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    margin-right: 4px;
+  }
+
+  &:hover {
+    background: rgba(212, 168, 67, 0.08);
+    border-color: $gold-dark;
+  }
+}
+
+@media (max-width: 640px) {
+  .saved-summary-row {
+    flex-wrap: wrap;
+  }
+  .saved-edit-btn {
+    margin-left: auto;
+  }
+}
+
+
 // Holiday banner — cream gradient stays in both themes, so the text colors
 // must be locked with !important to survive the global dark-theme heading
 // overrides in styles.scss.

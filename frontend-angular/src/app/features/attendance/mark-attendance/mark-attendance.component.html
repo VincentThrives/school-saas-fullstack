@@ -1,4 +1,6 @@
 <div class="mark-attendance-container">
+  <!-- Back lives in the page header's secondary action slot — sits
+       top-right of the title row instead of taking its own row above. -->
   <app-page-header
     title="Mark Attendance"
     subtitle="Record daily attendance for students"
@@ -7,6 +9,9 @@
       { label: 'Attendance' },
       { label: 'Mark Attendance' }
     ]"
+    secondaryActionLabel="Back"
+    secondaryActionIcon="arrow_back"
+    (secondaryActionClick)="goBack()"
   ></app-page-header>
 
   <!-- Filters -->
@@ -33,7 +38,9 @@
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Section</mat-label>
-          <mat-select [(ngModel)]="selectedSectionId" [disabled]="!selectedClassId">
+          <mat-select [(ngModel)]="selectedSectionId"
+                      [disabled]="!selectedClassId"
+                      (selectionChange)="onSectionChange()">
             <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">
               {{ sec.name }}
             </mat-option>
@@ -47,15 +54,15 @@
           <mat-datepicker #picker></mat-datepicker>
         </mat-form-field>
 
-        <button
-          mat-flat-button
-          class="load-btn"
-          (click)="loadStudents()"
-          [disabled]="!selectedClassId || !selectedSectionId || isHoliday"
-        >
-          <mat-icon>group</mat-icon>
-          Load Students
-        </button>
+        <!-- Load Students button retired — picking AY + class + section
+             + date auto-loads the roster the moment every gate clears
+             (see maybeAutoLoadStudents). A small inline spinner
+             elsewhere on the page covers the "loading" feedback the
+             button used to provide. -->
+        <div class="load-status" *ngIf="isLoading">
+          <mat-spinner diameter="20"></mat-spinner>
+          <span>Loading students…</span>
+        </div>
       </div>
     </mat-card-content>
   </mat-card>
@@ -69,8 +76,33 @@
     </div>
   </div>
 
+  <!-- "Timetable not configured" Banner — fires when no timetable doc
+       exists for the chosen (class, section, year). Attendance can't be
+       gated until the school sets one up; pointer to the Timetables
+       page nudges the admin to the right place. -->
+  <div class="holiday-banner" *ngIf="noTimetableConfigured && !isHoliday">
+    <mat-icon class="holiday-banner-icon">schedule</mat-icon>
+    <div class="holiday-banner-text">
+      <h3>Timetable not configured</h3>
+      <p>This class–section has no timetable for the selected academic year. Create one from the Timetables page before marking attendance.</p>
+    </div>
+  </div>
+
+  <!-- "No periods scheduled" Banner — fires when the section's
+       timetable has zero periods for the picked day-of-week. Typically
+       a Sunday on a Mon-Sat timetable, but also covers half-day grades
+       skipping a weekday. Same card shape as the holiday banner so the
+       admin reads it as a sibling "school closed" message. -->
+  <div class="holiday-banner" *ngIf="noPeriodsToday && !isHoliday && !noTimetableConfigured">
+    <mat-icon class="holiday-banner-icon">event_busy</mat-icon>
+    <div class="holiday-banner-text">
+      <h3>No class scheduled on {{ noPeriodsDayLabel }}</h3>
+      <p>The timetable has no periods for this day — attendance is not required.</p>
+    </div>
+  </div>
+
   <!-- Quick Actions & Summary -->
-  <mat-card class="actions-card" *ngIf="studentsLoaded && students.length > 0 && !isHoliday">
+  <mat-card class="actions-card" *ngIf="studentsLoaded && students.length > 0 && !isHoliday && !attendanceSaved">
     <mat-card-content>
       <div class="actions-row">
         <div class="quick-actions">
@@ -117,7 +149,7 @@
   </div>
 
   <!-- Students Table -->
-  <mat-card class="table-card" *ngIf="studentsLoaded && !isLoading">
+  <mat-card class="table-card" *ngIf="studentsLoaded && !isLoading && !attendanceSaved">
     <!-- Mobile cards (< 600px): each student is a self-contained card with status radios. -->
     <div class="responsive-cards">
       <div class="r-card" *ngFor="let student of students">
@@ -198,20 +230,18 @@
     </div>
   </mat-card>
 
-  <!-- SMS-will-be-sent banner. Only renders when:
-       a) Tenant has SMS enabled, b) Absence-alert trigger is on, and
-       c) At least one student is currently marked absent. -->
-  <div class="sms-pre-banner"
-       *ngIf="features.absenceAlertSms() && studentsLoaded && summary.absent > 0">
-    <mat-icon>sms</mat-icon>
-    <span>
-      Parents of <strong>{{ summary.absent }}</strong>
-      absent student{{ summary.absent === 1 ? '' : 's' }} will receive an SMS alert when you save.
-    </span>
-  </div>
+  <!-- Old "Parents of N absent students will receive an SMS alert when
+       you save" banner removed. Backend stopped auto-firing absence
+       SMS some time ago (see AttendanceService.fireAbsenceAlerts) —
+       SMS is dispatched only from the SMS Notifications page via
+       "Send today's absence alerts". Banner was misinforming the
+       teacher that saving here would trigger parent SMSes when it
+       no longer does. -->
 
-  <!-- Save Button -->
-  <div class="save-section" *ngIf="studentsLoaded && students.length > 0">
+  <!-- Save Button — copy flips to "Update Attendance" after the
+       teacher clicks Edit on the post-save Summary Card, so they know
+       the record already exists and is being amended. -->
+  <div class="save-section" *ngIf="studentsLoaded && students.length > 0 && !attendanceSaved">
     <button
       mat-flat-button
       class="save-btn"
@@ -220,9 +250,44 @@
     >
       <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
       <mat-icon *ngIf="!isSaving">save</mat-icon>
-      {{ isSaving ? 'Saving...' : 'Save Attendance' }}
+      {{ isSaving
+          ? (editMode ? 'Updating…' : 'Saving…')
+          : (editMode ? 'Update Attendance' : 'Save Attendance') }}
     </button>
   </div>
+
+  <!-- Post-save Summary Card — replaces the roster + Save button once
+       the save lands. Frozen counters so the teacher reads off exactly
+       what was committed; Edit drops them back into the editable
+       roster with the same data and "Update Attendance" copy. -->
+  <mat-card class="saved-summary-card" *ngIf="attendanceSaved">
+    <mat-card-content>
+      <div class="saved-summary-row">
+        <mat-icon class="saved-summary-tick">check_circle</mat-icon>
+        <div class="saved-summary-text">
+          <h3>Today's attendance marked</h3>
+          <p class="saved-summary-scope">{{ savedScopeLabel }}</p>
+          <div class="saved-summary-counters">
+            <span class="saved-counter present">
+              <mat-icon>check_circle</mat-icon>
+              Present: <strong>{{ savedSummary.present }}</strong>
+            </span>
+            <span class="saved-counter absent">
+              <mat-icon>cancel</mat-icon>
+              Absent: <strong>{{ savedSummary.absent }}</strong>
+            </span>
+            <span class="saved-counter total">
+              Total: <strong>{{ savedSummary.total }}</strong>
+            </span>
+          </div>
+        </div>
+        <button mat-stroked-button class="saved-edit-btn" (click)="editAttendance()">
+          <mat-icon>edit</mat-icon>
+          Edit
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
 
   <!-- Info Alert -->
   <mat-card class="info-alert" *ngIf="!selectedAcademicYearId">
