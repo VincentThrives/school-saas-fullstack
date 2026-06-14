@@ -307,6 +307,40 @@ export class ExamConfigComponent implements OnInit {
   }
 
   /**
+   * Strict assignment-based check: does this Subject actually apply to
+   * ANY of the currently-picked (class, section) pairs?
+   *
+   * <p>A subject covers a pair iff its {@code assignments} contains an
+   * entry where:</p>
+   * <ul>
+   *   <li>{@code assignment.classId} == picked classId, AND</li>
+   *   <li>{@code assignment.sectionIds} is empty (meaning "all
+   *       sections of this class") OR contains the picked sectionId.</li>
+   * </ul>
+   *
+   * <p>Legacy subjects with no {@code assignments} array are treated
+   * as "everywhere" so they don't disappear from old configs. The
+   * earlier filter relied on {@code section.subjectIds} alone, which
+   * can be a stale superset: creating a Subject for a whole class
+   * auto-attaches it to every section, so a section the admin later
+   * configured with only Hindi would still see Mathematics until
+   * this stricter check kicks in.</p>
+   */
+  private subjectCoversAnyPickedPair(s: SubjectItem): boolean {
+    const assignments = s.assignments || [];
+    if (assignments.length === 0) return true; // legacy / "everywhere" — don't hide
+    for (const key of this.pickedPairKeys) {
+      const [classId, sectionId] = key.split('::');
+      for (const a of assignments) {
+        if (a.classId !== classId) continue;
+        const secIds = a.sectionIds || [];
+        if (secIds.length === 0 || secIds.includes(sectionId)) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Refresh the subject pool whenever the pair selection changes.
    *
    * @param preloadedSubjectConfigs optional — for edit mode, the saved
@@ -350,6 +384,15 @@ export class ExamConfigComponent implements OnInit {
         if (myToken !== this.subjectsFetchToken) return;
         this.availableSubjects = subs
           .filter(s => s.components && s.components.length > 0)
+          // Cross-check against the Subject's OWN assignments. The
+          // section.subjectIds list this method seeded from can be a
+          // stale superset — a Subject created without a specific
+          // section auto-fans out into every section's subjectIds, so
+          // a class admin who later configures "only Hindi for 3rd-C"
+          // still sees Mathematics here unless we re-check the
+          // canonical assignment list. See subjectCoversAnyPickedPair
+          // for the exact rule.
+          .filter(s => this.subjectCoversAnyPickedPair(s))
           // Sort alphabetically — admin picks from a long list, deterministic order helps.
           .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
@@ -521,15 +564,13 @@ export class ExamConfigComponent implements OnInit {
         if (skip > 0) msg += ` · ${skip} combination${skip === 1 ? '' : 's'} not configured`;
         this.snackBar.open(msg, 'Close', { duration: 5000 });
 
-        if (isEdit) {
-          // Done with edit — back to the list view.
-          this.router.navigate(['/exams/config']);
-        } else {
-          // Stay on the page so admin can configure another exam type
-          // without re-picking everything.
-          this.pickedSubjectRows = [];
-          this.form.patchValue({ examType: '', examDate: null, startTime: '', endTime: '', description: '' });
-        }
+        // Back to the list view in both modes. The list is the "view"
+        // page for exam configs — one row per [year, examType] tuple
+        // showing what was just created. Earlier the create path stayed
+        // on the form and silently wiped a few fields; admins expected
+        // a navigation like every other "create" flow in the app and
+        // wondered if the click had even registered.
+        this.router.navigate(['/exams/config']);
       },
       error: (err) => {
         this.isSaving = false;

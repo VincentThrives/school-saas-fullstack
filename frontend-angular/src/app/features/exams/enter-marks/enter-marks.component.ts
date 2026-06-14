@@ -13,6 +13,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { GridNavDirective } from '../../../shared/directives/grid-nav.directive';
 import { ApiService } from '../../../core/services/api.service';
 import { GradingService } from '../../../core/services/grading.service';
 import { SubjectService } from '../../../core/services/subject.service';
@@ -60,6 +61,7 @@ interface ExamComponentDef {
     MatProgressSpinnerModule,
     MatSnackBarModule,
     PageHeaderComponent,
+    GridNavDirective,
   ],
   templateUrl: './enter-marks.component.html',
   styleUrl: './enter-marks.component.scss',
