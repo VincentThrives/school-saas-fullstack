@@ -13,6 +13,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { downloadOrOpenBlob } from '../../../shared/utils/download';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { AcademicYear } from '../../../core/models';
@@ -146,14 +147,11 @@ export class MyReportCardComponent implements OnInit {
     }
     this.api.downloadMyReportCardPdf(this.selectedAcademicYearId, tenantId, this.selectedExamType).subscribe({
       next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `report_card_${this.selectedExamType}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
+        // downloadOrOpenBlob routes via base64+window.open inside the
+        // Capacitor WebView (Android), since the legacy anchor-click
+        // trick silently no-ops on native. Plain browsers still get
+        // the standard download anchor.
+        downloadOrOpenBlob(blob, `report_card_${this.selectedExamType}.pdf`);
       },
       error: (err) => {
         this.snackBar.open(err?.error?.message || 'Failed to download PDF', 'Close', { duration: 3000 });

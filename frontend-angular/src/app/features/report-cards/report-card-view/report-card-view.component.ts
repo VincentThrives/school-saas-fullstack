@@ -10,6 +10,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { downloadOrOpenBlob } from '../../../shared/utils/download';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -104,12 +105,8 @@ export class ReportCardViewComponent implements OnInit {
     const tenantId = this.authService.currentSchoolInfo?.tenantId || '';
     this.api.downloadReportCardPdf(this.reportCard.studentId, this.reportCard.academicYearId, tenantId, this.selectedExamType).subscribe({
       next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `report-card-${this.reportCard.studentName || 'student'}.pdf`;
-        a.click();
-        window.URL.revokeObjectURL(url);
+        // Capacitor-safe download path (see shared/utils/download.ts).
+        downloadOrOpenBlob(blob, `report-card-${this.reportCard.studentName || 'student'}.pdf`);
       },
       error: () => {
         this.snackBar.open('Failed to download PDF', 'Close', { duration: 3000 });

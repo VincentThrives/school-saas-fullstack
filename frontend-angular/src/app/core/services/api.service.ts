@@ -734,9 +734,13 @@ export class ApiService {
     return this.http.get<ApiResponse<any[]>>(`${this.API}/report-cards/class/${classId}/generate?academicYearId=${academicYearId}`);
   }
 
-  generateReportCards(params: { classId: string; academicYearId: string; studentIds: string[]; examType?: string }): Observable<ApiResponse<any>> {
+  generateReportCards(params: { classId: string; sectionId?: string; academicYearId: string; studentIds: string[]; examType?: string }): Observable<ApiResponse<any>> {
     let url = `${this.API}/report-cards/class/${params.classId}/generate?academicYearId=${params.academicYearId}`;
     if (params.examType) url += `&examType=${encodeURIComponent(params.examType)}`;
+    // Push the section filter to the backend so the bulk endpoint
+    // only processes students in the picked section instead of
+    // generating the whole class and discarding 3/4 in the UI.
+    if (params.sectionId) url += `&sectionId=${encodeURIComponent(params.sectionId)}`;
     return this.http.post<ApiResponse<any>>(url, null);
   }
 

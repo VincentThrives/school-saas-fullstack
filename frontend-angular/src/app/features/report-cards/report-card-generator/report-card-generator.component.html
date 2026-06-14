@@ -31,7 +31,11 @@
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Section</mat-label>
         <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSectionChange()" [disabled]="!selectedClassId">
-          <mat-option value="">All Sections</mat-option>
+          <!-- "All Sections" option commented out for now — the first
+               section auto-loads on class change so the admin sees data
+               immediately instead of having to pick a section first.
+               Restore the option if cross-section report cards come back. -->
+          <!-- <mat-option value="">All Sections</mat-option> -->
           <mat-option *ngFor="let sec of sections" [value]="sec.sectionId">{{ sec.name }}</mat-option>
         </mat-select>
       </mat-form-field>
@@ -107,7 +111,7 @@
         </span>
       </div>
 
-      <div class="r-card" *ngFor="let rc of filteredReportCards">
+      <div class="r-card" *ngFor="let rc of pagedRows">
         <div class="r-card__header">
           <span class="r-card__title">
             <mat-checkbox
@@ -136,8 +140,9 @@
       </div>
     </div>
 
-    <!-- Table -->
-    <table mat-table [dataSource]="filteredReportCards" class="report-table responsive-table">
+    <!-- Table — data + pagination driven by MatTableDataSource so only
+         the current page actually renders. -->
+    <table mat-table [dataSource]="dataSource" class="report-table responsive-table">
       <!-- Checkbox -->
       <ng-container matColumnDef="select">
         <th mat-header-cell *matHeaderCellDef>
@@ -204,6 +209,18 @@
       <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
       <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="table-row"></tr>
     </table>
+
+    <!-- Pagination — shown once we have data. Drives both the desktop
+         table (via dataSource.paginator) and the mobile cards (via
+         pagedRows). Select-all and Download All still operate on the
+         FULL filtered set across every page. -->
+    <mat-paginator *ngIf="filteredReportCards.length > 0"
+                   [length]="filteredReportCards.length"
+                   [pageSize]="pageSize"
+                   [pageSizeOptions]="pageSizeOptions"
+                   (page)="onPageChange($event)"
+                   showFirstLastButtons>
+    </mat-paginator>
 
     <div class="loading-row" *ngIf="isLoading">
       <mat-spinner diameter="36"></mat-spinner>

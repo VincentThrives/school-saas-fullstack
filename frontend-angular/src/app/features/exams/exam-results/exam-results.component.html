@@ -35,11 +35,11 @@
           </div>
           <div class="info-item">
             <span class="info-label">Max Marks</span>
-            <span class="info-value">{{ exam.maxMarks }}</span>
+            <span class="info-value">{{ effectiveMax }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">Passing Marks</span>
-            <span class="info-value">{{ exam.passingMarks }}</span>
+            <span class="info-value">{{ effectivePass }}</span>
           </div>
         </div>
       </mat-card-content>
@@ -127,7 +127,7 @@
             <span class="topper-medal">{{ getMedalIcon(t.rank) }}</span>
             <span class="topper-rank" *ngIf="t.rank > 3">#{{ t.rank }}</span>
             <span class="topper-name">{{ t.name }}</span>
-            <span class="topper-marks">{{ t.marks }} / {{ exam.maxMarks }}</span>
+            <span class="topper-marks">{{ t.marks }} / {{ effectiveMax }}</span>
           </div>
         </div>
       </mat-card-content>
@@ -148,7 +148,7 @@
             <mat-chip [class]="'grade-chip grade-' + row.grade.replace('+', '-plus')">{{ row.grade }}</mat-chip>
           </div>
           <div class="r-card__inline">
-            <span><strong>{{ row.marks }}</strong> / {{ exam.maxMarks }}</span>
+            <span><strong>{{ row.marks }}</strong> / {{ effectiveMax }}</span>
             <mat-chip [class]="row.passed ? 'pass-chip' : 'fail-chip'">{{ row.passed ? 'Pass' : 'Fail' }}</mat-chip>
           </div>
           <div class="r-card__inline" *ngIf="row.remarks">
@@ -171,7 +171,7 @@
         <ng-container matColumnDef="marks">
           <th mat-header-cell *matHeaderCellDef>Marks</th>
           <td mat-cell *matCellDef="let row">
-            <strong>{{ row.marks }}</strong> / {{ exam.maxMarks }}
+            <strong>{{ row.marks }}</strong> / {{ effectiveMax }}
           </td>
         </ng-container>
 

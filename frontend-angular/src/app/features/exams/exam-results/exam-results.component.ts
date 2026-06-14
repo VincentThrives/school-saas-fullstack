@@ -64,6 +64,33 @@ export class ExamResultsComponent implements OnInit {
 
   displayedColumns = ['rank', 'name', 'marks', 'grade', 'status', 'remarks'];
 
+  /**
+   * Effective MAX for a result row. For combined-mode exams (Math with
+   * Theory 80 + IA 20, etc.) the legacy {@code exam.maxMarks} stores
+   * only the FIRST component's max — using it as the denominator gave
+   * "85 / 80" instead of "85 / 100" and cascaded to broken grades,
+   * pass/fail, and percentages over 100. Sum across components when
+   * the array is populated; fall back to the scalar field otherwise.
+   */
+  get effectiveMax(): number {
+    const comps = (this.exam?.components || []) as { maxMarks?: number }[];
+    if (comps.length > 0) {
+      return comps.reduce((sum, c) => sum + (Number(c?.maxMarks) || 0), 0);
+    }
+    return Number(this.exam?.maxMarks) || 100;
+  }
+
+  /** Effective PASS threshold — sum of per-component passing marks for
+   *  combined exams, else the scalar field. Same reasoning as
+   *  {@link effectiveMax}. */
+  get effectivePass(): number {
+    const comps = (this.exam?.components || []) as { passingMarks?: number }[];
+    if (comps.length > 0) {
+      return comps.reduce((sum, c) => sum + (Number(c?.passingMarks) || 0), 0);
+    }
+    return Number(this.exam?.passingMarks) || 35;
+  }
+
   constructor(
     private api: ApiService,
     private subjectService: SubjectService,
@@ -147,7 +174,7 @@ export class ExamResultsComponent implements OnInit {
           // about the school's editable passingMarks override, which is
           // why the chart and the table sometimes told different stories.
           {
-            const cPass = this.exam?.passingMarks || 35;
+            const cPass = this.effectivePass;
             this.passedCount = this.marks.filter((m: any) => m.marksObtained >= cPass).length;
             this.failedCount = this.totalStudents - this.passedCount;
             this.passPercentage = this.totalStudents > 0
@@ -168,8 +195,8 @@ export class ExamResultsComponent implements OnInit {
           // ranked table uses so both views match — saw "F: 4" on the
           // chart while only 1 student was actually below passing.
           {
-            const cMax = this.exam?.maxMarks || 100;
-            const cPass = this.exam?.passingMarks || 35;
+            const cMax = this.effectiveMax;
+            const cPass = this.effectivePass;
             const gradeMap: Record<string, number> = {};
             for (const m of this.marks) {
               const g = this.grading.gradeFor(m.marksObtained, cMax, cPass);
@@ -223,8 +250,8 @@ export class ExamResultsComponent implements OnInit {
           // on a 50-mark paper, 17 must read as Pass with the lowest
           // passing letter (D). Higher letters still use percentage
           // bands (C/B/B+/A/A+) so the top of the scale stays familiar.
-          const maxMarks = this.exam?.maxMarks || 100;
-          const passingMarks = this.exam?.passingMarks || 35;
+          const maxMarks = this.effectiveMax;
+          const passingMarks = this.effectivePass;
           const sortedMarks = [...this.marks].sort((a: any, b: any) => b.marksObtained - a.marksObtained);
           this.rankedMarks = sortedMarks.map((m: any, i: number) => {
             const passed = m.marksObtained >= passingMarks;
@@ -249,8 +276,8 @@ export class ExamResultsComponent implements OnInit {
   }
 
   private computeStats(): void {
-    const maxMarks = this.exam?.maxMarks || 100;
-    const passingMarks = this.exam?.passingMarks || 35;
+    const maxMarks = this.effectiveMax;
+    const passingMarks = this.effectivePass;
 
     this.totalStudents = this.marks.length;
     this.passedCount = this.marks.filter((m) => m.marksObtained >= passingMarks).length;
