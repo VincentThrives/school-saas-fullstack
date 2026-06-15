@@ -1401,6 +1401,12 @@ export class ApiService {
       `${this.API}/fee-ledgers/migrate-legacy`, {});
   }
 
+  /** Fire an in-app fee-due reminder to the student's parents (+ student
+   *  account if any). Returns the count of recipients reached. */
+  notifyFeeDue(payload: { studentId: string; academicYearId: string; outstandingAmount: number }): Observable<ApiResponse<number>> {
+    return this.http.post<ApiResponse<number>>(`${this.API}/fee-ledgers/notify-due`, payload);
+  }
+
   // ── Feature Management ───────────────────────────────────────────────
   getFeatureCatalog(): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.API}/super/features/catalog`);

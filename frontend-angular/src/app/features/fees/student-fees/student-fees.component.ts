@@ -53,8 +53,25 @@ export class StudentFeesComponent implements OnInit {
   studentSearch = '';
   isLoadingStudents = false;
 
+  /** Status dropdown filter. Empty string = "All Statuses". Values
+   *  mirror the {@link StudentFeeLedger.Status} enum so the filter
+   *  reads against the same field rowStatus() displays. */
+  statusFilter: '' | 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERDUE' = '';
+  readonly statusFilterOptions: Array<{ value: '' | 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERDUE'; label: string }> = [
+    { value: '',        label: 'All Statuses' },
+    { value: 'UNPAID',  label: 'Unpaid' },
+    { value: 'PARTIAL', label: 'Partial' },
+    { value: 'PAID',    label: 'Paid' },
+    { value: 'OVERDUE', label: 'Overdue' },
+  ];
+
   // Roster ledger map for quick balance/status display in the roster table.
   rosterLedgersByStudentId: Record<string, StudentFeeLedger> = {};
+
+  /** Student IDs currently mid-flight on the "Notify Fee Due" call.
+   *  Used to disable the bell + show a spinner so the admin can't
+   *  fire the same reminder twice in rapid succession. */
+  notifyingStudentIds = new Set<string>();
 
   // Currently-open student's ledger
   ledger: StudentFeeLedger | null = null;
@@ -134,16 +151,24 @@ export class StudentFeesComponent implements OnInit {
     }
   }
 
-  /** Client-side search narrowing of the roster. */
+  /** Client-side narrowing of the roster — combines free-text search
+   *  and the status dropdown. Both filters AND together. */
   get filteredStudents(): Student[] {
     const q = (this.studentSearch || '').trim().toLowerCase();
-    if (!q) return this.students;
-    return this.students.filter((s) => {
-      const name = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase();
-      const adm = (s.admissionNumber || '').toLowerCase();
-      const roll = (s.rollNumber || '').toLowerCase();
-      return name.includes(q) || adm.includes(q) || roll.includes(q);
-    });
+    const sf = this.statusFilter;
+    let list = this.students;
+    if (sf) {
+      list = list.filter((s) => this.rowStatus(s) === sf);
+    }
+    if (q) {
+      list = list.filter((s) => {
+        const name = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase();
+        const adm = (s.admissionNumber || '').toLowerCase();
+        const roll = (s.rollNumber || '').toLowerCase();
+        return name.includes(q) || adm.includes(q) || roll.includes(q);
+      });
+    }
+    return list;
   }
 
   /** Click a roster row to open that student's ledger. */
@@ -235,6 +260,62 @@ export class StudentFeesComponent implements OnInit {
   rowStatus(student: Student): string {
     const l = this.rosterLedgersByStudentId[student.studentId];
     return l ? l.status : 'UNPAID';
+  }
+
+  /** Outstanding amount for the roster's bell button. Mirrors
+   *  {@link rowBalance} — both read from the same ledger snapshot. */
+  rowOutstanding(student: Student): number {
+    return this.rowBalance(student);
+  }
+
+  /**
+   * Click handler on the bell button — fires the in-app fee-due
+   * reminder for one student. Disabled by template binding when:
+   *   - outstanding is 0 (nothing to remind about)
+   *   - request is already in flight for this student
+   *
+   * <p>Stops propagation on the click so the row's open-ledger
+   * handler doesn't also fire. Snackbar reports recipient count on
+   * success; a "no logins" response (recipients = 0) flags the case
+   * where the student + parents don't have accounts yet, which is
+   * actionable for the admin (create logins from Manage Users).</p>
+   */
+  notifyFeeDue(student: Student): void {
+    if (!student?.studentId) return;
+    const outstanding = this.rowOutstanding(student);
+    if (outstanding <= 0) return;
+    if (this.notifyingStudentIds.has(student.studentId)) return;
+    if (!this.selectedAcademicYearId) {
+      this.snackBar.open('Pick an academic year first.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    this.notifyingStudentIds.add(student.studentId);
+    this.api.notifyFeeDue({
+      studentId: student.studentId,
+      academicYearId: this.selectedAcademicYearId,
+      outstandingAmount: outstanding,
+    }).subscribe({
+      next: (res) => {
+        this.notifyingStudentIds.delete(student.studentId);
+        const recipients = res?.data ?? 0;
+        if (recipients > 0) {
+          this.snackBar.open(
+            `Reminder sent to ${recipients} recipient${recipients === 1 ? '' : 's'}.`,
+            'Close', { duration: 3500 });
+        } else {
+          this.snackBar.open(
+            'No login accounts found for this student. Create logins from Manage Users.',
+            'Close', { duration: 5000 });
+        }
+      },
+      error: (err) => {
+        this.notifyingStudentIds.delete(student.studentId);
+        this.snackBar.open(
+          err?.error?.message || 'Failed to send reminder.',
+          'Close', { duration: 3500 });
+      },
+    });
   }
 
   getStatusClass(status: string): string {

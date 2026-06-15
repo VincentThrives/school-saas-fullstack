@@ -33,6 +33,19 @@
         </mat-select>
       </mat-form-field>
 
+      <!-- Status dropdown — purely client-side filter against the
+           preloaded rosterLedgersByStudentId map. Disabled until a
+           section is picked since there's nothing meaningful to filter
+           before the roster lands. -->
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="statusFilter" [disabled]="!selectedSectionId">
+          <mat-option *ngFor="let opt of statusFilterOptions" [value]="opt.value">
+            {{ opt.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
       <mat-form-field appearance="outline" class="filter-field student-field">
         <mat-label>Search student</mat-label>
         <mat-icon matPrefix>search</mat-icon>
@@ -102,6 +115,26 @@
         </td>
       </ng-container>
 
+      <!-- Bell button — sends an in-app fee-due reminder to the
+           student's parents (+ the student account if they have one).
+           Disabled when the outstanding balance is 0 (nothing to remind
+           about) or the row is mid-send (prevents accidental double
+           dispatch). Click is stop-propagated so it doesn't ALSO fire
+           the row's selectStudentRow handler. -->
+      <ng-container matColumnDef="notify">
+        <th mat-header-cell *matHeaderCellDef class="actions-col">Remind</th>
+        <td mat-cell *matCellDef="let s" class="actions-col">
+          <button mat-icon-button class="notify-fee-btn"
+                  matTooltip="Send fee due reminder to parents"
+                  aria-label="Send fee due reminder"
+                  [disabled]="rowOutstanding(s) <= 0 || notifyingStudentIds.has(s.studentId)"
+                  (click)="$event.stopPropagation(); notifyFeeDue(s)">
+            <mat-icon *ngIf="!notifyingStudentIds.has(s.studentId)">notifications_active</mat-icon>
+            <mat-spinner *ngIf="notifyingStudentIds.has(s.studentId)" diameter="18"></mat-spinner>
+          </button>
+        </td>
+      </ng-container>
+
       <ng-container matColumnDef="open">
         <th mat-header-cell *matHeaderCellDef class="actions-col">View</th>
         <td mat-cell *matCellDef="let s" class="actions-col">
@@ -111,9 +144,9 @@
         </td>
       </ng-container>
 
-      <tr mat-header-row *matHeaderRowDef="['rollNumber','name','admission','balance','status','open']"></tr>
+      <tr mat-header-row *matHeaderRowDef="['rollNumber','name','admission','balance','status','notify','open']"></tr>
       <tr mat-row
-          *matRowDef="let row; columns: ['rollNumber','name','admission','balance','status','open'];"
+          *matRowDef="let row; columns: ['rollNumber','name','admission','balance','status','notify','open'];"
           class="roster-row"
           (click)="selectStudentRow(row)"></tr>
 
