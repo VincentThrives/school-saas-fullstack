@@ -2,18 +2,29 @@
   <div class="login-page__card-wrapper">
     <mat-card class="login-page__card">
       <mat-card-content class="login-page__card-content">
-        <!-- School Branding -->
+        <!-- School Branding.
+             Logo present → render it as before.
+             No logo → drop the initial-letter circle and read as a
+             plain welcome line so the card doesn't lead with a giant
+             "T" that looks like a placeholder. School name still
+             appears as the heading below, so the welcome line carries
+             the relationship without duplicating the brand. -->
         <div class="login-page__header">
-          <div class="login-page__avatar" *ngIf="!schoolInfo.logoUrl">
-            {{ schoolInitial }}
-          </div>
           <img
             *ngIf="schoolInfo.logoUrl"
             [src]="schoolInfo.logoUrl"
             [alt]="schoolInfo.schoolName"
             class="login-page__avatar-img"
           />
-          <h2 class="login-page__school-name">{{ schoolInfo.schoolName }}</h2>
+          <!-- No-logo branding block. Split into a small "Welcome to"
+               line above a gold-gradient school name so the
+               relationship reads at a glance even without imagery. -->
+          <div class="login-page__welcome" *ngIf="!schoolInfo.logoUrl">
+            <span class="login-page__welcome-lead">Welcome to</span>
+            <span class="login-page__welcome-name">{{ schoolInfo.schoolName }} School</span>
+            <span class="login-page__welcome-rule"></span>
+          </div>
+          <h2 class="login-page__school-name" *ngIf="schoolInfo.logoUrl">{{ schoolInfo.schoolName }}</h2>
           <p class="login-page__subtitle">Sign in to your account</p>
         </div>
 
