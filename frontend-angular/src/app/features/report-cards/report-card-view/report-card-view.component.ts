@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
@@ -44,8 +44,24 @@ export class ReportCardViewComponent implements OnInit {
     private api: ApiService,
     private authService: AuthService,
     private route: ActivatedRoute,
+    private location: Location,
     private snackBar: MatSnackBar,
   ) {}
+
+  /**
+   * Back to the Report Cards list. Uses Location.back() so the URL —
+   * including the ?ay=&classId=&sectionId=&examType= query params the
+   * generator now serialises — restores intact. Falls back to a fresh
+   * navigation when there's no history to walk (deep-linked tab).
+   */
+  goBack(): void {
+    if (window.history.length > 1) {
+      this.location.back();
+    } else {
+      this.location.replaceState('/report-cards');
+      window.location.href = '/report-cards';
+    }
+  }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('reportCardId') || '';

@@ -1,7 +1,7 @@
 import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -103,8 +103,34 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
     private api: ApiService,
     private authService: AuthService,
     private router: Router,
+    private route: ActivatedRoute,
     private snackBar: MatSnackBar,
   ) {}
+
+  /**
+   * Push the active filters into the URL so back-navigating from a
+   * single student's report card returns to the exact same filtered
+   * view. Earlier the filters were component state — destroying the
+   * component on nav wiped them, and the admin came back to a blank
+   * picker that re-fetched everything from scratch.
+   *
+   * <p>{@code replaceUrl: true} avoids polluting the browser history
+   * with one entry per dropdown twiddle.</p>
+   */
+  private syncFiltersToUrl(): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        ay: this.selectedAcademicYearId || null,
+        classId: this.selectedClassId || null,
+        sectionId: this.selectedSectionId || null,
+        examType: this.selectedExamType || null,
+        studentId: this.selectedStudentId || null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
 
   ngAfterViewInit(): void {
     // Most of the wiring happens in the paginator setter so it works
@@ -149,15 +175,59 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
+    // Restore prior filter selection from URL query params if the
+    // admin is returning from an individual student's report card.
+    // Snapshot is fine — we only care about the values present the
+    // moment we land on this page.
+    const qp = this.route.snapshot.queryParamMap;
+    const urlAy = qp.get('ay') || '';
+    const urlClass = qp.get('classId') || '';
+    const urlSection = qp.get('sectionId') || '';
+    const urlExamType = qp.get('examType') || '';
+    const urlStudent = qp.get('studentId') || '';
+
     // Academic years first. Exam types are derived per class+section once the admin
     // drills down — we only show types that actually have exams conducted for the scope.
     this.api.getAcademicYears().subscribe((ayRes) => {
       this.academicYears = ayRes.data || [];
-      const current = this.academicYears.find((ay) => ay.current);
-      if (current) {
-        this.selectedAcademicYearId = current.academicYearId;
-        this.onAcademicYearChange();
-      }
+      // Prefer the AY in the URL — that's what the admin had picked
+      // before opening a student's report card. Falls back to "current"
+      // when no URL filter is present (fresh navigation).
+      const fromUrl = urlAy && this.academicYears.find((ay) => ay.academicYearId === urlAy);
+      const initial = fromUrl || this.academicYears.find((ay) => ay.current);
+      if (!initial) return;
+
+      this.selectedAcademicYearId = initial.academicYearId;
+      // Manual cascade — onAcademicYearChange would WIPE the URL picks
+      // before we got to apply them. Inline the bits that load classes
+      // + exams, then replay the rest from the URL.
+      this.api.getClasses(this.selectedAcademicYearId).subscribe((cRes) => {
+        this.classes = cRes.data || [];
+        if (urlClass && this.classes.find(c => c.classId === urlClass)) {
+          this.selectedClassId = urlClass;
+          const cls = this.classes.find(c => c.classId === urlClass);
+          this.sections = cls?.sections || [];
+          if (urlSection && this.sections.find(s => s.sectionId === urlSection)) {
+            this.selectedSectionId = urlSection;
+            this.loadStudentsForSection();
+          }
+        }
+      });
+      this.api.getExams().subscribe((eRes) => {
+        this.allExams = (eRes?.data || []).filter((e: any) => e.academicYearId === this.selectedAcademicYearId);
+        this.recomputeExamTypes();
+        // Once classes + exams + section have settled, replay examType
+        // and load report cards if URL specified it.
+        if (urlExamType && this.examTypes.includes(urlExamType)) {
+          this.selectedExamType = urlExamType;
+          if (this.selectedClassId) {
+            this.loadReportCards();
+          }
+        }
+        if (urlStudent) {
+          this.selectedStudentId = urlStudent;
+        }
+      });
     });
   }
 
@@ -207,6 +277,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
       this.allExams = (res?.data || []).filter((e: any) => e.academicYearId === this.selectedAcademicYearId);
       this.recomputeExamTypes();
     });
+    this.syncFiltersToUrl();
   }
 
   onExamTypeChange(): void {
@@ -223,6 +294,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
     if (this.selectedClassId && this.selectedExamType) {
       this.loadReportCards();
     }
+    this.syncFiltersToUrl();
   }
 
   onClassChange(): void {
@@ -256,6 +328,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
       // exam types against the class-only scope.
       this.recomputeExamTypes();
     }
+    this.syncFiltersToUrl();
   }
 
   onSectionChange(): void {
@@ -288,6 +361,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
     } else {
       this.setFilteredCards([]);
     }
+    this.syncFiltersToUrl();
   }
 
   onStudentChange(): void {
@@ -302,6 +376,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
     } else {
       this.setFilteredCards([...this.reportCards]);
     }
+    this.syncFiltersToUrl();
   }
 
   private loadStudentsForSection(): void {

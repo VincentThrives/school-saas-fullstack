@@ -10,6 +10,9 @@
     actionLabel="Download PDF"
     actionIcon="download"
     (actionClick)="downloadPdf()"
+    secondaryActionLabel="Back"
+    secondaryActionIcon="arrow_back"
+    (secondaryActionClick)="goBack()"
   ></app-page-header>
 
   <div class="loading-row" *ngIf="isLoading">
