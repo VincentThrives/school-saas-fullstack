@@ -279,6 +279,7 @@ export class MarkAttendanceComponent implements OnInit {
 
   /** Date picker (matDatepicker) change handler. */
   onDateChange(): void {
+    this.resetSavedSummary();
     this.refreshHolidayBanner();
     this.refreshNoPeriodsBanner();
     this.maybeAutoLoadStudents();
@@ -331,6 +332,9 @@ export class MarkAttendanceComponent implements OnInit {
     this.selectedSectionId = '';
     this.students = [];
     this.studentsLoaded = false;
+    // Drop the post-save card the moment the scope changes — otherwise
+    // the 1st-A summary lingers on screen while the user is picking 2nd-A.
+    this.resetSavedSummary();
     // Class changed → forget the previous timetable cache; the new
     // section pick will trigger a fresh fetch.
     this.timetablePeriodsByDay.clear();
@@ -343,11 +347,22 @@ export class MarkAttendanceComponent implements OnInit {
   onSectionChange(): void {
     this.students = [];
     this.studentsLoaded = false;
+    this.resetSavedSummary();
     this.maybeLoadTimetableCache();
     // Auto-load runs inside maybeLoadTimetableCache's response handler
     // because the gate result (no-timetable / no-periods) is only known
     // AFTER the timetable API resolves. See refreshNoPeriodsBanner +
     // maybeAutoLoadStudents for the trigger.
+  }
+
+  /** Clear the post-save card state. Called from every scope-change
+   *  handler so the previous scope's "Today's attendance marked" card
+   *  doesn't bleed onto the new scope's screen. */
+  private resetSavedSummary(): void {
+    this.attendanceSaved = false;
+    this.editMode = false;
+    this.savedSummary = { present: 0, absent: 0, total: 0 };
+    this.savedScopeLabel = '';
   }
 
   /**
@@ -566,8 +581,7 @@ export class MarkAttendanceComponent implements OnInit {
   private fetchStudents(): void {
     // Any fresh fetch invalidates the post-save summary; the teacher
     // might be reloading because they switched section or date.
-    this.attendanceSaved = false;
-    this.editMode = false;
+    this.resetSavedSummary();
     this.isLoading = true;
     this.api
       .getStudents(0, 100, { classId: this.selectedClassId, sectionId: this.selectedSectionId })
@@ -595,12 +609,73 @@ export class MarkAttendanceComponent implements OnInit {
             });
           this.studentsLoaded = true;
           this.isLoading = false;
+          // If today's attendance was already saved for this scope,
+          // restore the summary card so the teacher sees "already
+          // marked" instead of an editable roster they could clobber.
+          this.checkExistingAttendance();
         },
         error: () => {
           this.isLoading = false;
           this.snackBar.open('Failed to load students', 'Close', { duration: 3000 });
         },
       });
+  }
+
+  /**
+   * After the roster lands, check whether attendance has already been
+   * marked for THIS (class, section, date). If yes, apply the saved
+   * statuses to {@link students} and flip into the post-save card view
+   * — so coming back to a previously-marked scope reads "Today's
+   * attendance marked" instead of the editable roster.
+   *
+   * <p>Day-wise mode only matches batches with periodNumber === 0;
+   * period-wise batches (a teacher marked one period) don't trigger
+   * the "already marked" state on this page since the day's day-wise
+   * roll-call is a separate save.</p>
+   */
+  private checkExistingAttendance(): void {
+    if (!this.selectedClassId || !this.selectedSectionId || !this.selectedDate) return;
+    const dateStr = this.formatDate(this.selectedDate);
+    this.api.getBatchAttendance(this.selectedClassId, this.selectedSectionId, dateStr).subscribe({
+      next: (res) => {
+        const batches: any[] = res?.data || [];
+        // Day-wise mode = the batch with no period (periodNumber 0 or null).
+        const dayBatch = batches.find(
+          b => !b?.periodNumber || b.periodNumber === 0,
+        );
+        const entries: any[] = dayBatch?.entries || [];
+        if (entries.length === 0) return; // no save → keep editable view
+
+        const byStudentId: Record<string, any> = {};
+        for (const e of entries) {
+          if (e?.studentId) byStudentId[e.studentId] = e;
+        }
+        // Apply saved status + remarks to the roster so Edit shows the
+        // teacher's previous picks instead of resetting to all PRESENT.
+        this.students = this.students.map(s => {
+          const hit = byStudentId[s.studentId];
+          if (!hit) return s;
+          return {
+            ...s,
+            status: (hit.status || 'PRESENT') as StudentAttendance['status'],
+            remarks: hit.remarks || '',
+          };
+        });
+
+        const live = this.summary;
+        this.savedSummary = {
+          present: live.present,
+          absent: live.absent,
+          total: this.students.length,
+        };
+        this.savedScopeLabel = this.computeSavedScopeLabel();
+        this.attendanceSaved = true;
+        this.editMode = false;
+      },
+      // Silently swallow — empty/error just leaves the editable view
+      // in place, which is the same as "no prior save" behaviour.
+      error: () => { /* noop */ },
+    });
   }
 
   markAllPresent(): void {
