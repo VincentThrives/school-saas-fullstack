@@ -349,6 +349,28 @@ public class StudentImportService {
         Set<String> admissionsInFile = new HashSet<>();
         Set<String> rollNumbersInFile = new HashSet<>();
 
+        // ── Identity-based duplicate index ─────────────────────────────
+        // The admission-number check below catches most re-upload cases,
+        // but it fails when:
+        //   - The school's Excel doesn't use admission numbers at all
+        //   - Admission numbers get re-typed slightly differently
+        //     ("001" vs "1", " 001 " vs "001", "A-001" vs "A001")
+        //   - The previous upload landed under a different admission
+        //     value (e.g. spreadsheet imported as numeric vs string)
+        // This second index keys each existing student by a canonical
+        // identity tuple — first name + last name + parent phone digits
+        // — that survives all the formatting churn above. If the SAME
+        // identity already exists in this academic year, the row is
+        // rejected before any save happens. Catches the "uploaded the
+        // same file twice" case that ballooned a 350-row class to 700.
+        Set<String> existingIdentitiesInYear = new HashSet<>();
+        for (Student s : studentRepository.findByAcademicYearIdAndDeletedAtIsNull(academicYearId,
+                org.springframework.data.domain.Pageable.unpaged()).getContent()) {
+            String id = buildIdentityKey(s.getFirstName(), s.getLastName(), s.getParentPhone());
+            if (id != null) existingIdentitiesInYear.add(id);
+        }
+        Set<String> identitiesInFile = new HashSet<>();
+
         try (Workbook wb = WorkbookFactory.create(file.getInputStream())) {
             Sheet sheet = wb.getSheetAt(0);
             if (sheet == null) {
@@ -380,13 +402,16 @@ public class StudentImportService {
                 int rowNumber = rowIdx + 1; // 1-indexed for human-readable errors
                 StudentImportErrorReport.RowError rowError = new StudentImportErrorReport.RowError(rowNumber);
                 CreateStudentRequest req = parseRow(row, rowError, classByLowerName,
-                        admissionsInFile, rollNumbersInFile, year);
+                        admissionsInFile, rollNumbersInFile,
+                        existingIdentitiesInYear, identitiesInFile, year);
                 if (rowError.getErrors().isEmpty() && req != null) {
                     toCreate.add(req);
                     admissionsInFile.add(req.getAdmissionNumber());
                     if (req.getRollNumber() != null && !req.getRollNumber().isBlank()) {
                         rollNumbersInFile.add(req.getRollNumber());
                     }
+                    String idKey = buildIdentityKey(req.getFirstName(), req.getLastName(), req.getParentPhone());
+                    if (idKey != null) identitiesInFile.add(idKey);
                 } else {
                     report.getErrors().add(rowError);
                 }
@@ -467,12 +492,33 @@ public class StudentImportService {
      * (potentially partly-incomplete) request — the caller decides
      * whether to keep it based on rowError.
      */
+    /**
+     * Canonical identity key for a student. Used by the import flow to
+     * detect "same person already exists" regardless of admission-number
+     * formatting (which can drift between uploads — "001" vs "1",
+     * trailing whitespace, mixed case).
+     *
+     * <p>Lower-cased first + last name + parent phone digits. Phone is
+     * stripped of separators / +91 prefix via the existing normaliser.
+     * Returns null when not enough fields are present to form a useful
+     * key — those rows fall through to other validators.</p>
+     */
+    private String buildIdentityKey(String firstName, String lastName, String parentPhone) {
+        String first = firstName == null ? "" : firstName.trim().toLowerCase(java.util.Locale.ROOT);
+        String last = lastName == null ? "" : lastName.trim().toLowerCase(java.util.Locale.ROOT);
+        String phone = StudentFieldNormalizer.phoneDigits(parentPhone);
+        if ((first.isEmpty() && last.isEmpty()) || phone == null || phone.isEmpty()) return null;
+        return first + "|" + last + "|" + phone;
+    }
+
     private CreateStudentRequest parseRow(
             Row row,
             StudentImportErrorReport.RowError rowError,
             Map<String, SchoolClass> classByLowerName,
             Set<String> admissionsInFile,
             Set<String> rollNumbersInFile,
+            Set<String> existingIdentitiesInYear,
+            Set<String> identitiesInFile,
             AcademicYear year) {
         CreateStudentRequest req = new CreateStudentRequest();
 
@@ -547,6 +593,31 @@ public class StudentImportService {
             rowError.add("Admission Number", "Already exists for another student.");
         }
         req.setAdmissionNumber(adm);
+
+        // Identity-based dedup — catches re-uploads where admission
+        // numbers got re-typed slightly differently or were missing,
+        // by matching on (firstName, lastName, parentPhone). Runs AFTER
+        // the admission check so the more specific admission error
+        // wins when both would fire on the same row.
+        if (rowError.getErrors().stream().noneMatch(fe ->
+                "Admission Number".equals(fe.getField())
+                && fe.getMessage() != null
+                && fe.getMessage().toLowerCase().contains("already exists"))) {
+            // Look at the cell raw values rather than waiting for
+            // downstream req.set* because we want to flag the row even
+            // when other fields haven't been parsed yet.
+            String parentPhoneRaw = cellString(row.getCell(COL_PARENT_PHONE));
+            String idKey = buildIdentityKey(firstName, lastName, parentPhoneRaw);
+            if (idKey != null) {
+                if (identitiesInFile.contains(idKey)) {
+                    rowError.add("Student",
+                            "Same student name + parent phone appears twice in this file.");
+                } else if (existingIdentitiesInYear.contains(idKey)) {
+                    rowError.add("Student",
+                            "A student with this name + parent phone already exists in this academic year.");
+                }
+            }
+        }
 
         String rollNum = cellString(row.getCell(COL_ROLL_NUM));
         if (rollNum != null) {

@@ -911,8 +911,22 @@ public class StudentService {
         }
 
         // ── Exam marks for the year ────────────────────────────────
+        // Filter to the student's OWN section when the exam doc carries
+        // a sectionId — otherwise a class with sections A/B/C will
+        // surface 3× the exam rows on the student detail page (one for
+        // each section's copy of the same exam). Exams that were
+        // scheduled at the class level (no sectionId) still apply to
+        // every student in the class — they pass through unfiltered.
         if (yearId != null && student.getClassId() != null) {
             List<Exam> exams = examRepository.findByClassIdAndAcademicYearId(student.getClassId(), yearId);
+            String studentSectionId = student.getSectionId();
+            if (studentSectionId != null && !studentSectionId.isBlank()) {
+                exams = exams.stream()
+                        .filter(e -> e.getSectionId() == null
+                                || e.getSectionId().isBlank()
+                                || studentSectionId.equals(e.getSectionId()))
+                        .collect(java.util.stream.Collectors.toList());
+            }
             if (!exams.isEmpty()) {
                 out.setExams(buildExamRows(exams, studentId));
             }
@@ -1076,8 +1090,37 @@ public class StudentService {
             }
         }
 
-        List<StudentProfileSummary.ExamMarkRow> rows = new java.util.ArrayList<>();
+        // Dedupe by (examType, subjectId, examDate). Same exam can have
+        // multiple Exam docs when the admin clicked "Create Exams"
+        // more than once (a recent UX bug where the page didn't
+        // navigate after create made it look like nothing happened, so
+        // admins clicked again). Without this filter the student-detail
+        // tab on the teacher app shows "Pre Board — English" twice for
+        // the same date, which is the symptom the user reported.
+        // Keep the doc that actually has marks for this student; if
+        // none has marks, keep the first by id (stable ordering).
+        java.util.Map<String, Exam> dedupedByKey = new java.util.LinkedHashMap<>();
         for (Exam exam : exams) {
+            String key = (exam.getExamType() == null ? "" : exam.getExamType())
+                    + "|" + (exam.getSubjectId() == null ? "" : exam.getSubjectId())
+                    + "|" + (exam.getExamDate() == null ? "" : exam.getExamDate().toString());
+            Exam kept = dedupedByKey.get(key);
+            if (kept == null) {
+                dedupedByKey.put(key, exam);
+            } else {
+                // Prefer the doc that has marks for this student over
+                // an empty placeholder — the teacher's app should reflect
+                // whichever doc actually carries the score.
+                boolean keptHasMarks = marksByExamId.containsKey(kept.getExamId());
+                boolean newHasMarks  = marksByExamId.containsKey(exam.getExamId());
+                if (!keptHasMarks && newHasMarks) {
+                    dedupedByKey.put(key, exam);
+                }
+            }
+        }
+
+        List<StudentProfileSummary.ExamMarkRow> rows = new java.util.ArrayList<>();
+        for (Exam exam : dedupedByKey.values()) {
             StudentProfileSummary.ExamMarkRow r = new StudentProfileSummary.ExamMarkRow();
             r.setExamId(exam.getExamId());
             r.setExamName(exam.getName());
