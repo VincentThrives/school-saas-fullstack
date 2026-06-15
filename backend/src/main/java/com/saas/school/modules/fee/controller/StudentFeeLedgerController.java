@@ -107,4 +107,37 @@ public class StudentFeeLedgerController {
                 "Migrated " + result.migratedLedgers + " ledger(s) from "
                 + result.legacyCount + " legacy row(s)"));
     }
+
+    /**
+     * Send an in-app fee-due reminder to a student's parents (and the
+     * student themselves if they have a login). Triggered by the bell
+     * button on the Fee Payments roster — one click per student.
+     * No SMS — see service Javadoc for rationale.
+     */
+    @PostMapping("/notify-due")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL')")
+    public ResponseEntity<ApiResponse<Integer>> notifyFeeDue(
+            @RequestBody NotifyFeeDueRequest req,
+            @AuthenticationPrincipal String userId) {
+        int recipients = service.notifyFeeDue(req.getStudentId(),
+                req.getAcademicYearId(), req.getOutstandingAmount(), userId);
+        return ResponseEntity.ok(ApiResponse.success(recipients,
+                recipients == 0
+                        ? "No login accounts found for this student."
+                        : "Reminder sent to " + recipients + " recipient(s)."));
+    }
+
+    /** Minimal request body for /notify-due. */
+    public static class NotifyFeeDueRequest {
+        private String studentId;
+        private String academicYearId;
+        private double outstandingAmount;
+
+        public String getStudentId() { return studentId; }
+        public void setStudentId(String studentId) { this.studentId = studentId; }
+        public String getAcademicYearId() { return academicYearId; }
+        public void setAcademicYearId(String academicYearId) { this.academicYearId = academicYearId; }
+        public double getOutstandingAmount() { return outstandingAmount; }
+        public void setOutstandingAmount(double outstandingAmount) { this.outstandingAmount = outstandingAmount; }
+    }
 }

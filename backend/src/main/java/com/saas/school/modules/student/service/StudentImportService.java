@@ -167,11 +167,14 @@ public class StudentImportService {
                     "Admission Number must be unique",
                     "This admission number is already used in another row of this file. "
                             + "Each student needs a unique admission number.");
-            addUniqueColumnValidation(
-                    students, COL_ROLL_NUM,
-                    "Roll Number must be unique",
-                    "This roll number is already used in another row. "
-                            + "Each student in the same upload needs a unique roll number.");
+            // Roll number is NOT globally unique — schools routinely use
+            // "Roll 21" in 1st-A and again in 2nd-A. Earlier behaviour
+            // added an Excel-level whole-column duplicate validator that
+            // flagged any repeat across the whole sheet, blocking the
+            // legitimate cross-class case. Removed; the in-file check
+            // in parseRow now scopes uniqueness to (class, section, roll)
+            // so duplicates inside the SAME class-section still trip
+            // an error and the cross-class case sails through.
 
             // ── Sheet 2: Instructions ──
             Sheet info = wb.createSheet("Instructions");
@@ -193,7 +196,7 @@ public class StudentImportService {
             writeRow(info, r++, null,  "Class", "Exact class name as it appears in the system (case-insensitive).");
             writeRow(info, r++, null,  "Section", "Section name within that class (case-insensitive — stored UPPERCASE).");
             writeRow(info, r++, null,  "Admission Number", "Must be unique. Duplicates across this file or against existing students are rejected. Excel will warn you if you type a duplicate.");
-            writeRow(info, r++, null,  "Roll Number", "Must be unique within this upload. Excel will warn you if you repeat a value.");
+            writeRow(info, r++, null,  "Roll Number", "Optional. Must be unique within the same class & section (Roll 21 can exist in 1st-A AND 2nd-A — that's allowed).");
             writeRow(info, r++, null,  "Parent Phone", "Exactly 10 digits (spaces, dashes, +91 prefix are stripped automatically).");
             writeRow(info, r++, null,  "Email", "Optional. If present, must look like name@domain.tld. Stored lowercase.");
             writeRow(info, r++, null,  "Blood Group", "One of: A+, A-, B+, B-, O+, O-, AB+, AB-.");
@@ -407,8 +410,13 @@ public class StudentImportService {
                 if (rowError.getErrors().isEmpty() && req != null) {
                     toCreate.add(req);
                     admissionsInFile.add(req.getAdmissionNumber());
-                    if (req.getRollNumber() != null && !req.getRollNumber().isBlank()) {
-                        rollNumbersInFile.add(req.getRollNumber());
+                    // Scope roll-number uniqueness to (class, section)
+                    // so the same roll can repeat across different
+                    // class-sections in the same upload.
+                    if (req.getRollNumber() != null && !req.getRollNumber().isBlank()
+                            && req.getClassId() != null && req.getSectionId() != null) {
+                        rollNumbersInFile.add(
+                                req.getClassId() + "|" + req.getSectionId() + "|" + req.getRollNumber());
                     }
                     String idKey = buildIdentityKey(req.getFirstName(), req.getLastName(), req.getParentPhone());
                     if (idKey != null) identitiesInFile.add(idKey);
@@ -625,9 +633,15 @@ public class StudentImportService {
             // validator: each upload's roll numbers must be distinct. We
             // don't check against the DB here — admin can legitimately
             // re-use roll numbers across academic years / classes — only
-            // within THIS file.
-            if (rollNumbersInFile.contains(rollNum)) {
-                rowError.add("Roll Number", "Duplicate within this file.");
+            // within THIS class-section in this file. Composite key
+            // mirrors the one the caller adds to rollNumbersInFile
+            // after parseRow succeeds.
+            String rollKey = (req.getClassId() == null ? "" : req.getClassId())
+                    + "|" + (req.getSectionId() == null ? "" : req.getSectionId())
+                    + "|" + rollNum;
+            if (req.getClassId() != null && req.getSectionId() != null
+                    && rollNumbersInFile.contains(rollKey)) {
+                rowError.add("Roll Number", "Duplicate within this class & section in the file.");
             }
             req.setRollNumber(rollNum);
         }

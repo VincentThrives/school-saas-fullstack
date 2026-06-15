@@ -16,6 +16,8 @@ import com.saas.school.modules.fee.model.StudentFeeLedger.PaymentCorrection;
 import com.saas.school.modules.fee.model.StudentFeeLedger.Status;
 import com.saas.school.modules.fee.repository.FeeStructureRepository;
 import com.saas.school.modules.fee.repository.StudentFeeLedgerRepository;
+import com.saas.school.modules.notification.model.Notification;
+import com.saas.school.modules.notification.service.NotificationService;
 import com.saas.school.modules.student.model.Student;
 import com.saas.school.modules.student.repository.StudentRepository;
 import com.saas.school.modules.user.model.User;
@@ -48,6 +50,7 @@ public class StudentFeeLedgerService {
     @Autowired private UserRepository userRepo;
     @Autowired private FeeReceiptCounterService receiptCounter;
     @Autowired private AuditService auditService;
+    @Autowired private NotificationService notificationService;
 
     // ── Reads ────────────────────────────────────────────────────────
 
@@ -312,5 +315,97 @@ public class StudentFeeLedgerService {
             logger.warn("Optimistic lock conflict on ledger write — retrying once");
             return op.get();
         }
+    }
+
+    // ── Notifications ────────────────────────────────────────────────
+
+    /**
+     * Send an in-app fee-due reminder to a student's parents (and the
+     * student themselves if they have a login). Triggered from the
+     * Fee Payments roster's bell button — admin clicks one student,
+     * one notification fans out to every linked account.
+     *
+     * <p>No SMS is dispatched. SMS would need a DLT-registered FEE_DUE
+     * template which doesn't exist yet; in-app + push covers the
+     * "parent opens the app" case which is the launch requirement.</p>
+     *
+     * <p>Returns the number of recipients the notification was sent
+     * to so the frontend can show "Sent to 2 recipients" in the
+     * snackbar.</p>
+     */
+    public int notifyFeeDue(String studentId, String academicYearId,
+                             double outstandingAmount, String sentByUserId) {
+        Student student = studentRepo.findByStudentIdAndDeletedAtIsNull(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student", studentId));
+
+        List<String> recipients = new ArrayList<>();
+        if (student.getUserId() != null && !student.getUserId().isBlank()) {
+            recipients.add(student.getUserId());
+        }
+        if (student.getParentIds() != null) {
+            for (String pid : student.getParentIds()) {
+                if (pid != null && !pid.isBlank()) recipients.add(pid);
+            }
+        }
+        if (recipients.isEmpty()) {
+            logger.info("Fee-due notify skipped — no login accounts for studentId={}", studentId);
+            return 0;
+        }
+
+        AcademicYear year = academicYearRepo.findById(academicYearId).orElse(null);
+        String yearLabel = year != null && year.getLabel() != null ? year.getLabel() : "this year";
+        String fullName = buildFullName(student);
+
+        // Pull the ledger so the message can read "Paid X of Y, pending
+        // Z" instead of the bare "outstanding Z" we shipped first. The
+        // ledger is upserted on-demand by getOrCreate so this works
+        // even for a student who's never had a payment recorded.
+        StudentFeeLedger ledger = getOrCreate(studentId, academicYearId);
+        double totalDue = ledger.getTotalDue();
+        double totalPaid = ledger.getTotalPaid();
+        // Prefer the ledger's authoritative balance over the value the
+        // frontend passed in (the frontend may be reading from a
+        // slightly stale roster snapshot).
+        double pending = ledger.getBalance() > 0 ? ledger.getBalance() : outstandingAmount;
+
+        Notification n = new Notification();
+        n.setTitle("Fee payment due — " + fullName);
+        n.setBody("Fee summary for " + yearLabel + ": Paid " + formatCurrency(totalPaid)
+                + " of " + formatCurrency(totalDue)
+                + ". Pending " + formatCurrency(pending) + ". "
+                + "Please pay at the school office.");
+        n.setType(Notification.NotificationType.FEE);
+        n.setChannel(Notification.Channel.IN_APP);
+        n.setRecipientType(Notification.RecipientType.INDIVIDUAL);
+        n.setRecipientIds(new ArrayList<>(recipients));
+
+        notificationService.send(n, sentByUserId);
+        auditService.log("FEE_DUE_NOTIFY", "Student", studentId,
+                "Notified " + recipients.size() + " recipient(s) — paid "
+                + formatCurrency(totalPaid) + " of " + formatCurrency(totalDue)
+                + ", pending " + formatCurrency(pending));
+        return recipients.size();
+    }
+
+    /** Indian-rupee formatter — no decimals on whole-rupee amounts so
+     *  parents read "Rs. 15,000" not "Rs. 15,000.00". */
+    private String formatCurrency(double amount) {
+        if (amount == Math.floor(amount) && !Double.isInfinite(amount)) {
+            return String.format("Rs. %,.0f", amount);
+        }
+        return String.format("Rs. %,.2f", amount);
+    }
+
+    /** Build "First Last" with sensible fallbacks. */
+    private String buildFullName(Student student) {
+        StringBuilder sb = new StringBuilder();
+        if (student.getFirstName() != null) sb.append(student.getFirstName());
+        if (student.getLastName() != null) {
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(student.getLastName());
+        }
+        if (sb.length() == 0) sb.append("Student ").append(
+                student.getAdmissionNumber() != null ? student.getAdmissionNumber() : student.getStudentId());
+        return sb.toString();
     }
 }
