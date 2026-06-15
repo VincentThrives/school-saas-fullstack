@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -89,6 +89,7 @@ export class EnterMarksComponent implements OnInit {
     private subjectService: SubjectService,
     private route: ActivatedRoute,
     private router: Router,
+    private location: Location,
     private snackBar: MatSnackBar,
     /** Shared grading helper — pulls the school's editable scale from
      *  Settings → Academic and applies standard rounding. */
@@ -213,15 +214,26 @@ export class EnterMarksComponent implements OnInit {
   }
 
   private mapStudents(studentList: any[]): void {
-    this.students = studentList.map((s: any) => ({
-      studentId: s.studentId,
-      rollNumber: s.rollNumber || '',
-      firstName: s.firstName || `Student ${s.admissionNumber || ''}`,
-      lastName: s.lastName || '',
-      marksObtained: null,
-      componentMarks: this.emptyComponentMarks(),
-      remarks: '',
-    }));
+    // Sort alphabetically by full name so the marks-entry grid reads
+    // top-to-bottom in the same order teachers expect from the
+    // attendance + admit-card flows. Backend returns whatever Mongo
+    // hands back (usually creation order), which doesn't match the
+    // teacher's mental model.
+    this.students = studentList
+      .map((s: any) => ({
+        studentId: s.studentId,
+        rollNumber: s.rollNumber || '',
+        firstName: s.firstName || `Student ${s.admissionNumber || ''}`,
+        lastName: s.lastName || '',
+        marksObtained: null,
+        componentMarks: this.emptyComponentMarks(),
+        remarks: '',
+      }))
+      .sort((a, b) => {
+        const an = `${a.firstName} ${a.lastName}`.trim().toLowerCase();
+        const bn = `${b.firstName} ${b.lastName}`.trim().toLowerCase();
+        return an.localeCompare(bn);
+      });
   }
 
   private emptyComponentMarks(): Record<string, number | null> {
@@ -448,6 +460,18 @@ export class EnterMarksComponent implements OnInit {
   }
 
   goBack(): void {
-    this.router.navigate(['/exams']);
+    // Location.back() walks the browser history so the previous URL —
+    // including any ?ay=&classId=&sectionId= filters the admin had
+    // applied on the exams list — restores intact. router.navigate
+    // would drop those query params and reset every dropdown to its
+    // default, forcing the admin to re-filter to find the next exam.
+    //
+    // Fallback to /exams when history is empty (deep-linked tab) so
+    // the button is never a dead end.
+    if (window.history.length > 1) {
+      this.location.back();
+    } else {
+      this.router.navigate(['/exams']);
+    }
   }
 }

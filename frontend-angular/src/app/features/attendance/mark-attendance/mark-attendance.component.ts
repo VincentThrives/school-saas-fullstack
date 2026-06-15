@@ -574,14 +574,25 @@ export class MarkAttendanceComponent implements OnInit {
       .subscribe({
         next: (res) => {
           const studentList = res.data?.content || [];
-          this.students = studentList.map((s) => ({
-            studentId: s.studentId,
-            rollNumber: s.rollNumber || '',
-            firstName: s.firstName || `Student ${s.admissionNumber || ''}`,
-            lastName: s.lastName || '',
-            status: 'PRESENT' as const,
-            remarks: '',
-          }));
+          // Sort alphabetically by full name so the roll-call reads
+          // top-to-bottom the way a teacher expects ("Aadhya, Bindu,
+          // Charita, …"). The backend doesn't guarantee any order — it
+          // returns whatever Mongo's last write/index hands back, which
+          // is usually creation order, not name order.
+          this.students = studentList
+            .map((s) => ({
+              studentId: s.studentId,
+              rollNumber: s.rollNumber || '',
+              firstName: s.firstName || `Student ${s.admissionNumber || ''}`,
+              lastName: s.lastName || '',
+              status: 'PRESENT' as const,
+              remarks: '',
+            }))
+            .sort((a, b) => {
+              const an = `${a.firstName} ${a.lastName}`.trim().toLowerCase();
+              const bn = `${b.firstName} ${b.lastName}`.trim().toLowerCase();
+              return an.localeCompare(bn);
+            });
           this.studentsLoaded = true;
           this.isLoading = false;
         },
