@@ -80,6 +80,31 @@
     </div>
   </div>
 
+  <!-- ── Success card ────────────────────────────────────────────────
+       Shown after a successful import. Replaces the older
+       "close-dialog-and-toast" flow that made it look like the page
+       got stuck if the admin wanted to upload another file. -->
+  <div class="success-report" *ngIf="state === 'success' && importResult">
+    <div class="success-report__head">
+      <mat-icon class="ok-icon">check_circle</mat-icon>
+      <div>
+        <div class="success-title">
+          Imported {{ importResult.created }} student{{ importResult.created === 1 ? '' : 's' }}
+        </div>
+        <div class="success-sub">
+          They're saved and visible on the Students page. Upload another
+          file for a different class / section, or click Done to return.
+        </div>
+      </div>
+    </div>
+    <div class="success-actions">
+      <button mat-stroked-button color="primary" (click)="importAnotherFile()">
+        <mat-icon>add</mat-icon>
+        Import another file
+      </button>
+    </div>
+  </div>
+
   <!-- ── Capacity overflow panel ─────────────────────────────────────
        Shown above the row errors because it's usually the cause of the
        upload failing for fresh schools — admin either ticks the
@@ -175,5 +200,5 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button (click)="cancel()">Close</button>
+  <button mat-button (click)="cancel()">{{ hadSuccessfulImport ? 'Done' : 'Close' }}</button>
 </mat-dialog-actions>

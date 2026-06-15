@@ -242,3 +242,53 @@
 
   tr:last-child td { border-bottom: none; }
 }
+
+/* ── Success card (post-import) ─────────────────────────────────
+   Mirrors the error-report style but in green so the eye reads it
+   as "completed" rather than "fix this". Sits above the action
+   bar so the admin sees the import count alongside the Done +
+   "Import another file" buttons. */
+.success-report {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 10px;
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .ok-icon {
+    color: #16a34a;
+    margin-top: 2px;
+  }
+
+  .success-title {
+    font-weight: 600;
+    color: #14532d;
+    font-size: 15px;
+  }
+
+  .success-sub {
+    color: #166534;
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  .success-actions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+
+    mat-icon {
+      margin-right: 4px;
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+}

@@ -31,11 +31,23 @@ interface DialogData {
   styleUrl: './bulk-import-dialog.component.scss',
 })
 export class BulkImportDialogComponent {
-  /** UI state machine — picks which card / report to render. */
-  state: 'idle' | 'downloading' | 'picking' | 'uploading' | 'errors' = 'idle';
+  /** UI state machine — picks which card / report to render.
+   *  'success' is the post-import state that keeps the dialog open
+   *  with the import counts + an "Import another file" reset button,
+   *  instead of closing immediately. Earlier behaviour closed the
+   *  dialog right after a successful upload, which made it look like
+   *  the screen "got stuck" if the admin wanted to import a second
+   *  file (e.g. another class) — they had to click Bulk Import again
+   *  from the parent page.
+   */
+  state: 'idle' | 'downloading' | 'picking' | 'uploading' | 'errors' | 'success' = 'idle';
   selectedFile: File | null = null;
   errorReport: StudentImportErrorReport | null = null;
   importResult: StudentImportResult | null = null;
+  /** True once at least one successful import has happened in this
+   *  dialog instance — flips the cancel button label to "Done" and
+   *  tells the parent to refresh on close. */
+  hadSuccessfulImport = false;
   /** When ticked, backend bumps section capacity to fit instead of failing
    *  the upload. Off by default — keeps mid-year imports safe from
    *  accidentally growing sections. */
@@ -108,12 +120,18 @@ export class BulkImportDialogComponent {
     this.api.bulkImportStudents(this.selectedFile, this.data.academicYearId, this.autoGrowCapacity).subscribe({
       next: (res) => {
         this.importResult = res?.data || null;
-        this.state = 'idle';
+        this.hadSuccessfulImport = true;
+        // Flip into the success view — the admin can read the counts,
+        // then either close (refreshes the parent list) or click
+        // "Import another file" to upload a different batch without
+        // re-opening the dialog. Selected file is kept on screen for
+        // confirmation but cleared from state so the next pick starts
+        // fresh.
+        this.state = 'success';
+        this.errorReport = null;
         const created = this.importResult?.created ?? 0;
         this.snackBar.open(`Imported ${created} student${created === 1 ? '' : 's'}.`, 'Close',
                            { duration: 5000 });
-        // Close + signal caller to refresh the list.
-        this.dialogRef.close(true);
       },
       error: (err) => {
         // Backend returns 400 with the StudentImportErrorReport in err.error.data.
@@ -135,6 +153,25 @@ export class BulkImportDialogComponent {
   }
 
   cancel(): void {
-    this.dialogRef.close(false);
+    // Pass true when at least one import succeeded in this session so
+    // the parent students-list refreshes. Plain Close (no imports yet)
+    // returns false and the parent skips the refresh.
+    this.dialogRef.close(this.hadSuccessfulImport);
+  }
+
+  /**
+   * Reset to the picking state so the admin can upload another file
+   * without closing + re-opening the dialog. Useful when importing
+   * multiple classes / sections in one session. The "had successful
+   * import" flag stays true so the close button still triggers a
+   * parent refresh.
+   */
+  importAnotherFile(): void {
+    this.state = 'idle';
+    this.selectedFile = null;
+    this.errorReport = null;
+    this.importResult = null;
+    // autoGrowCapacity intentionally kept — the admin probably wants
+    // the same setting for the next file.
   }
 }
