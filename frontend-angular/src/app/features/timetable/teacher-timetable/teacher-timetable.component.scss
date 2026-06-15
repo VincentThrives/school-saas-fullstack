@@ -82,9 +82,18 @@
 
 .tt-grid {
   display: grid;
-  grid-template-columns: 96px repeat(calc(var(--cols) - 1), minmax(170px, 1fr));
+  /* Period columns are FIXED-width on every viewport so the grid
+     reliably overflows on mobile — the card's overflow-x: auto then
+     scrolls horizontally (and drag-scroll catches click-drag too).
+     The earlier 1fr made columns compress to fit any screen, which
+     killed the scrollbar and squashed period content unreadably small.
+     170 px keeps each cell wide enough for "Subject + Class — Section"
+     to read without clipping. */
+  grid-template-columns: 96px repeat(calc(var(--cols) - 1), 170px);
   gap: 8px;
-  min-width: 100%;
+  /* No min-width: 100% here — the grid sizes to its column total so
+     when columns exceed viewport width, the parent .tt-grid-card
+     gets a real horizontal scrollbar instead of compressing. */
 }
 
 .tt-cell {

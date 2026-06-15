@@ -10,6 +10,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { DragScrollDirective } from '../../../shared/directives/drag-scroll.directive';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { AcademicYear, Timetable, TimetablePeriod } from '../../../core/models';
@@ -53,6 +54,7 @@ interface Holiday {
     MatProgressSpinnerModule,
     MatSnackBarModule,
     PageHeaderComponent,
+    DragScrollDirective,
   ],
   templateUrl: './teacher-timetable.component.html',
   styleUrl: './teacher-timetable.component.scss',

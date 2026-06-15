@@ -21,6 +21,7 @@ import {
   TimetableDaySchedule,
   UserRole,
 } from '../../../core/models';
+import { compareClassNames } from '../../../shared/utils/class-sort';
 
 /**
  * One pickable (class × section) pair in the bulk-create multi-select.
@@ -204,7 +205,20 @@ export class TimetableListComponent implements OnInit {
     this.isLoading = true;
     this.api.getTimetableList(this.selectedAcademicYearId).subscribe({
       next: (res) => {
-        this.timetables = res.data || [];
+        // Canonical school order — LKG → UKG → 1st-A → 1st-B → 2nd-A
+        // → … → 10th-B → 12th-C. Class-name comparison uses the shared
+        // sort helper that knows about pre-primary (LKG/UKG/Nursery)
+        // and numbered grades; section is a stable secondary key so
+        // 1st-A always reads above 1st-B.
+        this.timetables = (res.data || []).slice().sort((a, b) => {
+          const aClassName = this.getClassName(a.classId);
+          const bClassName = this.getClassName(b.classId);
+          const byClass = compareClassNames(aClassName, bClassName);
+          if (byClass !== 0) return byClass;
+          const aSec = this.getSectionName(a.sectionId || '');
+          const bSec = this.getSectionName(b.sectionId || '');
+          return aSec.localeCompare(bSec, undefined, { numeric: true, sensitivity: 'base' });
+        });
         this.isLoading = false;
         this.rebuildPairOptions();
       },

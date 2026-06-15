@@ -69,7 +69,7 @@
   </div>
 
   <!-- Grid -->
-  <mat-card class="tt-grid-card" *ngIf="!isLoading && hasAnyPeriods()">
+  <mat-card class="tt-grid-card" *ngIf="!isLoading && hasAnyPeriods()" appDragScroll>
     <div class="tt-grid" [style.--cols]="periodNumbers.length + 1">
       <!-- Header row: blank + period numbers -->
       <div class="tt-cell header corner">Day</div>
