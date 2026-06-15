@@ -57,7 +57,7 @@
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Subject</mat-label>
-          <mat-select [(ngModel)]="subjectFilter" [disabled]="!sectionFilter">
+          <mat-select [(ngModel)]="subjectFilter" [disabled]="!sectionFilter" (selectionChange)="onSubjectFilterChange()">
             <mat-option value="">All Subjects</mat-option>
             <mat-option *ngFor="let sub of subjectsList" [value]="sub.subjectId">
               {{ sub.name }}
@@ -95,7 +95,9 @@
           <span>{{ exam.examDate }}</span>
           <ng-container *ngIf="exam.components && exam.components.length > 1; else singleMobileMax">
             <span *ngFor="let c of exam.components">
-              <strong>{{ c.label }}</strong> {{ c.maxMarks }}/{{ c.passingMarks }}
+              <!-- pass / max reads more naturally on a marksheet ("28 out
+                   of 70") than the legacy max / pass order. -->
+              <strong>{{ c.label }}</strong> {{ c.passingMarks }}/{{ c.maxMarks }}
             </span>
           </ng-container>
           <ng-template #singleMobileMax>
@@ -139,7 +141,9 @@
       </div>
     </div>
 
-    <table mat-table [dataSource]="filteredExams" class="exams-table responsive-table">
+    <!-- Bind the table to the current page slice, not the full
+         filtered list — otherwise the paginator below has no effect. -->
+    <table mat-table [dataSource]="pagedExams" class="exams-table responsive-table">
       <ng-container matColumnDef="examType">
         <th mat-header-cell *matHeaderCellDef>Exam Type</th>
         <td mat-cell *matCellDef="let exam">
@@ -180,7 +184,9 @@
                  own would mislead — list each slice instead. -->
             <div class="combined-comp-list">
               <span *ngFor="let c of exam.components" class="combined-comp">
-                <strong>{{ c.label }}:</strong> {{ c.maxMarks }} / {{ c.passingMarks }}
+                <!-- pass / max reads more naturally on a marksheet
+                     ("28 out of 70") than the legacy max / pass order. -->
+                <strong>{{ c.label }}:</strong> {{ c.passingMarks }} / {{ c.maxMarks }}
               </span>
             </div>
           </ng-container>
@@ -262,9 +268,13 @@
       No exams found for the selected filters
     </div>
 
+    <!-- Length tracks the FILTERED set, not the raw exam count, so the
+         counter at the right ("X – Y of Z") matches what the dropdowns
+         actually narrowed to. -->
     <mat-paginator
-      [length]="totalElements"
+      [length]="filteredExams.length"
       [pageSize]="pageSize"
+      [pageIndex]="pageIndex"
       [pageSizeOptions]="[5, 10, 25, 50]"
       (page)="onPageChange($event)"
       showFirstLastButtons
