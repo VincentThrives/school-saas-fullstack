@@ -56,7 +56,7 @@ public class StudentImportService {
     // ── Column headers. Order matches the on-screen plan; keep in sync with
     //    parseRow() below. Trailing "*" marks a required column.
     private static final List<String> HEADERS = List.of(
-            "First Name *", "Last Name *", "Date of Birth *", "Gender *",
+            "First Name *", "Last Name", "Date of Birth *", "Gender *",
             "Class *", "Section *", "Admission Number *", "Roll Number",
             "Student Phone", "Student Email", "Parent Name", "Parent Phone *",
             "Parent Email", "Blood Group",
@@ -84,7 +84,7 @@ public class StudentImportService {
     private static final int COL_ADDR_ZIP        = 17;
 
     private static final Set<String> REQUIRED_HEADERS = Set.of(
-            "First Name *", "Last Name *", "Date of Birth *", "Gender *",
+            "First Name *", "Date of Birth *", "Gender *",
             "Class *", "Section *", "Admission Number *", "Parent Phone *");
 
     private static final Set<String> VALID_BLOOD_GROUPS = Set.of(
@@ -535,7 +535,6 @@ public class StudentImportService {
         req.setFirstName(firstName);
 
         String lastName = cellString(row.getCell(COL_LAST_NAME));
-        if (lastName == null) rowError.add("Last Name", "Required.");
         req.setLastName(lastName);
 
         LocalDate dob = cellDate(row.getCell(COL_DOB));

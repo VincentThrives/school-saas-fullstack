@@ -84,7 +84,7 @@ export class StudentFormComponent implements OnInit {
       admissionNumber: ['', Validators.required],
       rollNumber: [''],
       firstName: ['', Validators.required],
-      lastName: ['', Validators.required],
+      lastName: [''],
       dateOfBirth: ['', Validators.required],
       gender: ['MALE', Validators.required],
       bloodGroup: [''],
