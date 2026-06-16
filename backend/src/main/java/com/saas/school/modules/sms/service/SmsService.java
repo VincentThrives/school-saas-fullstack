@@ -334,7 +334,7 @@ public class SmsService {
         // suffix and any required wrapper). We don't render the template
         // here — that's MSG91's job at send time.
         Map<String, String> vars = new LinkedHashMap<>();
-        vars.put("var1", req.getMessage().trim());
+        vars.put("var1", com.saas.school.modules.sms.util.SmsTextSanitizer.gsm7Safe(req.getMessage()));
 
         // Compact label used both for the audit entityId and the response
         // payload so the frontend can echo "Queued to X recipients for
@@ -422,13 +422,17 @@ public class SmsService {
         // reason / reopenDate) keys so the DLT registration style on
         // the school's side renders correctly regardless of whether
         // their template was approved with positional or named placeholders.
+        String closureDate = com.saas.school.modules.sms.util.SmsTextSanitizer.gsm7Safe(req.getClosureDate());
+        String reason      = com.saas.school.modules.sms.util.SmsTextSanitizer.gsm7Safe(req.getReason());
+        String reopenDate  = com.saas.school.modules.sms.util.SmsTextSanitizer.gsm7Safe(req.getReopenDate());
+
         Map<String, String> vars = new LinkedHashMap<>();
-        vars.put("var1", req.getClosureDate().trim());
-        vars.put("var2", req.getReason().trim());
-        vars.put("var3", req.getReopenDate().trim());
-        vars.put("closureDate", req.getClosureDate().trim());
-        vars.put("reason",      req.getReason().trim());
-        vars.put("reopenDate",  req.getReopenDate().trim());
+        vars.put("var1", closureDate);
+        vars.put("var2", reason);
+        vars.put("var3", reopenDate);
+        vars.put("closureDate", closureDate);
+        vars.put("reason",      reason);
+        vars.put("reopenDate",  reopenDate);
 
         List<String> audienceNames = audiences.stream().map(Enum::name).toList();
         String audienceLabel = String.join(",", audienceNames);
@@ -508,13 +512,32 @@ public class SmsService {
         // either ##var1## or ##eventName## style placeholders.
         // var1 = event name (+ description if the frontend already
         //        concatenated it), var2 = date, var3 = time.
+        // Values are GSM-7-sanitized so pasted Unicode (em-dash, smart
+        // quotes, NBSP) doesn't surface as "?" in the delivered SMS.
+        String name = com.saas.school.modules.sms.util.SmsTextSanitizer.gsm7Safe(req.getEventName());
+        String date = com.saas.school.modules.sms.util.SmsTextSanitizer.gsm7Safe(req.getEventDate());
+        String time = com.saas.school.modules.sms.util.SmsTextSanitizer.gsm7Safe(req.getEventTime());
+
+        // Hard stop before MSG91 charges for a send DLT will reject.
+        // Template scaffolding is roughly 95 chars ("Dear Parent, ... is
+        // scheduled on ... at .... Kindly mark your calendar and plan to
+        // attend. - VTPLS"); cap rendered length at 160 so we stay inside
+        // one GSM-7 segment and inside any reasonable DLT registration.
+        int renderedLength = 95 + name.length() + date.length() + time.length();
+        if (renderedLength > 160) {
+            throw new BusinessException(
+                "Event message too long (about " + renderedLength + " chars). "
+                + "Shorten the event name / date / time so the total fits in 160 characters — "
+                + "longer messages are rejected by the SMS gateway after deducting credits.");
+        }
+
         Map<String, String> vars = new LinkedHashMap<>();
-        vars.put("var1", req.getEventName().trim());
-        vars.put("var2", req.getEventDate().trim());
-        vars.put("var3", req.getEventTime().trim());
-        vars.put("eventName", req.getEventName().trim());
-        vars.put("eventDate", req.getEventDate().trim());
-        vars.put("eventTime", req.getEventTime().trim());
+        vars.put("var1", name);
+        vars.put("var2", date);
+        vars.put("var3", time);
+        vars.put("eventName", name);
+        vars.put("eventDate", date);
+        vars.put("eventTime", time);
 
         List<String> audienceNames = audiences.stream().map(Enum::name).toList();
         String audienceLabel = String.join(",", audienceNames);

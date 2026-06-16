@@ -36,21 +36,24 @@ public class SendEventNoticeRequest {
     private String classId;
 
     /** Event name + optional description, already concatenated by the
-     *  frontend (e.g. "Annual Day · Cultural performances"). Lands in
-     *  var1 of the DLT template. Kept under 120 to leave room for the
-     *  rest of the body inside MSG91's 160-char fragment. */
+     *  frontend (e.g. "Annual Day - Cultural performances"). Lands in
+     *  var1 of the DLT template. Capped at 70 so the rendered SMS
+     *  (about 95 chars of fixed scaffolding + the 3 variables) stays
+     *  inside one GSM-7 segment. SmsService also applies a final
+     *  rendered-length check before dispatch as a belt-and-braces
+     *  guard against MSG91-charged-but-not-delivered failures. */
     @NotBlank(message = "eventName is required")
-    @Size(max = 120)
+    @Size(max = 70, message = "Event name is too long for SMS — keep it under 70 characters")
     private String eventName;
 
     /** Free-form event date. Admin formats it ("9 May 2026"). var2. */
     @NotBlank(message = "eventDate is required")
-    @Size(max = 80)
+    @Size(max = 25, message = "Event date is too long for SMS — keep it under 25 characters")
     private String eventDate;
 
-    /** Event time ("10:00 AM" / "10am – 12pm"). var3. */
+    /** Event time ("10:00 AM" / "10am - 12pm"). var3. */
     @NotBlank(message = "eventTime is required")
-    @Size(max = 80)
+    @Size(max = 15, message = "Event time is too long for SMS — keep it under 15 characters")
     private String eventTime;
 
     /** Optional reference to the source Event doc, audit-only. */
