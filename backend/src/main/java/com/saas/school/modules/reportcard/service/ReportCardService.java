@@ -909,12 +909,26 @@ public class ReportCardService {
 
             // INTERNAL component with no matching exam → fall back to the
             // legacy ComponentInternalMark collection so old data still renders.
+            boolean hasInternalMarks = false;
             if (!matchedAnyExam && comp.getAssessmentMode() == Subject.AssessmentMode.INTERNAL) {
                 for (ComponentInternalMark m : allInternalMarks) {
                     if (!subject.getSubjectId().equals(m.getSubjectId())) continue;
                     if (!comp.getKey().equals(m.getComponentKey())) continue;
-                    if (m.getMarksObtained() != null) obtained += m.getMarksObtained();
+                    if (m.getMarksObtained() != null) {
+                        obtained += m.getMarksObtained();
+                        hasInternalMarks = true;
+                    }
                 }
+            }
+
+            // Skip components that were never tested in this period — neither
+            // by an exam nor by an internal-mark entry. Without this guard a
+            // Practical excluded from a Theory-only Unit Test still surfaced
+            // on the report card as "0 / 30 FAIL", dragging the subject total
+            // and tripping the PER_COMPONENT pass rule. With it, the report
+            // only shows what was actually assessed.
+            if (!matchedAnyExam && !hasInternalMarks) {
+                continue;
             }
 
             cg.setMaxMarks(effectiveMax);

@@ -406,32 +406,66 @@ export class ExamConfigComponent implements OnInit {
 
         if (preloadedSubjectConfigs && preloadedSubjectConfigs.length > 0) {
           // Edit-mode pre-fill — build picked subject rows from saved config.
+          // For each subject hydrate EVERY component from the subject
+          // definition: those present in the saved config arrive ticked
+          // with the saved max/pass; the rest arrive unticked with the
+          // subject's own defaults so admin can re-tick to add them back
+          // without removing + re-adding the subject (which would wipe
+          // all custom edits on the row).
           this.pickedSubjectRows = preloadedSubjectConfigs
             .map(cfg => {
               const sub = this.availableSubjects.find(s => s.subjectId === cfg.subjectId)
                        ?? subs.find(s => s.subjectId === cfg.subjectId);
               if (!sub) return null;
+              const allSubjectComps = sub.components || [];
               const hasMultiple = (cfg.components?.length ?? 0) > 1
-                                || ((sub.components?.length ?? 0) > 1);
+                                || (allSubjectComps.length > 1);
+              // Build a key → saved-component lookup for O(1) hydration.
+              const savedByKey = new Map<string, { maxMarks?: number | null; passingMarks?: number | null; label?: string }>();
+              (cfg.components || []).forEach(c => savedByKey.set(c.key, c));
+              // Components ordered: ticked (saved) first, then unticked
+              // (subject extras). Within each group, preserve subject
+              // definition order so labels stay stable across edits.
+              const ticked: SubjectComponentRow[] = [];
+              const unticked: SubjectComponentRow[] = [];
+              for (const sc of allSubjectComps) {
+                const saved = savedByKey.get(sc.key);
+                const row: SubjectComponentRow = {
+                  key: sc.key,
+                  label: saved?.label ?? sc.label,
+                  assessmentMode: (sc.assessmentMode || 'EXAM') as 'EXAM' | 'INTERNAL',
+                  include: !!saved,
+                  maxMarks: saved
+                    ? (saved.maxMarks ?? null)
+                    : ((sc.maxMarks ?? null) as number | null),
+                  passingMarks: saved
+                    ? (saved.passingMarks ?? null)
+                    : ((sc.passMarks ?? null) as number | null),
+                };
+                (saved ? ticked : unticked).push(row);
+              }
+              // A saved component whose key no longer appears on the
+              // subject (e.g. admin renamed the component after the exam
+              // was created) — keep it as a ticked legacy row so its
+              // marks don't silently disappear from the edit form.
+              for (const c of (cfg.components || [])) {
+                if (!allSubjectComps.some(sc => sc.key === c.key)) {
+                  ticked.push({
+                    key: c.key,
+                    label: c.label,
+                    assessmentMode: 'EXAM',
+                    include: true,
+                    maxMarks: c.maxMarks ?? null,
+                    passingMarks: c.passingMarks ?? null,
+                  });
+                }
+              }
               return {
                 subjectId: sub.subjectId,
                 subjectName: sub.name,
                 combined: !!cfg.combined,
                 hasMultipleComponents: hasMultiple,
-                components: (cfg.components || []).map(c => ({
-                  key: c.key,
-                  label: c.label,
-                  // Look up the assessment mode from the subject (saved
-                  // exam doc doesn't carry it).
-                  assessmentMode: (sub.components?.find(sc => sc.key === c.key)?.assessmentMode
-                                  || 'EXAM') as 'EXAM' | 'INTERNAL',
-                  // Saved configs only persist included components, so any
-                  // component arriving from the backend is by definition
-                  // included. Admin can untick to drop it on edit + resave.
-                  include: true,
-                  maxMarks: c.maxMarks ?? null,
-                  passingMarks: c.passingMarks ?? null,
-                })),
+                components: [...ticked, ...unticked],
               } as SubjectRow;
             })
             .filter((r): r is SubjectRow => !!r);
