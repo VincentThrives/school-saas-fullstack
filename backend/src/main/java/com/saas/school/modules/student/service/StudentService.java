@@ -300,8 +300,10 @@ public class StudentService {
         studentRepository.save(s);
 
         // If firstName or DOB actually changed, regenerate the linked User's
-        // default password (firstName + "@" + birthYear) so the credentials
-        // stay in lockstep with the profile values the admin sees.
+        // default password (DOB as DDMMYYYY) so the credentials stay in
+        // lockstep with the profile values the admin sees. A firstName-only
+        // edit no longer alters the password but still triggers the resync
+        // so the User row's firstName/lastName display stays in sync.
         boolean firstNameChanged = !java.util.Objects.equals(oldFirstName, s.getFirstName());
         boolean dobChanged = !java.util.Objects.equals(oldDob, s.getDateOfBirth());
         if (s.getUserId() != null && (firstNameChanged || dobChanged)) {

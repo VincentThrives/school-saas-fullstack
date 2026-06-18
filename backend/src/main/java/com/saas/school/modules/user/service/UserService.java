@@ -172,12 +172,24 @@ public class UserService {
     // ── Default-password sync (used by Student/Teacher update paths) ──
 
     /**
-     * The auto-create password format: {@code firstName + "@" + birthYear}.
-     * Returns null when either input is missing — caller skips the resync.
+     * The default password format: DOB as {@code DDMMYYYY}. Matches what
+     * student create + bulk import already write at account-creation time,
+     * so resets and post-edit resyncs land on the same string instead of
+     * silently switching the credential format. Returns null when DOB is
+     * missing — caller skips the resync.
+     *
+     * <p>The {@code firstName} parameter is retained for backwards
+     * compatibility with existing callers (Teacher controller, Student
+     * service) and is intentionally unused in the password computation.
+     * It only feeds the firstName/lastName sync inside
+     * {@link #resyncDefaultPassword}.</p>
      */
     public static String defaultPasswordFor(String firstName, java.time.LocalDate dateOfBirth) {
-        if (firstName == null || firstName.isBlank() || dateOfBirth == null) return null;
-        return firstName + "@" + dateOfBirth.getYear();
+        if (dateOfBirth == null) return null;
+        return String.format("%02d%02d%04d",
+                dateOfBirth.getDayOfMonth(),
+                dateOfBirth.getMonthValue(),
+                dateOfBirth.getYear());
     }
 
     /**
