@@ -264,10 +264,12 @@ public class StudentService {
 
     public StudentDto updateStudent(String studentId, UpdateStudentRequest req) {
         Student s = findStudent(studentId);
-        // Snapshot the OLD values that gate the password-resync rule. We need
-        // this BEFORE applying any changes so we can detect a real diff.
+        // Snapshot the OLD values that gate the password + username resync
+        // rules. We need these BEFORE applying any changes so we can detect a
+        // real diff against the saved state.
         String oldFirstName = s.getFirstName();
         java.time.LocalDate oldDob = s.getDateOfBirth();
+        String oldParentPhone = s.getParentPhone();
 
         // Same normalisation as createStudent — Title-case names, digits-only
         // phone, lowercase email, UPPERCASE blood group.
@@ -307,6 +309,15 @@ public class StudentService {
                     s.getLastName(), s.getDateOfBirth());
         }
 
+        // If parentPhone changed, the username (which is derived from it)
+        // would otherwise drift — login would silently require the OLD phone.
+        // Rebuild the username from the new digits using the same scheme
+        // autoCreateUserForStudent uses, preserving sibling-suffix form.
+        boolean parentPhoneChanged = !java.util.Objects.equals(oldParentPhone, s.getParentPhone());
+        if (parentPhoneChanged) {
+            resyncUsernameAfterParentPhoneChange(s, s.getParentPhone());
+        }
+
         auditService.log("UPDATE_STUDENT", "Student", studentId, "Student updated");
         return toDto(s);
     }
@@ -330,14 +341,30 @@ public class StudentService {
     public StudentDto updateMyProfile(String userId, StudentSelfUpdateRequest req) {
         StudentDto me = getStudentByUserId(userId);
         Student s = findStudent(me.getStudentId());
+        // Snapshot the OLD parent phone so we know whether to resync the
+        // username after save. Password resync isn't a concern here — the
+        // self-service DTO doesn't expose DOB, so the value the password
+        // derives from cannot change via this path.
+        String oldParentPhone = s.getParentPhone();
         if (req.getPhone()       != null) s.setPhone(req.getPhone());
         if (req.getEmail()       != null) s.setEmail(req.getEmail());
         if (req.getBloodGroup()  != null) s.setBloodGroup(req.getBloodGroup());
         if (req.getAddress()     != null) s.setAddress(mapAddress(req.getAddress()));
         if (req.getParentName()  != null) s.setParentName(req.getParentName());
-        if (req.getParentPhone() != null) s.setParentPhone(req.getParentPhone());
+        if (req.getParentPhone() != null) s.setParentPhone(StudentFieldNormalizer.phoneDigits(req.getParentPhone()));
         if (req.getParentEmail() != null) s.setParentEmail(req.getParentEmail());
         studentRepository.save(s);
+
+        // Username = parent phone digits (with sibling suffix). If the
+        // student edited their parentPhone, rebuild the username so the next
+        // login uses the new phone. Without this the student would still
+        // have to type the OLD phone to log in even though Student.parentPhone
+        // shows the new one.
+        boolean parentPhoneChanged = !java.util.Objects.equals(oldParentPhone, s.getParentPhone());
+        if (parentPhoneChanged) {
+            resyncUsernameAfterParentPhoneChange(s, s.getParentPhone());
+        }
+
         auditService.log("PROFILE_SELF_UPDATE", "Student", s.getStudentId(),
                 "Student updated own profile");
         return toDto(s);
@@ -609,6 +636,71 @@ public class StudentService {
         student.setAcademicRecords(records);
 
         return new UserStudentPair(user, student);
+    }
+
+    /**
+     * Re-derive a student's {@link User#getUsername()} after their
+     * {@code parentPhone} has changed. Keeps the login id in lockstep
+     * with the new phone using the same scheme as
+     * {@link #autoCreateUserForStudent}: bare digits for the first
+     * child, digits + first-name slug for siblings, plus a numeric
+     * suffix if the new candidate collides with another user.
+     *
+     * <p>Detects "sibling" vs "first child" from the OLD username — if
+     * it ends with the student's first-name slug (with optional
+     * trailing collision digits), the new username keeps the slug so
+     * the family-grouping convention persists even when one sibling's
+     * phone changes alone.</p>
+     *
+     * <p>Silent no-op when: the student has no linked user, the new
+     * phone isn't a usable 10+ digit string, or the rebuilt candidate
+     * equals the current username (idempotent retries don't churn the
+     * audit log). Looping past 1000 suffix attempts is logged and
+     * skipped — never seen in practice but keeps the loop bounded.</p>
+     */
+    private void resyncUsernameAfterParentPhoneChange(Student student, String newParentPhone) {
+        if (student == null || student.getUserId() == null) return;
+        String newDigits = StudentFieldNormalizer.phoneDigits(newParentPhone);
+        if (newDigits == null || newDigits.length() < 10) return;
+
+        User user = userRepository.findById(student.getUserId()).orElse(null);
+        if (user == null) return;
+        String oldUsername = user.getUsername();
+        if (oldUsername == null) return;
+
+        String slug = StudentFieldNormalizer.usernameSlug(student.getFirstName());
+        boolean wasSiblingForm = slug != null
+                && oldUsername.length() > newDigits.length()
+                && oldUsername.toLowerCase(java.util.Locale.ROOT).contains(slug);
+
+        String candidate = wasSiblingForm
+                ? newDigits + (slug == null ? "child" : slug)
+                : newDigits;
+
+        if (candidate.equals(oldUsername)) return;
+
+        String finalCandidate = candidate;
+        int n = 2;
+        while (true) {
+            var conflict = userRepository.findByUsernameAndDeletedAtIsNull(finalCandidate);
+            if (conflict.isEmpty()
+                    || conflict.get().getUserId().equals(user.getUserId())) {
+                break;
+            }
+            finalCandidate = candidate + n;
+            n++;
+            if (n > 1000) {
+                log.warn("resyncUsernameAfterParentPhoneChange ran out of suffixes for {}", candidate);
+                return;
+            }
+        }
+
+        user.setUsername(finalCandidate);
+        userRepository.save(user);
+        log.info("Username resynced after parentPhone change: userId={} {} -> {}",
+                user.getUserId(), oldUsername, finalCandidate);
+        auditService.log("RESYNC_USERNAME", "User", user.getUserId(),
+                "Username regenerated after parentPhone update: " + oldUsername + " -> " + finalCandidate);
     }
 
     // ── Auto User Creation ─────────────────────────────────────────
