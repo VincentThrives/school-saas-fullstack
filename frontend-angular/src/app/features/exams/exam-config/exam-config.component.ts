@@ -345,28 +345,47 @@ export class ExamConfigComponent implements OnInit {
    */
   /**
    * Build a short class-scope hint for a subject, used to disambiguate
-   * subjects that share a name across classes (e.g. a Class 9 Physics
-   * carrying Theory + Practical vs a Class 10 Physics carrying Theory +
-   * IA). Walks the subject's {@link SubjectItem.assignments} and maps
-   * each assignment's {@code classId} to a class name from the form's
-   * {@link pairOptions}. Returns an empty string for legacy
-   * "everywhere" subjects so the UI can hide the hint instead of
-   * showing "Class —".
+   * subjects that share a name across classes / sections (e.g. a Class
+   * 9-A Physics carrying Theory + Practical vs a Class 10-B Physics
+   * carrying Theory + IA). Walks the subject's
+   * {@link SubjectItem.assignments} and intersects each assignment with
+   * the form's {@link pairOptions} so the hint matches the (class,
+   * section) labels the admin already sees in step 2 of the wizard.
+   *
+   * <p>An assignment with an empty {@code sectionIds} list means "all
+   * sections of that class" — we render it as the bare class name so
+   * the hint stays compact instead of listing every section. Subjects
+   * with no resolvable assignments return an empty string so the UI can
+   * hide the hint entirely.</p>
    */
   classScopeLabel(s: SubjectItem): string {
     const assignments = s.assignments || [];
     if (assignments.length === 0) return '';
     const classNameById = new Map<string, string>();
+    const sectionNameByKey = new Map<string, string>();
     for (const p of this.pairOptions) {
       classNameById.set(p.classId, p.className);
+      sectionNameByKey.set(`${p.classId}::${p.sectionId}`, p.sectionName);
     }
     const seen = new Set<string>();
     const labels: string[] = [];
     for (const a of assignments) {
-      const name = classNameById.get(a.classId);
-      if (!name || seen.has(name)) continue;
-      seen.add(name);
-      labels.push(name);
+      const className = classNameById.get(a.classId);
+      if (!className) continue;
+      const sectionIds = a.sectionIds || [];
+      if (sectionIds.length === 0) {
+        if (seen.has(className)) continue;
+        seen.add(className);
+        labels.push(className);
+        continue;
+      }
+      for (const sid of sectionIds) {
+        const sectionName = sectionNameByKey.get(`${a.classId}::${sid}`);
+        const label = sectionName ? `${className}-${sectionName}` : className;
+        if (seen.has(label)) continue;
+        seen.add(label);
+        labels.push(label);
+      }
     }
     return labels.join(', ');
   }
