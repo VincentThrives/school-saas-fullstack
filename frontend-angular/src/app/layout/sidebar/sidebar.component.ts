@@ -243,14 +243,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
         {
           title: 'Exams', path: '', icon: 'assignment',
           children: [
-            { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams' },
+           
             // Bulk-create entry — admin picks exam type + class/sections +
             // subjects and the backend fans out into many Exam docs in one
             // save. Lives next to the regular Exams list. Admin-only.
             { title: 'Exam Config', path: '/exams/config', icon: 'playlist_add_check', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN] },
+            { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams' },
             { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams' },
             { title: 'Exam Types', path: '/exam-types', icon: 'category', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
-            { title: 'MCQ Exams', path: '/mcq', icon: 'quiz', feature: 'mcq' },
+            // { title: 'MCQ Exams', path: '/mcq', icon: 'quiz', feature: 'mcq' },
           ],
         },
         // ── Fees group ──
@@ -286,13 +287,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
         // { title: 'ID Cards', path: '/id-cards', icon: 'badge', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
         { title: 'Syllabus Tracker', path: '/syllabus', icon: 'menu_book', feature: 'syllabus' },
         // { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
-        { title: 'Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
+        // { title: 'Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
         // ── Results group ──
         {
           title: 'Results', path: '', icon: 'leaderboard',
           children: [
             { title: 'Class Rankings', path: '/analytics/rankings', icon: 'leaderboard', feature: 'analytics' },
-            { title: 'Reports', path: '/reports', icon: 'summarize', feature: 'analytics', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+            // { title: 'Reports', path: '/reports', icon: 'summarize', feature: 'analytics', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
             { title: 'Report Cards', path: '/report-cards', icon: 'description', feature: 'report_cards' },
           ],
         },
@@ -315,11 +316,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams' },
         // { title: 'MCQ Exams', path: '/mcq', icon: 'quiz', feature: 'mcq' },
         { title: 'Syllabus Tracker', path: '/syllabus', icon: 'menu_book', feature: 'syllabus' },
-        { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
+        // { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
         { title: 'Report Cards', path: '/report-cards', icon: 'description', feature: 'report_cards' },
-        { title: 'Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
+        // { title: 'Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
         { title: 'Class Rankings', path: '/analytics/rankings', icon: 'leaderboard', feature: 'analytics' },
-        { title: 'PTM', path: '/ptm', icon: 'groups' },
+        // { title: 'PTM', path: '/ptm', icon: 'groups' },
         // { title: 'Study Materials', path: '/study-materials', icon: 'library_books', feature: 'content' },
         // { title: 'Mentoring Notes', path: '/mentoring', icon: 'note' },
         // { title: 'Messages', path: '/messages', icon: 'message', feature: 'messaging' },
@@ -333,14 +334,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'My Timetable', path: '/timetable', icon: 'calendar_month', feature: 'timetable' },
         { title: 'My Attendance', path: '/my-attendance', icon: 'event_note', feature: 'attendance' },
         { title: 'My Marks', path: '/my-marks', icon: 'assignment', feature: 'exams' },
-        { title: 'MCQ Exams', path: '/mcq/available', icon: 'quiz', feature: 'mcq' },
-        { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
+        // { title: 'MCQ Exams', path: '/mcq/available', icon: 'quiz', feature: 'mcq' },
+        // { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
         { title: 'My Report Card', path: '/my-report-card', icon: 'description', feature: 'report_cards' },
         // { title: 'My Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
-        { title: 'Study Materials', path: '/study-materials', icon: 'library_books', feature: 'content' },
+        // { title: 'Study Materials', path: '/study-materials', icon: 'library_books', feature: 'content' },
         { title: 'Events', path: '/events', icon: 'event', feature: 'events' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications' },
-        { title: 'Messages', path: '/messages', icon: 'message', feature: 'messaging' },
+        // { title: 'Fee Status', path: '/fee-status', icon: 'payment', feature: 'fee' },
+        // { title: 'Messages', path: '/messages', icon: 'message', feature: 'messaging' },
       );
     }
 
@@ -356,7 +358,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'Fee Status', path: '/fee-status', icon: 'payment', feature: 'fee' },
         { title: 'Events', path: '/events', icon: 'event', feature: 'events' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications' },
-        { title: 'Messages', path: '/messages', icon: 'message', feature: 'messaging' },
+        // { title: 'Messages', path: '/messages', icon: 'message', feature: 'messaging' },
       );
     }
 

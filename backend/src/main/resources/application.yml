@@ -31,13 +31,14 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 20MB
-
+server:
+  port: ${PORT:8080}
 # JWT
 app:
   jwt:
     secret: ${JWT_SECRET:ThisIsAVeryLongSecretKeyForJWTTokenSigningMustBe256BitsAtMinimum!!}
     access-token-expiry-ms: ${JWT_ACCESS_EXPIRY:86400000}      # 24 hours (dev-friendly)
-    refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY:2592000000}  # 30 days (rolling — clock resets on every refresh)
+    refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY:2592000000}  # 7 days
     super-admin-access-expiry-ms: ${SA_ACCESS_EXPIRY:86400000} # 24 hours (dev-friendly)
 
   # File storage
@@ -57,7 +58,7 @@ app:
   # Render is configured to override this via the CORS_ORIGINS env var —
   # keep that list in sync with this default whenever a new origin is added.
   cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:4200,https://vtschoolsaas.netlify.app,https://localhost,http://localhost}
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:4200,https://vtschoolsaas.netlify.app,https://localhost,http://localhost,https://nammavidyalaya.com,https://www.nammavidyalaya.in,https://www.nammavidyalaya.com}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
     allowed-headers: "*"
     allow-credentials: true
