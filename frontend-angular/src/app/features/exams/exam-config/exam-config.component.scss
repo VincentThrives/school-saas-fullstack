@@ -104,6 +104,16 @@ mat-form-field {
   }
 
   .muted { color: inherit; opacity: 0.7; font-size: 11px; margin-left: 4px; }
+  // Class hint on subject chips (e.g. "Physics · Class 9 · 2 components").
+  // Slightly stronger than .muted so the disambiguating class text reads
+  // clearly when two same-named subjects sit side by side.
+  .subject-chip__scope {
+    color: inherit;
+    opacity: 0.85;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 4px;
+  }
 }
 
 // ── Picked-subject config card ───────────────────────────────────────
@@ -123,6 +133,11 @@ mat-form-field {
       flex-shrink: 0;
       font-size: 14px;
       color: #1f2937;
+    }
+    .subject-card__scope {
+      color: #6b7280;
+      font-size: 12px;
+      font-weight: 500;
     }
     mat-slide-toggle {
       margin-left: auto;

@@ -44,6 +44,15 @@ interface SubjectRow {
   subjectId: string;
   subjectName: string;
   /**
+   * Display-only label like "Class 1" or "Class 9, 10" that disambiguates
+   * subjects sharing the same name (e.g. a Class 9 Physics doc with
+   * Theory + Practical and a Class 10 Physics doc with Theory + IA).
+   * Built when the row is picked from the subject's assignments. Empty
+   * string when the subject has no assignments or none match the picked
+   * pair pool — caller hides the label in that case.
+   */
+  classScopeLabel: string;
+  /**
    * Whether the bulk endpoint should create ONE exam doc with multiple
    * components inside (mark entry shows columns) or N exam docs
    * (separate rows). Forced to false for single-component subjects.
@@ -334,6 +343,34 @@ export class ExamConfigComponent implements OnInit {
    * configured with only Hindi would still see Mathematics until
    * this stricter check kicks in.</p>
    */
+  /**
+   * Build a short class-scope hint for a subject, used to disambiguate
+   * subjects that share a name across classes (e.g. a Class 9 Physics
+   * carrying Theory + Practical vs a Class 10 Physics carrying Theory +
+   * IA). Walks the subject's {@link SubjectItem.assignments} and maps
+   * each assignment's {@code classId} to a class name from the form's
+   * {@link pairOptions}. Returns an empty string for legacy
+   * "everywhere" subjects so the UI can hide the hint instead of
+   * showing "Class —".
+   */
+  classScopeLabel(s: SubjectItem): string {
+    const assignments = s.assignments || [];
+    if (assignments.length === 0) return '';
+    const classNameById = new Map<string, string>();
+    for (const p of this.pairOptions) {
+      classNameById.set(p.classId, p.className);
+    }
+    const seen = new Set<string>();
+    const labels: string[] = [];
+    for (const a of assignments) {
+      const name = classNameById.get(a.classId);
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      labels.push(name);
+    }
+    return labels.join(', ');
+  }
+
   private subjectCoversAnyPickedPair(s: SubjectItem): boolean {
     const assignments = s.assignments || [];
     if (assignments.length === 0) return true; // legacy / "everywhere" — don't hide
@@ -463,6 +500,7 @@ export class ExamConfigComponent implements OnInit {
               return {
                 subjectId: sub.subjectId,
                 subjectName: sub.name,
+                classScopeLabel: this.classScopeLabel(sub),
                 combined: !!cfg.combined,
                 hasMultipleComponents: hasMultiple,
                 components: [...ticked, ...unticked],
@@ -501,6 +539,7 @@ export class ExamConfigComponent implements OnInit {
       this.pickedSubjectRows.push({
         subjectId: subject.subjectId,
         subjectName: subject.name,
+        classScopeLabel: this.classScopeLabel(subject),
         combined: hasMultiple,   // default Combined ON for multi-component subjects
         hasMultipleComponents: hasMultiple,
         components: comps,

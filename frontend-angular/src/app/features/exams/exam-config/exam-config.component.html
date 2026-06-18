@@ -119,6 +119,13 @@
             <mat-icon *ngIf="isSubjectPicked(s.subjectId)">check</mat-icon>
             <mat-icon *ngIf="!isSubjectPicked(s.subjectId)">add</mat-icon>
             {{ s.name }}
+            <!-- Class hint disambiguates two same-named subjects (Class 9
+                 Physics vs Class 10 Physics) when both surface in the
+                 same exam config. Hidden for legacy "everywhere"
+                 subjects whose assignments don't resolve to a class. -->
+            <span class="subject-chip__scope" *ngIf="classScopeLabel(s) as scope">
+              · {{ scope }}
+            </span>
             <span class="muted" *ngIf="s.components && s.components.length > 1">
               · {{ s.components.length }} components
             </span>
@@ -141,6 +148,13 @@
         <div class="subject-card" *ngFor="let row of pickedSubjectRows">
           <div class="subject-card__head">
             <strong>{{ row.subjectName }}</strong>
+            <!-- Class hint mirrors the picker chip so two same-named
+                 subjects (Class 9 Physics vs Class 10 Physics) stay
+                 distinguishable once they're picked. Empty string when
+                 the subject has no class-resolved assignments. -->
+            <span class="subject-card__scope" *ngIf="row.classScopeLabel">
+              · {{ row.classScopeLabel }}
+            </span>
             <!-- Combined-entry only meaningful once 2+ components are ticked.
                  If admin unticks Practical down to a single Theory row, the
                  toggle disappears since there's nothing to combine. -->
