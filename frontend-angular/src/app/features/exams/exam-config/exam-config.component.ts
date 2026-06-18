@@ -57,6 +57,14 @@ interface SubjectComponentRow {
   key: string;
   label: string;
   assessmentMode: 'EXAM' | 'INTERNAL';
+  /**
+   * Whether this component is part of THIS exam. Lets admin run a
+   * Theory-only Unit Test for a subject that's normally Theory + Practical
+   * without forcing them to redefine the subject. Default true on pick;
+   * unticked components are filtered out before the bulk-create payload
+   * leaves the form, so the saved Exam doc only carries the included set.
+   */
+  include: boolean;
   maxMarks: number | null;
   passingMarks: number | null;
 }
@@ -417,6 +425,10 @@ export class ExamConfigComponent implements OnInit {
                   // exam doc doesn't carry it).
                   assessmentMode: (sub.components?.find(sc => sc.key === c.key)?.assessmentMode
                                   || 'EXAM') as 'EXAM' | 'INTERNAL',
+                  // Saved configs only persist included components, so any
+                  // component arriving from the backend is by definition
+                  // included. Admin can untick to drop it on edit + resave.
+                  include: true,
                   maxMarks: c.maxMarks ?? null,
                   passingMarks: c.passingMarks ?? null,
                 })),
@@ -443,6 +455,9 @@ export class ExamConfigComponent implements OnInit {
         key: c.key,
         label: c.label,
         assessmentMode: c.assessmentMode,
+        // Tick by default — Theory + Practical both flow into a fresh exam
+        // unless admin unticks Practical for a Theory-only UT etc.
+        include: true,
         // Pre-fill from subject if present (legacy convenience) — admin can
         // override per exam. Schools running UT1 at 40+10 just type fresh.
         maxMarks: (c.maxMarks ?? null) as number | null,
@@ -471,9 +486,13 @@ export class ExamConfigComponent implements OnInit {
     if (this.form.invalid) return true;
     if (this.pickedPairKeys.size === 0) return true;
     if (this.pickedSubjectRows.length === 0) return true;
-    // Every component row must have valid max/pass.
+    // Every INCLUDED component row must have valid max/pass. Unticked
+    // components are excluded from the bulk-create payload entirely so we
+    // don't validate them — admin may have left them with blank marks.
     for (const row of this.pickedSubjectRows) {
-      for (const c of row.components) {
+      const included = row.components.filter(c => c.include);
+      if (included.length === 0) return true;
+      for (const c of included) {
         const max = Number(c.maxMarks);
         const pass = Number(c.passingMarks);
         if (!isFinite(max) || max <= 0) return true;
@@ -481,6 +500,19 @@ export class ExamConfigComponent implements OnInit {
       }
     }
     return this.isSaving;
+  }
+
+  /** True when at least one component on the subject row is ticked. Drives
+   *  the inline "no component selected" warning on the per-subject card. */
+  rowHasIncludedComponent(row: SubjectRow): boolean {
+    return row.components.some(c => c.include);
+  }
+
+  /** Count of currently-included components on a row. Used by the template
+   *  to decide whether the Combined toggle is meaningful (≥2 included =
+   *  combined-mode makes sense; 0–1 = hide the toggle). */
+  includedComponentCount(row: SubjectRow): number {
+    return row.components.filter(c => c.include).length;
   }
 
   submit(): void {
@@ -505,16 +537,25 @@ export class ExamConfigComponent implements OnInit {
       return { classId, sectionId };
     });
 
-    const subjectConfigs: BulkCreateExamSubjectConfig[] = this.pickedSubjectRows.map(r => ({
-      subjectId: r.subjectId,
-      combined: r.hasMultipleComponents && r.combined,
-      components: r.components.map(c => ({
-        key: c.key,
-        label: c.label,
-        maxMarks: Number(c.maxMarks),
-        passingMarks: Number(c.passingMarks),
-      } as BulkCreateExamComponentConfig)),
-    }));
+    const subjectConfigs: BulkCreateExamSubjectConfig[] = this.pickedSubjectRows.map(r => {
+      // Only ticked components flow into the saved exam. A Theory-only UT for
+      // a Theory + Practical subject saves with just the Theory component;
+      // Practical is absent from the Exam doc entirely.
+      const included = r.components.filter(c => c.include);
+      return {
+        subjectId: r.subjectId,
+        // Combined mode only meaningful when ≥2 components survive the filter.
+        // A subject that started with two components but got one unticked
+        // effectively becomes single-component for this exam.
+        combined: included.length > 1 && r.combined,
+        components: included.map(c => ({
+          key: c.key,
+          label: c.label,
+          maxMarks: Number(c.maxMarks),
+          passingMarks: Number(c.passingMarks),
+        } as BulkCreateExamComponentConfig)),
+      };
+    });
 
     const payload: BulkCreateExamRequest = {
       examType: formVal.examType,

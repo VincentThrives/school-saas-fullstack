@@ -132,10 +132,15 @@ mat-form-field {
 
 .component-row {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr;
+  // Include checkbox + label + max + pass.
+  grid-template-columns: auto 1.5fr 1fr 1fr;
   gap: 12px;
   align-items: center;
   margin-bottom: 4px;
+
+  &__include {
+    justify-self: center;
+  }
 
   &__label {
     display: flex;
@@ -153,8 +158,41 @@ mat-form-field {
     .muted { color: #9ca3af; font-size: 11px; }
   }
 
+  // Unticked rows dim out so the eye lands on the active ones.
+  &--excluded {
+    opacity: 0.55;
+    .component-row__label { color: #6b7280; }
+  }
+
+  .excluded-note {
+    grid-column: 3 / span 2;
+    color: #9ca3af;
+    font-size: 12px;
+    font-style: italic;
+  }
+
   .comp-input {
     margin-bottom: -1.34375em; // align inputs with label baseline
+  }
+}
+
+.component-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background-color: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 13px;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: #ea580c;
   }
 }
 
@@ -172,7 +210,8 @@ mat-form-field {
     grid-template-columns: 1fr;
   }
   .component-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto 1fr;
     .component-row__label { margin-bottom: 4px; }
+    .excluded-note { grid-column: 1 / -1; }
   }
 }

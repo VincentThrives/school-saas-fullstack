@@ -141,8 +141,11 @@
         <div class="subject-card" *ngFor="let row of pickedSubjectRows">
           <div class="subject-card__head">
             <strong>{{ row.subjectName }}</strong>
+            <!-- Combined-entry only meaningful once 2+ components are ticked.
+                 If admin unticks Practical down to a single Theory row, the
+                 toggle disappears since there's nothing to combine. -->
             <mat-slide-toggle
-              *ngIf="row.hasMultipleComponents"
+              *ngIf="includedComponentCount(row) > 1"
               [(ngModel)]="row.combined"
               [ngModelOptions]="{ standalone: true }"
               matTooltip="ON: one exam, multi-column mark entry. OFF: separate exam per component."
@@ -154,20 +157,42 @@
             </button>
           </div>
 
-          <div class="component-row" *ngFor="let c of row.components">
+          <div class="component-row"
+               *ngFor="let c of row.components"
+               [class.component-row--excluded]="!c.include">
+            <!-- Untick to exclude this component from THIS exam (e.g. Theory-
+                 only UT for a Theory + Practical subject). The component
+                 stays on the subject definition; it just doesn't get an
+                 Exam doc this time around. -->
+            <mat-checkbox
+              [(ngModel)]="c.include"
+              [ngModelOptions]="{ standalone: true }"
+              class="component-row__include"
+              matTooltip="Include this component in this exam"
+            ></mat-checkbox>
             <div class="component-row__label">
               <mat-icon class="comp-icon">{{ c.assessmentMode === 'INTERNAL' ? 'assignment' : 'edit_note' }}</mat-icon>
               <span>{{ c.label }}</span>
               <span class="muted" *ngIf="c.assessmentMode === 'INTERNAL'">· Internal</span>
             </div>
-            <mat-form-field appearance="outline" class="comp-input">
-              <mat-label>Max Marks *</mat-label>
-              <input matInput type="number" [(ngModel)]="c.maxMarks" [ngModelOptions]="{ standalone: true }" min="1">
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="comp-input">
-              <mat-label>Pass Marks *</mat-label>
-              <input matInput type="number" [(ngModel)]="c.passingMarks" [ngModelOptions]="{ standalone: true }" min="0">
-            </mat-form-field>
+            <ng-container *ngIf="c.include; else excludedNote">
+              <mat-form-field appearance="outline" class="comp-input">
+                <mat-label>Max Marks *</mat-label>
+                <input matInput type="number" [(ngModel)]="c.maxMarks" [ngModelOptions]="{ standalone: true }" min="1">
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="comp-input">
+                <mat-label>Pass Marks *</mat-label>
+                <input matInput type="number" [(ngModel)]="c.passingMarks" [ngModelOptions]="{ standalone: true }" min="0">
+              </mat-form-field>
+            </ng-container>
+            <ng-template #excludedNote>
+              <span class="muted excluded-note">Excluded from this exam</span>
+            </ng-template>
+          </div>
+
+          <div class="component-warning" *ngIf="!rowHasIncludedComponent(row)">
+            <mat-icon>warning</mat-icon>
+            <span>Tick at least one component for {{ row.subjectName }} or remove the subject.</span>
           </div>
         </div>
       </mat-card-content>
