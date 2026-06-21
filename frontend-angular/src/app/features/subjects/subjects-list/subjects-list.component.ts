@@ -263,6 +263,12 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       subjectType: ['THEORY', Validators.required],
       passRule: ['PER_COMPONENT', Validators.required],
       components: this.fb.array([this.buildComponentGroup('theory', 'Theory', 100, 35, true, 'EXAM')]),
+      // Sub-parts (Physics / Chemistry / Biology under an integrated Science
+      // course). Toggle below decides whether the array is exposed in the
+      // form; even when toggled OFF the FormArray stays in the group so the
+      // existing build/edit paths don't have to special-case its absence.
+      hasSubParts: [false],
+      subParts: this.fb.array([] as FormGroup[]),
     });
     // Keep components array in sync whenever the admin picks a different preset.
     this.form.get('subjectType')?.valueChanges.subscribe(v => this.applyPreset(v));
@@ -380,6 +386,66 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
   removeComponent(i: number): void {
     if (this.components.length <= 1) return; // must keep at least one
     this.components.removeAt(i);
+  }
+
+  // ── Sub-parts (teaching axis — orthogonal to components) ───────────
+
+  get subParts(): FormArray<FormGroup> {
+    return this.form.get('subParts') as FormArray<FormGroup>;
+  }
+
+  /** Build one sub-part form group. Key auto-derives from label on change so
+   *  admins don't have to think about machine identifiers; code is optional. */
+  private buildSubPartGroup(key: string, label: string, code: string): FormGroup {
+    const grp = this.fb.group({
+      key: [key, Validators.required],
+      label: [label, Validators.required],
+      code: [code],
+    });
+    grp.get('label')?.valueChanges.subscribe((newLabel: string | null) => {
+      const slug = this.toSlug(newLabel || '');
+      if (slug && grp.get('key')?.value !== slug) {
+        grp.get('key')?.setValue(slug, { emitEvent: false });
+      }
+    });
+    return grp;
+  }
+
+  addSubPart(): void {
+    // Empty row by default so admin types straight into the label field;
+    // key auto-fills as they type via the valueChanges hook above.
+    this.subParts.push(this.buildSubPartGroup('', '', ''));
+  }
+
+  removeSubPart(i: number): void {
+    this.subParts.removeAt(i);
+    if (this.subParts.length === 0) {
+      this.form.get('hasSubParts')?.setValue(false, { emitEvent: false });
+    }
+  }
+
+  /** Toggle handler — adds an initial empty row on switch-on so admin sees
+   *  the editor primed and ready, clears all rows on switch-off. */
+  onHasSubPartsChange(checked: boolean): void {
+    if (checked && this.subParts.length === 0) {
+      this.addSubPart();
+    } else if (!checked) {
+      while (this.subParts.length) this.subParts.removeAt(0);
+    }
+  }
+
+  /** Lowercase snake_case slug for a sub-part label. "Physics (Sr)" → "physics_sr". */
+  private toSlug(label: string): string {
+    return label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+  }
+
+  /** Comma-joined list of sub-part labels, used by the list-row tooltip. */
+  subPartsTooltip(subject: SubjectItem): string {
+    const sps = subject.subParts || [];
+    return sps.map(sp => sp.label).join(', ');
   }
 
   /** Generate a non-clashing component key for a newly-added row. */
@@ -592,6 +658,19 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
     // Default to "Custom" preset so the components stay editable.
     this.form.get('subjectType')?.setValue('CUSTOM', { emitEvent: false });
     this.customiseComponents = true;
+
+    // Sub-parts hydration. Restore each saved sub-part as a form row +
+    // flip the toggle on so the editor renders. Empty list → toggle
+    // stays OFF (default from buildForm).
+    const sps = this.form.get('subParts') as any;
+    while (sps.length) sps.removeAt(0);
+    const savedSubParts = subject.subParts || [];
+    if (savedSubParts.length > 0) {
+      this.form.get('hasSubParts')?.setValue(true, { emitEvent: false });
+      for (const sp of savedSubParts) {
+        sps.push(this.buildSubPartGroup(sp.key, sp.label, sp.code || ''));
+      }
+    }
     // Load classes for this subject's year, then build the class-section
     // options and pre-select THIS subject's class with its sections that
     // include this subject's id.
@@ -701,6 +780,35 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
     const assignments = Array.from(byClass.entries()).map(([classId, sectionIds]) => ({
       classId, sectionIds,
     }));
+    // Sub-parts — only forwarded when the toggle is ON. Trim out empties
+    // (admin may have added a row then left it blank) and reject duplicates
+    // so the saved Subject has a clean canonical list.
+    const subPartsRaw = (raw.subParts as Array<any>) || [];
+    const subParts = raw.hasSubParts
+      ? subPartsRaw
+          .filter(sp => (sp.label || '').trim().length > 0)
+          .map(sp => ({
+            key: (sp.key || this.toSlug(sp.label)).trim(),
+            label: (sp.label || '').trim(),
+            code: (sp.code || '').trim() || undefined,
+          }))
+      : [];
+    if (raw.hasSubParts) {
+      const seenKeys = new Set<string>();
+      for (const sp of subParts) {
+        if (!sp.key) continue;
+        if (seenKeys.has(sp.key)) {
+          this.snackBar.open(`Duplicate sub-part "${sp.label}". Each sub-part needs a unique label.`, 'Close', { duration: 4000 });
+          return;
+        }
+        seenKeys.add(sp.key);
+      }
+      if (subParts.length === 0) {
+        this.snackBar.open('Sub-parts is ON but no labels were entered. Add at least one or switch the toggle off.', 'Close', { duration: 4000 });
+        return;
+      }
+    }
+
     const body: CreateOrUpdateSubject = {
       name: raw.name,
       code: raw.code,
@@ -708,6 +816,7 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       passRule: raw.passRule,
       components: cleanComponents,
       assignments,
+      subParts,
     };
 
     this.isCreating = true;

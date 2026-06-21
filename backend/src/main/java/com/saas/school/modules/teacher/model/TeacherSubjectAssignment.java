@@ -20,8 +20,8 @@ import java.util.Set;
  * field is required here.
  */
 @Document(collection = "teacher_subject_assignments")
-@CompoundIndex(name = "teacher_year_class_section_subject_component_idx",
-        def = "{'teacherId':1,'academicYearId':1,'classId':1,'sectionId':1,'subjectId':1,'componentKey':1}",
+@CompoundIndex(name = "teacher_year_class_section_subject_component_subpart_idx",
+        def = "{'teacherId':1,'academicYearId':1,'classId':1,'sectionId':1,'subjectId':1,'componentKey':1,'subPartKey':1}",
         unique = true)
 public class TeacherSubjectAssignment {
 
@@ -44,6 +44,18 @@ public class TeacherSubjectAssignment {
      * subjects.
      */
     private String componentKey;
+
+    /**
+     * Optional teaching-side slice. Set when the subject defines
+     * {@code subParts} (e.g. Physics / Chemistry / Biology inside an
+     * integrated Science course) and this assignment is scoped to one
+     * of them. Orthogonal to {@link #componentKey} (Theory / Practical /
+     * IA): a row for "Mr. Sharma teaches Science Physics" carries
+     * {@code subPartKey = "physics"} and {@code componentKey = null}.
+     * Null for subjects without sub-parts — existing rows deserialise
+     * unchanged.
+     */
+    private String subPartKey;
 
     private Set<Role> roles = new HashSet<>();
     private Status status = Status.ACTIVE;
@@ -79,6 +91,9 @@ public class TeacherSubjectAssignment {
 
     public String getComponentKey() { return componentKey; }
     public void setComponentKey(String componentKey) { this.componentKey = componentKey; }
+
+    public String getSubPartKey() { return subPartKey; }
+    public void setSubPartKey(String subPartKey) { this.subPartKey = subPartKey; }
 
     public Set<Role> getRoles() { return roles; }
     public void setRoles(Set<Role> roles) { this.roles = roles == null ? new HashSet<>() : roles; }

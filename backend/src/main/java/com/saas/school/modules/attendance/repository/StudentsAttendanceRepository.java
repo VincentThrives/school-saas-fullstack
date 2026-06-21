@@ -34,6 +34,20 @@ public interface StudentsAttendanceRepository extends MongoRepository<StudentsAt
     Optional<StudentsAttendance> findByClassIdAndSectionIdAndDateAndPeriodNumberAndComponentKey(
             String classId, String sectionId, LocalDate date, int periodNumber, String componentKey);
 
+    /**
+     * Upsert lookup including BOTH componentKey AND subPartKey — used
+     * for subjects that split into teaching sub-parts (Physics /
+     * Chemistry / Biology under a Science course). The unique compound
+     * index now spans both keys, so two attendance rows for the same
+     * date + period are valid as long as their (componentKey,
+     * subPartKey) tuples differ. Pass null for either field to match
+     * rows where it is absent — same Mongo derived-query null semantics
+     * as the componentKey-only overload above.
+     */
+    Optional<StudentsAttendance> findByClassIdAndSectionIdAndDateAndPeriodNumberAndComponentKeyAndSubPartKey(
+            String classId, String sectionId, LocalDate date, int periodNumber,
+            String componentKey, String subPartKey);
+
     // Date range — for reports.
     //
     // Inclusive on BOTH ends ($gte / $lte). Auto-derived method names like

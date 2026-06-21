@@ -159,6 +159,21 @@ public class Timetable {
         private String componentKey;
         /** Human-readable label cache for componentKey ("Theory" / "Practical"). */
         private String componentLabel;
+        /**
+         * Optional teaching-side slice — Physics / Chemistry / Biology
+         * inside an integrated Science course. Set when the subject
+         * carries {@code Subject.subParts} and this slot is for one of
+         * them. Orthogonal to {@link #componentKey} (Theory / Practical):
+         * a Science Physics period stores {@code subPartKey = "physics"}
+         * and {@code componentKey = null} (or carries one too for very
+         * elaborate setups). Attendance routes via this field
+         * automatically, so the teacher who opens this period gets a
+         * Physics-scoped attendance form. Null for subjects without
+         * sub-parts — pre-existing periods deserialise unchanged.
+         */
+        private String subPartKey;
+        /** Human-readable label cache for subPartKey ("Physics", "Chemistry"). */
+        private String subPartLabel;
 
         public Period() {
         }
@@ -202,5 +217,11 @@ public class Timetable {
 
         public String getComponentLabel() { return componentLabel; }
         public void setComponentLabel(String componentLabel) { this.componentLabel = componentLabel; }
+
+        public String getSubPartKey() { return subPartKey; }
+        public void setSubPartKey(String subPartKey) { this.subPartKey = subPartKey; }
+
+        public String getSubPartLabel() { return subPartLabel; }
+        public void setSubPartLabel(String subPartLabel) { this.subPartLabel = subPartLabel; }
     }
 }

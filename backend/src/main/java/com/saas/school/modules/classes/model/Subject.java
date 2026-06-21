@@ -68,6 +68,20 @@ public class Subject {
      */
     private List<Component> components;
 
+    /**
+     * Optional teaching-side breakdown — "Science" taught as separate
+     * Physics, Chemistry and Biology slices, each with its own teacher
+     * and timetable period. Orthogonal to {@link #components}: sub-parts
+     * shape teaching/attendance/timetable, components shape exam marks.
+     *
+     * <p>Null or empty when the subject has no sub-parts (the default).
+     * Subjects without sub-parts behave exactly as today — TeacherSubject-
+     * Assignment, Timetable.Period and StudentsAttendance leave their
+     * {@code subPartKey} fields null and the UI hides the sub-part
+     * picker entirely.</p>
+     */
+    private List<SubPart> subParts;
+
     @CreatedDate
     private Instant createdAt;
 
@@ -154,6 +168,22 @@ public class Subject {
 
     public List<Component> getComponents() { return components; }
     public void setComponents(List<Component> components) { this.components = components; }
+
+    public List<SubPart> getSubParts() { return subParts; }
+    public void setSubParts(List<SubPart> subParts) { this.subParts = subParts; }
+
+    /** True when the subject has at least one sub-part. */
+    public boolean hasSubParts() { return subParts != null && !subParts.isEmpty(); }
+
+    /** Look up a sub-part by its key. Returns null when not found or when
+     *  the subject has no sub-parts. */
+    public SubPart subPartByKey(String key) {
+        if (subParts == null || key == null) return null;
+        for (SubPart sp : subParts) {
+            if (key.equals(sp.getKey())) return sp;
+        }
+        return null;
+    }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
@@ -315,5 +345,44 @@ public class Subject {
 
         public List<String> getSectionIds() { return sectionIds; }
         public void setSectionIds(List<String> sectionIds) { this.sectionIds = sectionIds; }
+    }
+
+    /**
+     * Teaching-side slice of a subject — "Physics", "Chemistry" and
+     * "Biology" inside an integrated Class 9–10 Science course, each
+     * with its own teacher and timetable period. Holds no marks scheme
+     * of its own; the parent subject's {@link Component} list still
+     * drives Exam max/pass.
+     *
+     * <p>Identified by {@code key} (lowercase snake_case, unique within
+     * the Subject — e.g. {@code "physics"}); referenced by
+     * TeacherSubjectAssignment, Timetable.Period and StudentsAttendance
+     * via their {@code subPartKey} fields.</p>
+     */
+    public static class SubPart {
+        /** Stable machine key — lowercase snake_case, unique within Subject. */
+        private String key;
+        /** Human-readable label shown in pickers + timetable cells. */
+        private String label;
+        /** Optional short code for compact display (e.g. {@code "PHY"}). */
+        private String code;
+
+        public SubPart() {
+        }
+
+        public SubPart(String key, String label, String code) {
+            this.key = key;
+            this.label = label;
+            this.code = code;
+        }
+
+        public String getKey() { return key; }
+        public void setKey(String key) { this.key = key; }
+
+        public String getLabel() { return label; }
+        public void setLabel(String label) { this.label = label; }
+
+        public String getCode() { return code; }
+        public void setCode(String code) { this.code = code; }
     }
 }

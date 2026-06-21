@@ -39,7 +39,17 @@
             <div class="subject-icon">
               <mat-icon>menu_book</mat-icon>
             </div>
-            <span class="subject-name">{{ subject.name }}</span>
+            <div class="subject-name-stack">
+              <span class="subject-name">{{ subject.name }}</span>
+              <!-- Sub-parts hint — only shown for subjects with a teaching
+                   split (Physics/Chemistry/Biology under Science). Subjects
+                   without sub-parts render exactly as before. -->
+              <span class="subject-subparts" *ngIf="subject.subParts && subject.subParts.length > 0"
+                    [matTooltip]="'Taught as: ' + subPartsTooltip(subject)">
+                <mat-icon class="subparts-icon">groups</mat-icon>
+                {{ subject.subParts.length }} sub-parts
+              </span>
+            </div>
           </div>
         </td>
       </ng-container>
@@ -315,6 +325,44 @@
                 Off for Internal Assessment / Project components
               </span>
             </div>
+          </div>
+        </div>
+
+        <!-- Sub-parts (teaching axis). Orthogonal to components — only
+             relevant when the same subject ("Science") is split across
+             teachers/timetable slots ("Physics", "Chemistry"). Exam,
+             marks and report card are untouched whether this is on or
+             off. Defaults OFF so existing subjects don't see clutter. -->
+        <div class="subparts-block">
+          <div class="block-header">
+            <mat-slide-toggle
+              [checked]="form.get('hasSubParts')?.value"
+              (change)="form.get('hasSubParts')?.setValue($event.checked); onHasSubPartsChange($event.checked)">
+              Subject has sub-parts (teaching split)
+            </mat-slide-toggle>
+            <span class="toggle-hint">
+              Use for subjects like Science taught as Physics / Chemistry / Biology by different teachers.
+            </span>
+          </div>
+
+          <div class="subparts-editor" *ngIf="form.get('hasSubParts')?.value" formArrayName="subParts">
+            <div class="subpart-card" *ngFor="let g of subParts.controls; let i = index" [formGroupName]="i">
+              <mat-form-field appearance="outline" class="subpart-label">
+                <mat-label>Sub-part {{ i + 1 }}</mat-label>
+                <input matInput formControlName="label" placeholder="Physics">
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="subpart-code">
+                <mat-label>Code (optional)</mat-label>
+                <input matInput formControlName="code" placeholder="PHY">
+              </mat-form-field>
+              <button mat-icon-button type="button" matTooltip="Remove" (click)="removeSubPart(i)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+            <button mat-stroked-button type="button" class="add-subpart-btn" (click)="addSubPart()">
+              <mat-icon>add</mat-icon>
+              Add sub-part
+            </button>
           </div>
         </div>
 

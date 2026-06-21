@@ -13,12 +13,14 @@ import java.util.List;
 
 @Document(collection = "students_attendance")
 @CompoundIndexes({
-    // Component key in the unique key lets the same (class, section,
-    // date, period) host separate attendance records for the "theory"
-    // and "practical" portions of a hybrid subject. periodNumber is
-    // typically 0 for day-wise marking and 1-8 for subject-wise.
-    @CompoundIndex(name = "class_section_date_period_component",
-        def = "{'classId':1,'sectionId':1,'date':1,'periodNumber':1,'componentKey':1}", unique = true)
+    // componentKey + subPartKey in the unique key let the same (class,
+    // section, date, period) host separate attendance records for the
+    // "theory" / "practical" portions of a hybrid subject AND for the
+    // "physics" / "chemistry" sub-parts of an integrated Science course.
+    // periodNumber is typically 0 for day-wise marking and 1-8 for
+    // subject-wise.
+    @CompoundIndex(name = "class_section_date_period_component_subpart",
+        def = "{'classId':1,'sectionId':1,'date':1,'periodNumber':1,'componentKey':1,'subPartKey':1}", unique = true)
 })
 public class StudentsAttendance {
     @Id
@@ -36,6 +38,14 @@ public class StudentsAttendance {
      * trackAttendance=true. Null for day-wise (subjectId is null too).
      */
     private String componentKey;
+    /**
+     * Optional teaching-side slice (e.g. {@code "physics"} inside a
+     * multi-part Science course). Set when the period's
+     * {@code Timetable.Period.subPartKey} is non-null. Orthogonal to
+     * {@link #componentKey} (Theory / Practical / IA). Null for
+     * subjects without sub-parts — existing rows deserialise unchanged.
+     */
+    private String subPartKey;
     private String teacherId;       // from timetable
     private List<StudentEntry> entries;
     private String markedBy;
@@ -74,6 +84,9 @@ public class StudentsAttendance {
 
     public String getComponentKey() { return componentKey; }
     public void setComponentKey(String componentKey) { this.componentKey = componentKey; }
+
+    public String getSubPartKey() { return subPartKey; }
+    public void setSubPartKey(String subPartKey) { this.subPartKey = subPartKey; }
 
     public String getTeacherId() { return teacherId; }
     public void setTeacherId(String teacherId) { this.teacherId = teacherId; }

@@ -38,6 +38,18 @@ export interface SubjectAssignment {
   sectionIds: string[];
 }
 
+/**
+ * Teaching-side slice of a subject — orthogonal to {@link SubjectComponent}.
+ * Lets one Subject row ("Science") have sub-parts (Physics / Chemistry /
+ * Biology) that each get their own teacher and timetable period without
+ * fragmenting the exam, marks scheme or report card.
+ */
+export interface SubjectSubPart {
+  key: string;
+  label: string;
+  code?: string;
+}
+
 export interface SubjectItem {
   subjectId: string;
   name: string;
@@ -49,6 +61,8 @@ export interface SubjectItem {
   academicYearId?: string;
   passRule?: PassRule;
   components?: SubjectComponent[];
+  /** Optional teaching-side breakdown — empty or absent for most subjects. */
+  subParts?: SubjectSubPart[];
   /** The (class, sections) pairs this subject is taught in. */
   assignments?: SubjectAssignment[];
 }
@@ -69,6 +83,10 @@ export interface CreateOrUpdateSubject {
   academicYearId: string;
   passRule?: PassRule;
   components: SubjectComponent[];
+  /** Optional teaching-side breakdown — sent only when the form's
+   *  "Subject has sub-parts?" toggle is on. Empty array otherwise so the
+   *  backend clears any previously-saved list on edit. */
+  subParts?: SubjectSubPart[];
   /** Pairs of (classId, sectionIds) the subject is taught in. ONE submission
    *  creates ONE Subject document attached to all the listed classes. */
   assignments: SubjectAssignment[];
@@ -129,6 +147,11 @@ export class SubjectService {
       academicYearId: s.academicYearId,
       passRule: s.passRule,
       components: Array.isArray(s.components) ? s.components : undefined,
+      subParts: Array.isArray(s.subParts) ? s.subParts.map((sp: any) => ({
+        key: sp.key,
+        label: sp.label,
+        code: sp.code,
+      })) : undefined,
       assignments,
     };
   }
