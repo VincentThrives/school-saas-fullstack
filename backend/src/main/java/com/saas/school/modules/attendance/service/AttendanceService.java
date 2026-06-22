@@ -163,11 +163,20 @@ public class AttendanceService {
         // by componentKey. Auto-fill the key for single-component subjects so
         // older clients that don't send it keep working.
         String resolvedComponentKey = resolveComponentKeyForAttendance(req);
+        // Pass-through the teaching-side sub-part (Physics / Chemistry /
+        // Biology under an integrated Science course). The timetable
+        // already routes it via Period.subPartKey, so the mark-attendance
+        // page just forwards whatever the period carries.
+        String subPartKey = req.getSubPartKey();
+        if (subPartKey != null && subPartKey.isBlank()) subPartKey = null;
 
-        // Upsert: find existing or create new (includes componentKey now)
+        // Upsert: find existing or create new — keyed on the full
+        // (componentKey, subPartKey) tuple so a Physics row and a
+        // Chemistry row for the same date + period coexist cleanly.
         Optional<StudentsAttendance> existing = batchRepository
-                .findByClassIdAndSectionIdAndDateAndPeriodNumberAndComponentKey(
-                        req.getClassId(), req.getSectionId(), req.getDate(), period, resolvedComponentKey);
+                .findByClassIdAndSectionIdAndDateAndPeriodNumberAndComponentKeyAndSubPartKey(
+                        req.getClassId(), req.getSectionId(), req.getDate(), period,
+                        resolvedComponentKey, subPartKey);
 
         StudentsAttendance record;
         if (existing.isPresent()) {
@@ -182,6 +191,7 @@ public class AttendanceService {
             record.setPeriodNumber(period);
             record.setSubjectId(req.getSubjectId());
             record.setComponentKey(resolvedComponentKey);
+            record.setSubPartKey(subPartKey);
             record.setTeacherId(req.getTeacherId());
         }
 

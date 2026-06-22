@@ -36,6 +36,15 @@ public class MarkAttendanceRequest {
      */
     private String componentKey;
 
+    /**
+     * Which teaching sub-part of the subject this attendance is for —
+     * "physics" / "chemistry" / "biology" under an integrated Science
+     * course. Orthogonal to {@link #componentKey}; both can be set when
+     * a subject defines BOTH a marks-side component AND a teaching-side
+     * sub-part. Null for subjects without sub-parts.
+     */
+    private String subPartKey;
+
     public MarkAttendanceRequest() {
     }
 
@@ -112,6 +121,14 @@ public class MarkAttendanceRequest {
 
     public void setComponentKey(String componentKey) {
         this.componentKey = componentKey;
+    }
+
+    public String getSubPartKey() {
+        return subPartKey;
+    }
+
+    public void setSubPartKey(String subPartKey) {
+        this.subPartKey = subPartKey;
     }
 
     public static class AttendanceEntry {

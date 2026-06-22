@@ -665,6 +665,13 @@ export interface TeacherSubjectAssignment {
    * single-component subjects and for CLASS_TEACHER-only assignments.
    */
   componentKey?: string;
+  /**
+   * Which teaching sub-part of the subject this assignment is for —
+   * e.g. "physics" on an integrated Science course. Null / undefined
+   * for subjects that don't define sub-parts. Orthogonal to
+   * {@link #componentKey} (Theory / Practical / IA).
+   */
+  subPartKey?: string;
   roles: TeacherAssignmentRole[];
   status: TeacherAssignmentStatus;
   createdAt?: string;
@@ -679,6 +686,10 @@ export interface CreateTeacherAssignmentRequest {
   subjectId?: string;
   /** Required when the subject has multiple components and the role is SUBJECT_TEACHER. */
   componentKey?: string;
+  /** Optional. Set when the subject defines sub-parts (e.g. Physics /
+   *  Chemistry / Biology under Science) and this assignment is scoped
+   *  to one of them. */
+  subPartKey?: string;
   roles: TeacherAssignmentRole[];
 }
 
@@ -944,6 +955,15 @@ export interface TimetablePeriod {
    */
   componentKey?: string;
   componentLabel?: string;
+  /**
+   * Teaching-side slice — set when the subject defines sub-parts
+   * (Physics / Chemistry / Biology under an integrated Science course)
+   * and this period is for one of them. Drives the attendance routing
+   * downstream so the right teacher's attendance form scopes to the
+   * right sub-part. Empty for subjects without sub-parts.
+   */
+  subPartKey?: string;
+  subPartLabel?: string;
 }
 
 export interface TimetableDaySchedule {

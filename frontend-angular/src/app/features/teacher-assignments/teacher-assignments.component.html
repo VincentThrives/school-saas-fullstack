@@ -287,6 +287,20 @@
           </mat-select>
           <mat-hint>Tick every slice this teacher owns (default: all)</mat-hint>
         </mat-form-field>
+
+        <!-- Sub-part single-select — appears when the chosen subject
+             defines sub-parts (Physics / Chemistry / Biology under
+             Science). One assignment row per sub-part: a teacher who
+             takes both Physics and Chemistry gets two separate rows. -->
+        <mat-form-field appearance="outline" *ngIf="formSubPartChoices.length > 0">
+          <mat-label>Sub-part</mat-label>
+          <mat-select [(ngModel)]="formSubPartKey">
+            <mat-option *ngFor="let sp of formSubPartChoices" [value]="sp.key">
+              {{ sp.label }}
+            </mat-option>
+          </mat-select>
+          <mat-hint>Which teaching slice this teacher takes (Physics, Chemistry, ...)</mat-hint>
+        </mat-form-field>
       </div>
 
       <div class="roles-row">

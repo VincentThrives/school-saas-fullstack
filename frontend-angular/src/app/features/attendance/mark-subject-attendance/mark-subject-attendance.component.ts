@@ -43,6 +43,13 @@ interface TimetablePeriod {
   // read-only chip on this page and is sent on attendance save.
   componentKey?: string;
   componentLabel?: string;
+  /**
+   * Teaching-side slice (Physics / Chemistry / Biology under Science).
+   * Comes from the timetable's Period.subPartKey when set. Sent on
+   * attendance save so the backend writes the right per-sub-part row.
+   */
+  subPartKey?: string;
+  subPartLabel?: string;
 }
 
 interface StudentAttendance {
@@ -110,6 +117,10 @@ export class MarkSubjectAttendanceComponent implements OnInit {
    */
   componentChoices: Array<{ key: string; label: string }> = [];
   selectedComponentKey: string | null = null;
+  /** Teaching sub-part for the active period (Physics / Chemistry /
+   *  Biology under Science). Read from {@link TimetablePeriod#subPartKey}
+   *  when the period was built with one; sent on save. */
+  selectedSubPartKey: string | null = null;
   isLoadingPeriods = false;
 
   // Holiday check
@@ -342,6 +353,8 @@ export class MarkSubjectAttendanceComponent implements OnInit {
           academicYearId: tt.academicYearId,
           componentKey: p.componentKey,
           componentLabel: p.componentLabel,
+          subPartKey: p.subPartKey,
+          subPartLabel: p.subPartLabel,
         });
       }
     }
@@ -615,10 +628,14 @@ export class MarkSubjectAttendanceComponent implements OnInit {
               sectionId: pair.sectionId,
               sectionName: pair.sectionName,
               academicYearId: this.selectedAcademicYearId,
-              // Carry the hybrid-subject slice through so the card shows
-              // "English (Theory)" and the save uses the right componentKey.
+              // Carry the hybrid-subject slice + the teaching sub-part
+              // through so the card shows "Science (Physics)" and the
+              // save writes attendance against the right (componentKey,
+              // subPartKey) row.
               componentKey: p.componentKey || undefined,
               componentLabel: p.componentLabel || undefined,
+              subPartKey: p.subPartKey || undefined,
+              subPartLabel: p.subPartLabel || undefined,
             });
           });
           completed++;
@@ -757,6 +774,7 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     // simply leave selectedComponentKey null and the backend auto-fills.
     this.componentChoices = [];
     this.selectedComponentKey = period.componentKey || null;
+    this.selectedSubPartKey = period.subPartKey || null;
     this.loadStudents();
   }
 
@@ -886,6 +904,7 @@ export class MarkSubjectAttendanceComponent implements OnInit {
       date: dateStr,
       subjectId: this.selectedPeriod.subjectId,
       componentKey: this.selectedComponentKey ?? undefined,
+      subPartKey: this.selectedSubPartKey ?? undefined,
       teacherId: this.selectedPeriod.teacherId,
       periodNumber: this.selectedPeriod.periodNumber,
       entries: this.students.map((s) => ({

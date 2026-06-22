@@ -56,12 +56,18 @@ public class TeacherSubjectAssignmentService {
         // hold two rows — one per component — without colliding on the unique
         // index.
         String resolvedComponentKey = resolveComponentKeyForAssignment(req);
+        // Validate (and pass through) the sub-part key. Subjects without
+        // sub-parts force null; subjects WITH sub-parts require a valid key.
+        String resolvedSubPartKey = resolveSubPartKeyForAssignment(req);
 
-        // De-duplicate (teacher, year, class, section, subject, component)
+        // De-duplicate the full unique tuple, including subPartKey so a
+        // Physics + Chemistry pair for the same (teacher, year, class,
+        // section, subject, componentKey) lives as two distinct rows.
         Optional<TeacherSubjectAssignment> existing = repo
-                .findByTeacherIdAndAcademicYearIdAndClassIdAndSectionIdAndSubjectIdAndComponentKey(
+                .findByTeacherIdAndAcademicYearIdAndClassIdAndSectionIdAndSubjectIdAndComponentKeyAndSubPartKey(
                         req.getTeacherId(), req.getAcademicYearId(),
-                        req.getClassId(), req.getSectionId(), req.getSubjectId(), resolvedComponentKey);
+                        req.getClassId(), req.getSectionId(), req.getSubjectId(),
+                        resolvedComponentKey, resolvedSubPartKey);
         if (existing.isPresent()) {
             // Merge roles onto existing row instead of throwing.
             TeacherSubjectAssignment a = existing.get();
@@ -81,9 +87,36 @@ public class TeacherSubjectAssignmentService {
         a.setSectionId(req.getSectionId());
         a.setSubjectId(req.getSubjectId());
         a.setComponentKey(resolvedComponentKey);
+        a.setSubPartKey(resolvedSubPartKey);
         a.setRoles(req.getRoles() == null ? Set.of(Role.SUBJECT_TEACHER) : new HashSet<>(req.getRoles()));
         a.setStatus(TeacherSubjectAssignment.Status.ACTIVE);
         return repo.save(a);
+    }
+
+    /**
+     * Validate the optional sub-part key on a teacher assignment. Returns
+     * {@code null} when the subject has no sub-parts (the common case);
+     * otherwise asserts that the caller-supplied key resolves to one of
+     * the subject's defined sub-parts.
+     */
+    private String resolveSubPartKeyForAssignment(CreateTeacherAssignmentRequest req) {
+        if (req.getSubjectId() == null || req.getSubjectId().isBlank()) return null;
+        Subject subject = subjectRepo.findById(req.getSubjectId()).orElse(null);
+        if (subject == null || !subject.hasSubParts()) {
+            // Subject doesn't define sub-parts — silently drop any inbound value.
+            return null;
+        }
+        String key = req.getSubPartKey();
+        if (key == null || key.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Subject '" + subject.getName() + "' has sub-parts; subPartKey is required.");
+        }
+        Subject.SubPart target = subject.subPartByKey(key);
+        if (target == null) {
+            throw new IllegalArgumentException(
+                    "Sub-part '" + key + "' not found on subject '" + subject.getName() + "'.");
+        }
+        return target.getKey();
     }
 
     /**
@@ -143,16 +176,17 @@ public class TeacherSubjectAssignmentService {
         if (req.getSubjectId() != null) a.setSubjectId(req.getSubjectId());
         if (req.getAcademicYearId() != null) a.setAcademicYearId(req.getAcademicYearId());
         if (req.getRoles() != null) a.setRoles(new HashSet<>(req.getRoles()));
-        // Re-resolve componentKey if subject changed OR componentKey was sent;
-        // otherwise leave the existing value. Either way the resolver checks
-        // the subject's current component list for validity.
-        if (req.getSubjectId() != null || req.getComponentKey() != null) {
-            // Build a synthetic request reflecting the post-update state so the
-            // resolver sees the right subject + caller's componentKey choice.
+        // Re-resolve componentKey + subPartKey if subject changed OR either key
+        // was explicitly sent; otherwise leave existing values. The resolvers
+        // both check the subject's current component / sub-part lists for
+        // validity so a renamed key surfaces as a clean error here.
+        if (req.getSubjectId() != null || req.getComponentKey() != null || req.getSubPartKey() != null) {
             CreateTeacherAssignmentRequest synthetic = new CreateTeacherAssignmentRequest();
             synthetic.setSubjectId(a.getSubjectId());
             synthetic.setComponentKey(req.getComponentKey() != null ? req.getComponentKey() : a.getComponentKey());
+            synthetic.setSubPartKey(req.getSubPartKey() != null ? req.getSubPartKey() : a.getSubPartKey());
             a.setComponentKey(resolveComponentKeyForAssignment(synthetic));
+            a.setSubPartKey(resolveSubPartKeyForAssignment(synthetic));
         }
         return repo.save(a);
     }
@@ -446,6 +480,7 @@ public class TeacherSubjectAssignmentService {
             a.setSectionId(newSectionId);
             a.setSubjectId(newSubjectId);
             a.setComponentKey(src.getComponentKey()); // carry forward as-is
+            a.setSubPartKey(src.getSubPartKey());     // carry forward as-is
             a.setRoles(new HashSet<>(src.getRoles() == null ? Set.of(Role.SUBJECT_TEACHER) : src.getRoles()));
             a.setStatus(TeacherSubjectAssignment.Status.ACTIVE);
             try {

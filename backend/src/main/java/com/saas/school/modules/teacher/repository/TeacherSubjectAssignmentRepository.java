@@ -37,5 +37,18 @@ public interface TeacherSubjectAssignmentRepository extends MongoRepository<Teac
                     String teacherId, String academicYearId, String classId, String sectionId,
                     String subjectId, String componentKey);
 
+    /**
+     * Dedupe lookup that spans the full unique tuple, including the
+     * teaching {@code subPartKey} (Physics / Chemistry / Biology under
+     * an integrated Science course). Required because the compound
+     * unique index now includes subPartKey — a Physics + Chemistry pair
+     * for the same teacher, year, class, section, subject and
+     * componentKey is two valid rows, not a collision.
+     */
+    Optional<TeacherSubjectAssignment>
+            findByTeacherIdAndAcademicYearIdAndClassIdAndSectionIdAndSubjectIdAndComponentKeyAndSubPartKey(
+                    String teacherId, String academicYearId, String classId, String sectionId,
+                    String subjectId, String componentKey, String subPartKey);
+
     long countByAcademicYearId(String academicYearId);
 }

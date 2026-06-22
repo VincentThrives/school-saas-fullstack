@@ -19,6 +19,16 @@ public class CreateTeacherAssignmentRequest {
      * subjects when the role is SUBJECT_TEACHER.
      */
     private String componentKey;
+    /**
+     * Optional teaching-side slice — set when the subject defines
+     * {@code subParts} (Physics / Chemistry / Biology under an
+     * integrated Science course) and this assignment is for one of
+     * them. Orthogonal to {@link #componentKey}: a row for "Mr. Sharma
+     * teaches Science Physics" carries {@code subPartKey = "physics"}
+     * and the resolved {@code componentKey} for the subject's exam
+     * scheme. Null for subjects without sub-parts.
+     */
+    private String subPartKey;
     private Set<TeacherSubjectAssignment.Role> roles;
 
     public CreateTeacherAssignmentRequest() {
@@ -41,6 +51,9 @@ public class CreateTeacherAssignmentRequest {
 
     public String getComponentKey() { return componentKey; }
     public void setComponentKey(String componentKey) { this.componentKey = componentKey; }
+
+    public String getSubPartKey() { return subPartKey; }
+    public void setSubPartKey(String subPartKey) { this.subPartKey = subPartKey; }
 
     public Set<TeacherSubjectAssignment.Role> getRoles() { return roles; }
     public void setRoles(Set<TeacherSubjectAssignment.Role> roles) { this.roles = roles; }

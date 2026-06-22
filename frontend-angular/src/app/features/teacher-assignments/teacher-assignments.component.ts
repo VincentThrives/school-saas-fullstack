@@ -161,6 +161,19 @@ export class TeacherAssignmentsComponent implements OnInit {
   formComponentKeys: string[] = [];
   /** Components on the currently-chosen subject (for the picker). */
   formComponentChoices: Array<{ key: string; label: string }> = [];
+
+  /**
+   * Single-select sub-part for the assignment. Set when the chosen
+   * subject defines sub-parts (Physics / Chemistry / Biology under an
+   * integrated Science course). Null for subjects without sub-parts,
+   * and one assignment row maps to one sub-part — teachers who own
+   * multiple sub-parts (rare) get a separate row per sub-part. Cleaner
+   * than multi-select since each sub-part typically lives on a
+   * different period and has its own timetable presence.
+   */
+  formSubPartKey: string | null = null;
+  /** Sub-parts on the currently-chosen subject (for the picker). */
+  formSubPartChoices: Array<{ key: string; label: string }> = [];
   formRoleClass = false;
   formRoleSubject = true;
 
@@ -747,17 +760,25 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.formSectionIds = items.map(x => x.sectionId).filter(Boolean) as string[];
     this.formSubjectId = head.subjectId || '';
     this.formComponentKey = head.componentKey || null;
+    // Sub-part is single-value on the assignment row, so the head's
+    // subPartKey is authoritative. (Group edits never span sub-parts —
+    // those are separate teaching units with separate assignments.)
+    this.formSubPartKey = head.subPartKey || null;
 
     // refreshFormComponentChoices is async — it wipes formComponentKeys
-    // then refills only in create mode. Stash our pre-fill and restore
-    // after the async fetch resolves.
+    // and formSubPartKey then refills only in create mode. Stash our
+    // pre-fills and restore after the async fetch resolves.
     const preFilledComponents = this.formComponentKeys.slice();
+    const preFilledSubPart = this.formSubPartKey;
     this.refreshFormComponentChoices();
     // The subscription inside refreshFormComponentChoices fires
     // synchronously when the subject is already cached; either way,
     // immediately restoring here works because we run before/with the
     // subscriber's next-tick. A microtask is the safe spot.
-    Promise.resolve().then(() => { this.formComponentKeys = preFilledComponents; });
+    Promise.resolve().then(() => {
+      this.formComponentKeys = preFilledComponents;
+      this.formSubPartKey = preFilledSubPart;
+    });
 
     this.formRoleClass = (head.roles || []).includes('CLASS_TEACHER');
     this.formRoleSubject = (head.roles || []).includes('SUBJECT_TEACHER');
@@ -1116,6 +1137,8 @@ export class TeacherAssignmentsComponent implements OnInit {
     this.formComponentKey = null;
     this.formComponentKeys = [];
     this.formComponentChoices = [];
+    this.formSubPartKey = null;
+    this.formSubPartChoices = [];
     if (!this.formSubjectId) return;
     this.subjectService.getSubjectsByIds([this.formSubjectId]).subscribe(subs => {
       const sub = subs[0];
@@ -1128,6 +1151,14 @@ export class TeacherAssignmentsComponent implements OnInit {
         if (!this.editingId) {
           this.formComponentKeys = comps.map(c => c.key);
         }
+      }
+      // Sub-parts are single-select: each assignment maps to one sub-part
+      // (Physics / Chemistry / Biology under Science). Teachers who own
+      // multiple sub-parts get a separate assignment row per sub-part —
+      // mirrors how they show up on the timetable.
+      const subParts = sub?.subParts ?? [];
+      if (subParts.length > 0) {
+        this.formSubPartChoices = subParts.map(sp => ({ key: sp.key, label: sp.label }));
       }
     });
   }
@@ -1239,6 +1270,18 @@ export class TeacherAssignmentsComponent implements OnInit {
     //   • Multi-component subject → admin pre-selects all components; they can
     //     untick to slice. Each ticked component fans out to its own row.
     if (this.formRoleSubject) {
+      // When the chosen subject defines sub-parts, the admin MUST pick
+      // one — every fan-out row gets stamped with this single sub-part.
+      // (Multi-select sub-parts on one save would create N×M rows; better
+      // to make admins pick deliberately per sub-part.)
+      if (this.formSubPartChoices.length > 0 && !this.formSubPartKey) {
+        this.snackBar.open(
+          'This subject has sub-parts — pick which one (Physics / Chemistry / Biology) this teacher takes.',
+          'Close', { duration: 4000 });
+        return;
+      }
+      const subPartKey = this.formSubPartKey || undefined;
+
       const componentKeys: Array<string | undefined> =
           this.formComponentKeys.length > 0
               ? this.formComponentKeys.slice()
@@ -1256,6 +1299,7 @@ export class TeacherAssignmentsComponent implements OnInit {
               sectionId,
               subjectId: this.formSubjectId || undefined,
               componentKey,
+              subPartKey,
               roles: ['SUBJECT_TEACHER'],
             });
           }
@@ -1271,6 +1315,7 @@ export class TeacherAssignmentsComponent implements OnInit {
               sectionId: undefined,
               subjectId: this.formSubjectId || undefined,
               componentKey,
+              subPartKey,
               roles: ['SUBJECT_TEACHER'],
             });
           }

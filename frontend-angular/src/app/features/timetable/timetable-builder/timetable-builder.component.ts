@@ -41,12 +41,17 @@ import {
  */
 interface SubjectOption {
   subjectId: string;
-  /** Display label like "English" or "English (Theory)". */
+  /** Display label like "English" or "English (Theory)" or "Science (Physics)". */
   label: string;
-  /** "subjectId" for plain subjects, "subjectId|componentKey" for slices. */
+  /** Composite value bound to the mat-select.
+   *  Encoded as "subjectId|componentKey|subPartKey" with empty segments left
+   *  blank so the round-trip via {@link TimetableBuilderComponent#getPeriodPick}
+   *  and {@link TimetableBuilderComponent#setPeriodPick} preserves every axis. */
   value: string;
   componentKey?: string;
   componentLabel?: string;
+  subPartKey?: string;
+  subPartLabel?: string;
 }
 
 @Component({
@@ -294,51 +299,75 @@ export class TimetableBuilderComponent implements OnInit {
    */
   private buildOptionsForSubject(subjectId: string, sub: any): SubjectOption[] {
     const name = sub?.name || subjectId;
+    const subParts = sub?.subParts || [];
+    // Sub-parts (teaching axis) take precedence — they're what defines the
+    // PERIOD on the timetable (Physics period, Chemistry period). A subject
+    // with sub-parts AND multi-components is rare; when it happens we still
+    // emit one option per sub-part and let the per-exam component picker
+    // handle marks separately.
+    if (subParts.length > 0) {
+      return subParts.map((sp: any) => ({
+        subjectId,
+        subPartKey: sp.key,
+        subPartLabel: sp.label,
+        label: `${name} (${sp.label})`,
+        value: `${subjectId}||${sp.key}`,
+      } as SubjectOption));
+    }
     const tracked = (sub?.components || []).filter((c: any) => c && c.trackAttendance);
     if (tracked.length < 2) {
-      return [{ subjectId, label: name, value: subjectId }];
+      return [{ subjectId, label: name, value: `${subjectId}||` }];
     }
     return tracked.map((c: any) => ({
       subjectId,
       componentKey: c.key,
       componentLabel: c.label,
       label: `${name} (${c.label})`,
-      value: `${subjectId}|${c.key}`,
-    }));
+      value: `${subjectId}|${c.key}|`,
+    } as SubjectOption));
   }
 
-  /** Composite value (subjectId or subjectId|componentKey) bound to the
-   *  Subject mat-select. Reads the period back into the dropdown's value. */
+  /** Composite value "subjectId|componentKey|subPartKey" bound to the
+   *  Subject mat-select. Reads the period back into the dropdown's value
+   *  preserving every axis so the picker doesn't lose context on edit. */
   getPeriodPick(period: TimetablePeriod): string {
     if (!period.subjectId) return '';
-    return period.componentKey
-        ? `${period.subjectId}|${period.componentKey}`
-        : period.subjectId;
+    return `${period.subjectId}|${period.componentKey || ''}|${period.subPartKey || ''}`;
   }
 
-  /** Apply the composite picked value back to the period — sets subjectId,
-   *  componentKey and componentLabel together. Clears teacher because the
-   *  teacher list depends on (subject, component). */
+  /** Apply the composite picked value back to the period — sets
+   *  subjectId, componentKey, componentLabel, subPartKey and
+   *  subPartLabel together. Clears teacher because the teacher list
+   *  depends on (subject, component, sub-part). */
   setPeriodPick(period: TimetablePeriod, value: string): void {
     if (!value) {
       period.subjectId = '';
       period.componentKey = '';
       period.componentLabel = '';
+      period.subPartKey = '';
+      period.subPartLabel = '';
       period.teacherId = '';
       return;
     }
     const opt = this.subjects.find(s => s.value === value);
     if (!opt) {
-      // Fallback — value didn't match (legacy data). Treat as plain subject.
-      period.subjectId = value;
-      period.componentKey = '';
+      // Legacy data — value may be a plain subjectId or a 2-segment
+      // "subjectId|componentKey". Parse forgivingly so old timetables
+      // still hydrate without surprises.
+      const [sid = '', ck = '', sp = ''] = value.split('|');
+      period.subjectId = sid || value;
+      period.componentKey = ck || '';
       period.componentLabel = '';
+      period.subPartKey = sp || '';
+      period.subPartLabel = '';
       period.teacherId = '';
       return;
     }
     period.subjectId = opt.subjectId;
     period.componentKey = opt.componentKey || '';
     period.componentLabel = opt.componentLabel || '';
+    period.subPartKey = opt.subPartKey || '';
+    period.subPartLabel = opt.subPartLabel || '';
     period.teacherId = '';
   }
 
@@ -613,16 +642,22 @@ export class TimetableBuilderComponent implements OnInit {
    * admin knows to set up the assignment first, instead of silently picking
    * from unrelated teachers).
    */
-  getTeachersForSubject(subjectId: string): any[] {
+  getTeachersForSubject(subjectId: string, componentKey?: string, subPartKey?: string): any[] {
     if (!subjectId) return this.teachers;
 
     // ── Primary: new TeacherSubjectAssignment collection ────────────
+    // Narrow by sub-part FIRST when set — for an integrated Science
+    // course's Physics period, only the Physics teacher should appear.
+    // componentKey narrowing is secondary; usually the user pre-resolves
+    // marks-scheme components via Exam Config, not here.
     const allowedIds = new Set<string>();
     for (const a of this.yearAssignments) {
       if (a.status === 'ARCHIVED') continue;
       if (a.subjectId !== subjectId) continue;
       if (this.selectedClassId && a.classId !== this.selectedClassId) continue;
       if (this.selectedSectionId && a.sectionId && a.sectionId !== this.selectedSectionId) continue;
+      if (subPartKey && a.subPartKey && a.subPartKey !== subPartKey) continue;
+      if (componentKey && a.componentKey && a.componentKey !== componentKey) continue;
       if (a.teacherId) allowedIds.add(a.teacherId);
     }
     if (allowedIds.size > 0) {
@@ -639,6 +674,12 @@ export class TimetableBuilderComponent implements OnInit {
     // ── Fallback 2: legacy subjectIds list ────────────────────────
     const byIds = this.teachers.filter(t => (t.subjectIds || []).includes(subjectId));
     return byIds;
+  }
+
+  /** Convenience for templates: narrow the teacher list by the period's
+   *  subject + component + sub-part in one call. */
+  getTeachersForPeriod(period: TimetablePeriod): any[] {
+    return this.getTeachersForSubject(period.subjectId, period.componentKey, period.subPartKey);
   }
 
   /** @deprecated use {@link setPeriodPick} — kept only for templates that
