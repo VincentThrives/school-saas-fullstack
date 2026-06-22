@@ -185,12 +185,16 @@ public class ClassController {
         defaultComponentValues(req);
 
         // Auto-merge path: if a same-named doc already exists in this
-        // academic year AND its components are identical, fold the new
-        // class+section assignments into that doc instead of creating a
-        // second row. Saves the admin from littering the list with
-        // "Sanskrit / Sanskrit" rows that mean the same thing.
-        Subject mergeTarget = findIdenticalComponentSubject(
-                req.getName(), req.getAcademicYearId(), req.getComponents());
+        // academic year AND BOTH its components AND its sub-parts list
+        // match what we're creating, fold the new class+section
+        // assignments into that doc instead of spawning a near-duplicate.
+        // Sub-parts is part of the identity now — a Science (no sub-parts)
+        // create must NOT collapse into a pre-existing Science (with sub-
+        // parts) doc, otherwise 8th-class teachers inherit a sub-part
+        // picker they never asked for.
+        Subject mergeTarget = findIdenticalShapeSubject(
+                req.getName(), req.getAcademicYearId(),
+                req.getComponents(), req.getSubParts());
         if (mergeTarget != null) {
             mergeAssignmentsInto(mergeTarget, req.getAssignments());
             mergeTarget.setClassId(null);
@@ -544,16 +548,49 @@ public class ClassController {
      * Returns null when no such doc exists — caller falls through to
      * "create new doc" path.
      */
-    private Subject findIdenticalComponentSubject(
-            String name, String academicYearId, List<Subject.Component> incoming) {
+    private Subject findIdenticalShapeSubject(
+            String name, String academicYearId,
+            List<Subject.Component> incomingComponents,
+            List<Subject.SubPart> incomingSubParts) {
         if (name == null || name.isBlank() || academicYearId == null || academicYearId.isBlank()) return null;
-        if (incoming == null) return null;
+        if (incomingComponents == null) return null;
         String regex = "^" + java.util.regex.Pattern.quote(name.trim()) + "$";
         List<Subject> hits = subjectRepo.findByNameRegexAndAcademicYearId(regex, academicYearId);
         for (Subject other : hits) {
-            if (componentsEqual(other.getComponents(), incoming)) return other;
+            if (!componentsEqual(other.getComponents(), incomingComponents)) continue;
+            // Sub-parts are part of the shape too — a Science (no sub-parts)
+            // and a Science (Physics + Chemistry + Biology sub-parts) are
+            // structurally different teaching configurations and must live
+            // as separate Subject docs even when components match. Without
+            // this check the no-sub-parts create silently folded into the
+            // sub-parts doc and 8th-class teachers ended up with sub-part
+            // pickers they didn't ask for.
+            if (!subPartsEqual(other.getSubParts(), incomingSubParts)) continue;
+            return other;
         }
         return null;
+    }
+
+    /**
+     * Order-insensitive equality on the (key, label, code) tuples of two
+     * sub-parts lists. Treats null and empty as equal — "this subject has
+     * no sub-parts" should match either representation.
+     */
+    private boolean subPartsEqual(List<Subject.SubPart> a, List<Subject.SubPart> b) {
+        int sizeA = (a == null) ? 0 : a.size();
+        int sizeB = (b == null) ? 0 : b.size();
+        if (sizeA != sizeB) return false;
+        if (sizeA == 0) return true;
+        java.util.Map<String, Subject.SubPart> byKey = new java.util.HashMap<>();
+        for (Subject.SubPart sp : a) if (sp != null && sp.getKey() != null) byKey.put(sp.getKey(), sp);
+        for (Subject.SubPart sp : b) {
+            if (sp == null || sp.getKey() == null) return false;
+            Subject.SubPart peer = byKey.get(sp.getKey());
+            if (peer == null) return false;
+            if (!java.util.Objects.equals(peer.getLabel(), sp.getLabel())) return false;
+            if (!java.util.Objects.equals(peer.getCode(), sp.getCode())) return false;
+        }
+        return true;
     }
 
     /**
