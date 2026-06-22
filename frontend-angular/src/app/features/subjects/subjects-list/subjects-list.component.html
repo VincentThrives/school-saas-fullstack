@@ -366,6 +366,20 @@
           </div>
         </div>
 
+        <!-- Combined-period flag for PE / Assembly / Drill / Library.
+             Default OFF. When ON, the timetable's teacher-double-booking
+             guard skips the conflict iff the OTHER period sharing the
+             slot is also for a combined-period subject — Math vs PE still
+             conflicts for the same teacher in the same slot. -->
+        <div class="combined-period-block">
+          <mat-slide-toggle formControlName="groupPeriodAllowed">
+            Combined period (PE / Assembly / Drill / Library)
+          </mat-slide-toggle>
+          <span class="toggle-hint">
+            Same teacher can take this across multiple sections at the same time slot. Leave off for regular classroom subjects.
+          </span>
+        </div>
+
         <div class="dialog-actions">
           <button mat-button type="button" (click)="closeCreateDialog()">Cancel</button>
           <button mat-raised-button type="button" class="create-button"

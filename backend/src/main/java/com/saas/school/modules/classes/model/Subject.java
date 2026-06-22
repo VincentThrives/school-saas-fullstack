@@ -82,6 +82,20 @@ public class Subject {
      */
     private List<SubPart> subParts;
 
+    /**
+     * Lets the timetable's teacher-double-booking guard skip the
+     * conflict when the same teacher is scheduled to this subject in
+     * multiple (class, section) pairs at the same day + period. Set on
+     * PE, Assembly, Drill, Library and similar "group" subjects where
+     * one teacher legitimately handles several sections at once. The
+     * guard only relaxes when BOTH the incoming period and the
+     * conflicting period are for subjects with this flag on — Math
+     * still conflicts with PE for the same teacher in the same slot.
+     * Defaults false so every existing subject keeps the strict
+     * one-teacher-one-section rule.
+     */
+    private boolean groupPeriodAllowed;
+
     @CreatedDate
     private Instant createdAt;
 
@@ -171,6 +185,9 @@ public class Subject {
 
     public List<SubPart> getSubParts() { return subParts; }
     public void setSubParts(List<SubPart> subParts) { this.subParts = subParts; }
+
+    public boolean isGroupPeriodAllowed() { return groupPeriodAllowed; }
+    public void setGroupPeriodAllowed(boolean groupPeriodAllowed) { this.groupPeriodAllowed = groupPeriodAllowed; }
 
     /** True when the subject has at least one sub-part. */
     public boolean hasSubParts() { return subParts != null && !subParts.isEmpty(); }

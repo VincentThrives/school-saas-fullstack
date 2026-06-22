@@ -151,7 +151,7 @@
                   </mat-form-field>
 
                   <mat-form-field appearance="outline" class="cell-field teacher-field"
-                                  [class.teacher-conflict]="!!getTeacherConflictLabel(daySchedule.periods[i].teacherId, daySchedule.dayOfWeek, daySchedule.periods[i].periodNumber)">
+                                  [class.teacher-conflict]="!!getTeacherConflictLabel(daySchedule.periods[i].teacherId, daySchedule.dayOfWeek, daySchedule.periods[i].periodNumber, daySchedule.periods[i].subjectId)">
                     <mat-label>Teacher</mat-label>
                     <mat-select [(ngModel)]="daySchedule.periods[i].teacherId">
                       <mat-option value="">--</mat-option>
@@ -162,7 +162,7 @@
                   </mat-form-field>
                   <!-- Conflict marker: same teacher already booked elsewhere at this day+period -->
                   <div class="teacher-conflict-hint"
-                       *ngIf="getTeacherConflictLabel(daySchedule.periods[i].teacherId, daySchedule.dayOfWeek, daySchedule.periods[i].periodNumber) as conflictLabel"
+                       *ngIf="getTeacherConflictLabel(daySchedule.periods[i].teacherId, daySchedule.dayOfWeek, daySchedule.periods[i].periodNumber, daySchedule.periods[i].subjectId) as conflictLabel"
                        [matTooltip]="'Already teaching ' + conflictLabel + ' at this slot — pick a different teacher.'">
                     <mat-icon>warning</mat-icon>
                     <span>Conflict: {{ conflictLabel }}</span>

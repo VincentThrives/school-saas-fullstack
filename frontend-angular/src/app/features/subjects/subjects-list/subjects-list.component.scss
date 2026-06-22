@@ -461,6 +461,25 @@ $gold-dark: #B8860B;
     }
   }
 
+  // Combined-period toggle row (PE / Assembly / Drill / Library).
+  // Sits right above the action bar so admins see it once they've
+  // shaped the components + sub-parts above. Compact layout — one
+  // toggle plus a small explanatory hint.
+  .combined-period-block {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    .toggle-hint {
+      font-size: 12px;
+      color: rgba(0,0,0,0.55);
+      flex: 1 1 240px;
+    }
+  }
+
   // Sticky action bar — always pinned at the bottom of the panel.
   .dialog-actions {
     display: flex;

@@ -89,6 +89,14 @@ export class TimetableBuilderComponent implements OnInit {
    *  teacher conflicts (same teacher booked at the same day+period elsewhere). */
   private otherYearTimetables: Timetable[] = [];
 
+  /** Cache of {@code subjectId → groupPeriodAllowed} for every subject that
+   *  appears in this year's timetables. Populated after the timetable list
+   *  loads so the conflict checker can skip teacher double-bookings when
+   *  BOTH the incoming and existing periods are for combined-period subjects
+   *  (PE, Assembly, Drill, Library — same teacher legitimately handles many
+   *  sections at once). Lookups default to false for unknown ids. */
+  private subjectGroupAllowedCache: Map<string, boolean> = new Map();
+
   selectedClassId = '';
   selectedSectionId = '';
   selectedAcademicYearId = '';
@@ -180,8 +188,14 @@ export class TimetableBuilderComponent implements OnInit {
     // Fetch every timetable for the year so we can warn the admin when a
     // teacher pick would double-book the same period+day in another class.
     this.api.getTimetableList(this.selectedAcademicYearId).subscribe({
-      next: (res) => { this.otherYearTimetables = res?.data || []; },
-      error: () => { this.otherYearTimetables = []; },
+      next: (res) => {
+        this.otherYearTimetables = res?.data || [];
+        this.refreshSubjectGroupAllowedCache();
+      },
+      error: () => {
+        this.otherYearTimetables = [];
+        this.subjectGroupAllowedCache.clear();
+      },
     });
   }
 
@@ -191,10 +205,22 @@ export class TimetableBuilderComponent implements OnInit {
    * "Class 1 — Section a" describing the conflicting slot. Returns ''
    * (empty string) when no conflict.
    *
+   * <p>Combined-period escape hatch — when {@code incomingSubjectId}
+   * resolves to a subject with {@code groupPeriodAllowed=true} AND the
+   * existing period's subject also has the flag, the conflict is
+   * skipped. Lets PE / Assembly / Drill / Library run across many
+   * sections under the same teacher. Math vs PE for the same teacher
+   * still flags — only when BOTH sides opt in does the relaxation
+   * apply.</p>
+   *
    * Same-class+section is excluded so editing your own row doesn't fight itself.
    */
-  getTeacherConflictLabel(teacherId: string, dayOfWeek: string, periodNumber: number): string {
+  getTeacherConflictLabel(
+      teacherId: string, dayOfWeek: string, periodNumber: number,
+      incomingSubjectId?: string): string {
     if (!teacherId || !dayOfWeek || !periodNumber) return '';
+    const incomingAllowsGroup = !!incomingSubjectId
+        && !!this.subjectGroupAllowedCache.get(incomingSubjectId);
     for (const tt of this.otherYearTimetables) {
       // Skip the timetable being edited (matches by class+section since the
       // id may be missing on a fresh save).
@@ -206,6 +232,10 @@ export class TimetableBuilderComponent implements OnInit {
         for (const p of day.periods) {
           if (!p || p.teacherId !== teacherId) continue;
           if (p.periodNumber !== periodNumber) continue;
+          // Relax the conflict when BOTH sides are combined-period subjects.
+          const otherAllowsGroup = !!p.subjectId
+              && !!this.subjectGroupAllowedCache.get(p.subjectId);
+          if (incomingAllowsGroup && otherAllowsGroup) continue;
           const cls = tt.className || 'another class';
           const sec = tt.sectionName ? ` — Section ${tt.sectionName}` : '';
           return cls + sec;
@@ -213,6 +243,40 @@ export class TimetableBuilderComponent implements OnInit {
       }
     }
     return '';
+  }
+
+  /**
+   * Walk every period in the just-loaded {@link otherYearTimetables},
+   * collect distinct subjectIds, fetch those subjects in bulk, and
+   * stamp their {@code groupPeriodAllowed} flag into
+   * {@link subjectGroupAllowedCache}. Called once per timetable-list
+   * refresh; idempotent and quick (one API call regardless of how many
+   * timetables we hold).
+   */
+  private refreshSubjectGroupAllowedCache(): void {
+    const ids = new Set<string>();
+    for (const tt of this.otherYearTimetables) {
+      if (!tt.schedule) continue;
+      for (const day of tt.schedule) {
+        for (const p of (day.periods || [])) {
+          if (p?.subjectId) ids.add(p.subjectId);
+        }
+      }
+    }
+    if (ids.size === 0) {
+      this.subjectGroupAllowedCache.clear();
+      return;
+    }
+    this.subjectService.getSubjectsByIds(Array.from(ids)).subscribe({
+      next: (subs) => {
+        const next = new Map<string, boolean>();
+        for (const s of subs) {
+          next.set(s.subjectId, !!s.groupPeriodAllowed);
+        }
+        this.subjectGroupAllowedCache = next;
+      },
+      error: () => { /* keep last good cache on failure */ },
+    });
   }
 
   /** Classes that belong to the selected academic year. Used to drive the Class dropdown. */
@@ -541,7 +605,8 @@ export class TimetableBuilderComponent implements OnInit {
     for (const day of this.schedule) {
       for (const p of (day.periods || [])) {
         if (!p.teacherId) continue;
-        const conflictLabel = this.getTeacherConflictLabel(p.teacherId, day.dayOfWeek, p.periodNumber);
+        const conflictLabel = this.getTeacherConflictLabel(
+            p.teacherId, day.dayOfWeek, p.periodNumber, p.subjectId);
         if (conflictLabel) {
           const teacherLabel = this.getTeacherName(p.teacherId);
           this.snackBar.open(

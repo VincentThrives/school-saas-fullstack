@@ -269,6 +269,10 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       // existing build/edit paths don't have to special-case its absence.
       hasSubParts: [false],
       subParts: this.fb.array([] as FormGroup[]),
+      // Combined-period flag for PE / Assembly / Drill / Library — lets
+      // the timetable builder put the same teacher across multiple
+      // sections at the same slot without raising a conflict.
+      groupPeriodAllowed: [false],
     });
     // Keep components array in sync whenever the admin picks a different preset.
     this.form.get('subjectType')?.valueChanges.subscribe(v => this.applyPreset(v));
@@ -646,6 +650,7 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       code: subject.code || '',
       academicYearId: subject.academicYearId || '',
       passRule: subject.passRule || 'PER_COMPONENT',
+      groupPeriodAllowed: !!subject.groupPeriodAllowed,
     });
     // Re-create the components FormArray to match the existing subject.
     const comps = this.form.get('components') as any;
@@ -817,6 +822,7 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       components: cleanComponents,
       assignments,
       subParts,
+      groupPeriodAllowed: !!raw.groupPeriodAllowed,
     };
 
     this.isCreating = true;

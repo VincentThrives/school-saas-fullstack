@@ -63,6 +63,14 @@ export interface SubjectItem {
   components?: SubjectComponent[];
   /** Optional teaching-side breakdown — empty or absent for most subjects. */
   subParts?: SubjectSubPart[];
+  /**
+   * Lets the timetable's teacher-double-booking guard skip the
+   * conflict when the same teacher is scheduled to this subject across
+   * multiple sections at the same slot. Use for PE, Assembly, Drill,
+   * Library. The relaxation applies only when BOTH conflicting periods
+   * are for subjects with this flag on. Defaults false.
+   */
+  groupPeriodAllowed?: boolean;
   /** The (class, sections) pairs this subject is taught in. */
   assignments?: SubjectAssignment[];
 }
@@ -87,6 +95,10 @@ export interface CreateOrUpdateSubject {
    *  "Subject has sub-parts?" toggle is on. Empty array otherwise so the
    *  backend clears any previously-saved list on edit. */
   subParts?: SubjectSubPart[];
+  /** Send true for PE / Assembly / Drill / Library so the timetable
+   *  builder lets the same teacher take this period across multiple
+   *  sections at once. Defaults false everywhere else. */
+  groupPeriodAllowed?: boolean;
   /** Pairs of (classId, sectionIds) the subject is taught in. ONE submission
    *  creates ONE Subject document attached to all the listed classes. */
   assignments: SubjectAssignment[];
@@ -152,6 +164,7 @@ export class SubjectService {
         label: sp.label,
         code: sp.code,
       })) : undefined,
+      groupPeriodAllowed: !!s.groupPeriodAllowed,
       assignments,
     };
   }

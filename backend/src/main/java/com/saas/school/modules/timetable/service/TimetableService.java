@@ -1,6 +1,8 @@
 package com.saas.school.modules.timetable.service;
 
+import com.saas.school.modules.classes.model.Subject;
 import com.saas.school.modules.classes.repository.SchoolClassRepository;
+import com.saas.school.modules.classes.repository.SubjectRepository;
 import com.saas.school.modules.timetable.model.Timetable;
 import com.saas.school.modules.timetable.repository.TimetableRepository;
 import com.saas.school.modules.user.repository.UserRepository;
@@ -26,6 +28,9 @@ public class TimetableService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private SubjectRepository subjectRepository;
 
     public Timetable getOrCreate(String classId, String sectionId, String academicYearId) {
         logger.info("getOrCreate timetable for classId={}, sectionId={}, academicYearId={}", classId, sectionId, academicYearId);
@@ -109,6 +114,18 @@ public class TimetableService {
                             if (!teacherId.equals(op.getTeacherId())) continue;
                             if (op.getPeriodNumber() != periodNumber) continue;
 
+                            // Combined-period escape hatch — PE, Assembly, Drill, Library
+                            // and similar "group" subjects let one teacher legitimately
+                            // run multiple sections at the same time slot. Only relax
+                            // the conflict when BOTH the incoming period and the
+                            // existing period are for subjects that opted in via
+                            // {@link Subject#isGroupPeriodAllowed()}. Math vs PE for
+                            // the same teacher in the same slot still raises.
+                            if (subjectAllowsGroupPeriod(p.getSubjectId())
+                                    && subjectAllowsGroupPeriod(op.getSubjectId())) {
+                                continue;
+                            }
+
                             // Double booking found. Build a clear error message.
                             String teacherLabel = op.getTeacherName() != null && !op.getTeacherName().isBlank()
                                     ? op.getTeacherName() : "This teacher";
@@ -122,6 +139,18 @@ public class TimetableService {
                 }
             }
         }
+    }
+
+    /**
+     * Look up the subject by id and return whether it opted in to the
+     * combined-period rule. Null / unknown ids resolve to false so the
+     * conflict guard stays strict by default — a period with a missing
+     * subjectId can't slip through the relaxation.
+     */
+    private boolean subjectAllowsGroupPeriod(String subjectId) {
+        if (subjectId == null || subjectId.isBlank()) return false;
+        Subject s = subjectRepository.findById(subjectId).orElse(null);
+        return s != null && s.isGroupPeriodAllowed();
     }
 
     private String describeOther(Timetable other) {
