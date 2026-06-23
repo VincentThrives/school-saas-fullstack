@@ -411,6 +411,10 @@ export interface SmsAuditLogDto {
    *  student (e.g. an absence alert). Null for triggers that aren't
    *  tied to a student, or for students who've since been soft-deleted. */
   relatedStudentName?: string;
+  /** Student's class–section label (e.g. "10-C"). Drives the
+   *  audit-log class chip filter. Null for the same reasons as
+   *  {@link #relatedStudentName}. */
+  relatedStudentClass?: string;
   createdAt: string;
   sentAt?: string;
   deliveredAt?: string;

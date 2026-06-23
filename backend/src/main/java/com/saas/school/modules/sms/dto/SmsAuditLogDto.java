@@ -35,6 +35,10 @@ public class SmsAuditLogDto {
      *  by looking up relatedEntityId in the Students collection. Null for
      *  other triggers, soft-deleted students, or anything we can't resolve. */
     private String relatedStudentName;
+    /** Class–section label for the student (e.g. "10-C"). Resolved
+     *  alongside the name on the controller — lets the frontend filter
+     *  the audit log by class without re-fetching the row's student. */
+    private String relatedStudentClass;
     private Instant createdAt;
     private Instant sentAt;
     private Instant deliveredAt;
@@ -42,16 +46,28 @@ public class SmsAuditLogDto {
     public SmsAuditLogDto() {}
 
     public static SmsAuditLogDto from(SmsAuditLog log, boolean maskPhone) {
-        return from(log, maskPhone, java.util.Collections.emptyMap());
+        return from(log, maskPhone, java.util.Collections.emptyMap(),
+                    java.util.Collections.emptyMap());
+    }
+
+    /** @deprecated kept for callers that don't yet pass class labels.
+     *  New code should use the four-arg overload with both maps so the
+     *  audit row carries student name AND class. */
+    @Deprecated
+    public static SmsAuditLogDto from(SmsAuditLog log, boolean maskPhone,
+                                      java.util.Map<String, String> studentNamesById) {
+        return from(log, maskPhone, studentNamesById, java.util.Collections.emptyMap());
     }
 
     /**
-     * Build a DTO with an optional student-name lookup map. Callers that
-     * page over audit rows fetch all referenced studentIds in one query
-     * and pass the resolved map here — each row becomes O(1).
+     * Build a DTO with optional student-name + class-label lookups.
+     * Callers that page over audit rows fetch all referenced studentIds
+     * in one query (resolving names) and one SchoolClass query (resolving
+     * class labels), then pass both maps here — each row becomes O(1).
      */
     public static SmsAuditLogDto from(SmsAuditLog log, boolean maskPhone,
-                                      java.util.Map<String, String> studentNamesById) {
+                                      java.util.Map<String, String> studentNamesById,
+                                      java.util.Map<String, String> studentClassesById) {
         SmsAuditLogDto dto = new SmsAuditLogDto();
         dto.id = log.getId();
         dto.tenantId = log.getTenantId();
@@ -70,9 +86,13 @@ public class SmsAuditLogDto {
         // and the map lookup would silently miss anyway, but the explicit
         // check keeps intent clear and avoids leaking unrelated names later.
         if ("AttendanceRecord".equals(log.getRelatedEntityType())
-                && log.getRelatedEntityId() != null
-                && studentNamesById != null) {
-            dto.relatedStudentName = studentNamesById.get(log.getRelatedEntityId());
+                && log.getRelatedEntityId() != null) {
+            if (studentNamesById != null) {
+                dto.relatedStudentName = studentNamesById.get(log.getRelatedEntityId());
+            }
+            if (studentClassesById != null) {
+                dto.relatedStudentClass = studentClassesById.get(log.getRelatedEntityId());
+            }
         }
         dto.createdAt = log.getCreatedAt();
         dto.sentAt = log.getSentAt();
@@ -104,6 +124,7 @@ public class SmsAuditLogDto {
     public String getTemplateId() { return templateId; }
     public String getRelatedEntityType() { return relatedEntityType; }
     public String getRelatedStudentName() { return relatedStudentName; }
+    public String getRelatedStudentClass() { return relatedStudentClass; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getSentAt() { return sentAt; }
     public Instant getDeliveredAt() { return deliveredAt; }

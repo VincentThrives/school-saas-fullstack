@@ -58,6 +58,7 @@ public class SmsController {
     @Autowired private SmsAuditLogRepository auditRepo;
     @Autowired private MongoTemplate mongoTemplate;
     @Autowired private com.saas.school.modules.student.repository.StudentRepository studentRepository;
+    @Autowired private com.saas.school.modules.classes.repository.SchoolClassRepository schoolClassRepository;
     /** Reaches into the notification module to fan result SMS out across
      *  multiple sections. ResultPublicationService owns the exam/mark
      *  load-and-summarise pipeline; the controller stays thin. */
@@ -148,9 +149,26 @@ public class SmsController {
             }
         }
         java.util.Map<String, String> studentNamesById = new java.util.HashMap<>();
+        java.util.Map<String, String> studentClassesById = new java.util.HashMap<>();
         if (!studentIds.isEmpty()) {
             var students = studentRepository.findByStudentIdInAndDeletedAtIsNull(
                     new java.util.ArrayList<>(studentIds));
+            // Pre-fetch every SchoolClass referenced by the page in one
+            // query, then resolve "class-name + section-name" per student
+            // against an in-memory map. Avoids N round-trips when the
+            // page has students from many classes.
+            java.util.Set<String> classIds = new java.util.HashSet<>();
+            if (students != null) {
+                for (var s : students) {
+                    if (s.getClassId() != null) classIds.add(s.getClassId());
+                }
+            }
+            java.util.Map<String, com.saas.school.modules.classes.model.SchoolClass> classById = new java.util.HashMap<>();
+            if (!classIds.isEmpty()) {
+                for (var c : schoolClassRepository.findAllById(classIds)) {
+                    classById.put(c.getClassId(), c);
+                }
+            }
             if (students != null) {
                 for (var s : students) {
                     String first = s.getFirstName() == null ? "" : s.getFirstName();
@@ -158,12 +176,30 @@ public class SmsController {
                     String full = (first + " " + last).trim();
                     if (full.isEmpty()) full = s.getStudentId();
                     studentNamesById.put(s.getStudentId(), full);
+
+                    var sc = classById.get(s.getClassId());
+                    if (sc != null) {
+                        String className = sc.getName() == null ? "" : sc.getName().trim();
+                        String sectionName = null;
+                        if (s.getSectionId() != null && sc.getSections() != null) {
+                            for (var sec : sc.getSections()) {
+                                if (sec != null && s.getSectionId().equals(sec.getSectionId())) {
+                                    sectionName = sec.getName();
+                                    break;
+                                }
+                            }
+                        }
+                        String label = sectionName != null && !sectionName.isBlank()
+                                ? (className + "-" + sectionName)
+                                : className;
+                        if (!label.isBlank()) studentClassesById.put(s.getStudentId(), label);
+                    }
                 }
             }
         }
 
         List<SmsAuditLogDto> dtos = result.stream()
-                .map(l -> SmsAuditLogDto.from(l, true, studentNamesById))   // mask phones for tenant view
+                .map(l -> SmsAuditLogDto.from(l, true, studentNamesById, studentClassesById))
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(
                 PageResponse.of(dtos, total, page, size)));

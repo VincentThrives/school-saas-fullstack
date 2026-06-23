@@ -76,6 +76,22 @@
 
 .muted { color: #9ca3af; }
 
+// Page-local class chip filter row above the audit table. Mirrors the
+// SMS Notifications chip row so admins recognise the affordance.
+.class-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px 0;
+
+  .class-chip-hint {
+    font-size: 11px;
+    color: #9ca3af;
+    font-style: italic;
+  }
+}
+
 .trigger-chip {
   background-color: #e0e7ff !important;
   color: #3730a3 !important;

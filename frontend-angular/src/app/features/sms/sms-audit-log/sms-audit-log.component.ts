@@ -63,6 +63,10 @@ export class SmsAuditLogComponent implements OnInit {
   statusFilter = '';
   dateFrom: Date | null = null;
   dateTo: Date | null = null;
+  /** Class chip filter for the audit table. Page-local — narrows the
+   *  visible rows whose {@link SmsAuditLogDto.relatedStudentClass}
+   *  matches the picked label. 'ALL' shows every row on the page. */
+  classFilter: string = 'ALL';
 
   academicYears: AcademicYear[] = [];
 
@@ -197,8 +201,27 @@ export class SmsAuditLogComponent implements OnInit {
     this.statusFilter = '';
     this.dateFrom = null;
     this.dateTo = null;
+    this.classFilter = 'ALL';
     // Keep the academic year — that's the natural scope, not a filter.
     this.onFilterChange();
+  }
+
+  /** Distinct class labels present on the current page's rows. Drives
+   *  the chip listbox; hidden when there's only one (or none). */
+  classOptions(): string[] {
+    const set = new Set<string>();
+    for (const r of this.rows) {
+      if (r.relatedStudentClass) set.add(r.relatedStudentClass);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }
+
+  /** Rows after the class chip filter. Page-local — chip narrows what's
+   *  rendered from the current page, but pagination + totalElements
+   *  reflect the unfiltered backend response. */
+  filteredRows(): SmsAuditLogDto[] {
+    if (this.classFilter === 'ALL') return this.rows;
+    return this.rows.filter(r => r.relatedStudentClass === this.classFilter);
   }
 
   // ── Display helpers ─────────────────────────────────────────────────
