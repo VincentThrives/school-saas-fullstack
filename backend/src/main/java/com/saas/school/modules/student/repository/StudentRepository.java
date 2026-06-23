@@ -31,6 +31,11 @@ public interface StudentRepository extends MongoRepository<Student, String> {
      *  student in one query so the importer doesn't make N round-trips. */
     List<Student> findByAdmissionNumberInAndDeletedAtIsNull(List<String> admissionNumbers);
 
+    /** Batch lookup by id, soft-deleted rows excluded. Used by the View
+     *  Attendance day-status rollup to resolve absent studentIds into
+     *  display names + roll numbers in one query rather than N. */
+    List<Student> findByStudentIdInAndDeletedAtIsNull(List<String> studentIds);
+
     List<Student> findByClassIdAndSectionIdAndDeletedAtIsNull(String classId, String sectionId);
 
     List<Student> findByParentIdsContainingAndDeletedAtIsNull(String parentId);

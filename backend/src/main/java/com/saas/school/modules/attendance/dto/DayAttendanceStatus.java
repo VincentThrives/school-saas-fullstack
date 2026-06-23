@@ -1,6 +1,7 @@
 package com.saas.school.modules.attendance.dto;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * One row of the daily attendance hub — surfaces, for every (class,
@@ -29,6 +30,14 @@ public class DayAttendanceStatus {
     private int presentCount;
     private int absentCount;
     private int otherCount;         // LATE + HALF_DAY collapsed
+    /**
+     * Names of the students marked ABSENT on this date. Surfaced on the
+     * View Attendance Marked card so admins see at a glance who didn't
+     * make it without drilling into the per-class detail. Empty list when
+     * status is NOT_MARKED, or when all students were marked PRESENT /
+     * LATE / HALF_DAY.
+     */
+    private List<AbsentStudent> absentees;
 
     public DayAttendanceStatus() {}
 
@@ -61,4 +70,32 @@ public class DayAttendanceStatus {
 
     public int getOtherCount() { return otherCount; }
     public void setOtherCount(int otherCount) { this.otherCount = otherCount; }
+
+    public List<AbsentStudent> getAbsentees() { return absentees; }
+    public void setAbsentees(List<AbsentStudent> absentees) { this.absentees = absentees; }
+
+    /** Lightweight pointer to one absent student. Just enough fields for
+     *  the View Attendance card to render a comma-separated list without
+     *  the admin needing to drill into the per-class detail. */
+    public static class AbsentStudent {
+        private String studentId;
+        private String fullName;
+        private String rollNumber;
+
+        public AbsentStudent() {}
+        public AbsentStudent(String studentId, String fullName, String rollNumber) {
+            this.studentId = studentId;
+            this.fullName = fullName;
+            this.rollNumber = rollNumber;
+        }
+
+        public String getStudentId() { return studentId; }
+        public void setStudentId(String studentId) { this.studentId = studentId; }
+
+        public String getFullName() { return fullName; }
+        public void setFullName(String fullName) { this.fullName = fullName; }
+
+        public String getRollNumber() { return rollNumber; }
+        public void setRollNumber(String rollNumber) { this.rollNumber = rollNumber; }
+    }
 }

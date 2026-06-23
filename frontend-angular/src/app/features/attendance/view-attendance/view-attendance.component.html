@@ -115,6 +115,18 @@
               {{ row.otherCount }}
             </span>
           </div>
+          <!-- Absentee list — surfaces who's missing without needing to
+               drill into the per-class detail. Sorted by roll number on
+               the backend so the order is stable across reloads. -->
+          <div class="card-absentees" *ngIf="row.absentees && row.absentees.length > 0">
+            <div class="absentees-label">Absent</div>
+            <div class="absentees-list">
+              <span class="absentee-chip" *ngFor="let a of row.absentees">
+                {{ absenteeLabel(a) }}
+              </span>
+            </div>
+          </div>
+
           <div class="card-foot" *ngIf="row.markedAt">
             Marked at {{ formatMarkedTime(row.markedAt) }}
           </div>

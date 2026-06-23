@@ -19,6 +19,12 @@ import { PageHeaderComponent } from '../../../shared/components/page-header/page
 import { ApiService } from '../../../core/services/api.service';
 import { AcademicYear } from '../../../core/models';
 
+interface AbsentStudentRef {
+  studentId: string;
+  fullName: string;
+  rollNumber?: string;
+}
+
 interface DayStatusRow {
   classId: string;
   className: string;
@@ -30,6 +36,10 @@ interface DayStatusRow {
   presentCount: number;
   absentCount: number;
   otherCount: number;
+  /** Names of students marked ABSENT — empty when status is NOT_MARKED
+   *  or when nobody was absent. Drives the under-counts line on the
+   *  Marked card so admins see who's missing at a glance. */
+  absentees?: AbsentStudentRef[];
 }
 
 /**
@@ -151,6 +161,13 @@ export class ViewAttendanceComponent implements OnInit {
       ['/attendance/mark'],
       { queryParams: { classId: row.classId, sectionId: row.sectionId, date: dateStr } }
     );
+  }
+
+  /** Compact "Roll - Name" labels for absentees on the Marked card.
+   *  Falls back to bare name when no roll number is set. */
+  absenteeLabel(a: AbsentStudentRef): string {
+    if (a.rollNumber) return `${a.rollNumber} · ${a.fullName}`;
+    return a.fullName;
   }
 
   /** Friendly "9:12 AM" timestamp for the marked-at tooltip on Done cards. */

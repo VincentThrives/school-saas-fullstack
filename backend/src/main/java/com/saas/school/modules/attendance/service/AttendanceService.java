@@ -401,11 +401,41 @@ public class AttendanceService {
         // periodNumber=0 marks day-wise rows in the StudentsAttendance schema.
         var dayRows = batchRepository.findByDate(date);
         Map<String, StudentsAttendance> attendanceByPair = new HashMap<>();
+        Set<String> absentStudentIds = new HashSet<>();
         if (dayRows != null) {
             for (StudentsAttendance r : dayRows) {
                 if (r == null || r.getPeriodNumber() != 0) continue;
                 if (r.getClassId() == null || r.getSectionId() == null) continue;
                 attendanceByPair.put(r.getClassId() + "::" + r.getSectionId(), r);
+                if (r.getEntries() != null) {
+                    for (var e : r.getEntries()) {
+                        if ("ABSENT".equals(e.getStatus()) && e.getStudentId() != null) {
+                            absentStudentIds.add(e.getStudentId());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Resolve absent studentIds → display name + roll number in one
+        // batched query so the card list shows readable names instead of
+        // opaque ids. Soft-deleted students drop out naturally; their entries
+        // simply skip the name lookup and show as a bare id fallback below.
+        Map<String, com.saas.school.modules.attendance.dto.DayAttendanceStatus.AbsentStudent> absentByStudentId =
+                new HashMap<>();
+        if (!absentStudentIds.isEmpty()) {
+            var students = studentRepository.findByStudentIdInAndDeletedAtIsNull(
+                    new ArrayList<>(absentStudentIds));
+            if (students != null) {
+                for (var s : students) {
+                    String first = s.getFirstName() == null ? "" : s.getFirstName();
+                    String last = s.getLastName() == null ? "" : s.getLastName();
+                    String full = (first + " " + last).trim();
+                    if (full.isEmpty()) full = s.getStudentId();
+                    absentByStudentId.put(s.getStudentId(),
+                            new com.saas.school.modules.attendance.dto.DayAttendanceStatus.AbsentStudent(
+                                    s.getStudentId(), full, s.getRollNumber()));
+                }
             }
         }
 
@@ -430,15 +460,40 @@ public class AttendanceService {
                     dto.setStatus(com.saas.school.modules.attendance.dto.DayAttendanceStatus.STATUS_MARKED);
                     dto.setMarkedAt(rec.getUpdatedAt() != null ? rec.getUpdatedAt() : rec.getCreatedAt());
                     int p = 0, a = 0, other = 0;
+                    var absentees = new ArrayList<com.saas.school.modules.attendance.dto.DayAttendanceStatus.AbsentStudent>();
                     for (var e : rec.getEntries()) {
                         String s = e.getStatus();
                         if ("PRESENT".equals(s)) p++;
-                        else if ("ABSENT".equals(s)) a++;
+                        else if ("ABSENT".equals(s)) {
+                            a++;
+                            var ref = absentByStudentId.get(e.getStudentId());
+                            // Fall back to a bare id when the lookup misses
+                            // (e.g. student soft-deleted after being marked).
+                            if (ref == null && e.getStudentId() != null) {
+                                ref = new com.saas.school.modules.attendance.dto.DayAttendanceStatus.AbsentStudent(
+                                        e.getStudentId(), e.getStudentId(), null);
+                            }
+                            if (ref != null) absentees.add(ref);
+                        }
                         else if ("LATE".equals(s) || "HALF_DAY".equals(s)) other++;
                     }
+                    // Stable display order — sort by roll number when present,
+                    // else by name so the same Marked card shows the same list
+                    // each render.
+                    absentees.sort((x, y) -> {
+                        String xr = x.getRollNumber();
+                        String yr = y.getRollNumber();
+                        if (xr != null && yr != null) {
+                            return xr.compareToIgnoreCase(yr);
+                        }
+                        String xn = x.getFullName() == null ? "" : x.getFullName();
+                        String yn = y.getFullName() == null ? "" : y.getFullName();
+                        return xn.compareToIgnoreCase(yn);
+                    });
                     dto.setPresentCount(p);
                     dto.setAbsentCount(a);
                     dto.setOtherCount(other);
+                    dto.setAbsentees(absentees);
                 } else {
                     dto.setStatus(com.saas.school.modules.attendance.dto.DayAttendanceStatus.STATUS_NOT_MARKED);
                 }
