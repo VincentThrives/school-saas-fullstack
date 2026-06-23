@@ -63,10 +63,17 @@ export class SmsAuditLogComponent implements OnInit {
   statusFilter = '';
   dateFrom: Date | null = null;
   dateTo: Date | null = null;
-  /** Class chip filter for the audit table. Page-local — narrows the
-   *  visible rows whose {@link SmsAuditLogDto.relatedStudentClass}
-   *  matches the picked label. 'ALL' shows every row on the page. */
+  /** Class chip filter for the audit table. Sent to the backend as
+   *  ?classLabel= so pagination respects the filter — picking 2-A
+   *  on page 1 reloads with totalElements scoped to 2-A. 'ALL' = no
+   *  classLabel param sent. */
   classFilter: string = 'ALL';
+
+  /** Distinct class labels for the chip listbox, loaded once on init
+   *  from the audit-class-labels endpoint so the options cover every
+   *  class the tenant has ever sent absence alerts for — not just
+   *  what's on the current page. */
+  availableClassLabels: string[] = [];
 
   academicYears: AcademicYear[] = [];
 
@@ -118,6 +125,10 @@ export class SmsAuditLogComponent implements OnInit {
         this.load();
       },
     });
+    // Chip options live independently of the date/status filters — fetch
+    // them once on init so the listbox always offers every class the
+    // tenant has sent absence alerts for.
+    this.loadClassLabels();
   }
 
   /** Translate the picked academic year into a [start, end+1day) range
@@ -169,6 +180,11 @@ export class SmsAuditLogComponent implements OnInit {
     const to   = toForBackend  || range.to;
     if (from) filter.dateFrom = from;
     if (to)   filter.dateTo   = to;
+    // Class chip narrows the result set on the backend so pagination
+    // counts and the page slice both reflect the chosen class.
+    if (this.classFilter && this.classFilter !== 'ALL') {
+      filter.classLabel = this.classFilter;
+    }
 
     this.api.getMySmsAuditLogs(this.pageIndex, this.pageSize, filter).subscribe({
       next: (res) => {
@@ -206,22 +222,22 @@ export class SmsAuditLogComponent implements OnInit {
     this.onFilterChange();
   }
 
-  /** Distinct class labels present on the current page's rows. Drives
-   *  the chip listbox; hidden when there's only one (or none). */
-  classOptions(): string[] {
-    const set = new Set<string>();
-    for (const r of this.rows) {
-      if (r.relatedStudentClass) set.add(r.relatedStudentClass);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  /** Load the chip options from the dedicated endpoint. Called once on
+   *  init — chip set is per-tenant and doesn't change with the page-by-page
+   *  filters (date / status / trigger), so a single fetch is enough. */
+  private loadClassLabels(): void {
+    this.api.getSmsAuditClassLabels().subscribe({
+      next: (res) => { this.availableClassLabels = res?.data || []; },
+      error: () => { this.availableClassLabels = []; },
+    });
   }
 
-  /** Rows after the class chip filter. Page-local — chip narrows what's
-   *  rendered from the current page, but pagination + totalElements
-   *  reflect the unfiltered backend response. */
-  filteredRows(): SmsAuditLogDto[] {
-    if (this.classFilter === 'ALL') return this.rows;
-    return this.rows.filter(r => r.relatedStudentClass === this.classFilter);
+  /** Reset to page 0 + reload when the admin picks a different class
+   *  chip — same shape as other filter changes. */
+  onClassFilterChange(): void {
+    this.pageIndex = 0;
+    if (this.paginator) this.paginator.firstPage();
+    this.load();
   }
 
   // ── Display helpers ─────────────────────────────────────────────────

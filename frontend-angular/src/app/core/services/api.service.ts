@@ -713,6 +713,13 @@ export class ApiService {
     return this.http.get<ApiResponse<any[]>>(`${this.API}/attendance/batch/class/${classId}`, { params });
   }
 
+  /** Distinct class labels across this tenant's absence-alert audit
+   *  rows. Drives the chip filter on the SMS Audit Log page so the
+   *  options stay correct across paginated views. */
+  getSmsAuditClassLabels(): Observable<ApiResponse<string[]>> {
+    return this.http.get<ApiResponse<string[]>>(`${this.API}/sms/audit-logs/class-labels`);
+  }
+
   /** Roll-up of day-wise attendance status for every (class, section)
    *  the school operates in the given academic year on the given date.
    *  Powers the View Attendance hub — one card per row. */
@@ -1056,13 +1063,14 @@ export class ApiService {
    */
   getMySmsAuditLogs(
     page = 0, size = 25,
-    filter?: { trigger?: string; status?: string; dateFrom?: string; dateTo?: string },
+    filter?: { trigger?: string; status?: string; dateFrom?: string; dateTo?: string; classLabel?: string },
   ): Observable<ApiResponse<PaginatedResponse<SmsAuditLogDto>>> {
     let params = new HttpParams().set('page', page).set('size', size);
-    if (filter?.trigger)  params = params.set('trigger', filter.trigger);
-    if (filter?.status)   params = params.set('status', filter.status);
-    if (filter?.dateFrom) params = params.set('dateFrom', filter.dateFrom);
-    if (filter?.dateTo)   params = params.set('dateTo', filter.dateTo);
+    if (filter?.trigger)    params = params.set('trigger', filter.trigger);
+    if (filter?.status)     params = params.set('status', filter.status);
+    if (filter?.dateFrom)   params = params.set('dateFrom', filter.dateFrom);
+    if (filter?.dateTo)     params = params.set('dateTo', filter.dateTo);
+    if (filter?.classLabel) params = params.set('classLabel', filter.classLabel);
     return this.http.get<ApiResponse<PaginatedResponse<SmsAuditLogDto>>>(
       `${this.API}/sms/audit-logs`, { params });
   }

@@ -77,22 +77,24 @@
       <p>Adjust the filters above to see more rows.</p>
     </div>
 
-    <!-- Class chip filter — page-local. Lets admins scope the visible
-         rows to one (class, section) without re-paginating. The
-         hint flags the page-local scope so admins don't think filter
-         applied across the full audit history. -->
-    <div class="class-chip-row" *ngIf="!isLoading && classOptions().length > 1">
-      <mat-chip-listbox [(ngModel)]="classFilter" aria-label="Filter by class">
+    <!-- Class chip filter — backend-driven. Picking a chip reloads the
+         page with ?classLabel set so totalElements + the slice both
+         reflect the filter, and pagination works correctly across
+         multi-page filtered views. -->
+    <div class="class-chip-row" *ngIf="availableClassLabels.length > 1">
+      <mat-chip-listbox
+          [(ngModel)]="classFilter"
+          (change)="onClassFilterChange()"
+          aria-label="Filter by class">
         <mat-chip-option value="ALL" selected>All</mat-chip-option>
-        <mat-chip-option *ngFor="let label of classOptions()" [value]="label">
+        <mat-chip-option *ngFor="let label of availableClassLabels" [value]="label">
           {{ label }}
         </mat-chip-option>
       </mat-chip-listbox>
-      <span class="class-chip-hint">Filters this page only</span>
     </div>
 
     <div class="table-scroll" *ngIf="!isLoading && rows.length > 0">
-      <table mat-table [dataSource]="filteredRows()" class="audit-table">
+      <table mat-table [dataSource]="rows" class="audit-table">
         <ng-container matColumnDef="date">
           <th mat-header-cell *matHeaderCellDef>Date</th>
           <td mat-cell *matCellDef="let row">

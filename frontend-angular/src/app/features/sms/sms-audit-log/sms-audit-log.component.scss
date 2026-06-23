@@ -76,20 +76,14 @@
 
 .muted { color: #9ca3af; }
 
-// Page-local class chip filter row above the audit table. Mirrors the
-// SMS Notifications chip row so admins recognise the affordance.
+// Backend-driven class chip filter row above the audit table. Picking
+// a chip reloads with ?classLabel so pagination tracks the filtered set.
 .class-chip-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   padding: 8px 16px 0;
-
-  .class-chip-hint {
-    font-size: 11px;
-    color: #9ca3af;
-    font-style: italic;
-  }
 }
 
 .trigger-chip {

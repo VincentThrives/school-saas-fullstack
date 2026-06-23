@@ -97,10 +97,29 @@ public class SmsController {
             @RequestParam(required = false) String trigger,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String dateFrom,
-            @RequestParam(required = false) String dateTo) {
+            @RequestParam(required = false) String dateTo,
+            @RequestParam(required = false) String classLabel) {
         String tenantId = TenantContext.getTenantId();
 
         Criteria criteria = Criteria.where("tenantId").is(tenantId);
+
+        // Class filter — narrows the result set to AttendanceRecord rows
+        // whose student is in the matching (class, section). Done BEFORE
+        // pagination so the totalElements + page slice line up; without
+        // this the chip filter was a page-local cosmetic and pagination
+        // broke for 30-section schools.
+        if (classLabel != null && !classLabel.isBlank()) {
+            List<String> studentIdsInClass = resolveStudentIdsByClassLabel(classLabel);
+            if (studentIdsInClass.isEmpty()) {
+                // No matches → return an empty page rather than skipping the
+                // criteria (which would expose unrelated rows).
+                return ResponseEntity.ok(ApiResponse.success(
+                        PageResponse.of(java.util.List.of(), 0L, page, size)));
+            }
+            criteria.and("relatedEntityType").is("AttendanceRecord");
+            criteria.and("relatedEntityId").in(studentIdsInClass);
+        }
+
         if (trigger != null && !trigger.isBlank()) {
             try {
                 criteria.and("trigger").is(SmsTrigger.valueOf(trigger.trim()));
@@ -203,6 +222,135 @@ public class SmsController {
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(
                 PageResponse.of(dtos, total, page, size)));
+    }
+
+    /**
+     * Distinct class labels (e.g. "10-A", "10-B") across this tenant's
+     * absence-alert audit rows. Drives the chip filter on the audit log
+     * UI — without it the chip options would have to be guessed from
+     * the visible page, which broke for paginated views.
+     *
+     * <p>Filters (trigger / status / date range) are NOT applied here;
+     * the chip should always offer every class the school has sent
+     * absence alerts for, regardless of what the date/status pickers
+     * narrow to. Cheap query — fetches AttendanceRecord-linked audit
+     * rows for the tenant, resolves their students, walks classes.</p>
+     */
+    @GetMapping("/audit-logs/class-labels")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN', 'PRINCIPAL')")
+    public ResponseEntity<ApiResponse<List<String>>> auditClassLabels() {
+        String tenantId = TenantContext.getTenantId();
+        Criteria criteria = Criteria.where("tenantId").is(tenantId)
+                .and("relatedEntityType").is("AttendanceRecord");
+        Query query = new Query(criteria);
+        List<SmsAuditLog> rows = mongoTemplate.find(query, SmsAuditLog.class);
+        if (rows.isEmpty()) {
+            return ResponseEntity.ok(ApiResponse.success(java.util.List.of()));
+        }
+        java.util.Set<String> studentIds = new java.util.HashSet<>();
+        for (SmsAuditLog r : rows) {
+            if (r.getRelatedEntityId() != null) studentIds.add(r.getRelatedEntityId());
+        }
+        java.util.Set<String> labels = new java.util.TreeSet<>(
+                (a, b) -> a.compareTo(b));
+        if (!studentIds.isEmpty()) {
+            var students = studentRepository.findByStudentIdInAndDeletedAtIsNull(
+                    new java.util.ArrayList<>(studentIds));
+            java.util.Set<String> classIds = new java.util.HashSet<>();
+            for (var s : students) if (s.getClassId() != null) classIds.add(s.getClassId());
+            java.util.Map<String, com.saas.school.modules.classes.model.SchoolClass> classById = new java.util.HashMap<>();
+            if (!classIds.isEmpty()) {
+                for (var c : schoolClassRepository.findAllById(classIds)) {
+                    classById.put(c.getClassId(), c);
+                }
+            }
+            for (var s : students) {
+                var sc = classById.get(s.getClassId());
+                if (sc == null) continue;
+                String className = sc.getName() == null ? "" : sc.getName().trim();
+                String sectionName = null;
+                if (s.getSectionId() != null && sc.getSections() != null) {
+                    for (var sec : sc.getSections()) {
+                        if (sec != null && s.getSectionId().equals(sec.getSectionId())) {
+                            sectionName = sec.getName();
+                            break;
+                        }
+                    }
+                }
+                String label = sectionName != null && !sectionName.isBlank()
+                        ? (className + "-" + sectionName)
+                        : className;
+                if (!label.isBlank()) labels.add(label);
+            }
+        }
+        // Numeric-aware sort so "10-A" follows "2-A" instead of preceding "3-A".
+        java.util.List<String> sorted = new java.util.ArrayList<>(labels);
+        sorted.sort((a, b) -> {
+            // Comparator that treats embedded integers naturally.
+            return naturalCompare(a, b);
+        });
+        return ResponseEntity.ok(ApiResponse.success(sorted));
+    }
+
+    /** Resolve which student ids live in the (class, section) identified
+     *  by a "ClassName-SectionName" label. Multiple SchoolClass docs may
+     *  share a name across academic years; we union the matches because
+     *  the audit log spans years anyway. */
+    private List<String> resolveStudentIdsByClassLabel(String classLabel) {
+        int dash = classLabel.lastIndexOf('-');
+        String className = dash > 0 ? classLabel.substring(0, dash) : classLabel;
+        String sectionName = dash > 0 ? classLabel.substring(dash + 1) : null;
+        // Find all SchoolClass docs whose name matches className (any AY).
+        // Mongo-side filter would require a custom query; in practice each
+        // tenant has under 20 class docs total, so an in-memory scan is fine.
+        var allClasses = schoolClassRepository.findAll();
+        List<String> studentIds = new java.util.ArrayList<>();
+        for (var sc : allClasses) {
+            if (sc.getName() == null || !sc.getName().trim().equalsIgnoreCase(className)) continue;
+            if (sectionName == null) {
+                // No section in label → every section of this class counts.
+                if (sc.getSections() != null) {
+                    for (var sec : sc.getSections()) {
+                        studentIds.addAll(
+                                studentRepository.findByClassIdAndSectionIdAndDeletedAtIsNull(
+                                        sc.getClassId(), sec.getSectionId())
+                                        .stream().map(s -> s.getStudentId()).toList());
+                    }
+                }
+            } else {
+                // Find the matching section by name.
+                if (sc.getSections() != null) {
+                    for (var sec : sc.getSections()) {
+                        if (sec != null && sec.getName() != null
+                                && sec.getName().trim().equalsIgnoreCase(sectionName)) {
+                            studentIds.addAll(
+                                    studentRepository.findByClassIdAndSectionIdAndDeletedAtIsNull(
+                                            sc.getClassId(), sec.getSectionId())
+                                            .stream().map(s -> s.getStudentId()).toList());
+                        }
+                    }
+                }
+            }
+        }
+        return studentIds;
+    }
+
+    /** Numeric-aware string compare: "2-A" < "10-A" by parsing leading
+     *  digits when present. Falls back to standard compare for non-numeric
+     *  prefixes (LKG, UKG). */
+    private static int naturalCompare(String a, String b) {
+        int aDash = a.indexOf('-');
+        int bDash = b.indexOf('-');
+        String aPrefix = aDash >= 0 ? a.substring(0, aDash) : a;
+        String bPrefix = bDash >= 0 ? b.substring(0, bDash) : b;
+        try {
+            int aNum = Integer.parseInt(aPrefix);
+            int bNum = Integer.parseInt(bPrefix);
+            if (aNum != bNum) return Integer.compare(aNum, bNum);
+            return a.compareTo(b);
+        } catch (NumberFormatException e) {
+            return a.compareTo(b);
+        }
     }
 
     /** Parse an ISO-8601 instant, falling back to "yyyy-MM-dd" at UTC midnight
