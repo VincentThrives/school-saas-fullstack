@@ -76,9 +76,6 @@ export class ViewAttendanceComponent implements OnInit {
   /** Filter the card grid by class name. 'ALL' shows every class. */
   classFilter: string = 'ALL';
 
-  /** Toolbar tab — drives which subset of rows the grid renders. */
-  activeTab: 'TODO' | 'DONE' = 'TODO';
-
   constructor(
     private api: ApiService,
     private router: Router,
@@ -142,11 +139,6 @@ export class ViewAttendanceComponent implements OnInit {
 
   get doneRows(): DayStatusRow[] {
     return this.filteredRows.filter(r => r.status === 'MARKED');
-  }
-
-  /** Total card count in the active tab — drives the empty state copy. */
-  get activeRowCount(): number {
-    return this.activeTab === 'TODO' ? this.todoRows.length : this.doneRows.length;
   }
 
   openMarkAttendance(row: DayStatusRow): void {

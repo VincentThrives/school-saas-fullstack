@@ -44,10 +44,10 @@
     </mat-chip-listbox>
   </div>
 
-  <!-- Tabs — Yet to mark first so the admin lands on what's outstanding. -->
-  <mat-tab-group [(selectedIndex)]="activeTab"
-                 (selectedIndexChange)="activeTab = $event === 1 ? 'DONE' : 'TODO'"
-                 class="view-tabs">
+  <!-- Tabs — Yet to mark first so the admin lands on what's outstanding.
+       Tab content is driven by the rows arrays directly; Material handles
+       which tab body is visible. -->
+  <mat-tab-group class="view-tabs">
     <mat-tab>
       <ng-template mat-tab-label>
         <mat-icon class="tab-icon">pending_actions</mat-icon>
