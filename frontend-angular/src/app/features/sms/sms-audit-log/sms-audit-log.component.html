@@ -80,7 +80,9 @@
     <!-- Class chip filter — backend-driven. Picking a chip reloads the
          page with ?classLabel set so totalElements + the slice both
          reflect the filter, and pagination works correctly across
-         multi-page filtered views. -->
+         multi-page filtered views. The result count surfaces here too
+         so the admin always knows the scope without scrolling to the
+         paginator at the bottom of the card. -->
     <div class="class-chip-row" *ngIf="availableClassLabels.length > 1">
       <mat-chip-listbox
           [(ngModel)]="classFilter"
@@ -91,6 +93,9 @@
           {{ label }}
         </mat-chip-option>
       </mat-chip-listbox>
+      <span class="class-chip-count" *ngIf="!isLoading">
+        {{ totalElements }} {{ totalElements === 1 ? 'result' : 'results' }}
+      </span>
     </div>
 
     <div class="table-scroll" *ngIf="!isLoading && rows.length > 0">
