@@ -742,6 +742,20 @@ export class MarkAttendanceComponent implements OnInit {
     this.students = this.students.map((s) => ({ ...s, status: 'PRESENT' as const }));
   }
 
+  /** Display-friendly list of the students currently marked ABSENT.
+   *  Surfaces on the post-save summary card so the admin sees WHO is
+   *  missing without scrolling the full roster. Sorted by roll number
+   *  (numeric-aware) so reloads of the same scope show the same order. */
+  get savedAbsentees(): Array<{ rollNumber: string; fullName: string }> {
+    return this.students
+      .filter(s => s.status === 'ABSENT')
+      .map(s => ({
+        rollNumber: s.rollNumber || '',
+        fullName: ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.studentId,
+      }))
+      .sort((a, b) => (a.rollNumber || '').localeCompare(b.rollNumber || '', undefined, { numeric: true }));
+  }
+
   get summary(): { present: number; absent: number; late: number; halfDay: number } {
     return this.students.reduce(
       (acc, s) => {

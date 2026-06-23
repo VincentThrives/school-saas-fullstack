@@ -280,6 +280,18 @@
               Total: <strong>{{ savedSummary.total }}</strong>
             </span>
           </div>
+
+          <!-- Absent student names — sorted by roll number so admins can
+               scan straight to the missing kids without scrolling the
+               full roster. Hidden when nobody was absent. -->
+          <div class="saved-absentees" *ngIf="savedAbsentees.length > 0">
+            <span class="saved-absentees-label">Absent students</span>
+            <div class="saved-absentees-list">
+              <span class="saved-absentee-chip" *ngFor="let a of savedAbsentees">
+                <ng-container *ngIf="a.rollNumber">{{ a.rollNumber }} · </ng-container>{{ a.fullName }}
+              </span>
+            </div>
+          </div>
         </div>
         <button mat-stroked-button class="saved-edit-btn" (click)="editAttendance()">
           <mat-icon>edit</mat-icon>
