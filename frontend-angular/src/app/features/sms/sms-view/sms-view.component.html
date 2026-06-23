@@ -221,9 +221,18 @@
           <mat-spinner *ngIf="isSendingAbsent" diameter="18" class="sv-inline-spinner"></mat-spinner>
           {{ isSendingAbsent
               ? 'Sending…'
-              : 'Send SMS to ' + selectedAbsentIds.size + ' selected' }}
+              : 'Send SMS to ' + visibleSelectedAbsentIds().length + ' selected' }}
         </button>
       </div>
+
+      <!-- Spillover hint — surfaces ticks living outside the active
+           chip so the admin knows they exist without thinking the
+           filter has lost selection. -->
+      <p class="sv-absent-hidden-hint"
+         *ngIf="hiddenSelectedAbsentCount() > 0">
+        <mat-icon>info</mat-icon>
+        <span>{{ hiddenSelectedAbsentCount() }} more selected in other classes — switch the chip to send them.</span>
+      </p>
     </ng-container>
   </mat-card>
 

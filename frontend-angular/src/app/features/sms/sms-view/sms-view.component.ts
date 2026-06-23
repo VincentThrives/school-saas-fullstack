@@ -369,6 +369,30 @@ export class SmsViewComponent implements OnInit {
     return this.absentToday.filter(r => r.classLabel === this.selectedAbsentClassFilter);
   }
 
+  /** Selected studentIds that are ALSO in the current visible filter.
+   *  Drives the button label and the send action — clicking Send only
+   *  ever dispatches to what the admin can see ticked on screen, even
+   *  though the full {@link selectedAbsentIds} Set may carry ticks for
+   *  other classes from previous chip-hops. */
+  visibleSelectedAbsentIds(): string[] {
+    return this.filteredAbsentToday()
+      .filter(r => this.selectedAbsentIds.has(r.studentId))
+      .map(r => r.studentId);
+  }
+
+  /** Ticks living outside the active filter — surfaced as a small hint
+   *  next to the chip row so the admin sees "+ 3 in other classes"
+   *  instead of a silent state mismatch. */
+  hiddenSelectedAbsentCount(): number {
+    if (this.selectedAbsentClassFilter === 'ALL') return 0;
+    const visible = new Set(this.visibleSelectedAbsentIds());
+    let count = 0;
+    for (const id of this.selectedAbsentIds) {
+      if (!visible.has(id)) count++;
+    }
+    return count;
+  }
+
   isAbsentSelected(studentId: string): boolean {
     return this.selectedAbsentIds.has(studentId);
   }
@@ -432,12 +456,15 @@ export class SmsViewComponent implements OnInit {
   canSendAbsent(): boolean {
     return this.features.absenceAlertSms()
         && !this.isSendingAbsent
-        && this.selectedAbsentIds.size > 0;
+        && this.visibleSelectedAbsentIds().length > 0;
   }
 
   sendAbsentToday(): void {
     if (!this.canSendAbsent()) return;
-    const ids = Array.from(this.selectedAbsentIds);
+    // Only dispatch to ticks INSIDE the active class filter. Ticks left
+    // over from other chips stay in selectedAbsentIds so the admin can
+    // switch back and send them next, but each Send click is scoped.
+    const ids = this.visibleSelectedAbsentIds();
 
     const data: SmsConfirmData = {
       icon: 'event_busy',
