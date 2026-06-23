@@ -86,6 +86,16 @@ export class ViewAttendanceComponent implements OnInit {
   /** Filter the card grid by class name. 'ALL' shows every class. */
   classFilter: string = 'ALL';
 
+  /** Card keys ({classId}::{sectionId}) whose absentee list is expanded.
+   *  Cards with the list collapsed show only the count header — keeps the
+   *  grid tidy when a section has 15+ absentees. */
+  private expandedAbsentees = new Set<string>();
+
+  /** Above this absentee count we fold the list behind a toggle; at or
+   *  below, the chips render inline. 4 keeps the card height bounded
+   *  while still giving small-absentee sections a glanceable list. */
+  readonly absenteeAccordionThreshold = 4;
+
   constructor(
     private api: ApiService,
     private router: Router,
@@ -168,6 +178,31 @@ export class ViewAttendanceComponent implements OnInit {
   absenteeLabel(a: AbsentStudentRef): string {
     if (a.rollNumber) return `${a.rollNumber} · ${a.fullName}`;
     return a.fullName;
+  }
+
+  /** True when this card has enough absentees that the list folds
+   *  behind a toggle. Below the threshold the chips render inline. */
+  shouldCollapseAbsentees(row: DayStatusRow): boolean {
+    return (row.absentees?.length || 0) > this.absenteeAccordionThreshold;
+  }
+
+  /** True when the admin has expanded this card's absentee list. */
+  isAbsenteeListExpanded(row: DayStatusRow): boolean {
+    return this.expandedAbsentees.has(this.absenteeKey(row));
+  }
+
+  /** Toggle the absentee list open/closed on a card. Stops the event
+   *  propagating up so the card's own click handler (open Mark
+   *  Attendance form) doesn't fire from the same gesture. */
+  toggleAbsenteeList(row: DayStatusRow, event: Event): void {
+    event.stopPropagation();
+    const key = this.absenteeKey(row);
+    if (this.expandedAbsentees.has(key)) this.expandedAbsentees.delete(key);
+    else this.expandedAbsentees.add(key);
+  }
+
+  private absenteeKey(row: DayStatusRow): string {
+    return `${row.classId}::${row.sectionId}`;
   }
 
   /** Friendly "9:12 AM" timestamp for the marked-at tooltip on Done cards. */

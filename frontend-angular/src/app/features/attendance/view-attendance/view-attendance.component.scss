@@ -163,6 +163,39 @@ $amber-deep: #B45309;
       color: #c62828;
       text-transform: uppercase;
       letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    // "Show / Hide" toggle on cards with many absentees. Plain text +
+    // chevron, no card-button collision because (click) stops propagation
+    // in the component.
+    .absentees-toggle {
+      appearance: none;
+      background: transparent;
+      border: none;
+      padding: 2px 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      color: #c62828;
+      font: inherit;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      border-radius: 4px;
+
+      &:hover { background: rgba(198, 40, 40, 0.08); }
+      &:focus-visible { outline: 2px solid #c62828; outline-offset: 1px; }
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
     }
 
     .absentees-list {

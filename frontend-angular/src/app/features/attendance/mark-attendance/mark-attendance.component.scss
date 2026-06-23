@@ -106,6 +106,38 @@ $gold-light: rgba(212, 168, 67, 0.08);
     color: #c62828;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  // "Show / Hide" toggle on cards with many absentees. Matches the
+  // hub's chevron style so the two screens read alike.
+  .saved-absentees-toggle {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 2px 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: #c62828;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    border-radius: 4px;
+
+    &:hover { background: rgba(198, 40, 40, 0.08); }
+    &:focus-visible { outline: 2px solid #c62828; outline-offset: 1px; }
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
   }
 
   .saved-absentees-list {

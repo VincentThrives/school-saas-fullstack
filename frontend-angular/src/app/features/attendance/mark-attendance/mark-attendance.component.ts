@@ -423,6 +423,9 @@ export class MarkAttendanceComponent implements OnInit {
     this.editMode = false;
     this.savedSummary = { present: 0, absent: 0, total: 0 };
     this.savedScopeLabel = '';
+    // Collapse the absentee accordion on scope change so 1st-A's
+    // open state doesn't carry over to 2nd-A's summary card.
+    this.savedAbsenteesExpanded = false;
   }
 
   /**
@@ -740,6 +743,25 @@ export class MarkAttendanceComponent implements OnInit {
 
   markAllPresent(): void {
     this.students = this.students.map((s) => ({ ...s, status: 'PRESENT' as const }));
+  }
+
+  /** Above this absentee count the post-save card folds the list behind
+   *  a "Show all" toggle so 15+ absentees don't push the rest of the
+   *  page out of view. Below this, the chips render inline. */
+  readonly savedAbsenteesAccordionThreshold = 4;
+
+  /** Tracks whether the post-save card's absentee list is currently
+   *  expanded. Single boolean is enough — only one summary card is on
+   *  screen at a time. */
+  savedAbsenteesExpanded = false;
+
+  toggleSavedAbsentees(): void {
+    this.savedAbsenteesExpanded = !this.savedAbsenteesExpanded;
+  }
+
+  /** True when the saved absentee count clears the accordion threshold. */
+  get shouldCollapseSavedAbsentees(): boolean {
+    return this.savedAbsentees.length > this.savedAbsenteesAccordionThreshold;
   }
 
   /** Display-friendly list of the students currently marked ABSENT.

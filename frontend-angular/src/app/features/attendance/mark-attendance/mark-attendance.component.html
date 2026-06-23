@@ -283,10 +283,23 @@
 
           <!-- Absent student names — sorted by roll number so admins can
                scan straight to the missing kids without scrolling the
-               full roster. Hidden when nobody was absent. -->
+               full roster. Hidden when nobody was absent; folded behind
+               a Show toggle when the absentee count crosses the
+               accordion threshold so 15+ absentees don't blow out the
+               summary card height. -->
           <div class="saved-absentees" *ngIf="savedAbsentees.length > 0">
-            <span class="saved-absentees-label">Absent students</span>
-            <div class="saved-absentees-list">
+            <div class="saved-absentees-label">
+              <span>Absent students ({{ savedAbsentees.length }})</span>
+              <button type="button" class="saved-absentees-toggle"
+                      *ngIf="shouldCollapseSavedAbsentees"
+                      (click)="toggleSavedAbsentees()"
+                      [attr.aria-expanded]="savedAbsenteesExpanded">
+                {{ savedAbsenteesExpanded ? 'Hide' : 'Show' }}
+                <mat-icon>{{ savedAbsenteesExpanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+              </button>
+            </div>
+            <div class="saved-absentees-list"
+                 *ngIf="!shouldCollapseSavedAbsentees || savedAbsenteesExpanded">
               <span class="saved-absentee-chip" *ngFor="let a of savedAbsentees">
                 <ng-container *ngIf="a.rollNumber">{{ a.rollNumber }} · </ng-container>{{ a.fullName }}
               </span>

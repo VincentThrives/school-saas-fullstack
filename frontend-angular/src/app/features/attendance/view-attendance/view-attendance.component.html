@@ -117,10 +117,22 @@
           </div>
           <!-- Absentee list — surfaces who's missing without needing to
                drill into the per-class detail. Sorted by roll number on
-               the backend so the order is stable across reloads. -->
+               the backend so the order is stable across reloads. Folds
+               behind a toggle when the count exceeds the threshold so a
+               section with 15 absentees doesn't blow out the card. -->
           <div class="card-absentees" *ngIf="row.absentees && row.absentees.length > 0">
-            <div class="absentees-label">Absent</div>
-            <div class="absentees-list">
+            <div class="absentees-label">
+              <span>Absent ({{ row.absentees.length }})</span>
+              <button type="button" class="absentees-toggle"
+                      *ngIf="shouldCollapseAbsentees(row)"
+                      (click)="toggleAbsenteeList(row, $event)"
+                      [attr.aria-expanded]="isAbsenteeListExpanded(row)">
+                {{ isAbsenteeListExpanded(row) ? 'Hide' : 'Show' }}
+                <mat-icon>{{ isAbsenteeListExpanded(row) ? 'expand_less' : 'expand_more' }}</mat-icon>
+              </button>
+            </div>
+            <div class="absentees-list"
+                 *ngIf="!shouldCollapseAbsentees(row) || isAbsenteeListExpanded(row)">
               <span class="absentee-chip" *ngFor="let a of row.absentees">
                 {{ absenteeLabel(a) }}
               </span>
