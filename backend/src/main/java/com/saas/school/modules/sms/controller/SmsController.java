@@ -57,6 +57,7 @@ public class SmsController {
     @Autowired private SmsService smsService;
     @Autowired private SmsAuditLogRepository auditRepo;
     @Autowired private MongoTemplate mongoTemplate;
+    @Autowired private com.saas.school.modules.student.repository.StudentRepository studentRepository;
     /** Reaches into the notification module to fan result SMS out across
      *  multiple sections. ResultPublicationService owns the exam/mark
      *  load-and-summarise pipeline; the controller stays thin. */
@@ -135,8 +136,34 @@ public class SmsController {
         query.skip((long) page * size).limit(size);
         List<SmsAuditLog> result = mongoTemplate.find(query, SmsAuditLog.class);
 
+        // Resolve student names for any AttendanceRecord rows on this page
+        // so the audit table can show "Pallavi Kamath" alongside the parent
+        // phone instead of just an opaque +91••••• number. One batched
+        // findByStudentIdInAndDeletedAtIsNull keeps it O(1) per row.
+        java.util.Set<String> studentIds = new java.util.HashSet<>();
+        for (SmsAuditLog l : result) {
+            if ("AttendanceRecord".equals(l.getRelatedEntityType())
+                    && l.getRelatedEntityId() != null) {
+                studentIds.add(l.getRelatedEntityId());
+            }
+        }
+        java.util.Map<String, String> studentNamesById = new java.util.HashMap<>();
+        if (!studentIds.isEmpty()) {
+            var students = studentRepository.findByStudentIdInAndDeletedAtIsNull(
+                    new java.util.ArrayList<>(studentIds));
+            if (students != null) {
+                for (var s : students) {
+                    String first = s.getFirstName() == null ? "" : s.getFirstName();
+                    String last = s.getLastName() == null ? "" : s.getLastName();
+                    String full = (first + " " + last).trim();
+                    if (full.isEmpty()) full = s.getStudentId();
+                    studentNamesById.put(s.getStudentId(), full);
+                }
+            }
+        }
+
         List<SmsAuditLogDto> dtos = result.stream()
-                .map(l -> SmsAuditLogDto.from(l, true))   // mask phones for tenant view
+                .map(l -> SmsAuditLogDto.from(l, true, studentNamesById))   // mask phones for tenant view
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(
                 PageResponse.of(dtos, total, page, size)));

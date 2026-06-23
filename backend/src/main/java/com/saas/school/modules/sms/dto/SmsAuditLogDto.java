@@ -26,6 +26,15 @@ public class SmsAuditLogDto {
     /** DLT template id used. Surfaces in the audit table for diagnosing
      *  template-mismatch rejections from MSG91. */
     private String templateId;
+    /** Stored verbatim from SmsAuditLog so the frontend can decide what
+     *  the {@link #relatedStudentName} hint means in context — today only
+     *  "AttendanceRecord" rows resolve to a student name. */
+    private String relatedEntityType;
+    /** Display name of the student this SMS was about, when resolvable.
+     *  Populated for ABSENCE_ALERT rows (relatedEntityType="AttendanceRecord")
+     *  by looking up relatedEntityId in the Students collection. Null for
+     *  other triggers, soft-deleted students, or anything we can't resolve. */
+    private String relatedStudentName;
     private Instant createdAt;
     private Instant sentAt;
     private Instant deliveredAt;
@@ -33,6 +42,16 @@ public class SmsAuditLogDto {
     public SmsAuditLogDto() {}
 
     public static SmsAuditLogDto from(SmsAuditLog log, boolean maskPhone) {
+        return from(log, maskPhone, java.util.Collections.emptyMap());
+    }
+
+    /**
+     * Build a DTO with an optional student-name lookup map. Callers that
+     * page over audit rows fetch all referenced studentIds in one query
+     * and pass the resolved map here — each row becomes O(1).
+     */
+    public static SmsAuditLogDto from(SmsAuditLog log, boolean maskPhone,
+                                      java.util.Map<String, String> studentNamesById) {
         SmsAuditLogDto dto = new SmsAuditLogDto();
         dto.id = log.getId();
         dto.tenantId = log.getTenantId();
@@ -45,6 +64,16 @@ public class SmsAuditLogDto {
         dto.costInr = log.getCostInr();
         dto.senderId = log.getSenderId();
         dto.templateId = log.getTemplateId();
+        dto.relatedEntityType = log.getRelatedEntityType();
+        // Only resolve when the row's relatedEntity points at a student.
+        // Other triggers store different entity types here (Event id, etc.)
+        // and the map lookup would silently miss anyway, but the explicit
+        // check keeps intent clear and avoids leaking unrelated names later.
+        if ("AttendanceRecord".equals(log.getRelatedEntityType())
+                && log.getRelatedEntityId() != null
+                && studentNamesById != null) {
+            dto.relatedStudentName = studentNamesById.get(log.getRelatedEntityId());
+        }
         dto.createdAt = log.getCreatedAt();
         dto.sentAt = log.getSentAt();
         dto.deliveredAt = log.getDeliveredAt();
@@ -73,6 +102,8 @@ public class SmsAuditLogDto {
     public double getCostInr() { return costInr; }
     public String getSenderId() { return senderId; }
     public String getTemplateId() { return templateId; }
+    public String getRelatedEntityType() { return relatedEntityType; }
+    public String getRelatedStudentName() { return relatedStudentName; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getSentAt() { return sentAt; }
     public Instant getDeliveredAt() { return deliveredAt; }

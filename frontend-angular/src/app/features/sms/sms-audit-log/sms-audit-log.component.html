@@ -97,6 +97,14 @@
         <ng-container matColumnDef="recipient">
           <th mat-header-cell *matHeaderCellDef>Recipient</th>
           <td mat-cell *matCellDef="let row">
+            <!-- Student name when the SMS was sent about a specific
+                 student (today: absence alerts only). Lets admins
+                 verify the row by the student's name without decoding
+                 the masked parent phone. -->
+            <div class="cell-student" *ngIf="row.relatedStudentName">
+              <mat-icon class="cell-student-icon">person</mat-icon>
+              {{ row.relatedStudentName }}
+            </div>
             <div class="cell-phone">{{ row.recipientPhone || '—' }}</div>
             <div class="cell-role muted" *ngIf="row.recipientRole">{{ row.recipientRole }}</div>
           </td>

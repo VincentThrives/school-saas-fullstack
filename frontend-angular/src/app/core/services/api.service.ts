@@ -405,6 +405,12 @@ export interface SmsAuditLogDto {
   senderId?: string;
   /** DLT template id used. */
   templateId?: string;
+  /** Entity class the SMS related to (e.g. "AttendanceRecord", "Event"). */
+  relatedEntityType?: string;
+  /** Resolved student name when this row was sent for a specific
+   *  student (e.g. an absence alert). Null for triggers that aren't
+   *  tied to a student, or for students who've since been soft-deleted. */
+  relatedStudentName?: string;
   createdAt: string;
   sentAt?: string;
   deliveredAt?: string;
