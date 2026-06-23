@@ -75,6 +75,12 @@ export class SmsAuditLogComponent implements OnInit {
    *  what's on the current page. */
   availableClassLabels: string[] = [];
 
+  /** Monotonic token bumped on every load() call. Stale responses
+   *  (older seq) are dropped so a fast chip click followed by another
+   *  doesn't let the slower first response overwrite the second's
+   *  totalElements / rows — which surfaced as "10th-C shows 133". */
+  private loadSeq = 0;
+
   academicYears: AcademicYear[] = [];
 
   /** Trigger options shown in the dropdown. Keys match the SmsTriggerKey
@@ -159,6 +165,7 @@ export class SmsAuditLogComponent implements OnInit {
 
   load(): void {
     this.isLoading = true;
+    const seq = ++this.loadSeq;
     // Explicit date pickers win. When neither is set, fall back to the
     // academic year range so the table reflects "this year" by default.
     const explicitFrom = this.toIsoDate(this.dateFrom);
@@ -188,12 +195,17 @@ export class SmsAuditLogComponent implements OnInit {
 
     this.api.getMySmsAuditLogs(this.pageIndex, this.pageSize, filter).subscribe({
       next: (res) => {
+        // Stale response from a previous chip click — admin has already
+        // picked a newer filter. Drop it so totalElements doesn't
+        // flicker back to the wrong count.
+        if (seq !== this.loadSeq) return;
         const data = res?.data;
         this.rows = data?.content || [];
         this.totalElements = data?.totalElements ?? this.rows.length;
         this.isLoading = false;
       },
       error: () => {
+        if (seq !== this.loadSeq) return;
         this.isLoading = false;
         this.snackBar.open('Failed to load audit log', 'Close', { duration: 3000 });
       },
@@ -233,8 +245,15 @@ export class SmsAuditLogComponent implements OnInit {
   }
 
   /** Reset to page 0 + reload when the admin picks a different class
-   *  chip — same shape as other filter changes. */
-  onClassFilterChange(): void {
+   *  chip. Reads the new value directly from the chip-listbox change
+   *  event because the (change) emit can fire BEFORE ngModel writes
+   *  the new value back to {@link classFilter} — without this guard,
+   *  picking 10th-C sometimes loaded with the previous filter's
+   *  totalElements ("10th-C shows 133" symptom). */
+  onClassFilterChange(event?: { value: any }): void {
+    if (event && event.value !== undefined && event.value !== null) {
+      this.classFilter = event.value;
+    }
     this.pageIndex = 0;
     if (this.paginator) this.paginator.firstPage();
     this.load();

@@ -86,7 +86,7 @@
     <div class="class-chip-row" *ngIf="availableClassLabels.length > 1">
       <mat-chip-listbox
           [(ngModel)]="classFilter"
-          (change)="onClassFilterChange()"
+          (change)="onClassFilterChange($event)"
           aria-label="Filter by class">
         <mat-chip-option value="ALL" selected>All</mat-chip-option>
         <mat-chip-option *ngFor="let label of availableClassLabels" [value]="label">
