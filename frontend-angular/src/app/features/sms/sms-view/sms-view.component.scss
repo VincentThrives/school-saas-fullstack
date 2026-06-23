@@ -157,6 +157,19 @@ $gold-light: #E8C97A;
   .sv-summary-sep { color: #d1d5db; }
   .sv-summary-warn strong { color: #d97706; }
 }
+
+// Class chip filter row above the absentee table. Lets admins scope the
+// review to one class+section so 36-section schools don't have to scroll
+// the whole list. Only rendered when 2+ distinct class labels are
+// present in the loaded set.
+.sv-absent-classfilter {
+  margin: 0 0 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .sv-absent-table-wrap {
   overflow-x: auto;
   border: 1px solid #e5e7eb;

@@ -146,10 +146,16 @@ export class SmsViewComponent implements OnInit {
   // ── Today's absent students (manual SMS) ─────────────────
   /** Loaded picker rows. Null = not loaded yet, [] = loaded but empty. */
   absentToday: AbsentTodayDto[] | null = null;
-  /** Ticked studentIds — defaults to all unsent-with-phone rows after load. */
+  /** Ticked studentIds — defaults to all unsent-with-phone rows after load.
+   *  Survives class-filter changes so an admin can tick across classes
+   *  before sending one batch SMS. */
   selectedAbsentIds = new Set<string>();
   isLoadingAbsent = false;
   isSendingAbsent = false;
+  /** Class chip filter for the absentee table. 'ALL' shows every loaded
+   *  row; otherwise rows whose {@link AbsentTodayDto.classLabel} matches
+   *  the picked value. Pure UI state — no backend round-trip. */
+  selectedAbsentClassFilter: string = 'ALL';
 
   // ── Custom-notice broadcast form ─────────────────────────
   /** Audiences the message will fan out to. Multi-select via checkboxes —
@@ -343,6 +349,26 @@ export class SmsViewComponent implements OnInit {
     });
   }
 
+  /** Distinct class labels in the loaded absentee set, sorted naturally
+   *  (numeric-aware) so "1-A" comes before "10-A" and LKG/UKG bubble up.
+   *  Drives the chip filter row above the table. */
+  absentClassLabels(): string[] {
+    if (!this.absentToday) return [];
+    const set = new Set<string>();
+    for (const r of this.absentToday) {
+      if (r.classLabel) set.add(r.classLabel);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }
+
+  /** Visible rows after the class chip filter. Drives the table render
+   *  and every "select all / summary / send" helper below. */
+  filteredAbsentToday(): AbsentTodayDto[] {
+    if (!this.absentToday) return [];
+    if (this.selectedAbsentClassFilter === 'ALL') return this.absentToday;
+    return this.absentToday.filter(r => r.classLabel === this.selectedAbsentClassFilter);
+  }
+
   isAbsentSelected(studentId: string): boolean {
     return this.selectedAbsentIds.has(studentId);
   }
@@ -353,29 +379,38 @@ export class SmsViewComponent implements OnInit {
   }
 
   /** Header "Select all" checkbox state — true only when every sendable
-   *  row is currently selected. Indeterminate states (some selected) are
-   *  shown as unchecked here; we keep the API simple. */
+   *  row in the CURRENT FILTER is selected. With "All" picked this is the
+   *  whole loaded set; with a class chip active it's just that class's
+   *  sendable rows. Indeterminate states (some selected) are shown as
+   *  unchecked here; we keep the API simple. */
   allAbsentSelected(): boolean {
-    if (!this.absentToday || this.absentToday.length === 0) return false;
-    const sendable = this.absentToday.filter(r => r.hasValidPhone && !r.alreadySent);
+    const rows = this.filteredAbsentToday();
+    if (rows.length === 0) return false;
+    const sendable = rows.filter(r => r.hasValidPhone && !r.alreadySent);
     if (sendable.length === 0) return false;
     return sendable.every(r => this.selectedAbsentIds.has(r.studentId));
   }
 
+  /** Tick / untick every sendable row in the current filter. Untouched
+   *  rows outside the filter keep their ticked state — admin can chip-hop
+   *  across classes and accumulate a multi-class selection. */
   toggleAllAbsent(checked: boolean): void {
-    if (!this.absentToday) return;
+    const rows = this.filteredAbsentToday();
     if (checked) {
-      for (const r of this.absentToday) {
+      for (const r of rows) {
         if (r.hasValidPhone && !r.alreadySent) this.selectedAbsentIds.add(r.studentId);
       }
     } else {
-      this.selectedAbsentIds.clear();
+      for (const r of rows) this.selectedAbsentIds.delete(r.studentId);
     }
   }
 
-  /** Count summary shown above the list. */
+  /** Count summary shown above the list. Numbers reflect the current
+   *  filter — so an admin scoping to 10-C sees "5 absent · 5 to notify"
+   *  instead of the school-wide total that makes scope-bound batches
+   *  confusing. */
   absentSummary(): { total: number; toSend: number; alreadySent: number; noPhone: number } {
-    const rows = this.absentToday ?? [];
+    const rows = this.filteredAbsentToday();
     return {
       total: rows.length,
       toSend: rows.filter(r => r.hasValidPhone && !r.alreadySent).length,

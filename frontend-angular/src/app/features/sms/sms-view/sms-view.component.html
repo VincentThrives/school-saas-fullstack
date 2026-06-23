@@ -137,6 +137,19 @@
         </button>
       </div>
 
+      <!-- Class chip filter — narrows the table to one class+section so
+           admin can review and send section-by-section. Selected ids
+           survive chip switches so a multi-class batch is possible. -->
+      <div class="sv-absent-classfilter"
+           *ngIf="absentToday.length > 0 && absentClassLabels().length > 1">
+        <mat-chip-listbox [(ngModel)]="selectedAbsentClassFilter" aria-label="Filter by class">
+          <mat-chip-option value="ALL" selected>All</mat-chip-option>
+          <mat-chip-option *ngFor="let label of absentClassLabels()" [value]="label">
+            {{ label }}
+          </mat-chip-option>
+        </mat-chip-listbox>
+      </div>
+
       <!-- The picker table -->
       <div class="sv-absent-table-wrap" *ngIf="absentToday.length > 0">
         <table class="sv-absent-table">
@@ -157,7 +170,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of absentToday"
+            <tr *ngFor="let row of filteredAbsentToday()"
                 [class.sv-row--disabled]="!row.hasValidPhone || row.alreadySent">
               <td>
                 <mat-checkbox
