@@ -703,6 +703,14 @@ export class ApiService {
     return this.http.get<ApiResponse<any[]>>(`${this.API}/attendance/batch/class/${classId}`, { params });
   }
 
+  /** Roll-up of day-wise attendance status for every (class, section)
+   *  the school operates in the given academic year on the given date.
+   *  Powers the View Attendance hub — one card per row. */
+  getAttendanceDayStatus(academicYearId: string, date: string): Observable<ApiResponse<any[]>> {
+    const params = new HttpParams().set('academicYearId', academicYearId).set('date', date);
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/attendance/day-status`, { params });
+  }
+
   getClassAttendance(classId: string, sectionId: string, date: string): Observable<ApiResponse<any>> {
     const params = new HttpParams().set('sectionId', sectionId).set('date', date);
     return this.http.get<ApiResponse<any>>(`${this.API}/attendance/class/${classId}`, { params });

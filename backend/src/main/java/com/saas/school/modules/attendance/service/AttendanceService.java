@@ -374,6 +374,100 @@ public class AttendanceService {
         return batchRepository.findByClassIdAndSectionIdAndDate(classId, sectionId, date);
     }
 
+    /**
+     * Roll up day-wise attendance status for every (class, section) the
+     * school operates in the given academic year. One row per pair,
+     * indicating whether attendance has been marked for {@code date} and,
+     * when marked, the present / absent / other counts so the View
+     * Attendance dashboard can render an at-a-glance card. Combines two
+     * batched fetches (all classes in the year, all day-wise attendance
+     * rows on the date) instead of N round-trips per pair — paid Render
+     * tier can handle the load but it's still cheaper this way.
+     *
+     * <p>Sort order matches the rest of the app's class display: lowest
+     * class first (LKG, UKG, 1st, ...). Sections within a class follow
+     * their natural order on the SchoolClass document.</p>
+     */
+    public List<com.saas.school.modules.attendance.dto.DayAttendanceStatus> getDayStatus(
+            String academicYearId, LocalDate date) {
+        var out = new ArrayList<com.saas.school.modules.attendance.dto.DayAttendanceStatus>();
+        if (academicYearId == null || academicYearId.isBlank() || date == null) return out;
+
+        var classes = schoolClassRepository.findByAcademicYearId(academicYearId);
+        if (classes == null || classes.isEmpty()) return out;
+
+        // Pre-fetch every day-wise attendance row for this date in one query
+        // and index by (classId, sectionId) so the card loop is O(1) lookup.
+        // periodNumber=0 marks day-wise rows in the StudentsAttendance schema.
+        var dayRows = batchRepository.findByDate(date);
+        Map<String, StudentsAttendance> attendanceByPair = new HashMap<>();
+        if (dayRows != null) {
+            for (StudentsAttendance r : dayRows) {
+                if (r == null || r.getPeriodNumber() != 0) continue;
+                if (r.getClassId() == null || r.getSectionId() == null) continue;
+                attendanceByPair.put(r.getClassId() + "::" + r.getSectionId(), r);
+            }
+        }
+
+        // Same sort key the frontend uses elsewhere — numeric-aware so "10"
+        // comes after "2" and LKG/UKG bubble up. We rely on the repo's order
+        // for now and only sort if names look mixed.
+        classes.sort((a, b) -> classNameSortKey(a.getName()).compareTo(classNameSortKey(b.getName())));
+
+        for (var cls : classes) {
+            if (cls.getSections() == null) continue;
+            for (var sec : cls.getSections()) {
+                var dto = new com.saas.school.modules.attendance.dto.DayAttendanceStatus();
+                dto.setClassId(cls.getClassId());
+                dto.setClassName(cls.getName());
+                dto.setSectionId(sec.getSectionId());
+                dto.setSectionName(sec.getName());
+                dto.setStudentCount((int) studentRepository
+                        .countByClassIdAndSectionIdAndDeletedAtIsNull(cls.getClassId(), sec.getSectionId()));
+
+                StudentsAttendance rec = attendanceByPair.get(cls.getClassId() + "::" + sec.getSectionId());
+                if (rec != null && rec.getEntries() != null && !rec.getEntries().isEmpty()) {
+                    dto.setStatus(com.saas.school.modules.attendance.dto.DayAttendanceStatus.STATUS_MARKED);
+                    dto.setMarkedAt(rec.getUpdatedAt() != null ? rec.getUpdatedAt() : rec.getCreatedAt());
+                    int p = 0, a = 0, other = 0;
+                    for (var e : rec.getEntries()) {
+                        String s = e.getStatus();
+                        if ("PRESENT".equals(s)) p++;
+                        else if ("ABSENT".equals(s)) a++;
+                        else if ("LATE".equals(s) || "HALF_DAY".equals(s)) other++;
+                    }
+                    dto.setPresentCount(p);
+                    dto.setAbsentCount(a);
+                    dto.setOtherCount(other);
+                } else {
+                    dto.setStatus(com.saas.school.modules.attendance.dto.DayAttendanceStatus.STATUS_NOT_MARKED);
+                }
+                out.add(dto);
+            }
+        }
+        return out;
+    }
+
+    /** Build a comparable key from a class name so "LKG", "UKG", "1st", "2nd"…
+     *  "10th" sort in a humane order. LKG / UKG come first; the rest sort by
+     *  the leading number with non-numeric strings falling back lexicographically. */
+    private String classNameSortKey(String name) {
+        if (name == null) return "zz";
+        String n = name.trim().toUpperCase();
+        if (n.startsWith("LKG")) return "00:" + n;
+        if (n.startsWith("UKG")) return "01:" + n;
+        // Pull leading digits.
+        int i = 0;
+        while (i < n.length() && Character.isDigit(n.charAt(i))) i++;
+        if (i > 0) {
+            try {
+                int num = Integer.parseInt(n.substring(0, i));
+                return String.format("%03d:%s", 10 + num, n);
+            } catch (NumberFormatException ignored) {}
+        }
+        return "999:" + n;
+    }
+
     public List<StudentsAttendance> getBatchAttendanceRange(
             String classId, String sectionId, LocalDate from, LocalDate to) {
         // Inclusive on both ends — see repository note. "May 1 to May 5"

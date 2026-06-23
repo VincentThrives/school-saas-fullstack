@@ -178,10 +178,15 @@ export const routes: Routes = [
       },
 
       // ── Attendance (feature-gated) ───────────────────────
+      // /attendance lands on the View Attendance hub — at-a-glance grid
+      // showing every (class, section) the school operates and whether
+      // its day-wise roll-call is marked yet. Cards drill into
+      // /attendance/mark with classId, sectionId and date prefilled
+      // so admins skip the dropdown trio for daily marking.
       {
         path: 'attendance',
         loadComponent: () =>
-          import('./features/attendance/mark-attendance/mark-attendance.component').then(m => m.MarkAttendanceComponent),
+          import('./features/attendance/view-attendance/view-attendance.component').then(m => m.ViewAttendanceComponent),
         canActivate: [featureGuard],
         data: { feature: 'attendance' },
       },

@@ -61,6 +61,23 @@ public class AttendanceController {
             attendanceService.getTimetablePeriodsForDate(classId, sectionId, ayId, date)));
     }
 
+    /**
+     * Roll-up view of day-wise attendance for every (class, section) the
+     * school operates in the academic year — powers the View Attendance
+     * dashboard the admin lands on from the side nav. One row per pair;
+     * status is either MARKED (with present/absent/other counts) or
+     * NOT_MARKED so the dashboard can split into "Yet to mark" /
+     * "Marked" tabs without further calls.
+     */
+    @GetMapping("/day-status")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
+    public ResponseEntity<ApiResponse<List<DayAttendanceStatus>>> dayStatus(
+            @RequestParam String academicYearId,
+            @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(ApiResponse.success(
+            attendanceService.getDayStatus(academicYearId, date)));
+    }
+
     @GetMapping("/batch/class/{classId}")
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
     public ResponseEntity<ApiResponse<List<StudentsAttendance>>> batchClassAttendance(

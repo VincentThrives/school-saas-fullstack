@@ -1,0 +1,135 @@
+<div class="view-attendance">
+  <app-page-header
+    title="Mark Attendance"
+    [subtitle]="'Pick a class to mark today\'s roll-call'"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Attendance' }
+    ]"
+  ></app-page-header>
+
+  <!-- Header controls — AY + date drive the whole grid. -->
+  <mat-card class="filter-card">
+    <mat-card-content class="filter-row">
+      <mat-form-field appearance="outline" class="filter-item">
+        <mat-label>Academic Year</mat-label>
+        <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onAcademicYearChange()">
+          <mat-option *ngFor="let y of academicYears" [value]="y.academicYearId">
+            {{ y.label }}<span *ngIf="y.current"> (Current)</span>
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-item">
+        <mat-label>Date</mat-label>
+        <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [max]="today" (dateChange)="onDateChange()">
+        <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+        <mat-datepicker #picker></mat-datepicker>
+      </mat-form-field>
+
+      <button mat-stroked-button type="button" class="reload-btn" (click)="reload()" [disabled]="isLoading">
+        <mat-icon>refresh</mat-icon>
+        Reload
+      </button>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Class filter chips so 30+ section schools can drill into a grade quickly. -->
+  <div class="class-filter" *ngIf="classNameOptions.length > 1">
+    <mat-chip-listbox [(ngModel)]="classFilter" aria-label="Filter by class">
+      <mat-chip-option value="ALL" selected>All</mat-chip-option>
+      <mat-chip-option *ngFor="let name of classNameOptions" [value]="name">
+        {{ name }}
+      </mat-chip-option>
+    </mat-chip-listbox>
+  </div>
+
+  <!-- Tabs — Yet to mark first so the admin lands on what's outstanding. -->
+  <mat-tab-group [(selectedIndex)]="activeTab"
+                 (selectedIndexChange)="activeTab = $event === 1 ? 'DONE' : 'TODO'"
+                 class="view-tabs">
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">pending_actions</mat-icon>
+        Yet to mark
+        <span class="tab-count">{{ todoRows.length }}</span>
+      </ng-template>
+
+      <div class="grid" *ngIf="todoRows.length > 0">
+        <button type="button"
+                *ngFor="let row of todoRows"
+                class="status-card status-card--todo"
+                (click)="openMarkAttendance(row)">
+          <div class="card-head">
+            <span class="card-class">{{ row.className }} — {{ row.sectionName }}</span>
+            <mat-icon class="card-arrow">chevron_right</mat-icon>
+          </div>
+          <div class="card-meta">
+            <span class="meta-item">
+              <mat-icon>group</mat-icon>
+              {{ row.studentCount }} student{{ row.studentCount === 1 ? '' : 's' }}
+            </span>
+          </div>
+          <div class="card-cta">Mark attendance</div>
+        </button>
+      </div>
+
+      <div class="empty-state" *ngIf="!isLoading && todoRows.length === 0">
+        <mat-icon>check_circle</mat-icon>
+        <p *ngIf="rows.length > 0">All classes marked for this day. Switch to <strong>Marked</strong> to review.</p>
+        <p *ngIf="rows.length === 0">No classes configured for this academic year.</p>
+      </div>
+    </mat-tab>
+
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">check_circle</mat-icon>
+        Marked
+        <span class="tab-count">{{ doneRows.length }}</span>
+      </ng-template>
+
+      <div class="grid" *ngIf="doneRows.length > 0">
+        <button type="button"
+                *ngFor="let row of doneRows"
+                class="status-card status-card--done"
+                (click)="openMarkAttendance(row)">
+          <div class="card-head">
+            <span class="card-class">{{ row.className }} — {{ row.sectionName }}</span>
+            <mat-icon class="card-check">check_circle</mat-icon>
+          </div>
+          <div class="card-meta">
+            <span class="meta-item">
+              <mat-icon>group</mat-icon>
+              {{ row.studentCount }}
+            </span>
+            <span class="meta-item meta-item--present" matTooltip="Present">
+              <mat-icon>person</mat-icon>
+              {{ row.presentCount }}
+            </span>
+            <span class="meta-item meta-item--absent" matTooltip="Absent">
+              <mat-icon>person_off</mat-icon>
+              {{ row.absentCount }}
+            </span>
+            <span class="meta-item meta-item--other" *ngIf="row.otherCount > 0" matTooltip="Late / Half-day">
+              <mat-icon>schedule</mat-icon>
+              {{ row.otherCount }}
+            </span>
+          </div>
+          <div class="card-foot" *ngIf="row.markedAt">
+            Marked at {{ formatMarkedTime(row.markedAt) }}
+          </div>
+          <div class="card-cta card-cta--edit">Edit</div>
+        </button>
+      </div>
+
+      <div class="empty-state" *ngIf="!isLoading && doneRows.length === 0">
+        <mat-icon>radio_button_unchecked</mat-icon>
+        <p>Nothing marked yet for this day. Switch to <strong>Yet to mark</strong> to begin.</p>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="32"></mat-spinner>
+  </div>
+</div>

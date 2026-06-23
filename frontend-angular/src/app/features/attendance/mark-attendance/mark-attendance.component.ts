@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
@@ -160,12 +160,24 @@ export class MarkAttendanceComponent implements OnInit {
     // { value: 'HALF_DAY', label: 'Half Day', icon: 'hourglass_bottom', color: '#2196f3' },
   ];
 
+  /**
+   * Prefill values lifted from the route query string when the admin
+   * arrives from the View Attendance hub. Consumed step-by-step as the
+   * async loaders (academic years → classes → sections) resolve so the
+   * dropdowns end up matching the picked card without manual clicks.
+   * Null when the page was opened directly via the side-nav-deprecated
+   * /attendance/mark URL with no prefill (legacy entry).
+   */
+  private prefill: { classId: string; sectionId: string; date: string } | null = null;
+
   constructor(
     private api: ApiService,
     private auth: AuthService,
     private snackBar: MatSnackBar,
     public features: TenantFeatureService,
     private location: Location,
+    private route: ActivatedRoute,
+    private router: Router,
   ) {}
 
   /**
@@ -188,6 +200,24 @@ export class MarkAttendanceComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Stash any prefill from the View Attendance hub. Empty / missing
+    // params → no prefill, and the page renders its legacy dropdown
+    // flow exactly as before.
+    const qp = this.route.snapshot.queryParamMap;
+    const qClass = qp.get('classId') || '';
+    const qSection = qp.get('sectionId') || '';
+    const qDate = qp.get('date') || '';
+    if (qClass && qSection) {
+      this.prefill = { classId: qClass, sectionId: qSection, date: qDate };
+      if (qDate) {
+        // Parse YYYY-MM-DD into a local Date so the picker matches the
+        // hub's selected date without timezone drift.
+        const parts = qDate.split('-').map(n => parseInt(n, 10));
+        if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+          this.selectedDate = new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+      }
+    }
     this.isTeacherMode = this.auth.currentRole === UserRole.TEACHER;
     if (this.isTeacherMode) {
       // Pull this teacher's assignments and keep only the CLASS_TEACHER
@@ -285,6 +315,34 @@ export class MarkAttendanceComponent implements OnInit {
     this.maybeAutoLoadStudents();
   }
 
+  /** Apply the hub's prefill once the dropdowns have data to bind against.
+   *  Called from loadClasses' next handler so the chain is: classes load →
+   *  selectedClassId set → onClassChange populates sections → selectedSectionId
+   *  set → onSectionChange triggers the auto-load. Idempotent — only consumes
+   *  the prefill once. */
+  private applyPrefillIfReady(): void {
+    if (!this.prefill) return;
+    const wantClass = this.prefill.classId;
+    const wantSection = this.prefill.sectionId;
+    // Don't run if the picked class doesn't exist for this AY (admin
+    // landed via stale link). The hub will show fresh state next time.
+    if (!this.classes.some(c => c.classId === wantClass)) {
+      this.prefill = null;
+      return;
+    }
+    this.selectedClassId = wantClass;
+    this.onClassChange();
+    // onClassChange wipes selectedSectionId — re-apply on the next tick
+    // so the dropdown registers the change handler before we set the value.
+    setTimeout(() => {
+      if (this.sections.some(s => s.sectionId === wantSection)) {
+        this.selectedSectionId = wantSection;
+        this.onSectionChange();
+      }
+      this.prefill = null;
+    }, 0);
+  }
+
   loadClasses(): void {
     this.api.getClasses(this.selectedAcademicYearId).subscribe({
       next: (res) => {
@@ -301,6 +359,8 @@ export class MarkAttendanceComponent implements OnInit {
             .filter(c => (c.sections || []).length > 0);
         }
         this.classes = raw;
+        // Consume any pending hub prefill now that classes have shape.
+        this.applyPrefillIfReady();
       },
     });
   }
