@@ -1,9 +1,9 @@
 <app-page-header
-  title="Staff Access"
-  subtitle="Choose which sidenav modules the SCHOOL_STAFF role can see in this school.">
+  title="Coordinator Access"
+  subtitle="Choose which sidenav modules the School Coordinator role can see in this school.">
 </app-page-header>
 
-<div class="staff-access-page">
+<div class="coordinator-access-page">
   <div class="loading-row" *ngIf="isLoading">
     <mat-spinner diameter="32"></mat-spinner>
     <span>Loading current access…</span>
@@ -17,7 +17,7 @@
           <span>{{ enabledCount }} of {{ totalCount }} modules enabled</span>
         </div>
         <div class="summary-hint">
-          Staff users always see the Dashboard. Other roles (admin, principal,
+          Coordinators always see the Dashboard. Other roles (admin, principal,
           teacher, student, parent) are unaffected by this page.
         </div>
       </div>

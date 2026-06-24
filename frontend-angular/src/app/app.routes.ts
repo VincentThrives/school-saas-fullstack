@@ -60,7 +60,7 @@ export const routes: Routes = [
         data: { roles: [UserRole.SUPER_ADMIN] },
       },
 
-      // Users (SCHOOL_ADMIN only — adminOnly opts out of SCHOOL_STAFF elevation)
+      // Users (SCHOOL_ADMIN only — adminOnly opts out of SCHOOL_COORDINATOR elevation)
       {
         path: 'users',
         loadComponent: () =>
@@ -625,15 +625,16 @@ export const routes: Routes = [
         data: { roles: [UserRole.SCHOOL_ADMIN], title: 'Settings' },
       },
 
-      // Staff Access — tenant-level toggle page where school admin
-      // picks which sidenav modules the SCHOOL_STAFF role can see.
-      // Admin/Principal only; staff itself can never reach this page.
+      // Coordinator Access — tenant-level toggle page where school
+      // admin picks which sidenav modules the SCHOOL_COORDINATOR
+      // role can see. Admin/Principal only; the coordinator itself
+      // can never reach this page.
       {
-        path: 'staff-access',
+        path: 'coordinator-access',
         loadComponent: () =>
-          import('./features/staff-access/staff-access.component').then(m => m.StaffAccessComponent),
+          import('./features/coordinator-access/coordinator-access.component').then(m => m.CoordinatorAccessComponent),
         canActivate: [roleGuard],
-        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL], adminOnly: true, title: 'Staff Access' },
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL], adminOnly: true, title: 'Coordinator Access' },
       },
 
       // ── Additional Placeholder Routes ──────────────────────

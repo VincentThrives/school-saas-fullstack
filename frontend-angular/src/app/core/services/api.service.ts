@@ -1707,19 +1707,19 @@ export class ApiService {
     return this.http.put<ApiResponse<string>>(`${this.API}/super/features/schools/${tenantId}/attendance-mode`, { mode });
   }
 
-  // ── Staff Access (SCHOOL_STAFF role gating) ─────────────────────────────
+  // ── Coordinator Access (SCHOOL_COORDINATOR role gating) ─────────────────
   /** Fetch the tenant's enabled-modules list + the catalog of all
-   *  toggleable modules. Drives the Staff Access admin page. */
-  getStaffAccess(): Observable<ApiResponse<{ enabledModules: string[]; catalog: string[] }>> {
+   *  toggleable modules. Drives the Coordinator Access admin page. */
+  getCoordinatorAccess(): Observable<ApiResponse<{ enabledModules: string[]; catalog: string[] }>> {
     return this.http.get<ApiResponse<{ enabledModules: string[]; catalog: string[] }>>(
-      `${this.API}/tenant/staff-access`);
+      `${this.API}/tenant/coordinator-access`);
   }
 
   /** Replace the tenant's enabled-modules list. Empty list = locked
    *  down; full catalog = no restrictions. */
-  updateStaffAccess(enabledModules: string[]): Observable<ApiResponse<string[]>> {
+  updateCoordinatorAccess(enabledModules: string[]): Observable<ApiResponse<string[]>> {
     return this.http.put<ApiResponse<string[]>>(
-      `${this.API}/tenant/staff-access`, { enabledModules });
+      `${this.API}/tenant/coordinator-access`, { enabledModules });
   }
 
   // ── Audit Logs ────────────────────────────────────────────────────────

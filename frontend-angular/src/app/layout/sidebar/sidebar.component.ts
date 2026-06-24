@@ -13,7 +13,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ApiService } from '../../core/services/api.service';
 import { TenantFeatureService } from '../../core/services/tenant-feature.service';
-import { UserRole, FeatureKey, StaffModuleKey, User, AcademicYear } from '../../core/models';
+import { UserRole, FeatureKey, CoordinatorModuleKey, User, AcademicYear } from '../../core/models';
 
 interface MenuItem {
   title: string;
@@ -23,18 +23,19 @@ interface MenuItem {
   roles?: UserRole[];
   feature?: FeatureKey;
   /**
-   * Maps this menu item to one of the tenant's toggleable Staff
-   * Access modules. When the logged-in user is a SCHOOL_STAFF, only
-   * items whose {@code staffModule} appears in the tenant's enabled
-   * list are shown. Items without a {@code staffModule} (e.g.
-   * Manage Users, Staff Access page, /users) are admin-only and
-   * hidden from staff regardless of the tenant config.
+   * Maps this menu item to one of the tenant's toggleable
+   * Coordinator Access modules. When the logged-in user is a
+   * SCHOOL_COORDINATOR, only items whose {@code coordinatorModule}
+   * appears in the tenant's enabled list are shown. Items without
+   * a {@code coordinatorModule} (e.g. Manage Users, Coordinator
+   * Access page, /users) are admin-only and hidden from
+   * coordinators regardless of the tenant config.
    *
    * <p>For SCHOOL_ADMIN/PRINCIPAL/TEACHER/STUDENT/PARENT this field
    * has no effect — they keep seeing whatever their existing role
    * and feature rules allow.</p>
    */
-  staffModule?: StaffModuleKey;
+  coordinatorModule?: CoordinatorModuleKey;
   /** When set, this item is rendered as an expandable group (accordion).
    *  Children themselves can be plain leaves; nested groups are not supported. */
   children?: MenuItem[];
@@ -70,11 +71,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
   user: User | null = null;
   attendanceMode = 'DAY_WISE';
 
-  /** Tenant's currently-enabled module keys for the SCHOOL_STAFF role.
-   *  Loaded on init when the logged-in user IS a SCHOOL_STAFF; ignored
-   *  for every other role. {@code null} = "no restrictions yet" → render
-   *  the full admin menu (safe default for freshly-promoted staff). */
-  private staffEnabledModules: Set<string> | null = null;
+  /** Tenant's currently-enabled module keys for the
+   *  SCHOOL_COORDINATOR role. Loaded on init when the logged-in user
+   *  IS a SCHOOL_COORDINATOR; ignored for every other role.
+   *  {@code null} = "no restrictions yet" → render the full admin
+   *  menu (safe default for freshly-promoted coordinators). */
+  private coordinatorEnabledModules: Set<string> | null = null;
 
   /** Current URL path without query/fragment. Updated on every NavigationEnd
    *  so {@link isItemActive} can pick the most-specific matching item. */
@@ -122,25 +124,26 @@ export class SidebarComponent implements OnInit, OnDestroy {
           },
         });
 
-      // SCHOOL_STAFF needs the tenant's enabled-modules list so the
-      // sidenav filter can hide locked-down items. Other roles ignore
-      // this — fetching only for staff keeps the central-DB read off
-      // the critical path for every admin/teacher/student login.
-      if (this.authService.currentRole === UserRole.SCHOOL_STAFF) {
-        this.apiService.getStaffAccess()
+      // SCHOOL_COORDINATOR needs the tenant's enabled-modules list
+      // so the sidenav filter can hide locked-down items. Other
+      // roles ignore this — fetching only for coordinators keeps
+      // the central-DB read off the critical path for every
+      // admin/teacher/student login.
+      if (this.authService.currentRole === UserRole.SCHOOL_COORDINATOR) {
+        this.apiService.getCoordinatorAccess()
           .pipe(takeUntil(this.destroy$))
           .subscribe({
             next: (res) => {
               const enabled = res?.data?.enabledModules || [];
-              this.staffEnabledModules = new Set<string>(enabled);
+              this.coordinatorEnabledModules = new Set<string>(enabled);
               this.buildMenu();
             },
             error: () => {
-              // Failure → fall back to "no restrictions" so a staff
-              // user isn't locked out of the entire app by a transient
-              // central-DB hiccup. The route-level guard (Phase 3)
+              // Failure → fall back to "no restrictions" so a
+              // coordinator isn't locked out of the entire app by a
+              // transient central-DB hiccup. The route-level guard
               // still enforces access at navigation time.
-              this.staffEnabledModules = null;
+              this.coordinatorEnabledModules = null;
             },
           });
       }
@@ -248,43 +251,44 @@ export class SidebarComponent implements OnInit, OnDestroy {
       { title: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
     ];
 
-    if (role === UserRole.SCHOOL_ADMIN || role === UserRole.PRINCIPAL || role === UserRole.SCHOOL_STAFF) {
+    if (role === UserRole.SCHOOL_ADMIN || role === UserRole.PRINCIPAL || role === UserRole.SCHOOL_COORDINATOR) {
       items.push(
         // ── Manage Users group ──
         {
           title: 'Manage Users', path: '', icon: 'manage_accounts',
           children: [
-            { title: 'Students', path: '/students', icon: 'school', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.SCHOOL_STAFF], staffModule: 'STUDENTS' },
+            { title: 'Students', path: '/students', icon: 'school', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.SCHOOL_COORDINATOR], coordinatorModule: 'STUDENTS' },
             { title: 'Bulk Promote', path: '/students/bulk-promote', icon: 'arrow_upward', roles: [UserRole.SCHOOL_ADMIN] },
             { title: 'Users', path: '/users', icon: 'people', roles: [UserRole.SCHOOL_ADMIN] },
-            { title: 'Employees', path: '/employees', icon: 'badge', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.SCHOOL_STAFF], staffModule: 'TEACHERS' },
-            // Staff Access config — admin/principal only. Lives under
-            // Manage Users since it's a permissions surface; staff can
-            // never see this page (no staffModule annotation).
-            { title: 'Staff Access', path: '/staff-access', icon: 'shield_person', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+            { title: 'Employees', path: '/employees', icon: 'badge', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.SCHOOL_COORDINATOR], coordinatorModule: 'TEACHERS' },
+            // Coordinator Access config — admin/principal only.
+            // Lives under Manage Users since it's a permissions
+            // surface; coordinators can never see this page (no
+            // coordinatorModule annotation).
+            { title: 'Coordinator Access', path: '/coordinator-access', icon: 'shield_person', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
           ],
         },
         // ── Configuration group ──
         {
           title: 'Configuration', path: '', icon: 'settings',
           children: [
-            { title: 'Academic Years', path: '/academic-years', icon: 'date_range', roles: [UserRole.SCHOOL_ADMIN, UserRole.SCHOOL_STAFF], staffModule: 'ACADEMIC_YEARS' },
-            { title: 'Subjects', path: '/subjects', icon: 'menu_book', roles: [UserRole.SCHOOL_ADMIN, UserRole.SCHOOL_STAFF], staffModule: 'SUBJECTS' },
-            { title: 'Classes', path: '/classes', icon: 'class', roles: [UserRole.SCHOOL_ADMIN, UserRole.SCHOOL_STAFF], staffModule: 'CLASSES' },
-            { title: 'Teacher Assignments', path: '/teacher-assignments', icon: 'assignment_ind', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.SCHOOL_STAFF], staffModule: 'TEACHERS' },
+            { title: 'Academic Years', path: '/academic-years', icon: 'date_range', roles: [UserRole.SCHOOL_ADMIN, UserRole.SCHOOL_COORDINATOR], coordinatorModule: 'ACADEMIC_YEARS' },
+            { title: 'Subjects', path: '/subjects', icon: 'menu_book', roles: [UserRole.SCHOOL_ADMIN, UserRole.SCHOOL_COORDINATOR], coordinatorModule: 'SUBJECTS' },
+            { title: 'Classes', path: '/classes', icon: 'class', roles: [UserRole.SCHOOL_ADMIN, UserRole.SCHOOL_COORDINATOR], coordinatorModule: 'CLASSES' },
+            { title: 'Teacher Assignments', path: '/teacher-assignments', icon: 'assignment_ind', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.SCHOOL_COORDINATOR], coordinatorModule: 'TEACHERS' },
           ],
         },
         // ── Attendance group ──
         {
           title: 'Attendance', path: '', icon: 'event_note',
           children: [
-            { title: 'Mark Attendance', path: '/attendance', icon: 'event_note', feature: 'attendance', staffModule: 'ATTENDANCE' },
-            { title: 'Subject Attendance', path: '/attendance/subject-wise', icon: 'menu_book', feature: 'attendance', staffModule: 'ATTENDANCE' },
-            { title: 'Attendance Report', path: '/attendance/report', icon: 'assessment', feature: 'attendance', staffModule: 'ATTENDANCE' },
-            { title: 'Subject Report', path: '/attendance/subject-report', icon: 'analytics', feature: 'attendance', staffModule: 'ATTENDANCE' },
+            { title: 'Mark Attendance', path: '/attendance', icon: 'event_note', feature: 'attendance', coordinatorModule: 'ATTENDANCE' },
+            { title: 'Subject Attendance', path: '/attendance/subject-wise', icon: 'menu_book', feature: 'attendance', coordinatorModule: 'ATTENDANCE' },
+            { title: 'Attendance Report', path: '/attendance/report', icon: 'assessment', feature: 'attendance', coordinatorModule: 'ATTENDANCE' },
+            { title: 'Subject Report', path: '/attendance/subject-report', icon: 'analytics', feature: 'attendance', coordinatorModule: 'ATTENDANCE' },
           ],
         },
-        { title: 'Timetable', path: '/timetable', icon: 'calendar_month', feature: 'timetable', staffModule: 'TIMETABLE' },
+        { title: 'Timetable', path: '/timetable', icon: 'calendar_month', feature: 'timetable', coordinatorModule: 'TIMETABLE' },
         // ── Exams group ──
         {
           title: 'Exams', path: '', icon: 'assignment',
@@ -294,8 +298,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
             // subjects and the backend fans out into many Exam docs in one
             // save. Lives next to the regular Exams list. Admin-only.
             { title: 'Exam Config', path: '/exams/config', icon: 'playlist_add_check', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN] },
-            { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams', staffModule: 'EXAMS' },
-            { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams', staffModule: 'EXAMS' },
+            { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams', coordinatorModule: 'EXAMS' },
+            { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams', coordinatorModule: 'EXAMS' },
             { title: 'Exam Types', path: '/exam-types', icon: 'category', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
             // { title: 'MCQ Exams', path: '/mcq', icon: 'quiz', feature: 'mcq' },
           ],
@@ -304,12 +308,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
         {
           title: 'Fees', path: '', icon: 'payment',
           children: [
-            { title: 'Fee Structure', path: '/fees', icon: 'payment', feature: 'fee', roles: [UserRole.SCHOOL_ADMIN, UserRole.SCHOOL_STAFF], staffModule: 'FEES' },
-            { title: 'Fee Payments', path: '/fees/payments', icon: 'receipt_long', feature: 'fee', roles: [UserRole.SCHOOL_ADMIN, UserRole.SCHOOL_STAFF], staffModule: 'FEES' },
+            { title: 'Fee Structure', path: '/fees', icon: 'payment', feature: 'fee', roles: [UserRole.SCHOOL_ADMIN, UserRole.SCHOOL_COORDINATOR], coordinatorModule: 'FEES' },
+            { title: 'Fee Payments', path: '/fees/payments', icon: 'receipt_long', feature: 'fee', roles: [UserRole.SCHOOL_ADMIN, UserRole.SCHOOL_COORDINATOR], coordinatorModule: 'FEES' },
           ],
         },
-        { title: 'Events', path: '/events', icon: 'event', feature: 'events', staffModule: 'EVENTS' },
-        { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications', staffModule: 'NOTIFICATIONS' },
+        { title: 'Events', path: '/events', icon: 'event', feature: 'events', coordinatorModule: 'EVENTS' },
+        { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications', coordinatorModule: 'NOTIFICATIONS' },
         // SMS — only visible when Super Admin has enabled SMS for this
         // tenant. TenantFeatureService.smsEnabled() is a signal that
         // re-evaluates on every change-detection pass, so the menu item
@@ -324,23 +328,23 @@ export class SidebarComponent implements OnInit, OnDestroy {
           {
             title: 'SMS', path: '', icon: 'sms',
             children: [
-              { title: 'SMS Notifications', path: '/settings/sms', icon: 'sms', staffModule: 'SMS' as StaffModuleKey },
-              { title: 'SMS Audit Log', path: '/settings/sms/audit-log', icon: 'history', staffModule: 'SMS' as StaffModuleKey },
+              { title: 'SMS Notifications', path: '/settings/sms', icon: 'sms', coordinatorModule: 'SMS' as CoordinatorModuleKey },
+              { title: 'SMS Audit Log', path: '/settings/sms/audit-log', icon: 'history', coordinatorModule: 'SMS' as CoordinatorModuleKey },
             ],
           } as MenuItem,
         ] : []),
         // { title: 'WhatsApp', path: '/whatsapp', icon: 'chat', feature: 'whatsapp' },
         // { title: 'ID Cards', path: '/id-cards', icon: 'badge', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
-        { title: 'Syllabus Tracker', path: '/syllabus', icon: 'menu_book', feature: 'syllabus', staffModule: 'SUBJECTS' },
+        { title: 'Syllabus Tracker', path: '/syllabus', icon: 'menu_book', feature: 'syllabus', coordinatorModule: 'SUBJECTS' },
         // { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
         // { title: 'Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
         // ── Results group ──
         {
           title: 'Results', path: '', icon: 'leaderboard',
           children: [
-            { title: 'Class Rankings', path: '/analytics/rankings', icon: 'leaderboard', feature: 'analytics', staffModule: 'EXAMS' },
+            { title: 'Class Rankings', path: '/analytics/rankings', icon: 'leaderboard', feature: 'analytics', coordinatorModule: 'EXAMS' },
             // { title: 'Reports', path: '/reports', icon: 'summarize', feature: 'analytics', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
-            { title: 'Report Cards', path: '/report-cards', icon: 'description', feature: 'report_cards', staffModule: 'REPORT_CARDS' },
+            { title: 'Report Cards', path: '/report-cards', icon: 'description', feature: 'report_cards', coordinatorModule: 'REPORT_CARDS' },
           ],
         },
         //   { title: 'PTM', path: '/ptm', icon: 'groups' },
@@ -426,18 +430,19 @@ export class SidebarComponent implements OnInit, OnDestroy {
     if (item.feature && !this.authService.isSuperAdmin && !this.authService.isFeatureEnabled(item.feature)) {
       return false;
     }
-    // SCHOOL_STAFF filter — leaf items without a staffModule are
-    // admin-only and hidden; items with one are visible only when
-    // the tenant has the module in its enabled list. Group headers
-    // (path === '') are unaffected — hasVisibleChildren handles them.
-    if (role === UserRole.SCHOOL_STAFF && item.path) {
-      if (!item.staffModule) return false;
-      // staffEnabledModules === null means "not loaded yet" or
-      // "load failed" → don't pre-hide everything (avoids the
+    // SCHOOL_COORDINATOR filter — leaf items without a
+    // coordinatorModule are admin-only and hidden; items with one
+    // are visible only when the tenant has the module in its
+    // enabled list. Group headers (path === '') are unaffected —
+    // hasVisibleChildren handles them.
+    if (role === UserRole.SCHOOL_COORDINATOR && item.path) {
+      if (!item.coordinatorModule) return false;
+      // coordinatorEnabledModules === null means "not loaded yet"
+      // or "load failed" → don't pre-hide everything (avoids the
       // sidenav flashing empty on slow networks). The route guard
       // is the real enforcement; this is just the UX surface.
-      if (this.staffEnabledModules !== null
-          && !this.staffEnabledModules.has(item.staffModule)) {
+      if (this.coordinatorEnabledModules !== null
+          && !this.coordinatorEnabledModules.has(item.coordinatorModule)) {
         return false;
       }
     }

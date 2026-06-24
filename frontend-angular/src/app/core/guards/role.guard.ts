@@ -8,23 +8,23 @@ import { UserRole } from '../models';
  * route and lets the navigation through when the logged-in user has
  * any of them.
  *
- * <p><b>SCHOOL_STAFF elevation.</b> By design (matches the user
+ * <p><b>SCHOOL_COORDINATOR elevation.</b> By design (matches the user
  * request — "same as school admin role all sidenavs but we can
- * enable or disable those from one page"), {@code SCHOOL_STAFF} is
- * treated the same as {@code SCHOOL_ADMIN} for route gating: if
- * SCHOOL_ADMIN is in the required list, staff are allowed too. This
- * keeps the staff role from needing its own copy of every
+ * enable or disable those from one page"), {@code SCHOOL_COORDINATOR}
+ * is treated the same as {@code SCHOOL_ADMIN} for route gating: if
+ * SCHOOL_ADMIN is in the required list, coordinators are allowed too.
+ * This keeps the coordinator role from needing its own copy of every
  * {@code data.roles} array across the route file.</p>
  *
  * <p>Routes that must remain admin-only (user management, the
- * Staff Access page itself, bulk-promote) opt out with
+ * Coordinator Access page itself, bulk-promote) opt out with
  * {@code data.adminOnly: true} — that flag overrides the elevation
  * and forces a real SCHOOL_ADMIN role check.</p>
  *
- * <p>The tenant-level module toggle (Staff Access page) is enforced
- * via sidenav filtering, not here — see
+ * <p>The tenant-level module toggle (Coordinator Access page) is
+ * enforced via sidenav filtering, not here — see
  * {@code SidebarComponent.isItemVisible}. That's intentional: the
- * Staff role is for trusted delegation inside a school, not a
+ * Coordinator role is for trusted delegation inside a school, not a
  * hostile-isolation boundary.</p>
  */
 export const roleGuard: CanActivateFn = (route) => {
@@ -42,10 +42,10 @@ export const roleGuard: CanActivateFn = (route) => {
     return true;
   }
 
-  // Staff elevation: treat SCHOOL_STAFF as SCHOOL_ADMIN unless the
-  // route is explicitly admin-only.
+  // Coordinator elevation: treat SCHOOL_COORDINATOR as SCHOOL_ADMIN
+  // unless the route is explicitly admin-only.
   if (!adminOnly
-      && authService.currentRole === UserRole.SCHOOL_STAFF
+      && authService.currentRole === UserRole.SCHOOL_COORDINATOR
       && requiredRoles.includes(UserRole.SCHOOL_ADMIN)) {
     return true;
   }

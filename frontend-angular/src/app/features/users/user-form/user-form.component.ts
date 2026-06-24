@@ -62,10 +62,11 @@ export class UserFormComponent implements OnInit {
     { value: UserRole.STUDENT, label: 'Student' },
     { value: UserRole.PARENT, label: 'Parent' },
     // Sees the same sidenav as School Admin minus the modules the
-    // admin disables on the Staff Access page (one-page tenant gate).
-    // Used for delegating attendance / SMS / exam marking to staff
-    // without giving them user-management or structural-setup access.
-    { value: UserRole.SCHOOL_STAFF, label: 'School Staff' },
+    // admin disables on the Coordinator Access page (one-page tenant
+    // gate). Used for delegating attendance / SMS / exam marking to a
+    // coordinator without giving user-management or structural-setup
+    // access.
+    { value: UserRole.SCHOOL_COORDINATOR, label: 'School Coordinator' },
   ];
 
   constructor(

@@ -34,18 +34,18 @@ public class Tenant {
     private TenantLimits limits;
     private String attendanceMode = "DAY_WISE";
     /**
-     * Sidenav modules visible to {@link com.saas.school.modules.user.model.UserRole#SCHOOL_STAFF}
-     * users in this tenant. Null = no restrictions configured yet → staff
-     * sees every module (safe default for freshly-created staff accounts).
-     * Populated when the school admin saves the Staff Access page; the
-     * empty list means "lock down — staff sees only the Dashboard".
+     * Sidenav modules visible to {@link com.saas.school.modules.user.model.UserRole#SCHOOL_COORDINATOR}
+     * users in this tenant. Null = no restrictions configured yet → coordinator
+     * sees every module (safe default for freshly-created coordinator accounts).
+     * Populated when the school admin saves the Coordinator Access page; the
+     * empty list means "lock down — coordinator sees only the Dashboard".
      *
-     * <p>Module keys come from {@code ModuleKey} (e.g. ATTENDANCE,
+     * <p>Module keys come from {@link CoordinatorModule} (e.g. ATTENDANCE,
      * EXAMS, SMS). Other roles (SCHOOL_ADMIN, PRINCIPAL, TEACHER,
      * STUDENT, PARENT) are unaffected by this field — they see what
      * their role's existing rules say.</p>
      */
-    private java.util.List<String> staffEnabledModules;
+    private java.util.List<String> coordinatorEnabledModules;
 
     @CreatedDate
     private Instant createdAt;
@@ -201,12 +201,12 @@ public class Tenant {
         this.attendanceMode = attendanceMode;
     }
 
-    public java.util.List<String> getStaffEnabledModules() {
-        return staffEnabledModules;
+    public java.util.List<String> getCoordinatorEnabledModules() {
+        return coordinatorEnabledModules;
     }
 
-    public void setStaffEnabledModules(java.util.List<String> staffEnabledModules) {
-        this.staffEnabledModules = staffEnabledModules;
+    public void setCoordinatorEnabledModules(java.util.List<String> coordinatorEnabledModules) {
+        this.coordinatorEnabledModules = coordinatorEnabledModules;
     }
 
     public Instant getCreatedAt() {

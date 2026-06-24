@@ -13,16 +13,17 @@ import { ApiService } from '../../core/services/api.service';
 
 /**
  * Tenant-level configuration page where the school admin decides
- * which sidenav modules the SCHOOL_STAFF role can see and use. Other
- * roles (SCHOOL_ADMIN, PRINCIPAL, TEACHER, STUDENT, PARENT) are
- * unaffected — they always see what their role's normal rules allow.
+ * which sidenav modules the SCHOOL_COORDINATOR role can see and use.
+ * Other roles (SCHOOL_ADMIN, PRINCIPAL, TEACHER, STUDENT, PARENT)
+ * are unaffected — they always see what their role's normal rules
+ * allow.
  *
  * <p>Default for a fresh tenant is full access (every module ticked).
- * Admin unticks specific modules to lock staff out; "Reset to full
- * access" puts everything back on with one click.</p>
+ * Admin unticks specific modules to lock the coordinator out;
+ * "Enable all" puts everything back on with one click.</p>
  */
 @Component({
-  selector: 'app-staff-access',
+  selector: 'app-coordinator-access',
   standalone: true,
   imports: [
     CommonModule,
@@ -36,10 +37,10 @@ import { ApiService } from '../../core/services/api.service';
     MatTooltipModule,
     PageHeaderComponent,
   ],
-  templateUrl: './staff-access.component.html',
-  styleUrl: './staff-access.component.scss',
+  templateUrl: './coordinator-access.component.html',
+  styleUrl: './coordinator-access.component.scss',
 })
-export class StaffAccessComponent implements OnInit {
+export class CoordinatorAccessComponent implements OnInit {
   /** Every module key the catalog offers (drives the row order). */
   catalog: string[] = [];
   /** Currently-enabled module keys — toggled by the checkboxes. */
@@ -58,7 +59,7 @@ export class StaffAccessComponent implements OnInit {
     FEES:           { title: 'Fees',             subtitle: 'Student fees, collection, dues' },
     REPORT_CARDS:   { title: 'Report Cards',     subtitle: 'Generate + view report cards' },
     EVENTS:         { title: 'Events',           subtitle: 'Calendar of school events + holidays' },
-    TIMETABLE:      { title: 'Timetable',        subtitle: 'View + edit class timetables. ⚠ structural — turn off unless staff needs to edit.' },
+    TIMETABLE:      { title: 'Timetable',        subtitle: 'View + edit class timetables. ⚠ structural — turn off unless the coordinator needs to edit.' },
     SUBJECTS:       { title: 'Subjects',         subtitle: 'Subject definitions + components. ⚠ structural.' },
     CLASSES:        { title: 'Classes',          subtitle: 'Class + section setup. ⚠ structural.' },
     ACADEMIC_YEARS: { title: 'Academic Years',   subtitle: 'Year setup + transitions. ⚠ structural.' },
@@ -77,7 +78,7 @@ export class StaffAccessComponent implements OnInit {
 
   load(): void {
     this.isLoading = true;
-    this.api.getStaffAccess().subscribe({
+    this.api.getCoordinatorAccess().subscribe({
       next: (res) => {
         const data = res?.data;
         this.catalog = data?.catalog || [];
@@ -86,7 +87,7 @@ export class StaffAccessComponent implements OnInit {
       },
       error: (err) => {
         this.isLoading = false;
-        this.snackBar.open(err?.error?.message || 'Failed to load staff access', 'Close', { duration: 4000 });
+        this.snackBar.open(err?.error?.message || 'Failed to load coordinator access', 'Close', { duration: 4000 });
       },
     });
   }
@@ -98,19 +99,19 @@ export class StaffAccessComponent implements OnInit {
     else this.enabled.delete(key);
   }
 
-  /** Tick every module — one-click "give staff the full sidenav". */
+  /** Tick every module — one-click "give the coordinator the full sidenav". */
   enableAll(): void { this.enabled = new Set<string>(this.catalog); }
 
-  /** Untick every module — lock staff down to just the Dashboard. */
+  /** Untick every module — lock the coordinator down to just the Dashboard. */
   disableAll(): void { this.enabled = new Set<string>(); }
 
   save(): void {
     this.isSaving = true;
     const payload = this.catalog.filter(k => this.enabled.has(k));
-    this.api.updateStaffAccess(payload).subscribe({
+    this.api.updateCoordinatorAccess(payload).subscribe({
       next: () => {
         this.isSaving = false;
-        this.snackBar.open('Staff access saved', 'Close', { duration: 2500 });
+        this.snackBar.open('Coordinator access saved', 'Close', { duration: 2500 });
       },
       error: (err) => {
         this.isSaving = false;
