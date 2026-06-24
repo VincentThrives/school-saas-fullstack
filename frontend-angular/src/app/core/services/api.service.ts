@@ -1707,6 +1707,21 @@ export class ApiService {
     return this.http.put<ApiResponse<string>>(`${this.API}/super/features/schools/${tenantId}/attendance-mode`, { mode });
   }
 
+  // ── Staff Access (SCHOOL_STAFF role gating) ─────────────────────────────
+  /** Fetch the tenant's enabled-modules list + the catalog of all
+   *  toggleable modules. Drives the Staff Access admin page. */
+  getStaffAccess(): Observable<ApiResponse<{ enabledModules: string[]; catalog: string[] }>> {
+    return this.http.get<ApiResponse<{ enabledModules: string[]; catalog: string[] }>>(
+      `${this.API}/tenant/staff-access`);
+  }
+
+  /** Replace the tenant's enabled-modules list. Empty list = locked
+   *  down; full catalog = no restrictions. */
+  updateStaffAccess(enabledModules: string[]): Observable<ApiResponse<string[]>> {
+    return this.http.put<ApiResponse<string[]>>(
+      `${this.API}/tenant/staff-access`, { enabledModules });
+  }
+
   // ── Audit Logs ────────────────────────────────────────────────────────
   getAuditLogs(page = 0, size = 20, filters?: { action?: string; entityType?: string; tenantId?: string; from?: string; to?: string; search?: string }): Observable<ApiResponse<any>> {
     let params = new HttpParams().set('page', page).set('size', size);

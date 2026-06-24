@@ -1,0 +1,56 @@
+<app-page-header
+  title="Staff Access"
+  subtitle="Choose which sidenav modules the SCHOOL_STAFF role can see in this school.">
+</app-page-header>
+
+<div class="staff-access-page">
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="32"></mat-spinner>
+    <span>Loading current access…</span>
+  </div>
+
+  <ng-container *ngIf="!isLoading">
+    <mat-card class="summary-card" appearance="outlined">
+      <div class="summary-text">
+        <div class="summary-title">
+          <mat-icon>shield_person</mat-icon>
+          <span>{{ enabledCount }} of {{ totalCount }} modules enabled</span>
+        </div>
+        <div class="summary-hint">
+          Staff users always see the Dashboard. Other roles (admin, principal,
+          teacher, student, parent) are unaffected by this page.
+        </div>
+      </div>
+      <div class="summary-actions">
+        <button mat-stroked-button (click)="enableAll()" [disabled]="isSaving">
+          <mat-icon>done_all</mat-icon> Enable all
+        </button>
+        <button mat-stroked-button (click)="disableAll()" [disabled]="isSaving">
+          <mat-icon>block</mat-icon> Disable all
+        </button>
+      </div>
+    </mat-card>
+
+    <mat-card class="modules-card" appearance="outlined">
+      <div class="module-row" *ngFor="let key of catalog">
+        <mat-checkbox
+          [checked]="isEnabled(key)"
+          (change)="toggle(key, $event.checked)"
+          [disabled]="isSaving">
+          <div class="module-label">
+            <div class="module-title">{{ label(key) }}</div>
+            <div class="module-hint">{{ hint(key) }}</div>
+          </div>
+        </mat-checkbox>
+      </div>
+    </mat-card>
+
+    <div class="save-row">
+      <button mat-flat-button color="primary" (click)="save()" [disabled]="isSaving">
+        <mat-icon *ngIf="!isSaving">save</mat-icon>
+        <mat-spinner *ngIf="isSaving" diameter="18"></mat-spinner>
+        {{ isSaving ? 'Saving…' : 'Save changes' }}
+      </button>
+    </div>
+  </ng-container>
+</div>

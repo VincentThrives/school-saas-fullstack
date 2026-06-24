@@ -60,27 +60,27 @@ export const routes: Routes = [
         data: { roles: [UserRole.SUPER_ADMIN] },
       },
 
-      // Users (SCHOOL_ADMIN only)
+      // Users (SCHOOL_ADMIN only — adminOnly opts out of SCHOOL_STAFF elevation)
       {
         path: 'users',
         loadComponent: () =>
           import('./features/users/users-list/users-list.component').then(m => m.UsersListComponent),
         canActivate: [roleGuard],
-        data: { roles: [UserRole.SCHOOL_ADMIN] },
+        data: { roles: [UserRole.SCHOOL_ADMIN], adminOnly: true },
       },
       {
         path: 'users/new',
         loadComponent: () =>
           import('./features/users/user-form/user-form.component').then(m => m.UserFormComponent),
         canActivate: [roleGuard],
-        data: { roles: [UserRole.SCHOOL_ADMIN] },
+        data: { roles: [UserRole.SCHOOL_ADMIN], adminOnly: true },
       },
       {
         path: 'users/:userId/edit',
         loadComponent: () =>
           import('./features/users/user-form/user-form.component').then(m => m.UserFormComponent),
         canActivate: [roleGuard],
-        data: { roles: [UserRole.SCHOOL_ADMIN] },
+        data: { roles: [UserRole.SCHOOL_ADMIN], adminOnly: true },
       },
 
       // Students
@@ -110,7 +110,7 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/students/bulk-promote/bulk-promote.component').then(m => m.BulkPromoteComponent),
         canActivate: [roleGuard],
-        data: { roles: [UserRole.SCHOOL_ADMIN] },
+        data: { roles: [UserRole.SCHOOL_ADMIN], adminOnly: true },
       },
 
       // Employees (formerly Teachers)
@@ -623,6 +623,17 @@ export const routes: Routes = [
           import('./features/settings/settings-page/settings-page.component').then(m => m.SettingsPageComponent),
         canActivate: [roleGuard],
         data: { roles: [UserRole.SCHOOL_ADMIN], title: 'Settings' },
+      },
+
+      // Staff Access — tenant-level toggle page where school admin
+      // picks which sidenav modules the SCHOOL_STAFF role can see.
+      // Admin/Principal only; staff itself can never reach this page.
+      {
+        path: 'staff-access',
+        loadComponent: () =>
+          import('./features/staff-access/staff-access.component').then(m => m.StaffAccessComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL], adminOnly: true, title: 'Staff Access' },
       },
 
       // ── Additional Placeholder Routes ──────────────────────

@@ -6,7 +6,29 @@ export enum UserRole {
   TEACHER = 'TEACHER',
   STUDENT = 'STUDENT',
   PARENT = 'PARENT',
+  /** Delegated school staff. Same default UI surface as SCHOOL_ADMIN
+   *  but the sidenav + endpoint access is gated per-tenant by the
+   *  Staff Access page the school admin manages. */
+  SCHOOL_STAFF = 'SCHOOL_STAFF',
 }
+
+/** Catalog of sidenav modules that can be toggled on / off for the
+ *  SCHOOL_STAFF role at the tenant level. Keys must match the
+ *  StaffModule enum on the backend. */
+export type StaffModuleKey =
+  | 'ATTENDANCE'
+  | 'EXAMS'
+  | 'SMS'
+  | 'NOTIFICATIONS'
+  | 'FEES'
+  | 'REPORT_CARDS'
+  | 'EVENTS'
+  | 'TIMETABLE'
+  | 'SUBJECTS'
+  | 'CLASSES'
+  | 'ACADEMIC_YEARS'
+  | 'STUDENTS'
+  | 'TEACHERS';
 
 export type FeatureKey =
   | 'attendance'
