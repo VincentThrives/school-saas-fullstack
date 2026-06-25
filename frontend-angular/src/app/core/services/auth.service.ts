@@ -182,7 +182,17 @@ export class AuthService {
   }
 
   hasRole(...roles: UserRole[]): boolean {
-    return this.currentRole !== null && roles.includes(this.currentRole);
+    if (this.currentRole === null) return false;
+    if (roles.includes(this.currentRole)) return true;
+    // SCHOOL_COORDINATOR is a replica of admin — mirrors the
+    // backend's JwtAuthFilter dual-authority grant. Every UI check
+    // of the form `hasRole(SCHOOL_ADMIN)` (Add buttons, edit
+    // pencils, etc.) treats a coordinator as an admin. Pages that
+    // must stay admin-only (Manage Users, Coordinator Access) are
+    // blocked by the route guard's `adminOnly` flag, NOT this
+    // method.
+    return this.currentRole === UserRole.SCHOOL_COORDINATOR
+        && roles.includes(UserRole.SCHOOL_ADMIN);
   }
 
   private setCredentials(auth: AuthResponse): void {

@@ -38,15 +38,17 @@ export const roleGuard: CanActivateFn = (route) => {
     return true;
   }
 
-  if (authService.hasRole(...requiredRoles)) {
-    return true;
+  // Admin-only routes (user management, Coordinator Access page,
+  // bulk promote) must NEVER let a coordinator through, even though
+  // AuthService.hasRole() now treats coordinator as admin. Deny
+  // them up front so the elevation in hasRole() can't accidentally
+  // open these.
+  if (adminOnly && authService.currentRole === UserRole.SCHOOL_COORDINATOR) {
+    router.navigate(['/dashboard']);
+    return false;
   }
 
-  // Coordinator elevation: treat SCHOOL_COORDINATOR as SCHOOL_ADMIN
-  // unless the route is explicitly admin-only.
-  if (!adminOnly
-      && authService.currentRole === UserRole.SCHOOL_COORDINATOR
-      && requiredRoles.includes(UserRole.SCHOOL_ADMIN)) {
+  if (authService.hasRole(...requiredRoles)) {
     return true;
   }
 

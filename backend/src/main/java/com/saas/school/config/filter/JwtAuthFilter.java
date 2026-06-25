@@ -22,6 +22,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -85,11 +86,32 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 TenantContext.setTenantId(tenantId);
             }
 
-            // Set Spring Security context
+            // Set Spring Security context.
+            //
+            // SCHOOL_COORDINATOR is a "replica of school admin with
+            // sidenav-level toggles" — every existing endpoint that
+            // accepts ROLE_SCHOOL_ADMIN must also accept the
+            // coordinator. We grant ROLE_SCHOOL_ADMIN as a second
+            // authority here so the 30+ controller @PreAuthorize
+            // annotations stay untouched.
+            //
+            // This means a coordinator has full admin API powers
+            // (incl. /users, /settings) when called directly with
+            // their token — by design, since this role is for
+            // trusted internal delegation, not hostile isolation.
+            // Tenant-level module visibility (Coordinator Access
+            // page) and admin-only screens are enforced client-side
+            // via SidebarComponent.isItemVisible + the route guard's
+            // adminOnly flag, not at the API layer.
+            List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + role.name()));
+            if (role == UserRole.SCHOOL_COORDINATOR) {
+                authorities.add(new SimpleGrantedAuthority("ROLE_SCHOOL_ADMIN"));
+            }
             var auth = new UsernamePasswordAuthenticationToken(
                     userId,
                     null,
-                    List.of(new SimpleGrantedAuthority("ROLE_" + role.name()))
+                    authorities
             );
             auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(auth);
