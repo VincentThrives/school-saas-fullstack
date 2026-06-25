@@ -199,6 +199,8 @@ public class TeacherController {
             UserRole userRole = UserRole.TEACHER; // default
             if ("PRINCIPAL".equals(employee.getEmployeeRole())) {
                 userRole = UserRole.PRINCIPAL;
+            } else if ("COORDINATOR".equals(employee.getEmployeeRole())) {
+                userRole = UserRole.SCHOOL_COORDINATOR;
             }
 
             String email = employee.getEmail() != null && !employee.getEmail().isEmpty()

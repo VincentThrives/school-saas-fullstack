@@ -228,7 +228,11 @@ public class Teacher {
     // ── Nested types ──────────────────────────────────────────────
 
     public enum EmployeeRole {
-        TEACHER, ACCOUNTANT, CLERK, PRINCIPAL, HEAD_MISTRESS, LAB_ASSISTANT, NON_TEACHING
+        TEACHER, ACCOUNTANT, CLERK, PRINCIPAL, HEAD_MISTRESS, LAB_ASSISTANT, NON_TEACHING,
+        /** Office coordinator with admin-style access gated per-tenant
+         *  via the Coordinator Access page. Auto-creates a User account
+         *  with {@link com.saas.school.modules.user.model.UserRole#SCHOOL_COORDINATOR}. */
+        COORDINATOR
     }
 
     public static class ClassSubjectAssignment {

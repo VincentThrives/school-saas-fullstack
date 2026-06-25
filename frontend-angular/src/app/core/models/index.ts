@@ -162,7 +162,7 @@ export interface Student {
 }
 
 // Employee / Teacher
-export type EmployeeRole = 'TEACHER' | 'ACCOUNTANT' | 'CLERK' | 'PRINCIPAL' | 'HEAD_MISTRESS' | 'LAB_ASSISTANT' | 'NON_TEACHING';
+export type EmployeeRole = 'TEACHER' | 'ACCOUNTANT' | 'CLERK' | 'PRINCIPAL' | 'HEAD_MISTRESS' | 'LAB_ASSISTANT' | 'NON_TEACHING' | 'COORDINATOR';
 
 export interface ClassSubjectAssignment {
   classId: string;

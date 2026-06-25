@@ -60,6 +60,12 @@ export class TeacherFormComponent implements OnInit {
     { value: 'HEAD_MISTRESS', label: 'Head Mistress' },
     { value: 'LAB_ASSISTANT', label: 'Lab Assistant' },
     { value: 'NON_TEACHING', label: 'Non-Teaching Staff' },
+    // Picking School Coordinator here also creates the linked
+    // User account with the SCHOOL_COORDINATOR login role (mapped
+    // in TeacherController.autoCreateUserForEmployee). The sidenav
+    // modules the coordinator sees are governed by the tenant-level
+    // Coordinator Access page.
+    { value: 'COORDINATOR', label: 'School Coordinator' },
   ];
 
   constructor(
