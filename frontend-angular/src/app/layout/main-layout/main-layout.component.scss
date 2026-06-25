@@ -1,14 +1,20 @@
 $sidebar-width: 280px;
 
+// Host pins to viewport height (not min-height) and hides overflow so
+// the body itself never scrolls. The mat-sidenav-content inside
+// handles the actual scrolling — that way only ONE scrollbar shows,
+// flush with the right edge of the content area, with the fixed
+// header staying anchored at the top.
 :host {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .sidenav-container {
   flex: 1;
-  min-height: calc(100vh - 64px);
+  height: calc(100vh - 64px);
 }
 
 .app-sidenav {

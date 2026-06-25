@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
+import { Component, Output, EventEmitter, OnInit, OnDestroy, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
@@ -89,7 +89,18 @@ export class SidebarComponent implements OnInit, OnDestroy {
     private apiService: ApiService,
     private router: Router,
     public features: TenantFeatureService,
-  ) {}
+  ) {
+    // Rebuild the menu whenever the SMS flag flips. app.component.ts
+    // fetches /users/me asynchronously, so the SMS flag may land AFTER
+    // the user observable has already fired buildMenu once with the
+    // default `smsEnabled = false`. Without this effect the SMS group
+    // would stay hidden until the next manual refresh — the
+    // "SMS sidenav missing sometimes" race the user reported.
+    effect(() => {
+      this.features.smsEnabled();
+      this.buildMenu();
+    });
+  }
 
   ngOnInit(): void {
     // Seed and track the current URL so the active-item logic can pick
@@ -435,7 +446,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // are visible only when the tenant has the module in its
     // enabled list. Group headers (path === '') are unaffected —
     // hasVisibleChildren handles them.
-    if (role === UserRole.SCHOOL_COORDINATOR && item.path) {
+    //
+    // Dashboard + My Profile are universal — every role's entry +
+    // identity surface respectively, so they bypass this filter
+    // even though they have no coordinatorModule annotation.
+    if (role === UserRole.SCHOOL_COORDINATOR
+        && item.path
+        && item.path !== '/dashboard'
+        && item.path !== '/profile') {
       if (!item.coordinatorModule) return false;
       // coordinatorEnabledModules === null means "not loaded yet"
       // or "load failed" → don't pre-hide everything (avoids the

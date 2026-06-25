@@ -29,7 +29,6 @@ import java.util.Map;
 @Tag(name = "Tenant - Coordinator Access")
 @RestController
 @RequestMapping("/api/v1/tenant/coordinator-access")
-@PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL')")
 public class TenantCoordinatorAccessController {
 
     @Autowired private TenantRepository tenantRepository;
@@ -40,8 +39,13 @@ public class TenantCoordinatorAccessController {
      * checklist without a second call. {@code enabled = null} on the
      * Tenant doc surfaces here as the full catalog so freshly-created
      * tenants render with every box ticked.
+     *
+     * <p>SCHOOL_COORDINATOR also needs read access — the sidebar fetches
+     * this to know which leaves to show; without it the call would 403
+     * and the sidenav would silently fall back to "no restrictions".</p>
      */
     @GetMapping
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','SCHOOL_COORDINATOR')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> get() {
         Tenant tenant = currentTenant();
         List<String> enabled = tenant.getCoordinatorEnabledModules();
@@ -64,6 +68,7 @@ public class TenantCoordinatorAccessController {
      * additions don't break old client builds.
      */
     @PutMapping
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL')")
     public ResponseEntity<ApiResponse<List<String>>> update(@RequestBody Map<String, Object> body) {
         Tenant tenant = currentTenant();
         List<String> incoming = extractEnabledModules(body);

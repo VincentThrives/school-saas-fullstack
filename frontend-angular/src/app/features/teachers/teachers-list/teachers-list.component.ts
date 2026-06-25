@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -38,7 +38,7 @@ import { Teacher } from '../../../core/models';
   templateUrl: './teachers-list.component.html',
   styleUrl: './teachers-list.component.scss',
 })
-export class TeachersListComponent implements OnInit, AfterViewInit {
+export class TeachersListComponent implements OnInit {
   displayedColumns: string[] = ['name', 'employeeId', 'role', 'qualification', 'subjects', 'actions'];
   dataSource = new MatTableDataSource<Teacher>([]);
   pageSize = 10;
@@ -49,7 +49,15 @@ export class TeachersListComponent implements OnInit, AfterViewInit {
   deleteDialogOpen = false;
   selectedTeacher: Teacher | null = null;
 
-  @ViewChild(MatPaginator) paginator!: MatPaginator;
+  /** Setter, not a static @ViewChild — the paginator lives inside
+   *  *ngIf="!isLoading" so it's absent during the first
+   *  ngAfterViewInit pass. Binding via the setter re-runs each time
+   *  the *ngIf flips on/off, so dataSource.paginator stays wired
+   *  through refreshes too (without this the paginator shows
+   *  "0 of 0" while the table renders the full unsliced data). */
+  @ViewChild(MatPaginator) set paginator(p: MatPaginator | undefined) {
+    if (p) this.dataSource.paginator = p;
+  }
 
   constructor(
     private apiService: ApiService,
@@ -74,13 +82,6 @@ export class TeachersListComponent implements OnInit, AfterViewInit {
       return haystack.includes(q);
     };
     this.loadTeachers();
-  }
-
-  ngAfterViewInit(): void {
-    // Hand off pagination to MatTableDataSource so it owns page-size +
-    // filter together. Without this the search would clear the current
-    // page slice instead of filtering the full dataset.
-    this.dataSource.paginator = this.paginator;
   }
 
   loadTeachers(): void {
