@@ -226,10 +226,25 @@ export class TeacherDashboardComponent implements OnInit {
       timetables: this.api.getTeacherTimetable(userId, academicYearId).pipe(catchError(() => of({ data: [] as any[] } as any))),
       assignments: this.api.getMyTeacherAssignments(academicYearId).pipe(catchError(() => of({ data: [] as any[] } as any))),
       exams: this.api.getExams({ academicYearId }).pipe(catchError(() => of({ data: [] as any[] } as any))),
-    }).subscribe(({ timetables, assignments, exams }) => {
+      classes: this.api.getClasses(academicYearId).pipe(catchError(() => of({ data: [] as any[] } as any))),
+    }).subscribe(({ timetables, assignments, exams, classes }) => {
       const tts = (timetables?.data as any[]) || [];
       const tas = (assignments?.data as any[]) || [];
       const examList = (exams?.data as any[]) || [];
+      const classList = (classes?.data as any[]) || [];
+
+      // {classId → name} and {classId::sectionId → name} maps so the
+      // DAY_WISE pending list can show readable labels for sections
+      // the teacher is class-teacher of, even when those sections
+      // have no periods in today's timetable for this teacher.
+      const classNameById = new Map<string, string>();
+      const sectionNameByPair = new Map<string, string>();
+      for (const c of classList) {
+        if (c?.classId) classNameById.set(c.classId, c.name || '');
+        for (const s of (c?.sections || [])) {
+          if (s?.sectionId) sectionNameByPair.set(`${c.classId}::${s.sectionId}`, s.name || '');
+        }
+      }
 
       // Class/subject scope = union of timetable + assignments
       const classIds = new Set<string>();
@@ -274,8 +289,33 @@ export class TeacherDashboardComponent implements OnInit {
       this.todaySchedule = rows;
       this.stats.todaysPeriods = rows.length;
 
-      // Stamp "marked" by calling getBatchAttendance once per (classId, sectionId)
-      this.stampMarkedFlags();
+      // Pending Attendance — split by mode:
+      //
+      // DAY_WISE   → driven by CLASS_TEACHER assignments. School
+      //              takes one roll-call per (class, section) per
+      //              day; the responsibility sits with the class
+      //              teacher, regardless of whether any of their
+      //              own periods land in that section today.
+      // SUBJECT_WISE → keep the timetable-driven flow (one entry
+      //              per period the teacher actually has today).
+      if (this.attendanceMode === 'DAY_WISE') {
+        const ctPairs = new Map<string, { classId: string; sectionId: string; className: string; sectionName: string }>();
+        tas.forEach(a => {
+          if (!Array.isArray(a.roles) || !a.roles.includes('CLASS_TEACHER')) return;
+          if (!a.classId || !a.sectionId) return;
+          const key = `${a.classId}::${a.sectionId}`;
+          if (ctPairs.has(key)) return;
+          ctPairs.set(key, {
+            classId: a.classId,
+            sectionId: a.sectionId,
+            className: classNameById.get(a.classId) || '',
+            sectionName: sectionNameByPair.get(key) || '',
+          });
+        });
+        this.computeDayWisePending(Array.from(ctPairs.values()));
+      } else {
+        this.stampMarkedFlags();
+      }
 
       // Total students across the teacher's class+section pairs
       this.loadStudentCount(sectionPairs);
@@ -320,6 +360,7 @@ export class TeacherDashboardComponent implements OnInit {
       return;
     }
 
+    const isDayWise = this.attendanceMode === 'DAY_WISE';
     let completed = 0;
     pairs.forEach(key => {
       const [classId, sectionId] = key.split('::');
@@ -328,9 +369,15 @@ export class TeacherDashboardComponent implements OnInit {
           const records = (res?.data as any[]) || [];
           this.todaySchedule.forEach(r => {
             if (r.classId !== classId || r.sectionId !== sectionId) return;
-            const hit = records.find((m: any) =>
-              m.periodNumber === r.periodNumber
-              && (!m.subjectId || !r.subjectId || m.subjectId === r.subjectId));
+            // In day-wise mode a single periodNumber=0 row covers the
+            // whole day for this section — once it exists, every
+            // period the teacher has here counts as marked and
+            // shouldn't surface as pending.
+            const hit = isDayWise
+              ? records.find((m: any) => m.periodNumber === 0)
+              : records.find((m: any) =>
+                  m.periodNumber === r.periodNumber
+                  && (!m.subjectId || !r.subjectId || m.subjectId === r.subjectId));
             if (hit) r.marked = true;
           });
           completed++;
@@ -344,18 +391,69 @@ export class TeacherDashboardComponent implements OnInit {
     });
   }
 
+  /**
+   * DAY_WISE pending list — one entry per (class, section) the
+   * teacher is CLASS_TEACHER of, minus any section whose day-wise
+   * StudentsAttendance row (periodNumber=0) already exists for
+   * today. Sections with no period in today's timetable for this
+   * teacher still appear here — class teachers own roll-call
+   * regardless of who teaches what period.
+   */
+  private computeDayWisePending(
+    pairs: Array<{ classId: string; sectionId: string; className: string; sectionName: string }>,
+  ): void {
+    if (pairs.length === 0) {
+      this.classesNeedingAttendance = [];
+      this.stats.pendingAttendance = false;
+      return;
+    }
+    const dateStr = this.todayStr();
+    const pending: PendingItem[] = [];
+    let completed = 0;
+    const finish = () => {
+      if (++completed < pairs.length) return;
+      pending.sort((a, b) =>
+        (a.className + a.sectionName).localeCompare(b.className + b.sectionName));
+      this.classesNeedingAttendance = pending;
+      this.stats.pendingAttendance = pending.length > 0;
+    };
+    pairs.forEach(p => {
+      this.api.getBatchAttendance(p.classId, p.sectionId, dateStr).subscribe({
+        next: (res) => {
+          const records = (res?.data as any[]) || [];
+          const marked = records.some((m: any) => m.periodNumber === 0);
+          if (!marked) {
+            pending.push({
+              className: p.className || 'Class',
+              sectionName: p.sectionName || '',
+              period: "Today's roll-call",
+            });
+          }
+          finish();
+        },
+        error: () => finish(),
+      });
+    });
+  }
+
   private computePending(): void {
     const pending: PendingItem[] = [];
     const seen = new Set<string>();
+    const isDayWise = this.attendanceMode === 'DAY_WISE';
     for (const r of this.todaySchedule) {
       if (r.marked) continue;
-      const k = `${r.classId}::${r.sectionId}::${r.periodNumber}`;
+      // Day-wise mode: dedupe by (class, section). One pending
+      // entry per section regardless of how many periods the
+      // teacher has there — the school marks the whole day once.
+      const k = isDayWise
+        ? `${r.classId}::${r.sectionId}`
+        : `${r.classId}::${r.sectionId}::${r.periodNumber}`;
       if (seen.has(k)) continue;
       seen.add(k);
       pending.push({
         className: r.className,
         sectionName: r.sectionName,
-        period: this.ordinal(r.periodNumber) + ' Period',
+        period: isDayWise ? "Today's roll-call" : (this.ordinal(r.periodNumber) + ' Period'),
       });
     }
     this.classesNeedingAttendance = pending;

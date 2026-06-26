@@ -782,8 +782,21 @@ export class TeacherAssignmentsComponent implements OnInit {
 
     this.formRoleClass = (head.roles || []).includes('CLASS_TEACHER');
     this.formRoleSubject = (head.roles || []).includes('SUBJECT_TEACHER');
-    this.classTeacherClassId = this.formRoleClass ? head.classId : '';
-    this.classTeacherSectionId = this.formRoleClass ? (head.sectionId || '') : '';
+    // Always pre-fill the class-teacher slot — even when the row
+    // being edited isn't currently a class-teacher row. That way an
+    // admin who ticks Class Teacher during edit gets the same
+    // (class, section) the row already operates on, instead of
+    // having to re-pick it or (before the picker became visible in
+    // edit mode) silently losing the tick on save.
+    const firstPair = this.formClassSectionKeys[0];
+    if (firstPair) {
+      const [cId, sId] = firstPair.split('::');
+      this.classTeacherClassId = cId || head.classId || '';
+      this.classTeacherSectionId = sId || head.sectionId || '';
+    } else {
+      this.classTeacherClassId = head.classId || '';
+      this.classTeacherSectionId = head.sectionId || '';
+    }
     this.recomputeFormClassOptions();
     this.recomputeFormSectionOptions();
     this.recomputeFormSubjectOptions();

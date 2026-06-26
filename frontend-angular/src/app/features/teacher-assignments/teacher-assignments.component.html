@@ -309,8 +309,10 @@
         <mat-checkbox [(ngModel)]="formRoleSubject">Subject Teacher</mat-checkbox>
       </div>
 
-      <!-- Class Teacher role — requires a specific class + section -->
-      <div class="class-teacher-panel" *ngIf="formRoleClass && !editingId">
+      <!-- Class Teacher role — requires a specific class + section.
+           Shown in both create AND edit so admins ticking Class Teacher
+           during an edit can see + confirm the (class, section) slot. -->
+      <div class="class-teacher-panel" *ngIf="formRoleClass">
         <div class="panel-title">
           <mat-icon class="mini">school</mat-icon>
           Class Teacher assignment
