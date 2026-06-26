@@ -26,6 +26,7 @@ import com.saas.school.modules.timetable.repository.TimetableRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -389,12 +390,26 @@ public class AttendanceService {
      * their natural order on the SchoolClass document.</p>
      */
     public List<com.saas.school.modules.attendance.dto.DayAttendanceStatus> getDayStatus(
-            String academicYearId, LocalDate date) {
+            String academicYearId, LocalDate date, String callerUserId) {
         var out = new ArrayList<com.saas.school.modules.attendance.dto.DayAttendanceStatus>();
         if (academicYearId == null || academicYearId.isBlank() || date == null) return out;
 
         var classes = schoolClassRepository.findByAcademicYearId(academicYearId);
         if (classes == null || classes.isEmpty()) return out;
+
+        // Per-role scoping. Three states:
+        //   isAdminLike = true  → no filter, every section shows
+        //   isAdminLike = false → strict allow-list (sections this
+        //                         teacher is the CLASS_TEACHER of).
+        //                         Empty list ⇒ this teacher has no
+        //                         class-teacher assignments → return
+        //                         no rows at all (empty hub).
+        // Matches the /attendance/mark gate so hub + marking agree.
+        boolean isAdminLike = callerHasAdminAuthority();
+        Set<String> teacherAllowedPairs = isAdminLike
+                ? Collections.emptySet()
+                : teacherClassTeacherPairs(callerUserId, academicYearId);
+        if (!isAdminLike && teacherAllowedPairs.isEmpty()) return out;
 
         // Pre-fetch every day-wise attendance row for this date in one query
         // and index by (classId, sectionId) so the card loop is O(1) lookup.
@@ -447,6 +462,13 @@ public class AttendanceService {
         for (var cls : classes) {
             if (cls.getSections() == null) continue;
             for (var sec : cls.getSections()) {
+                // Admin-like callers skip the whitelist entirely.
+                // Everyone else is scoped to the teacher's assigned
+                // class-teacher sections (computed above).
+                if (!isAdminLike
+                        && !teacherAllowedPairs.contains(cls.getClassId() + "::" + sec.getSectionId())) {
+                    continue;
+                }
                 var dto = new com.saas.school.modules.attendance.dto.DayAttendanceStatus();
                 dto.setClassId(cls.getClassId());
                 dto.setClassName(cls.getName());
@@ -581,10 +603,65 @@ public class AttendanceService {
      *   <li>Otherwise reject with a friendly 400.</li>
      * </ul>
      */
+    /** True when the current Spring Security principal carries
+     *  ROLE_SCHOOL_ADMIN or ROLE_PRINCIPAL. SCHOOL_COORDINATOR users
+     *  pass via the dual-authority grant in JwtAuthFilter. */
+    private boolean callerHasAdminAuthority() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) return false;
+        return authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_SCHOOL_ADMIN".equals(a.getAuthority())
+                        || "ROLE_PRINCIPAL".equals(a.getAuthority()));
+    }
+
+    /** Strict whitelist for a TEACHER caller — every {@code
+     *  classId::sectionId} they're assigned as CLASS_TEACHER of in the
+     *  given academic year. Empty set means "no class-teacher
+     *  assignments", which the hub renders as the empty-state message
+     *  ("you're not a class teacher of anything yet"). Callers that are
+     *  admin / principal / coordinator must NOT use this method —
+     *  branch on {@link #callerHasAdminAuthority} first. */
+    private Set<String> teacherClassTeacherPairs(String callerUserId, String academicYearId) {
+        Set<String> pairs = new HashSet<>();
+        if (callerUserId == null || callerUserId.isBlank()) return pairs;
+        var teacherOpt = teacherRepository.findByUserIdAndDeletedAtIsNull(callerUserId);
+        if (teacherOpt.isEmpty()) return pairs;
+        if (academicYearId == null || academicYearId.isBlank()) return pairs;
+
+        String teacherId = teacherOpt.get().getTeacherId();
+        var assignments = assignmentRepository.findByTeacherIdAndAcademicYearId(teacherId, academicYearId);
+        if (assignments == null) return pairs;
+        for (var a : assignments) {
+            if (a == null
+                    || a.getStatus() != TeacherSubjectAssignment.Status.ACTIVE
+                    || a.getRoles() == null
+                    || !a.getRoles().contains(TeacherSubjectAssignment.Role.CLASS_TEACHER)
+                    || a.getClassId() == null
+                    || a.getSectionId() == null) continue;
+            pairs.add(a.getClassId() + "::" + a.getSectionId());
+        }
+        return pairs;
+    }
+
     private void assertClassTeacherForDayWise(MarkAttendanceRequest req, String markedByUserId) {
         if (markedByUserId == null || markedByUserId.isBlank()) return;
+
+        // Admin / principal / coordinator bypass this gate. We check
+        // Spring Security authorities (rather than only the linked
+        // Teacher row) because SCHOOL_COORDINATOR users DO have a
+        // Teacher row — they're created via the employee form — but
+        // should still be able to mark attendance for any section
+        // like an admin does. JwtAuthFilter grants ROLE_SCHOOL_ADMIN
+        // to coordinators, so this check sweeps up all three.
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_SCHOOL_ADMIN".equals(a.getAuthority())
+                        || "ROLE_PRINCIPAL".equals(a.getAuthority()))) {
+            return;
+        }
+
         var teacherOpt = teacherRepository.findByUserIdAndDeletedAtIsNull(markedByUserId);
-        if (teacherOpt.isEmpty()) return;  // Admin / principal — no Teacher row.
+        if (teacherOpt.isEmpty()) return;  // Defensive — admins are caught above.
         String myTeacherId = teacherOpt.get().getTeacherId();
         String yearId = req.getAcademicYearId();
 

@@ -73,9 +73,10 @@ public class AttendanceController {
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
     public ResponseEntity<ApiResponse<List<DayAttendanceStatus>>> dayStatus(
             @RequestParam String academicYearId,
-            @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate date,
+            @AuthenticationPrincipal String userId) {
         return ResponseEntity.ok(ApiResponse.success(
-            attendanceService.getDayStatus(academicYearId, date)));
+            attendanceService.getDayStatus(academicYearId, date, userId)));
     }
 
     @GetMapping("/batch/class/{classId}")
