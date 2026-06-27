@@ -238,6 +238,13 @@ public class ClassController {
         existing.setAcademicYearId(req.getAcademicYearId());
         existing.setPassRule(req.getPassRule() == null ? Subject.PassRule.PER_COMPONENT : req.getPassRule());
         existing.setComponents(req.getComponents());
+        // Without these two lines the combined-period toggle (PE /
+        // Assembly / Drill) and the sub-parts list (Physics /
+        // Chemistry / Biology under Science) silently no-op on
+        // update — the request carries the new value but the
+        // controller never copies it onto `existing` before save.
+        existing.setGroupPeriodAllowed(req.isGroupPeriodAllowed());
+        existing.setSubParts(req.getSubParts());
         defaultComponentValues(existing);
 
         // Compute the diff between the OLD assignments (what the
