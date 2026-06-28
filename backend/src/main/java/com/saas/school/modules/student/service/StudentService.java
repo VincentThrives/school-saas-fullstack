@@ -75,7 +75,13 @@ public class StudentService {
 
     public PageResponse<StudentDto> listStudents(int page, int size,
                                                   String classId, String sectionId, String search) {
-        return listStudents(page, size, null, classId, sectionId, search);
+        return listStudents(page, size, null, classId, sectionId, null, search);
+    }
+
+    public PageResponse<StudentDto> listStudents(int page, int size,
+                                                  String academicYearId,
+                                                  String classId, String sectionId, String search) {
+        return listStudents(page, size, academicYearId, classId, sectionId, null, search);
     }
 
     /**
@@ -86,10 +92,17 @@ public class StudentService {
      *
      * <p>Search matches against firstName, lastName, parentName, admissionNumber
      * and rollNumber. Case-insensitive substring.
+     *
+     * <p>{@code subjectId} is the elective filter: when supplied AND the
+     * subject is marked elective AND {@code enrolledStudentIds} is non-empty,
+     * the result is trimmed to the enrolled subset. Non-electives (and the
+     * absent / unrecognised {@code subjectId} case) fall through to the
+     * existing class+section query so every other caller behaves unchanged.
      */
     public PageResponse<StudentDto> listStudents(int page, int size,
                                                   String academicYearId,
-                                                  String classId, String sectionId, String search) {
+                                                  String classId, String sectionId,
+                                                  String subjectId, String search) {
         Criteria criteria = Criteria.where("deletedAt").is(null);
         if (academicYearId != null && !academicYearId.isBlank()) {
             criteria.and("academicYearId").is(academicYearId);
@@ -132,6 +145,22 @@ public class StudentService {
             }
             if (!tokenCriterias.isEmpty()) {
                 criteria.andOperator(tokenCriterias.toArray(new Criteria[0]));
+            }
+        }
+
+        // Elective filter — only applied when subjectId is supplied AND
+        // the subject is marked elective AND its enrolledStudentIds list
+        // is non-empty. Any other state (no subjectId, unknown id, non-
+        // elective subject, or elective with empty roster) falls through
+        // → the existing class+section criteria run unchanged. Every
+        // existing flow (Students list, Day-wise Mark Attendance, etc.)
+        // is unaffected because they don't pass subjectId.
+        if (subjectId != null && !subjectId.isBlank()) {
+            Subject subj = subjectRepository.findById(subjectId).orElse(null);
+            if (subj != null && subj.isElective()
+                    && subj.getEnrolledStudentIds() != null
+                    && !subj.getEnrolledStudentIds().isEmpty()) {
+                criteria.and("studentId").in(subj.getEnrolledStudentIds());
             }
         }
 
@@ -1020,6 +1049,34 @@ public class StudentService {
                                 || e.getSectionId().isBlank()
                                 || studentSectionId.equals(e.getSectionId()))
                         .collect(java.util.stream.Collectors.toList());
+            }
+            // Elective gate — drop exams whose subject is marked
+            // elective AND has an enrolledStudentIds list that
+            // doesn't include this student. The student detail page
+            // (and student/parent My Marks views built on top of
+            // this same response) won't surface a Sanskrit row for
+            // a student who only takes Hindi. Non-electives pass
+            // through unchanged.
+            if (!exams.isEmpty()) {
+                java.util.Set<String> subjectIds = exams.stream()
+                        .map(Exam::getSubjectId)
+                        .filter(java.util.Objects::nonNull)
+                        .collect(java.util.stream.Collectors.toSet());
+                if (!subjectIds.isEmpty()) {
+                    java.util.Map<String, com.saas.school.modules.classes.model.Subject> subjectsById =
+                            new java.util.HashMap<>();
+                    subjectRepository.findAllById(subjectIds)
+                            .forEach(s -> subjectsById.put(s.getSubjectId(), s));
+                    exams = exams.stream().filter(e -> {
+                        com.saas.school.modules.classes.model.Subject subj =
+                                e.getSubjectId() == null ? null : subjectsById.get(e.getSubjectId());
+                        if (subj == null) return true;
+                        if (!subj.isElective()) return true;
+                        if (subj.getEnrolledStudentIds() == null
+                                || subj.getEnrolledStudentIds().isEmpty()) return true;
+                        return subj.getEnrolledStudentIds().contains(studentId);
+                    }).collect(java.util.stream.Collectors.toList());
+                }
             }
             if (!exams.isEmpty()) {
                 out.setExams(buildExamRows(exams, studentId));

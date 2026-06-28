@@ -71,6 +71,21 @@ export interface SubjectItem {
    * are for subjects with this flag on. Defaults false.
    */
   groupPeriodAllowed?: boolean;
+  /**
+   * True when this subject is an elective — only the students in
+   * {@link enrolledStudentIds} are counted for it. Drives the
+   * "Manage Students" action in the Subjects list. Defaults false
+   * for every existing subject, which keeps "every student in the
+   * assigned sections takes it" semantics.
+   */
+  elective?: boolean;
+  /**
+   * Student-ids opted in to this elective subject. Empty / absent
+   * means "no restriction — every student in the assigned sections
+   * takes it" (current behavior for non-electives). Owned by the
+   * "Manage Students" dialog, not the Subject form.
+   */
+  enrolledStudentIds?: string[];
   /** The (class, sections) pairs this subject is taught in. */
   assignments?: SubjectAssignment[];
 }
@@ -99,6 +114,10 @@ export interface CreateOrUpdateSubject {
    *  builder lets the same teacher take this period across multiple
    *  sections at once. Defaults false everywhere else. */
   groupPeriodAllowed?: boolean;
+  /** Marks the subject as an elective. Form-managed; the actual
+   *  enrolled-student picker is the separate "Manage Students"
+   *  dialog so a normal Edit can't accidentally wipe the roster. */
+  elective?: boolean;
   /** Pairs of (classId, sectionIds) the subject is taught in. ONE submission
    *  creates ONE Subject document attached to all the listed classes. */
   assignments: SubjectAssignment[];
@@ -165,6 +184,8 @@ export class SubjectService {
         code: sp.code,
       })) : undefined,
       groupPeriodAllowed: !!s.groupPeriodAllowed,
+      elective: !!s.elective,
+      enrolledStudentIds: Array.isArray(s.enrolledStudentIds) ? s.enrolledStudentIds : undefined,
       assignments,
     };
   }
@@ -241,6 +262,26 @@ export class SubjectService {
     return this.http.put<any>(`${this.API}/subjects/${subjectId}`, subject).pipe(
       tap(() => this.refreshSubjects())
     );
+  }
+
+  /**
+   * For the "Manage Students" dialog opened from an elective subject row.
+   * Returns every active student in the subject's assigned sections plus
+   * the current enrolled-id list so the dialog can pre-tick the checkboxes.
+   */
+  getEligibleStudents(subjectId: string): Observable<any> {
+    return this.http.get<any>(`${this.API}/subjects/${subjectId}/eligible-students`);
+  }
+
+  /**
+   * Replace the elective subject's enrolled-student list. Empty array
+   * clears it (subject reverts to "no restriction → every student in
+   * the assigned sections takes it"). Backend filters incoming ids
+   * against the candidate pool so stale ids are dropped.
+   */
+  updateEnrolledStudents(subjectId: string, enrolledStudentIds: string[]): Observable<any> {
+    return this.http.put<any>(`${this.API}/subjects/${subjectId}/enrolled-students`,
+        { enrolledStudentIds }).pipe(tap(() => this.refreshSubjects()));
   }
 
   deleteSubject(subjectId: string): Observable<any> {

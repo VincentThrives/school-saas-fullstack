@@ -167,6 +167,66 @@
                     <mat-icon>warning</mat-icon>
                     <span>Conflict: {{ conflictLabel }}</span>
                   </div>
+
+                  <!-- Parallel elective periods — same period slot, different
+                       subject/teacher. Stacked inside this cell, each its own
+                       remove button. Only shown to admins once the primary
+                       subject in this slot is marked elective. -->
+                  <div class="parallel-period"
+                       *ngFor="let pp of parallelPeriodsAt(daySchedule, daySchedule.periods[i].periodNumber); let pIdx = index">
+                    <div class="parallel-period-divider">
+                      <span class="parallel-badge">Parallel #{{ pIdx + 2 }}</span>
+                      <button type="button" class="parallel-remove-native"
+                              title="Remove this parallel period"
+                              (click)="removeParallelPeriod(daySchedule, pp)">×</button>
+                    </div>
+                    <!-- Native <select> deliberately — mat-select inside this
+                         deeply-nested scrolling cell renders its overlay
+                         panel off-screen on some layouts, leaving the
+                         dropdown looking empty. Native select uses the
+                         browser's own dropdown, no CDK overlay required.
+                         Dropdown options: every OTHER elective in this
+                         class+section (excludes the primary's pick so the
+                         same subject can't be stacked on itself). -->
+                    <!-- mat-select with disableOptionCentering pins the
+                         overlay panel directly below the trigger (instead
+                         of trying to center the selected option on the
+                         trigger, which is what caused the panel to render
+                         off-screen on first attempt). panelClass lets us
+                         add a global z-index lift if the deeply-nested
+                         table ever traps the overlay again. -->
+                    <mat-form-field appearance="outline" class="cell-field subject-field">
+                      <mat-label>Subject</mat-label>
+                      <mat-select [value]="getPeriodPick(pp)"
+                                  (selectionChange)="setPeriodPick(pp, $event.value)"
+                                  disableOptionCentering
+                                  panelClass="parallel-select-panel">
+                        <mat-option value="">--</mat-option>
+                        <mat-option *ngFor="let sub of parallelSubjectOptions(daySchedule.periods[i], pp, daySchedule)" [value]="sub.value">
+                          {{ sub.label }}
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="cell-field teacher-field">
+                      <mat-label>Teacher</mat-label>
+                      <mat-select [(ngModel)]="pp.teacherId"
+                                  disableOptionCentering
+                                  panelClass="parallel-select-panel">
+                        <mat-option value="">--</mat-option>
+                        <mat-option *ngFor="let t of getTeachersForPeriod(pp)" [value]="t.userId || t.teacherId">
+                          {{ t.firstName && t.lastName ? (t.firstName + ' ' + t.lastName) : t.employeeId || t.teacherId }}
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+
+                  <button mat-stroked-button class="add-parallel-btn"
+                          *ngIf="canAddParallelPeriod(daySchedule.periods[i])"
+                          (click)="addParallelPeriod(daySchedule, daySchedule.periods[i])"
+                          matTooltip="Add another elective subject to this same slot (e.g. Sanskrit + Kannada at the same time)">
+                    <mat-icon>add</mat-icon>
+                    Add parallel elective
+                  </button>
                 </div>
               </td>
             </tr>

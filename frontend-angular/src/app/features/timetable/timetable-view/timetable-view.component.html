@@ -92,24 +92,35 @@
                 [class.current-period]="isCurrentPeriod(day, i)"
                 [class.empty-cell]="!getPeriod(day, i)?.subjectId"
               >
-                <ng-container *ngIf="getPeriod(day, i) as period">
-                  <div
-                    class="period-card"
-                    *ngIf="period.subjectId"
-                    [style.background-color]="getSubjectColor(period.subjectId)"
-                    [style.border-left-color]="getSubjectBorderColor(period.subjectId)"
-                  >
-                    <div class="subject-name">
-                      {{ period.subjectName || period.subjectId }}<span *ngIf="period.componentLabel" class="subject-component"> ({{ period.componentLabel }})</span>
+                <!-- Render every period entry for this (day, slot)
+                     pair so parallel electives (Sanskrit + Hindi at
+                     the same Monday 1st period) both surface. Single-
+                     subject slots render exactly one card, unchanged. -->
+                <ng-container *ngIf="getPeriods(day, i) as slotPeriods">
+                  <ng-container *ngIf="slotPeriods.length > 0; else freeSlot">
+                    <div
+                      *ngFor="let period of slotPeriods"
+                      class="period-card"
+                      [class.parallel-card]="slotPeriods.length > 1"
+                      [style.background-color]="getSubjectColor(period.subjectId)"
+                      [style.border-left-color]="getSubjectBorderColor(period.subjectId)">
+                      <ng-container *ngIf="period.subjectId; else freeInsideStack">
+                        <div class="subject-name">
+                          {{ period.subjectName || period.subjectId }}<span *ngIf="period.componentLabel" class="subject-component"> ({{ period.componentLabel }})</span>
+                        </div>
+                        <div class="teacher-name" *ngIf="period.teacherName || period.teacherId">
+                          <mat-icon class="info-icon">person</mat-icon>
+                          {{ period.teacherName || period.teacherId }}
+                        </div>
+                      </ng-container>
+                      <ng-template #freeInsideStack>
+                        <div class="free-period"><span class="free-label">Free</span></div>
+                      </ng-template>
                     </div>
-                    <div class="teacher-name" *ngIf="period.teacherName || period.teacherId">
-                      <mat-icon class="info-icon">person</mat-icon>
-                      {{ period.teacherName || period.teacherId }}
-                    </div>
-                  </div>
-                  <div class="free-period" *ngIf="!period.subjectId">
-                    <span class="free-label">Free</span>
-                  </div>
+                  </ng-container>
+                  <ng-template #freeSlot>
+                    <div class="free-period"><span class="free-label">Free</span></div>
+                  </ng-template>
                 </ng-container>
               </td>
             </tr>

@@ -592,11 +592,31 @@ public class ResultPublicationService {
         List<Student> students = studentRepository
                 .findByClassIdAndSectionIdAndDeletedAtIsNull(req.getClassId(), req.getSectionId());
 
+        // Elective gate (single-subject publish only) — when the
+        // result SMS is for one specific subject AND that subject is
+        // marked elective with a non-empty enrolledStudentIds list,
+        // skip the unenrolled students so parents of kids who only
+        // take Hindi don't get a Sanskrit result SMS. Multi-subject
+        // publish (full result card) falls through unchanged.
+        String subjectId = blankToNull(req.getSubjectId());
+        if (subjectId != null) {
+            com.saas.school.modules.classes.model.Subject subj =
+                    subjectRepository.findById(subjectId).orElse(null);
+            if (subj != null && subj.isElective()
+                    && subj.getEnrolledStudentIds() != null
+                    && !subj.getEnrolledStudentIds().isEmpty()) {
+                java.util.Set<String> enrolled = new java.util.HashSet<>(subj.getEnrolledStudentIds());
+                students = students.stream()
+                        .filter(st -> st.getStudentId() != null && enrolled.contains(st.getStudentId()))
+                        .collect(java.util.stream.Collectors.toList());
+            }
+        }
+
         ScopeData s = new ScopeData();
         s.exams = exams;
         s.students = students;
         s.marksByStudent = byStudent;
-        s.singleSubject = blankToNull(req.getSubjectId()) != null;
+        s.singleSubject = subjectId != null;
         return s;
     }
 

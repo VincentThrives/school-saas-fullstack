@@ -444,3 +444,66 @@ $gold-light: rgba(212, 168, 67, 0.1);
     justify-content: center;
   }
 }
+
+// ── Parallel elective period inside a cell ────────────────────────
+// Shown when admin clicks "+ Add parallel elective" — a second
+// (subject, teacher) pair shares the slot with the primary. Native
+// <select> avoids the CDK overlay positioning quirks the deeply-
+// nested table cell triggers.
+.parallel-period {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.parallel-period-divider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .parallel-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #8a6b32;
+    background: rgba(212, 167, 84, 0.18);
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+}
+
+.parallel-remove-native {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.55);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover { background: rgba(244, 67, 54, 0.12); color: #d32f2f; }
+}
+
+// Parallel-period fields now reuse mat-form-field appearance="outline"
+// (with <select matNativeControl> inside) — they pick up the exact same
+// outlined style as the primary cell fields automatically, so no
+// custom wrapper styling is needed here.
+
+.add-parallel-btn {
+  margin-top: 6px;
+  width: 100%;
+  font-size: 12px;
+  font-weight: 500;
+  color: #8a6b32 !important;
+  border: 1px dashed rgba(138, 107, 50, 0.45) !important;
+  border-radius: 6px;
+  background: transparent;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+}

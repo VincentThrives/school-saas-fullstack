@@ -19,8 +19,12 @@ import java.util.List;
     // "physics" / "chemistry" sub-parts of an integrated Science course.
     // periodNumber is typically 0 for day-wise marking and 1-8 for
     // subject-wise.
-    @CompoundIndex(name = "class_section_date_period_component_subpart",
-        def = "{'classId':1,'sectionId':1,'date':1,'periodNumber':1,'componentKey':1,'subPartKey':1}", unique = true)
+    // subjectId is in the key so that parallel elective subjects taught at the
+    // same date+period (Sanskrit + Hindi at Monday P1, different teachers,
+    // different student groups) each get their own attendance row. Day-wise
+    // rows (subjectId=null) still uniquely key off (class, section, date, 0).
+    @CompoundIndex(name = "class_section_date_period_subject_component_subpart",
+        def = "{'classId':1,'sectionId':1,'date':1,'periodNumber':1,'subjectId':1,'componentKey':1,'subPartKey':1}", unique = true)
 })
 public class StudentsAttendance {
     @Id

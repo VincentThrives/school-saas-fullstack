@@ -1,0 +1,92 @@
+<div class="msd-header">
+  <div>
+    <h2 mat-dialog-title>Manage Students</h2>
+    <div class="msd-subtitle">{{ data.subjectName }}</div>
+  </div>
+  <button mat-icon-button (click)="cancel()" matTooltip="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="msd-content">
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="32"></mat-spinner>
+    <span>Loading students…</span>
+  </div>
+
+  <ng-container *ngIf="!isLoading">
+    <div class="msd-toolbar">
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search</mat-label>
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput [(ngModel)]="searchQuery" placeholder="Name or roll number" />
+      </mat-form-field>
+      <!-- Class+section dropdown — built by the parent from its
+           cached classes (assignments × section names). Empty value
+           means "All" — the default. -->
+      <mat-form-field appearance="outline" class="class-field">
+        <mat-label>Class</mat-label>
+        <mat-select [(ngModel)]="selectedClassSectionKey">
+          <mat-option [value]="''">All ({{ (data.classSectionOptions || []).length }})</mat-option>
+          <mat-option *ngFor="let opt of (data.classSectionOptions || [])" [value]="opt.key">
+            {{ opt.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+      <div class="msd-toolbar-actions">
+        <!-- Bulk actions apply to whatever's visible after the
+             class + search filters. Pick "11th-A" → Select all and
+             only those students get enrolled. -->
+        <button mat-stroked-button (click)="selectAll()" [disabled]="isSaving">
+          <mat-icon>done_all</mat-icon> Select all
+        </button>
+        <button mat-stroked-button (click)="clearAll()" [disabled]="isSaving">
+          <mat-icon>block</mat-icon> Clear
+        </button>
+      </div>
+    </div>
+
+    <div class="msd-summary">
+      <mat-icon>filter_alt</mat-icon>
+      <span>{{ enrolledCount }} of {{ totalCount }} students enrolled
+        <ng-container *ngIf="selectedClassSectionKey">
+          · showing {{ filteredCandidates.length }} in this class
+        </ng-container>
+      </span>
+    </div>
+
+    <div class="msd-list" *ngIf="filteredCandidates.length > 0">
+      <div class="msd-row" *ngFor="let c of filteredCandidates">
+        <mat-checkbox
+          [checked]="isEnrolled(c.studentId)"
+          (change)="toggle(c.studentId, $event.checked)"
+          [disabled]="isSaving">
+          <div class="msd-row-text">
+            <div class="msd-row-name">{{ fullName(c) }}</div>
+            <div class="msd-row-meta">
+              <span *ngIf="classSectionLabelFor(c)">{{ classSectionLabelFor(c) }}</span>
+              <span *ngIf="classSectionLabelFor(c) && c.rollNumber"> · </span>
+              <span *ngIf="c.rollNumber">Roll {{ c.rollNumber }}</span>
+            </div>
+          </div>
+        </mat-checkbox>
+      </div>
+    </div>
+
+    <div class="empty-state" *ngIf="filteredCandidates.length === 0 && candidates.length === 0">
+      No students found in the sections this subject is assigned to.
+    </div>
+    <div class="empty-state" *ngIf="filteredCandidates.length === 0 && candidates.length > 0">
+      No students match "{{ searchQuery }}".
+    </div>
+  </ng-container>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="msd-actions">
+  <button mat-button (click)="cancel()" [disabled]="isSaving">Cancel</button>
+  <button mat-flat-button color="primary" (click)="save()" [disabled]="isSaving || isLoading">
+    <mat-icon *ngIf="!isSaving">save</mat-icon>
+    <mat-spinner *ngIf="isSaving" diameter="18"></mat-spinner>
+    {{ isSaving ? 'Saving…' : 'Save changes' }}
+  </button>
+</mat-dialog-actions>

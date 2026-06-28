@@ -388,12 +388,19 @@ export class MarkSubjectAttendanceComponent implements OnInit {
           const records = res?.data || [];
           this.timetablePeriods.forEach(p => {
             if (p.classId !== classId || p.sectionId !== sectionId) return;
-            const match = records.find((r: any) =>
-              r.periodNumber === p.periodNumber
-              && (!r.subjectId || !p.subjectId || r.subjectId === p.subjectId));
+            // Strict subjectId match: parallel electives (Sanskrit + Hindi
+            // at the same period) must NOT cross-match. Day-wise cards
+            // (no subjectId) match only day-wise rows (no subjectId).
+            const match = records.find((r: any) => {
+              if (r.periodNumber !== p.periodNumber) return false;
+              return p.subjectId ? r.subjectId === p.subjectId : !r.subjectId;
+            });
             if (match) {
               p.marked = true;
               p.studentCount = (match.entries || []).length;
+            } else {
+              p.marked = false;
+              p.studentCount = 0;
             }
           });
         },
@@ -805,7 +812,15 @@ export class MarkSubjectAttendanceComponent implements OnInit {
 
     this.isLoading = true;
     this.isAlreadyMarked = false;
-    this.api.getStudents(0, 200, { classId: this.selectedClassId, sectionId: this.selectedSectionId }).subscribe({
+    // Pass subjectId so the backend trims the roster to enrolled
+    // students when the chosen subject is marked elective. For
+    // non-electives the param is a no-op — backend falls through to
+    // the existing class+section query.
+    this.api.getStudents(0, 200, {
+      classId: this.selectedClassId,
+      sectionId: this.selectedSectionId,
+      subjectId: this.selectedPeriod?.subjectId || undefined,
+    }).subscribe({
       next: (res) => {
         const studentList = res.data?.content || [];
         this.students = studentList.map((s: any) => ({
@@ -842,9 +857,11 @@ export class MarkSubjectAttendanceComponent implements OnInit {
       next: (res) => {
         const records = res?.data || [];
         const p = this.selectedPeriod!;
-        const match = records.find((r: any) =>
-          r.periodNumber === p.periodNumber
-          && (!r.subjectId || !p.subjectId || r.subjectId === p.subjectId));
+        // Strict subjectId match — see stampMarkedFlagsOnPeriods.
+        const match = records.find((r: any) => {
+          if (r.periodNumber !== p.periodNumber) return false;
+          return p.subjectId ? r.subjectId === p.subjectId : !r.subjectId;
+        });
         if (match && Array.isArray(match.entries) && match.entries.length > 0) {
           const byId: Record<string, any> = {};
           match.entries.forEach((e: any) => { byId[e.studentId] = e; });

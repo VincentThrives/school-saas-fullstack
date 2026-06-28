@@ -52,6 +52,10 @@ interface SubjectOption {
   componentLabel?: string;
   subPartKey?: string;
   subPartLabel?: string;
+  /** True when the underlying subject is marked elective. Drives the
+   *  "+ Add parallel elective" gating: parallel periods are only
+   *  allowed when every subject in the slot is elective. */
+  elective?: boolean;
 }
 
 @Component({
@@ -112,6 +116,18 @@ export class TimetableBuilderComponent implements OnInit {
   schedule: TimetableDaySchedule[] = [];
 
   subjects: SubjectOption[] = [];
+
+  /**
+   * Parallel elective periods kept OUT of {@link schedule} during
+   * editing so the table's row count (driven by max periods.length)
+   * doesn't grow each time the admin adds a second elective to a
+   * slot. Keyed by {@code `${dayOfWeek}::${periodNumber}`}. On save,
+   * each map entry is appended to the matching day's {@code periods}
+   * array so the backend sees one big list with duplicate
+   * periodNumbers. On load, duplicates are extracted back into this
+   * map and the array stays one-per-slot.
+   */
+  parallelByKey: Record<string, TimetablePeriod[]> = {};
 
   // ── Schedule configuration (read-only here) ────────────────
   // The settings panel that USED to live in the builder moved to the
@@ -363,6 +379,7 @@ export class TimetableBuilderComponent implements OnInit {
    */
   private buildOptionsForSubject(subjectId: string, sub: any): SubjectOption[] {
     const name = sub?.name || subjectId;
+    const elective = !!sub?.elective;
     const subParts = sub?.subParts || [];
     // Sub-parts (teaching axis) take precedence — they're what defines the
     // PERIOD on the timetable (Physics period, Chemistry period). A subject
@@ -376,11 +393,12 @@ export class TimetableBuilderComponent implements OnInit {
         subPartLabel: sp.label,
         label: `${name} (${sp.label})`,
         value: `${subjectId}||${sp.key}`,
+        elective,
       } as SubjectOption));
     }
     const tracked = (sub?.components || []).filter((c: any) => c && c.trackAttendance);
     if (tracked.length < 2) {
-      return [{ subjectId, label: name, value: `${subjectId}||` }];
+      return [{ subjectId, label: name, value: `${subjectId}||`, elective }];
     }
     return tracked.map((c: any) => ({
       subjectId,
@@ -388,7 +406,87 @@ export class TimetableBuilderComponent implements OnInit {
       componentLabel: c.label,
       label: `${name} (${c.label})`,
       value: `${subjectId}|${c.key}|`,
+      elective,
     } as SubjectOption));
+  }
+
+  /** Subset of {@link subjects} restricted to electives — feeds the
+   *  parallel-period dropdown so admins can only stack elective
+   *  subjects in the same slot (matches the backend validation in
+   *  {@code TimetableService.assertParallelPeriodsAreElective}). */
+  get electiveSubjectOptions(): SubjectOption[] {
+    return this.subjects.filter(s => !!s.elective);
+  }
+
+  /** Options for the parallel-period subject dropdown — electives in
+   *  the class+section minus every subject already chosen at this
+   *  slot (primary + other parallels). Hindi shows when Sanskrit is
+   *  the primary; once Hindi is picked in Parallel #2, the Parallel
+   *  #3 dropdown stops offering Hindi too. The current row's own
+   *  pick stays in the list so the admin can see what's selected. */
+  parallelSubjectOptions(primary: TimetablePeriod, current?: TimetablePeriod, day?: any): SubjectOption[] {
+    const usedIds = new Set<string>();
+    if (primary?.subjectId) usedIds.add(primary.subjectId);
+    if (day && primary) {
+      const siblings = this.parallelPeriodsAt(day, primary.periodNumber) || [];
+      for (const sib of siblings) {
+        if (sib === current) continue;
+        if (sib?.subjectId) usedIds.add(sib.subjectId);
+      }
+    }
+    const currentId = current?.subjectId || '';
+    return this.subjects.filter(s =>
+      !!s.elective && (s.subjectId === currentId || !usedIds.has(s.subjectId)));
+  }
+
+  /** Composite key for the parallel-periods map. */
+  private parallelKey(day: any, periodNumber: number): string {
+    return `${day?.dayOfWeek || ''}::${periodNumber}`;
+  }
+
+  /** Parallel elective periods rendered under the primary cell. Read
+   *  from {@link parallelByKey} — kept OUT of {@code day.periods}
+   *  during editing so the table's row count doesn't grow. */
+  parallelPeriodsAt(day: any, periodNumber: number): TimetablePeriod[] {
+    return this.parallelByKey[this.parallelKey(day, periodNumber)] || [];
+  }
+
+  /** Whether the "+ Add parallel elective" button should appear on a
+   *  cell. Gated on the primary period being a chosen elective subject
+   *  — pre-empts the backend validator and stops admins from creating
+   *  invalid parallel slots in the first place. */
+  canAddParallelPeriod(primary: TimetablePeriod): boolean {
+    if (!primary || !primary.subjectId) return false;
+    const opt = this.subjects.find(s => s.subjectId === primary.subjectId);
+    return !!opt?.elective;
+  }
+
+  /** Append a blank parallel period to the {@link parallelByKey} map
+   *  entry for this (day, period). Does NOT touch {@code day.periods}
+   *  — that's only expanded on save. Sharing periodNumber / start /
+   *  end with the primary so the slot semantics stay aligned. */
+  addParallelPeriod(day: any, primary: TimetablePeriod): void {
+    if (!day || !primary) return;
+    const key = this.parallelKey(day, primary.periodNumber);
+    const list = this.parallelByKey[key] || [];
+    list.push({
+      periodNumber: primary.periodNumber,
+      startTime: primary.startTime,
+      endTime: primary.endTime,
+      subjectId: '',
+      teacherId: '',
+    } as TimetablePeriod);
+    this.parallelByKey[key] = list;
+  }
+
+  removeParallelPeriod(day: any, period: TimetablePeriod): void {
+    if (!day || !period) return;
+    const key = this.parallelKey(day, period.periodNumber);
+    const list = this.parallelByKey[key];
+    if (!list) return;
+    const idx = list.indexOf(period);
+    if (idx >= 0) list.splice(idx, 1);
+    if (list.length === 0) delete this.parallelByKey[key];
   }
 
   /** Composite value "subjectId|componentKey|subPartKey" bound to the
@@ -461,6 +559,11 @@ export class TimetableBuilderComponent implements OnInit {
             && res.data.schedule.some((d: any) => d.periods && d.periods.length > 0)) {
           this.timetable = res.data;
           this.schedule = res.data.schedule;
+          // Pull parallel elective periods (duplicate periodNumber in
+          // same day) out of each day's array into parallelByKey, so
+          // the table renders one row per periodNumber while still
+          // showing the extra electives stacked inside their cell.
+          this.extractParallelPeriodsFromSchedule();
           this.editMode = true;
         } else if (res.data && res.data.timetableId) {
           // Timetable exists but has empty schedule — load it in edit mode with default periods
@@ -594,6 +697,32 @@ export class TimetableBuilderComponent implements OnInit {
     });
   }
 
+  /** Pull duplicate-periodNumber entries out of each day's periods
+   *  into {@link parallelByKey}, leaving exactly one period per
+   *  (day, periodNumber) in the array. Called on load so an existing
+   *  saved timetable with parallel electives renders correctly. */
+  private extractParallelPeriodsFromSchedule(): void {
+    this.parallelByKey = {};
+    for (const day of this.schedule) {
+      if (!day || !Array.isArray(day.periods)) continue;
+      const seen = new Set<number>();
+      const kept: TimetablePeriod[] = [];
+      for (const p of day.periods) {
+        if (!p) continue;
+        if (!seen.has(p.periodNumber)) {
+          seen.add(p.periodNumber);
+          kept.push(p);
+        } else {
+          const key = this.parallelKey(day, p.periodNumber);
+          const list = this.parallelByKey[key] || [];
+          list.push(p);
+          this.parallelByKey[key] = list;
+        }
+      }
+      day.periods = kept;
+    }
+  }
+
   saveTimetable(): void {
     if (!this.selectedClassId || !this.selectedSectionId || !this.selectedAcademicYearId) {
       this.snackBar.open('Please select Class, Section and Academic Year', 'OK', { duration: 3000 });
@@ -619,20 +748,30 @@ export class TimetableBuilderComponent implements OnInit {
 
     this.isSaving = true;
 
-    // Populate names in schedule before saving
+    // Populate names in schedule before saving. Also fold parallel
+    // electives in for the payload only — they live in parallelByKey
+    // during editing so the table's row count doesn't grow per add.
+    // We splice them into the array per-day here without mutating
+    // this.schedule, so a save failure leaves UI state intact.
     const cls = this.classes.find(c => c.classId === this.selectedClassId);
     const sec = cls?.sections?.find(s => s.sectionId === this.selectedSectionId);
-    const scheduleWithNames = this.schedule.map(day => ({
-      ...day,
-      periods: day.periods.map(p => ({
-        ...p,
-        // Cached subjectName stays component-FREE — attendance/report renderers
-        // append componentLabel separately, so "English" + "(Theory)" don't
-        // double up to "English (Theory) (Theory)".
-        subjectName: p.subjectId ? this.getSubjectName(p.subjectId) : '',
-        teacherName: p.teacherId ? this.getTeacherName(p.teacherId) : '',
-      })),
-    }));
+    const stampPeriod = (p: TimetablePeriod) => ({
+      ...p,
+      // Cached subjectName stays component-FREE — attendance/report renderers
+      // append componentLabel separately, so "English" + "(Theory)" don't
+      // double up to "English (Theory) (Theory)".
+      subjectName: p.subjectId ? this.getSubjectName(p.subjectId) : '',
+      teacherName: p.teacherId ? this.getTeacherName(p.teacherId) : '',
+    });
+    const scheduleWithNames = this.schedule.map(day => {
+      const merged: TimetablePeriod[] = [];
+      for (const p of (day.periods || [])) {
+        merged.push(stampPeriod(p));
+        const extras = this.parallelByKey[this.parallelKey(day, p.periodNumber)] || [];
+        for (const extra of extras) merged.push(stampPeriod(extra));
+      }
+      return { ...day, periods: merged };
+    });
 
     const payload: Partial<Timetable> = {
       classId: this.selectedClassId,

@@ -513,9 +513,14 @@ export class ApiService {
     return this.http.get<ApiResponse<Student>>(`${this.API}/students/me`);
   }
 
-  getStudents(page = 0, size = 20, params?: { academicYearId?: string; classId?: string; sectionId?: string; search?: string; gender?: string }): Observable<ApiResponse<PaginatedResponse<Student>>> {
+  getStudents(page = 0, size = 20, params?: { academicYearId?: string; classId?: string; sectionId?: string; subjectId?: string; search?: string; gender?: string }): Observable<ApiResponse<PaginatedResponse<Student>>> {
     let httpParams = new HttpParams().set('page', page).set('size', size);
     if (params?.academicYearId) httpParams = httpParams.set('academicYearId', params.academicYearId);
+    // Optional elective filter — when passed AND the subject is
+    // marked elective AND has enrolledStudentIds, the backend trims
+    // the section roster to that subset. Non-elective subjects + the
+    // omitted-param case fall through to the existing query.
+    if (params?.subjectId) httpParams = httpParams.set('subjectId', params.subjectId);
     if (params?.classId) httpParams = httpParams.set('classId', params.classId);
     if (params?.sectionId) httpParams = httpParams.set('sectionId', params.sectionId);
     if (params?.search) httpParams = httpParams.set('search', params.search);

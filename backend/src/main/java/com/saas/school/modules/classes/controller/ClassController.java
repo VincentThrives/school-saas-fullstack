@@ -8,6 +8,8 @@ import com.saas.school.modules.classes.model.SchoolClass;
 import com.saas.school.modules.classes.model.Subject;
 import com.saas.school.modules.classes.repository.SchoolClassRepository;
 import com.saas.school.modules.classes.repository.SubjectRepository;
+import com.saas.school.modules.student.model.Student;
+import com.saas.school.modules.student.repository.StudentRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +26,7 @@ public class ClassController {
 
     @Autowired private SchoolClassRepository classRepo;
     @Autowired private SubjectRepository subjectRepo;
+    @Autowired private StudentRepository studentRepo;
 
     @GetMapping("/classes")
     public ResponseEntity<ApiResponse<List<SchoolClass>>> listClasses(
@@ -194,7 +197,7 @@ public class ClassController {
         // picker they never asked for.
         Subject mergeTarget = findIdenticalShapeSubject(
                 req.getName(), req.getAcademicYearId(),
-                req.getComponents(), req.getSubParts());
+                req.getComponents(), req.getSubParts(), req.isElective());
         if (mergeTarget != null) {
             mergeAssignmentsInto(mergeTarget, req.getAssignments());
             mergeTarget.setClassId(null);
@@ -245,6 +248,12 @@ public class ClassController {
         // controller never copies it onto `existing` before save.
         existing.setGroupPeriodAllowed(req.isGroupPeriodAllowed());
         existing.setSubParts(req.getSubParts());
+        // Elective flag is form-managed; enrolledStudentIds is owned
+        // by the separate "Manage Students" dialog (see
+        // updateEnrolledStudents below) — leave enrolledStudentIds
+        // alone here so saving an unrelated edit on an elective
+        // subject doesn't wipe the picked roster.
+        existing.setElective(req.isElective());
         defaultComponentValues(existing);
 
         // Compute the diff between the OLD assignments (what the
@@ -271,6 +280,92 @@ public class ClassController {
         existing.setClassId(null);
         Subject saved = subjectRepo.save(existing);
         return ResponseEntity.ok(ApiResponse.success(saved, "Updated"));
+    }
+
+    /**
+     * Returns the candidate students for an elective subject — every
+     * active student in the subject's assigned (class, section) pairs.
+     * The "Manage Students" dialog uses this as the picker pool: it
+     * shows each candidate with a checkbox, pre-ticked when their id
+     * is in {@code enrolledStudentIds}.
+     *
+     * <p>Works for non-elective subjects too — it just returns the full
+     * section roster, which is the same set every existing read uses
+     * today. No effect on legacy flows.</p>
+     */
+    @GetMapping("/subjects/{subjectId}/eligible-students")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getEligibleStudents(@PathVariable String subjectId) {
+        Subject subject = subjectRepo.findById(subjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subject not found"));
+
+        java.util.List<Student> pool = new java.util.ArrayList<>();
+        if (subject.getAssignments() != null) {
+            for (Subject.Assignment a : subject.getAssignments()) {
+                if (a == null || a.getClassId() == null) continue;
+                java.util.List<String> sectionIds = a.getSectionIds();
+                if (sectionIds == null || sectionIds.isEmpty()) continue;
+                for (String sectionId : sectionIds) {
+                    pool.addAll(studentRepo.findByClassIdAndSectionIdAndDeletedAtIsNull(a.getClassId(), sectionId));
+                }
+            }
+        }
+        // De-dupe — a student can only appear once even if the subject
+        // got assigned to overlapping section sets (defensive; the form
+        // shouldn't produce overlaps).
+        java.util.Map<String, Student> byId = new java.util.LinkedHashMap<>();
+        for (Student s : pool) if (s != null && s.getStudentId() != null) byId.putIfAbsent(s.getStudentId(), s);
+
+        java.util.Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("students", new java.util.ArrayList<>(byId.values()));
+        body.put("enrolledStudentIds",
+                subject.getEnrolledStudentIds() == null ? java.util.Collections.emptyList() : subject.getEnrolledStudentIds());
+        body.put("elective", subject.isElective());
+        return ResponseEntity.ok(ApiResponse.success(body));
+    }
+
+    /**
+     * Replaces the elective subject's enrolled-student list. Empty
+     * list explicitly clears it. Filters incoming ids against the
+     * candidate pool so the admin can't accidentally enroll a
+     * student who isn't in any of the assigned sections.
+     *
+     * <p>Owned by the "Manage Students" dialog. Independent from the
+     * Subject form's update endpoint so saving an unrelated edit on
+     * the subject can't blow away the enrollment list.</p>
+     */
+    @PutMapping("/subjects/{subjectId}/enrolled-students")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<Subject>> updateEnrolledStudents(
+            @PathVariable String subjectId,
+            @RequestBody java.util.Map<String, java.util.List<String>> body) {
+        Subject subject = subjectRepo.findById(subjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subject not found"));
+
+        // Recompute the candidate pool to validate ids against.
+        java.util.Set<String> validIds = new java.util.HashSet<>();
+        if (subject.getAssignments() != null) {
+            for (Subject.Assignment a : subject.getAssignments()) {
+                if (a == null || a.getClassId() == null) continue;
+                java.util.List<String> sectionIds = a.getSectionIds();
+                if (sectionIds == null) continue;
+                for (String sectionId : sectionIds) {
+                    for (Student s : studentRepo.findByClassIdAndSectionIdAndDeletedAtIsNull(a.getClassId(), sectionId)) {
+                        if (s != null && s.getStudentId() != null) validIds.add(s.getStudentId());
+                    }
+                }
+            }
+        }
+        java.util.List<String> incoming = body == null ? null : body.get("enrolledStudentIds");
+        java.util.List<String> filtered = new java.util.ArrayList<>();
+        if (incoming != null) {
+            for (String id : incoming) {
+                if (id != null && validIds.contains(id) && !filtered.contains(id)) filtered.add(id);
+            }
+        }
+        subject.setEnrolledStudentIds(filtered.isEmpty() ? null : filtered);
+        Subject saved = subjectRepo.save(subject);
+        return ResponseEntity.ok(ApiResponse.success(saved, "Enrolled students updated"));
     }
 
     @DeleteMapping("/subjects/{subjectId}")
@@ -558,7 +653,8 @@ public class ClassController {
     private Subject findIdenticalShapeSubject(
             String name, String academicYearId,
             List<Subject.Component> incomingComponents,
-            List<Subject.SubPart> incomingSubParts) {
+            List<Subject.SubPart> incomingSubParts,
+            boolean incomingElective) {
         if (name == null || name.isBlank() || academicYearId == null || academicYearId.isBlank()) return null;
         if (incomingComponents == null) return null;
         String regex = "^" + java.util.regex.Pattern.quote(name.trim()) + "$";
@@ -573,6 +669,15 @@ public class ClassController {
             // sub-parts doc and 8th-class teachers ended up with sub-part
             // pickers they didn't ask for.
             if (!subPartsEqual(other.getSubParts(), incomingSubParts)) continue;
+            // Elective is part of the shape too — a normal Sanskrit
+            // (taught to every student in 1st/2nd) and an elective
+            // Sanskrit (taught to a subset of 11th students) are
+            // semantically different subjects even when the name and
+            // components match. Without this check the elective create
+            // silently folds into the existing non-elective doc, and
+            // its (class, section) assignments + the eventual enrolled
+            // student list spill across both class levels.
+            if (other.isElective() != incomingElective) continue;
             return other;
         }
         return null;

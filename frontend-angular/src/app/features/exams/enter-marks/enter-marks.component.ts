@@ -189,6 +189,11 @@ export class EnterMarksComponent implements OnInit {
     const params: any = {};
     if (this.exam.classId) params.classId = this.exam.classId;
     if (this.exam.sectionId) params.sectionId = this.exam.sectionId;
+    // Pass the exam's subjectId so the backend trims the roster to
+    // enrolled students when the subject is marked elective (e.g.
+    // PU Kannada chosen by only 30 of 50 in the section). For
+    // non-electives the param is a no-op.
+    if (this.exam.subjectId) params.subjectId = this.exam.subjectId;
     this.api.getStudents(0, 100, Object.keys(params).length > 0 ? params : undefined).subscribe({
       next: (res) => {
         let studentList = res.data?.content || [];

@@ -172,12 +172,18 @@ public class AttendanceService {
         if (subPartKey != null && subPartKey.isBlank()) subPartKey = null;
 
         // Upsert: find existing or create new — keyed on the full
-        // (componentKey, subPartKey) tuple so a Physics row and a
-        // Chemistry row for the same date + period coexist cleanly.
+        // (subjectId, componentKey, subPartKey) tuple so a Physics row
+        // and a Chemistry row for the same date + period coexist cleanly,
+        // AND so parallel electives (Sanskrit + Hindi at the same Monday
+        // P1) each get their own row instead of overwriting one another.
+        // Day-wise upserts pass null subjectId, matching legacy day-wise
+        // rows untouched.
+        String subjectIdForKey = (req.getSubjectId() == null || req.getSubjectId().isBlank())
+                ? null : req.getSubjectId();
         Optional<StudentsAttendance> existing = batchRepository
-                .findByClassIdAndSectionIdAndDateAndPeriodNumberAndComponentKeyAndSubPartKey(
+                .findByClassIdAndSectionIdAndDateAndPeriodNumberAndSubjectIdAndComponentKeyAndSubPartKey(
                         req.getClassId(), req.getSectionId(), req.getDate(), period,
-                        resolvedComponentKey, subPartKey);
+                        subjectIdForKey, resolvedComponentKey, subPartKey);
 
         StudentsAttendance record;
         if (existing.isPresent()) {
@@ -328,6 +334,12 @@ public class AttendanceService {
             }
         }
 
+        // Pull every attendance row for the day once and filter by subject so
+        // parallel electives (Sanskrit + Hindi at the same Monday P1) each
+        // stamp their own card's marked flag instead of cross-stamping.
+        List<StudentsAttendance> dayRows = batchRepository
+                .findByClassIdAndSectionIdAndDate(classId, sectionId, date);
+
         List<Map<String, Object>> periods = new ArrayList<>();
         for (Timetable.Period p : daySchedule.getPeriods()) {
             if (p.getSubjectId() == null || p.getSubjectId().isEmpty()) continue;
@@ -346,10 +358,16 @@ public class AttendanceService {
             pm.put("componentKey", p.getComponentKey());
             pm.put("componentLabel", p.getComponentLabel());
 
-            Optional<StudentsAttendance> marked = batchRepository
-                    .findByClassIdAndSectionIdAndDateAndPeriodNumber(classId, sectionId, date, p.getPeriodNumber());
-            pm.put("marked", marked.isPresent());
-            pm.put("studentCount", marked.map(m -> m.getEntries() != null ? m.getEntries().size() : 0).orElse(0));
+            StudentsAttendance marked = dayRows.stream()
+                    .filter(r -> r.getPeriodNumber() == p.getPeriodNumber())
+                    .filter(r -> p.getSubjectId() == null
+                            ? r.getSubjectId() == null
+                            : p.getSubjectId().equals(r.getSubjectId()))
+                    .findFirst()
+                    .orElse(null);
+            pm.put("marked", marked != null);
+            pm.put("studentCount", marked != null && marked.getEntries() != null
+                    ? marked.getEntries().size() : 0);
 
             periods.add(pm);
         }

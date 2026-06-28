@@ -96,6 +96,35 @@ public class Subject {
      */
     private boolean groupPeriodAllowed;
 
+    /**
+     * Marks the subject as an elective (e.g. PU 2nd-language Kannada
+     * where only 30 of 50 students opt in). Drives the UI: when true,
+     * the Subjects list surfaces a "Manage Students" action that lets
+     * the admin pick the enrolled subset; when false, every student
+     * in the assigned sections is implicitly enrolled (today's
+     * behavior, unchanged).
+     *
+     * <p>Defaults to {@code false} so every existing subject doc
+     * keeps its current "everyone in the section takes it" semantics
+     * without a migration.</p>
+     */
+    private boolean elective;
+
+    /**
+     * Subset of student-ids enrolled in this subject when it's an
+     * elective. {@code null} or empty means "no restriction — every
+     * student in the assigned sections takes it" (the rule for every
+     * existing subject in production). Populated by the "Manage
+     * Students" dialog opened from the Subjects list.
+     *
+     * <p>Read paths fetching students for a (class, section, subject)
+     * tuple check this list first: present + non-empty → filter to
+     * these ids; absent → fall back to the existing
+     * {@code findByClassIdAndSectionId} query. Keeps exam marks,
+     * subject-wise attendance, and report cards consistent.</p>
+     */
+    private List<String> enrolledStudentIds;
+
     @CreatedDate
     private Instant createdAt;
 
@@ -188,6 +217,12 @@ public class Subject {
 
     public boolean isGroupPeriodAllowed() { return groupPeriodAllowed; }
     public void setGroupPeriodAllowed(boolean groupPeriodAllowed) { this.groupPeriodAllowed = groupPeriodAllowed; }
+
+    public boolean isElective() { return elective; }
+    public void setElective(boolean elective) { this.elective = elective; }
+
+    public List<String> getEnrolledStudentIds() { return enrolledStudentIds; }
+    public void setEnrolledStudentIds(List<String> enrolledStudentIds) { this.enrolledStudentIds = enrolledStudentIds; }
 
     /** True when the subject has at least one sub-part. */
     public boolean hasSubParts() { return subParts != null && !subParts.isEmpty(); }

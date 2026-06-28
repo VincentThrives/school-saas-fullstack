@@ -32,9 +32,17 @@ public class StudentController {
             @RequestParam(required=false) String academicYearId,
             @RequestParam(required=false) String classId,
             @RequestParam(required=false) String sectionId,
+            @RequestParam(required=false) String subjectId,
             @RequestParam(required=false) String search) {
+        // subjectId is an opt-in filter — when the caller knows the
+        // subject context (Enter Marks, Mark Subject Attendance) it
+        // can pass the id and the service will trim the section roster
+        // down to {@code Subject.enrolledStudentIds} for electives.
+        // Non-electives, and callers that omit the param, see the
+        // unchanged full-section list — every existing flow keeps
+        // working exactly as today.
         return ResponseEntity.ok(ApiResponse.success(
-            studentService.listStudents(page, size, academicYearId, classId, sectionId, search)));
+            studentService.listStudents(page, size, academicYearId, classId, sectionId, subjectId, search)));
     }
 
     @GetMapping("/{id}")

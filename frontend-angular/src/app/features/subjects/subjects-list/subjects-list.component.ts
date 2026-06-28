@@ -16,7 +16,9 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatDialog } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { ManageStudentsDialogComponent } from '../manage-students-dialog/manage-students-dialog.component';
 import { SubjectService, SubjectItem, SubjectComponent, CreateOrUpdateSubject } from '../../../core/services/subject.service';
 import { ApiService } from '../../../core/services/api.service';
 
@@ -113,6 +115,7 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
     private apiService: ApiService,
     private fb: FormBuilder,
     private snackBar: MatSnackBar,
+    private dialog: MatDialog,
   ) {}
 
   ngAfterViewChecked(): void {
@@ -273,6 +276,12 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       // the timetable builder put the same teacher across multiple
       // sections at the same slot without raising a conflict.
       groupPeriodAllowed: [false],
+      // Elective marker — Subjects list surfaces a "Manage Students"
+      // action when on, so admins can pick which students take this
+      // subject (e.g. Kannada chosen by 30 of 50 students in PU1).
+      // OFF by default keeps every existing subject behaving as
+      // "every student in the section takes it".
+      elective: [false],
     });
     // Keep components array in sync whenever the admin picks a different preset.
     this.form.get('subjectType')?.valueChanges.subscribe(v => this.applyPreset(v));
@@ -450,6 +459,55 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
   subPartsTooltip(subject: SubjectItem): string {
     const sps = subject.subParts || [];
     return sps.map(sp => sp.label).join(', ');
+  }
+
+  /** Tooltip on the Elective badge — surfaces the enrolled count or
+   *  nudges the admin to use Manage Students when the roster is empty. */
+  electiveTooltip(subject: SubjectItem): string {
+    const n = subject.enrolledStudentIds?.length || 0;
+    if (n === 0) {
+      return 'Elective subject. No students picked yet — open Manage Students to enrol the ones who take it.';
+    }
+    return `Elective subject. ${n} student${n === 1 ? '' : 's'} currently enrolled.`;
+  }
+
+  /** Opens the standalone Manage Students dialog for an elective. The
+   *  dialog talks to its own GET/PUT endpoints; on save we refresh the
+   *  list so the badge count updates without a full reload. */
+  openManageStudentsDialog(subject: SubjectItem): void {
+    // Build the (class, section) dropdown options from cached classes
+    // so the dialog doesn't need its own class fetch. Same lookup
+    // `classDetailFor` already uses to render the row's class pills.
+    const options: Array<{ key: string; label: string }> = [];
+    const seen = new Set<string>();
+    const assignments = subject.assignments && subject.assignments.length > 0
+      ? subject.assignments
+      : (subject.classId ? [{ classId: subject.classId, sectionIds: [] }] : []);
+    for (const a of assignments) {
+      const cls = this.classLookup.get(a.classId);
+      const className = cls?.name || a.classId;
+      for (const sid of (a.sectionIds || [])) {
+        const key = `${a.classId}::${sid}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const sectionName = cls?.sections.find(s => s.sectionId === sid)?.name || sid;
+        options.push({ key, label: `${className} - ${sectionName}` });
+      }
+    }
+
+    const ref = this.dialog.open(ManageStudentsDialogComponent, {
+      width: '640px',
+      maxWidth: '95vw',
+      autoFocus: false,
+      data: {
+        subjectId: subject.subjectId,
+        subjectName: subject.name,
+        classSectionOptions: options,
+      },
+    });
+    ref.afterClosed().subscribe(result => {
+      if (result?.saved) this.subjectService.refreshSubjects();
+    });
   }
 
   /** Generate a non-clashing component key for a newly-added row. */
@@ -651,6 +709,7 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       academicYearId: subject.academicYearId || '',
       passRule: subject.passRule || 'PER_COMPONENT',
       groupPeriodAllowed: !!subject.groupPeriodAllowed,
+      elective: !!subject.elective,
     });
     // Re-create the components FormArray to match the existing subject.
     const comps = this.form.get('components') as any;
@@ -823,6 +882,7 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       assignments,
       subParts,
       groupPeriodAllowed: !!raw.groupPeriodAllowed,
+      elective: !!raw.elective,
     };
 
     this.isCreating = true;

@@ -131,7 +131,7 @@
 
     <div class="period-cards" *ngIf="!isLoadingPeriods && timetablePeriods.length > 0">
       <div class="period-card" *ngFor="let p of timetablePeriods; let idx = index"
-           [class.selected]="selectedPeriod?.periodNumber === p.periodNumber && selectedPeriod?.classId === p.classId && selectedPeriod?.sectionId === p.sectionId"
+           [class.selected]="selectedPeriod === p"
            [class.marked]="p.marked"
            [class.locked]="isPeriodLocked(idx)"
            (click)="!isPeriodLocked(idx) && selectPeriod(p)">

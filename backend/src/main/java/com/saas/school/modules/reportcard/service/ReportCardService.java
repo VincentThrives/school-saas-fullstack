@@ -304,11 +304,27 @@ public class ReportCardService {
             double max = subjectMaxMarks.getOrDefault(subjectId, 0.0);
             boolean isAbsent = absentSubjectIds.contains(subjectId);
 
+            Subject subject = subjectRepository.findById(subjectId).orElse(null);
+
+            // Elective gate — when the subject is marked elective AND
+            // its enrolledStudentIds list excludes this student, the
+            // subject simply doesn't apply to them. Skip the row so
+            // the report card doesn't render "Absent" for a Sanskrit
+            // they never took. Non-electives, and electives with a
+            // null / empty roster, fall through to the existing
+            // logic so legacy report cards stay identical.
+            if (subject != null
+                    && subject.isElective()
+                    && subject.getEnrolledStudentIds() != null
+                    && !subject.getEnrolledStudentIds().isEmpty()
+                    && !subject.getEnrolledStudentIds().contains(studentId)) {
+                continue;
+            }
+
             // Try to enrich with per-component breakdown. For component-shaped
             // subjects this also overrides obtained/max with the component sum,
             // so internal marks (which live outside the Exam table) get included
             // in the subject total.
-            Subject subject = subjectRepository.findById(subjectId).orElse(null);
             List<ReportCard.ComponentGrade> componentGrades = null;
             boolean subjectPassed = !isAbsent;
             if (subject != null && subject.getComponents() != null && !subject.getComponents().isEmpty()) {

@@ -48,6 +48,17 @@ public interface StudentsAttendanceRepository extends MongoRepository<StudentsAt
             String classId, String sectionId, LocalDate date, int periodNumber,
             String componentKey, String subPartKey);
 
+    /**
+     * Upsert lookup that ALSO includes subjectId — required for parallel
+     * elective periods where two different subjects (Sanskrit + Hindi)
+     * share the same date+period slot. Without subjectId in the lookup,
+     * the second save would overwrite the first. Day-wise upserts still
+     * pass null subjectId and match the same rows as before.
+     */
+    Optional<StudentsAttendance> findByClassIdAndSectionIdAndDateAndPeriodNumberAndSubjectIdAndComponentKeyAndSubPartKey(
+            String classId, String sectionId, LocalDate date, int periodNumber,
+            String subjectId, String componentKey, String subPartKey);
+
     // Date range — for reports.
     //
     // Inclusive on BOTH ends ($gte / $lte). Auto-derived method names like

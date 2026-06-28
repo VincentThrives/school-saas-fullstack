@@ -73,6 +73,11 @@ public class TimetableService {
         // Enforce: a teacher cannot be in two classes at the same period+day
         // within the same academic year. Throws IllegalArgumentException → 400.
         assertNoTeacherDoubleBooking(timetable);
+        // Enforce: when a slot has multiple parallel periods (same
+        // dayOfWeek + periodNumber inside this section's schedule),
+        // every subject in that slot must be marked elective and no
+        // two parallel periods may share a teacher.
+        assertParallelPeriodsAreElective(timetable);
 
         return timetableRepository.save(timetable);
     }
@@ -139,6 +144,69 @@ public class TimetableService {
                 }
             }
         }
+    }
+
+    /**
+     * Reject a schedule where the same {@code dayOfWeek + periodNumber}
+     * has two or more periods inside one section's day, unless every
+     * subject in that slot is marked elective. The intent: a section
+     * legitimately runs two parallel periods only when students split
+     * across elective subjects (PU 2nd-language Sanskrit + Kannada
+     * during the same Monday 1st period). Two non-electives in the
+     * same slot is almost always an admin typo — flag it loud.
+     *
+     * <p>Also rejects when two parallel periods name the same teacher,
+     * since a teacher can't physically be in both rooms.</p>
+     */
+    private void assertParallelPeriodsAreElective(Timetable incoming) {
+        if (incoming.getSchedule() == null) return;
+        for (Timetable.DaySchedule day : incoming.getSchedule()) {
+            if (day == null || day.getPeriods() == null || day.getDayOfWeek() == null) continue;
+            // Group this day's periods by periodNumber.
+            java.util.Map<Integer, java.util.List<Timetable.Period>> byPeriod = new java.util.LinkedHashMap<>();
+            for (Timetable.Period p : day.getPeriods()) {
+                if (p == null) continue;
+                byPeriod.computeIfAbsent(p.getPeriodNumber(), k -> new java.util.ArrayList<>()).add(p);
+            }
+            for (var entry : byPeriod.entrySet()) {
+                java.util.List<Timetable.Period> parallel = entry.getValue();
+                if (parallel.size() < 2) continue;
+                int periodNumber = entry.getKey();
+
+                // Every subject in the slot must be elective.
+                for (Timetable.Period p : parallel) {
+                    if (!subjectIsElective(p.getSubjectId())) {
+                        throw new IllegalArgumentException(
+                                "Period " + periodNumber + " on " + day.getDayOfWeek()
+                              + " has more than one subject in the same slot, but '"
+                              + (p.getSubjectName() != null ? p.getSubjectName() : p.getSubjectId())
+                              + "' is not marked as an elective. Two parallel periods are only "
+                              + "allowed when every subject in the slot is an elective.");
+                    }
+                }
+
+                // No two parallel periods can share a teacher (they'd be in two rooms at once).
+                java.util.Set<String> teacherIds = new java.util.HashSet<>();
+                for (Timetable.Period p : parallel) {
+                    if (p.getTeacherId() == null || p.getTeacherId().isBlank()) continue;
+                    if (!teacherIds.add(p.getTeacherId())) {
+                        throw new IllegalArgumentException(
+                                "Period " + periodNumber + " on " + day.getDayOfWeek()
+                              + " has the same teacher assigned to two parallel elective periods. "
+                              + "Pick a different teacher for one of them.");
+                    }
+                }
+            }
+        }
+    }
+
+    /** Look up the subject by id and return whether it's marked
+     *  elective. Null / unknown ids resolve to false so a half-filled
+     *  parallel slot can't pass validation. */
+    private boolean subjectIsElective(String subjectId) {
+        if (subjectId == null || subjectId.isBlank()) return false;
+        Subject s = subjectRepository.findById(subjectId).orElse(null);
+        return s != null && s.isElective();
     }
 
     /**

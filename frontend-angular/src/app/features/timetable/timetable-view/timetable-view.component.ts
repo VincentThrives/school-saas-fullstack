@@ -206,7 +206,16 @@ export class TimetableViewComponent implements OnInit {
 
   getMaxPeriods(): number {
     if (!this.timetable?.schedule || this.timetable.schedule.length === 0) return 0;
-    return Math.max(...this.timetable.schedule.map((d) => d.periods?.length || 0));
+    // Use the highest periodNumber seen across all days, not the
+    // periods[] array length. Parallel electives store duplicate
+    // periodNumber rows under one slot, so array length over-counts.
+    let max = 0;
+    for (const d of this.timetable.schedule) {
+      for (const p of (d.periods || [])) {
+        if (p && p.periodNumber > max) max = p.periodNumber;
+      }
+    }
+    return max;
   }
 
   getDaySchedule(day: string): TimetableDaySchedule | undefined {
@@ -216,6 +225,16 @@ export class TimetableViewComponent implements OnInit {
   getPeriod(day: string, periodIndex: number): TimetablePeriod | undefined {
     const daySchedule = this.getDaySchedule(day);
     return daySchedule?.periods?.find((p) => p.periodNumber === periodIndex + 1);
+  }
+
+  /** Every period entry for this slot — primary + any parallel
+   *  electives. The view stacks them in one cell so the admin sees
+   *  "Sanskrit / Hindi" side by side for the Monday 1st-period
+   *  elective. Single-subject slots return one entry. */
+  getPeriods(day: string, periodIndex: number): TimetablePeriod[] {
+    const daySchedule = this.getDaySchedule(day);
+    if (!daySchedule?.periods) return [];
+    return daySchedule.periods.filter((p) => p && p.periodNumber === periodIndex + 1);
   }
 
   /**

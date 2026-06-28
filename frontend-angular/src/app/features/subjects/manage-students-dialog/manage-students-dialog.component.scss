@@ -1,0 +1,131 @@
+:host {
+  display: block;
+  min-width: 480px;
+  max-width: 720px;
+}
+
+.msd-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 24px 0;
+
+  h2 { margin: 0; font-size: 18px; font-weight: 600; }
+}
+
+.msd-subtitle {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.6);
+  margin-top: 2px;
+}
+
+.msd-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 24px 8px;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.loading-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 4px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.msd-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+
+  .search-field {
+    flex: 1 1 240px;
+    min-width: 200px;
+  }
+}
+
+.msd-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.msd-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.7);
+  padding: 0 4px;
+
+  mat-icon { color: #1976d2; }
+}
+
+.class-field {
+  flex: 0 0 200px;
+  min-width: 160px;
+}
+
+.msd-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.msd-row {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+
+  &:last-child { border-bottom: none; }
+
+  mat-checkbox {
+    width: 100%;
+    ::ng-deep .mdc-form-field { align-items: center; }
+  }
+}
+
+.msd-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 4px;
+}
+
+.msd-row-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.msd-row-meta {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.empty-state {
+  padding: 24px 8px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.55);
+  font-size: 13px;
+}
+
+.msd-actions {
+  padding: 8px 24px 16px;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 600px) {
+  :host { min-width: 0; }
+  .msd-toolbar-actions { width: 100%; }
+  .msd-toolbar-actions button { flex: 1 1 calc(50% - 4px); }
+}
