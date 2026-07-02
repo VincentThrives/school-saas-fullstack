@@ -987,6 +987,14 @@ export interface TimetablePeriod {
    */
   subPartKey?: string;
   subPartLabel?: string;
+  /**
+   * Free-text label for activity slots (Reading, Writing, Library, PE,
+   * Assembly...). When set, subjectId / teacherId may be empty — the
+   * slot is a supervised activity, not a teaching period. Downstream
+   * flows (attendance, exams, report cards) key off subjectId and
+   * naturally skip activity slots.
+   */
+  activityLabel?: string;
 }
 
 export interface TimetableDaySchedule {
@@ -1005,6 +1013,18 @@ export interface ScheduleConfig {
   lunchStart?: string;             // "HH:mm" 24-hour, default "11:00"
   lunchEnd?: string;               // "HH:mm" 24-hour, default "11:30"
   displayTimeFormat?: 'h12' | 'h24'; // default 'h12' (renders "1:00 PM")
+  /** Number of periods for this day/schedule. Optional — only meaningful
+   *  inside a per-day override where a day might have fewer periods
+   *  (Saturday commonly has 4 instead of 7). Falls back to
+   *  periodsBeforeLunch + 4 when unset. */
+  periodsCount?: number;
+  /** Optional per-day override. Key is uppercase day name (MONDAY..SATURDAY);
+   *  the value replaces the outer config for that day only. Saturday commonly
+   *  runs shorter hours, fewer periods, earlier lunch — set an override for
+   *  it without touching Mon–Fri. Legacy timetables have this undefined.
+   *  Values are marked possibly-undefined so a keyed lookup at runtime
+   *  narrows cleanly. */
+  perDayOverrides?: { [dayOfWeek: string]: ScheduleConfig | undefined };
 }
 
 export interface Timetable {

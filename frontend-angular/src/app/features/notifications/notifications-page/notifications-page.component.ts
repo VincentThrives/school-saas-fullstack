@@ -69,6 +69,9 @@ export class NotificationsPageComponent implements OnInit {
   // Inbox state
   inbox: any[] = [];
   isLoadingInbox = false;
+  /** When set, the inbox-detail popup is shown so the full title + body
+   *  are readable at a comfortable size. Click anywhere on a row to open. */
+  openedNotification: any = null;
 
   readonly typeOptions = [
     { value: 'ANNOUNCEMENT', label: 'Announcement', icon: 'campaign'      },
@@ -293,6 +296,30 @@ export class NotificationsPageComponent implements OnInit {
         this.isLoadingInbox = false;
       },
     });
+  }
+
+  /** Open the detail popup AND mark the row read. The inbox-item row
+   *  uses the small "campaign" card style for scanning; clicking opens
+   *  the full title + body in a comfortable-size dialog. */
+  openNotification(n: any): void {
+    this.openedNotification = n;
+    this.markNotificationRead(n);
+  }
+
+  closeNotification(): void {
+    this.openedNotification = null;
+  }
+
+  iconForType(type: string | undefined): string {
+    switch (type) {
+      case 'EXAM': return 'assignment';
+      case 'ATTENDANCE': return 'event_note';
+      case 'FEE': return 'payments';
+      case 'ALERT': return 'warning';
+      case 'ANNOUNCEMENT': return 'campaign';
+      case 'HOMEWORK': return 'menu_book';
+      default: return 'info';
+    }
   }
 
   markNotificationRead(n: any): void {

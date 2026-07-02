@@ -90,8 +90,24 @@
                 *ngFor="let day of days"
                 class="period-cell"
                 [class.current-period]="isCurrentPeriod(day, i)"
-                [class.empty-cell]="!getPeriod(day, i)?.subjectId"
+                [class.empty-cell]="!getPeriod(day, i)?.subjectId && !getPeriod(day, i)?.activityLabel"
               >
+                <!-- Lunch chip first — it happens BEFORE this period,
+                     so it sits above the period's own time chip and
+                     card. Only fires when this day's lunch differs
+                     from the uniform (merged) lunch row. -->
+                <div class="day-lunch-chip" *ngIf="dayLunchChip(day, i) as chip">
+                  <mat-icon>restaurant</mat-icon>
+                  <span>Lunch · {{ chip }}</span>
+                </div>
+                <!-- Per-day time chip — surfaces THIS day's actual
+                     start/end when it has an override, so a Saturday
+                     running 10:00–11:00 doesn't hide behind Monday's
+                     8:00–8:45 in the shared Time column. -->
+                <div class="day-time-chip" *ngIf="hasDayOverride(day) && getPeriod(day, i) as tp">
+                  <mat-icon>schedule</mat-icon>
+                  <span>{{ formatTime(tp.startTime) }} – {{ formatTime(tp.endTime) }}</span>
+                </div>
                 <!-- Render every period entry for this (day, slot)
                      pair so parallel electives (Sanskrit + Hindi at
                      the same Monday 1st period) both surface. Single-
@@ -102,19 +118,30 @@
                       *ngFor="let period of slotPeriods"
                       class="period-card"
                       [class.parallel-card]="slotPeriods.length > 1"
+                      [class.activity-card]="!period.subjectId && period.activityLabel"
                       [style.background-color]="getSubjectColor(period.subjectId)"
                       [style.border-left-color]="getSubjectBorderColor(period.subjectId)">
-                      <ng-container *ngIf="period.subjectId; else freeInsideStack">
-                        <div class="subject-name">
-                          {{ period.subjectName || period.subjectId }}<span *ngIf="period.componentLabel" class="subject-component"> ({{ period.componentLabel }})</span>
+                      <!-- Activity slot: label only, no teacher. -->
+                      <ng-container *ngIf="!period.subjectId && period.activityLabel; else notActivity">
+                        <div class="subject-name activity-name">
+                          <mat-icon class="info-icon">emoji_events</mat-icon>
+                          {{ period.activityLabel }}
                         </div>
-                        <div class="teacher-name" *ngIf="period.teacherName || period.teacherId">
-                          <mat-icon class="info-icon">person</mat-icon>
-                          {{ period.teacherName || period.teacherId }}
-                        </div>
+                        <div class="teacher-name activity-tag">Activity</div>
                       </ng-container>
-                      <ng-template #freeInsideStack>
-                        <div class="free-period"><span class="free-label">Free</span></div>
+                      <ng-template #notActivity>
+                        <ng-container *ngIf="period.subjectId; else freeInsideStack">
+                          <div class="subject-name">
+                            {{ period.subjectName || period.subjectId }}<span *ngIf="period.componentLabel" class="subject-component"> ({{ period.componentLabel }})</span>
+                          </div>
+                          <div class="teacher-name" *ngIf="period.teacherName || period.teacherId">
+                            <mat-icon class="info-icon">person</mat-icon>
+                            {{ period.teacherName || period.teacherId }}
+                          </div>
+                        </ng-container>
+                        <ng-template #freeInsideStack>
+                          <div class="free-period"><span class="free-label">Free</span></div>
+                        </ng-template>
                       </ng-template>
                     </div>
                   </ng-container>

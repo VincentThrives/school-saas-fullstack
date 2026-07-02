@@ -190,6 +190,81 @@ $gold-light: rgba(212, 168, 67, 0.1);
   font-style: italic;
 }
 
+// Activity slots (Reading, Library, PE...) — flat neutral card without
+// the subject color band, distinct pill under the label.
+.activity-card {
+  background: #eef2f7 !important;
+  border-left-color: #94a3b8 !important;
+}
+
+.activity-name {
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: none;
+}
+
+.activity-tag {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  background: rgba(148, 163, 184, 0.25);
+  color: #475569;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+// Per-day time chip — surfaces THIS day's actual start/end when it
+// runs on an override (Saturday's 10:00–11:00 while Mon–Fri run
+// 8:00–8:45 in the shared Time column). Neutral grey so it doesn't
+// clash with the lunch chip below it.
+.day-time-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #EEF2F7;
+  color: #475569;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-bottom: 4px;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+
+  mat-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+  }
+}
+
+// Per-day lunch chip — only appears when at least one day overrides
+// its lunch position/times. Sits above the period card of the first
+// post-lunch period for that day.
+.day-lunch-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #FFF8E1;
+  color: #8A5300;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-bottom: 4px;
+  border: 1px solid rgba(196, 123, 0, 0.3);
+
+  mat-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+  }
+}
+
 // ── Lunch Break ───────────────────────────────────────────
 .lunch-break-row {
   background: #FFF8E1;

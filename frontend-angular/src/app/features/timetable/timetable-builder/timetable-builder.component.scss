@@ -347,10 +347,19 @@ $gold-light: rgba(212, 168, 67, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
+  padding: 12px 20px;
   border-top: 1px solid rgba(0, 0, 0, 0.08);
   flex-wrap: wrap;
   gap: 12px;
+  // Keep Save always reachable — the table can be tall (per-day
+  // overrides + parallel electives + activity slots all inflate it).
+  // Sticky footer inside the builder card so scrolling the page keeps
+  // Save visible without hunting.
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  z-index: 5;
+  box-shadow: 0 -6px 14px rgba(0, 0, 0, 0.06);
 }
 
 .period-actions {
@@ -506,4 +515,121 @@ $gold-light: rgba(212, 168, 67, 0.1);
   background: transparent;
 
   mat-icon { font-size: 16px; width: 16px; height: 16px; }
+}
+
+// ── Per-day schedule overrides ─────────────────────────────
+.per-day-overrides-card {
+  margin-bottom: 16px;
+  padding: 14px 16px !important;
+  border-radius: 12px;
+}
+
+.overrides-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+
+  mat-icon { color: $gold-dark; }
+}
+
+.overrides-title-block { display: flex; flex-direction: column; }
+
+.overrides-title {
+  font-weight: 700;
+  font-size: 15px;
+  color: #1f2937;
+}
+
+.overrides-sub {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.overrides-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.override-day {
+  background: #fafafa;
+  border: 1px solid #e7e7e7;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.override-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.override-day-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #1f2937;
+  cursor: pointer;
+
+  input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    accent-color: $gold-dark;
+  }
+}
+
+.override-day-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.override-field {
+  ::ng-deep .mat-mdc-form-field-infix { min-height: 44px; padding-top: 8px; padding-bottom: 8px; }
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
+}
+
+// Per-cell time chip — appears only for days with a per-day override
+// so admins see Saturday's 10:00–11:00 right on the Saturday cell.
+.cell-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #FFF8E1;
+  color: #8A5300;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(196, 123, 0, 0.3);
+  margin-bottom: 6px;
+
+  mat-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+  }
+}
+
+// Rows where THIS day has no period (Saturday running 3 while Mon-Fri
+// run 7). Kept blank but faded so the row alignment stays readable.
+.no-period-cell {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.02),
+    rgba(0, 0, 0, 0.02) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+.no-period-tag {
+  text-align: center;
+  color: rgba(0, 0, 0, 0.35);
+  font-weight: 700;
+  padding: 12px 0;
 }

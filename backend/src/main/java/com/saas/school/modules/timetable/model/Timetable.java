@@ -100,6 +100,26 @@ public class Timetable {
          *  {@code "h12"} (Indian schools convention). */
         private String displayTimeFormat;
 
+        /** Number of periods for this schedule. Only meaningful inside a
+         *  per-day override — Saturday may want 4 periods while Mon–Fri
+         *  run 7. Null on the outer config falls back to the historical
+         *  {@code periodsBeforeLunch + 4}. */
+        private Integer periodsCount;
+
+        /**
+         * Optional per-day overrides — the map key is the day name
+         * (MONDAY, TUESDAY, ..., SATURDAY, matched case-insensitively).
+         * When present for a given day, that day uses the override's
+         * fields instead of the outer ones — this lets Saturday run on
+         * a shorter timetable (later start, 30-min periods, earlier
+         * lunch, 4 periods total) without affecting Mon–Fri.
+         *
+         * <p>Legacy timetables have this null → every day uses the outer
+         * config as before. The nested {@link ScheduleConfig#getPerDayOverrides()}
+         * on an override object is intentionally ignored (no recursion).</p>
+         */
+        private java.util.Map<String, ScheduleConfig> perDayOverrides;
+
         public ScheduleConfig() {}
 
         public String getFirstPeriodStart() { return firstPeriodStart; }
@@ -119,6 +139,12 @@ public class Timetable {
 
         public String getDisplayTimeFormat() { return displayTimeFormat; }
         public void setDisplayTimeFormat(String displayTimeFormat) { this.displayTimeFormat = displayTimeFormat; }
+
+        public Integer getPeriodsCount() { return periodsCount; }
+        public void setPeriodsCount(Integer periodsCount) { this.periodsCount = periodsCount; }
+
+        public java.util.Map<String, ScheduleConfig> getPerDayOverrides() { return perDayOverrides; }
+        public void setPerDayOverrides(java.util.Map<String, ScheduleConfig> perDayOverrides) { this.perDayOverrides = perDayOverrides; }
     }
 
     public static class DaySchedule {
@@ -175,6 +201,17 @@ public class Timetable {
         /** Human-readable label cache for subPartKey ("Physics", "Chemistry"). */
         private String subPartLabel;
 
+        /**
+         * Free-text label for activity slots (Reading, Writing, Library,
+         * PE, Drawing, Assembly, ...). When set, {@link #subjectId} and
+         * {@link #teacherId} MAY be null — no teaching subject, no
+         * assigned teacher. Attendance, exams, marks entry, and report
+         * cards all key off subjectId, so activity periods are naturally
+         * skipped by every downstream flow. Null for regular teaching
+         * periods — pre-existing timetables deserialise unchanged.
+         */
+        private String activityLabel;
+
         public Period() {
         }
 
@@ -223,5 +260,8 @@ public class Timetable {
 
         public String getSubPartLabel() { return subPartLabel; }
         public void setSubPartLabel(String subPartLabel) { this.subPartLabel = subPartLabel; }
+
+        public String getActivityLabel() { return activityLabel; }
+        public void setActivityLabel(String activityLabel) { this.activityLabel = activityLabel; }
     }
 }

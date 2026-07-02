@@ -251,10 +251,107 @@ export class TimetableViewComponent implements OnInit {
    * (KG / half-day schools), in which case we never report a lunch row.</p>
    */
   isLunchBreak(periodIndex: number): boolean {
+    // Merged lunch row renders only when every displayed day shares
+    // the same lunch position AND times. If any day overrides its
+    // lunch to a different position/time, each day's own lunch is
+    // shown as an inline chip via dayLunchChip instead.
+    if (!this.uniformLunch) return false;
     const n = this.timetable?.scheduleConfig?.periodsBeforeLunch;
     if (n === 0) return false;
     if (typeof n === 'number' && n > 0) return periodIndex === n;
     return periodIndex === 4;
+  }
+
+  /** Effective lunch config for a given day — reads
+   *  scheduleConfig.perDayOverrides first, falls back to the outer
+   *  scheduleConfig. Returns null when the day has no lunch break
+   *  (periodsBeforeLunch === 0). */
+  private lunchForDay(day: string): { after: number; start: string; end: string } | null {
+    const cfg = this.timetable?.scheduleConfig;
+    if (!cfg) return { after: 4, start: '11:00', end: '11:30' };
+    const key = (day || '').toUpperCase();
+    const ov = cfg.perDayOverrides?.[key];
+    const after = ov?.periodsBeforeLunch ?? cfg.periodsBeforeLunch ?? 4;
+    if (after === 0) return null;
+    return {
+      after,
+      start: this.normTime(ov?.lunchStart) || this.normTime(cfg.lunchStart) || '11:00',
+      end: this.normTime(ov?.lunchEnd) || this.normTime(cfg.lunchEnd) || '11:30',
+    };
+  }
+
+  /** True when every day in the timetable shares the exact same lunch
+   *  position + start + end. When true, the view renders one merged
+   *  lunch row across all columns. Otherwise, per-day inline lunch
+   *  chips are used instead.
+   *
+   *  Implementation: uniform iff no per-day overrides are declared OR
+   *  every declared override resolves to the same (after, start, end)
+   *  as the main config. Straightforward equality — avoids the earlier
+   *  hidden-mismatch case where all lookups returned equivalent objects
+   *  but a null-safety branch skewed the compare. */
+  get uniformLunch(): boolean {
+    const cfg = this.timetable?.scheduleConfig;
+    if (!cfg?.perDayOverrides) return true;
+    const keys = Object.keys(cfg.perDayOverrides);
+    if (keys.length === 0) return true;
+    const mainAfter = Number(cfg.periodsBeforeLunch ?? 4);
+    const mainStart = this.normTime(cfg.lunchStart) || '11:00';
+    const mainEnd = this.normTime(cfg.lunchEnd) || '11:30';
+    for (const key of keys) {
+      const ov = cfg.perDayOverrides[key];
+      if (!ov) continue;
+      const after = Number(ov.periodsBeforeLunch ?? mainAfter);
+      // "No lunch" on some days doesn't break uniformity for the days
+      // that DO have lunch. Saturday running lunch-free while Mon–Fri
+      // all share 11:00–11:30 after period 4 → still merge the row for
+      // the days that share it. The Saturday cell in the merged row is
+      // fine to skip since Sat's shorter schedule already leaves blanks
+      // beyond its period count.
+      if (after === 0) continue;
+      const start = this.normTime(ov.lunchStart) || mainStart;
+      const end = this.normTime(ov.lunchEnd) || mainEnd;
+      if (after !== mainAfter || start !== mainStart || end !== mainEnd) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** Normalize a "HH:mm" or "HH:mm:ss" string to "HH:mm" so we compare
+   *  apples-to-apples. Mongo can round-trip a stored "11:00" back as
+   *  "11:00:00" via jackson-based deserialization in some configs, which
+   *  would flip the uniform-lunch check even when values look identical. */
+  private normTime(t: string | undefined | null): string {
+    if (!t) return '';
+    return t.length >= 5 ? t.substring(0, 5) : t;
+  }
+
+  /** True when this day has a per-day override recorded on the timetable.
+   *  Used by the template to render each override day's OWN start/end
+   *  time inline on its period cards — otherwise a Saturday running
+   *  10:00–11:00 would appear to run on Monday's clock (the shared
+   *  Time column only reflects the first day's period). */
+  hasDayOverride(day: string): boolean {
+    const cfg = this.timetable?.scheduleConfig;
+    if (!cfg?.perDayOverrides) return false;
+    return !!cfg.perDayOverrides[(day || '').toUpperCase()];
+  }
+
+  /** For a given day + row index, if that row is this day's "first
+   *  post-lunch period", return the lunch window string ("10:30–10:45")
+   *  so the template can render an inline chip. Returns '' when the
+   *  lunch is uniform (merged row handles it) or the row isn't a
+   *  post-lunch boundary for this day. */
+  dayLunchChip(day: string, periodIndex: number): string {
+    // Only fires when the lunch is non-uniform across days — otherwise
+    // the merged row handles it. Returns the day's lunch window at
+    // that day's own lunch position.
+    if (this.uniformLunch) return '';
+    const l = this.lunchForDay(day);
+    if (!l) return '';
+    if (periodIndex !== l.after) return '';
+    return `${this.formatTime(l.start)} – ${this.formatTime(l.end)}`;
   }
 
   /**
@@ -402,6 +499,9 @@ export class TimetableViewComponent implements OnInit {
           if (period?.subjectId) {
             const subName = this.getSubjectName(period.subjectId);
             win.document.write(`<td><div class="subject">${subName}</div><div class="teacher">${period.teacherName || period.teacherId || ''}</div><div class="room">${period.roomNumber || ''}</div></td>`);
+          } else if (period?.activityLabel) {
+            // Activity slot — label only, no teacher, no subject.
+            win.document.write(`<td><div class="subject">${period.activityLabel}</div><div class="teacher">Activity</div></td>`);
           } else {
             win.document.write('<td>-</td>');
           }

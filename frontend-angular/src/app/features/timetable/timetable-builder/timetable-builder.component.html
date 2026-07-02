@@ -65,6 +65,65 @@
     <mat-spinner diameter="36"></mat-spinner>
   </div>
 
+  <!-- Per-day schedule overrides — Saturday often runs on a shorter
+       timetable (later start, 30-min periods, earlier lunch, fewer
+       periods). Any day can override. Click Apply to regenerate that
+       day's period rows; subject/teacher picks on kept periods survive. -->
+  <mat-card class="per-day-overrides-card" *ngIf="!isLoading && schedule.length > 0">
+    <div class="overrides-head">
+      <mat-icon>calendar_view_week</mat-icon>
+      <div class="overrides-title-block">
+        <div class="overrides-title">Per-day schedule overrides</div>
+        <div class="overrides-sub">Different start / duration / periods count / lunch for specific days. Leave off for a uniform week.</div>
+      </div>
+    </div>
+    <div class="overrides-days">
+      <div class="override-day" *ngFor="let day of days">
+        <div class="override-day-head">
+          <label class="override-day-toggle">
+            <input type="checkbox" [checked]="hasDayOverride(day)" (change)="toggleDayOverride(day)"/>
+            <span>{{ day }}</span>
+          </label>
+          <button mat-stroked-button color="primary"
+                  *ngIf="hasDayOverride(day)"
+                  (click)="applyDaySchedule(day)">
+            <mat-icon>refresh</mat-icon>
+            Apply
+          </button>
+        </div>
+        <div class="override-day-fields" *ngIf="hasDayOverride(day) && config.perDayOverrides![day.toUpperCase()] as ov">
+          <mat-form-field appearance="outline" class="override-field">
+            <mat-label>Start</mat-label>
+            <input matInput type="time" [(ngModel)]="ov.firstPeriodStart"/>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="override-field">
+            <mat-label>Duration (min)</mat-label>
+            <input matInput type="number" min="5" max="180" [(ngModel)]="ov.periodDurationMinutes"/>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="override-field">
+            <mat-label>Periods</mat-label>
+            <input matInput type="number" min="1" max="12" [(ngModel)]="ov.periodsCount"/>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="override-field">
+            <mat-label>Lunch after</mat-label>
+            <mat-select [(ngModel)]="ov.periodsBeforeLunch">
+              <mat-option [value]="0">No lunch</mat-option>
+              <mat-option *ngFor="let n of [1,2,3,4,5,6,7]" [value]="n">Period {{ n }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="override-field" *ngIf="ov.periodsBeforeLunch">
+            <mat-label>Lunch start</mat-label>
+            <input matInput type="time" [(ngModel)]="ov.lunchStart"/>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="override-field" *ngIf="ov.periodsBeforeLunch">
+            <mat-label>Lunch end</mat-label>
+            <input matInput type="time" [(ngModel)]="ov.lunchEnd"/>
+          </mat-form-field>
+        </div>
+      </div>
+    </div>
+  </mat-card>
+
   <!-- Timetable Grid -->
   <div class="timetable-wrapper" *ngIf="!isLoading && schedule.length > 0">
     <div class="timetable-scroll" appDragScroll>
@@ -131,9 +190,22 @@
               <td
                 *ngFor="let daySchedule of schedule"
                 class="period-cell"
-                [style.background-color]="daySchedule.periods[i].subjectId ? getSubjectColor(daySchedule.periods[i].subjectId) : ''"
+                [class.no-period-cell]="!daySchedule.periods[i]"
+                [style.background-color]="daySchedule.periods[i]?.subjectId ? getSubjectColor(daySchedule.periods[i].subjectId) : ''"
               >
+                <!-- Days with fewer periods than the max (Saturday running 3
+                     while Mon–Fri run 7) show blank cells at rows beyond
+                     their count. -->
+                <div class="no-period-tag" *ngIf="!daySchedule.periods[i]">—</div>
                 <div class="cell-content" *ngIf="daySchedule.periods[i]">
+                  <!-- Per-day time — only shown when this day has an
+                       override, so admins can see Sat's 10:00-11:00
+                       right on the Saturday cell without the shared
+                       Time column being wrong. -->
+                  <div class="cell-time" *ngIf="hasDayOverride(daySchedule.dayOfWeek)">
+                    <mat-icon>schedule</mat-icon>
+                    <span>{{ formatTime(daySchedule.periods[i].startTime) }} – {{ formatTime(daySchedule.periods[i].endTime) }}</span>
+                  </div>
                   <!-- Subject picker — hybrid subjects (Theory + Practical
                        both attendance-tracked) expand into one entry PER
                        component, e.g. "English (Theory)" and "English
@@ -147,10 +219,23 @@
                       <mat-option *ngFor="let sub of subjects" [value]="sub.value">
                         {{ sub.label }}
                       </mat-option>
+                      <!-- Activity: no subject, no teacher. Type a free label
+                           like "Reading", "Library", "PE". Downstream flows
+                           (attendance/exams/report cards) skip it. -->
+                      <mat-option [value]="ACTIVITY_VALUE">➕ Activity (no subject / teacher)</mat-option>
                     </mat-select>
                   </mat-form-field>
 
+                  <!-- Activity slot: free-text label instead of Teacher picker. -->
                   <mat-form-field appearance="outline" class="cell-field teacher-field"
+                                  *ngIf="isActivityPeriod(daySchedule.periods[i])">
+                    <mat-label>Activity label</mat-label>
+                    <input matInput [(ngModel)]="daySchedule.periods[i].activityLabel"
+                           placeholder="e.g. Reading, Library, PE" maxlength="40">
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="cell-field teacher-field"
+                                  *ngIf="!isActivityPeriod(daySchedule.periods[i])"
                                   [class.teacher-conflict]="!!getTeacherConflictLabel(daySchedule.periods[i].teacherId, daySchedule.dayOfWeek, daySchedule.periods[i].periodNumber, daySchedule.periods[i].subjectId)">
                     <mat-label>Teacher</mat-label>
                     <mat-select [(ngModel)]="daySchedule.periods[i].teacherId">

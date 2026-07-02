@@ -54,7 +54,7 @@
             <div class="inbox-item"
                  *ngFor="let n of inbox"
                  [class.unread]="isUnread(n)"
-                 (click)="markNotificationRead(n)">
+                 (click)="openNotification(n)">
               <div class="inbox-item-icon">
                 <mat-icon>{{ n.type === 'EXAM' ? 'assignment' :
                               n.type === 'ATTENDANCE' ? 'event_note' :
@@ -77,6 +77,30 @@
             </div>
           </div>
         </mat-card>
+
+        <!-- Inbox detail popup — opened by clicking a row. Bigger,
+             comfortable typography so parents on phones can read the
+             full message without zooming. -->
+        <div class="inbox-detail-overlay" *ngIf="openedNotification" (click)="closeNotification()">
+          <div class="inbox-detail-dialog" (click)="$event.stopPropagation()">
+            <div class="inbox-detail-dialog__head">
+              <mat-icon class="inbox-detail-dialog__icon">{{ iconForType(openedNotification.type) }}</mat-icon>
+              <span class="inbox-detail-dialog__type">{{ openedNotification.type }}</span>
+              <button mat-icon-button class="inbox-detail-dialog__close" (click)="closeNotification()" aria-label="Close">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            <h2 class="inbox-detail-dialog__title">{{ openedNotification.title }}</h2>
+            <div class="inbox-detail-dialog__body">{{ openedNotification.body }}</div>
+            <div class="inbox-detail-dialog__meta">
+              <mat-icon>schedule</mat-icon>
+              <span>{{ formatSentAt(openedNotification.sentAt || openedNotification.createdAt) }}</span>
+            </div>
+            <div class="inbox-detail-dialog__actions">
+              <button mat-flat-button color="primary" (click)="closeNotification()">Close</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Compose tab -->

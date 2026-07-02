@@ -117,6 +117,12 @@ export class TimetableBuilderComponent implements OnInit {
 
   subjects: SubjectOption[] = [];
 
+  /** Sentinel bound to the Subject mat-select when the admin picks the
+   *  "Activity" option (Reading, Writing, Library, PE, Assembly). It's
+   *  intentionally shaped like a composite value so no real subjectId
+   *  can accidentally collide with it. */
+  readonly ACTIVITY_VALUE = '__activity__';
+
   /**
    * Parallel elective periods kept OUT of {@link schedule} during
    * editing so the table's row count (driven by max periods.length)
@@ -151,7 +157,22 @@ export class TimetableBuilderComponent implements OnInit {
     lunchStart: '11:00',
     lunchEnd: '11:30',
     displayTimeFormat: 'h12' as 'h12' | 'h24',
+    /** Optional per-day override. Uppercase day key (MONDAY..SATURDAY) →
+     *  a partial config that replaces the outer fields for that day
+     *  only. Undefined for days that follow the main schedule. */
+    perDayOverrides: {} as { [dayOfWeek: string]: {
+      firstPeriodStart?: string;
+      periodDurationMinutes?: number;
+      periodsBeforeLunch?: number;
+      lunchStart?: string;
+      lunchEnd?: string;
+      periodsCount?: number;
+    } | undefined },
   };
+
+  /** Which days have their per-day-override editor expanded in the
+   *  Schedule settings panel. Purely UI state — not persisted. */
+  dayOverrideExpanded: { [day: string]: boolean } = {};
 
   constructor(
     private api: ApiService,
@@ -493,8 +514,15 @@ export class TimetableBuilderComponent implements OnInit {
    *  Subject mat-select. Reads the period back into the dropdown's value
    *  preserving every axis so the picker doesn't lose context on edit. */
   getPeriodPick(period: TimetablePeriod): string {
+    // Activity slot: no subject, but activityLabel present. Bind the
+    // sentinel so the Activity option stays highlighted in the dropdown.
+    if (!period.subjectId && period.activityLabel != null) return this.ACTIVITY_VALUE;
     if (!period.subjectId) return '';
     return `${period.subjectId}|${period.componentKey || ''}|${period.subPartKey || ''}`;
+  }
+
+  isActivityPeriod(period: TimetablePeriod): boolean {
+    return !period.subjectId && period.activityLabel != null;
   }
 
   /** Apply the composite picked value back to the period — sets
@@ -509,6 +537,20 @@ export class TimetableBuilderComponent implements OnInit {
       period.subPartKey = '';
       period.subPartLabel = '';
       period.teacherId = '';
+      period.activityLabel = undefined;
+      return;
+    }
+    if (value === this.ACTIVITY_VALUE) {
+      // Activity slot: keep subjectId + teacherId blank; the row will
+      // show a free-text input for the label instead of a teacher dropdown.
+      period.subjectId = '';
+      period.subjectName = '';
+      period.componentKey = '';
+      period.componentLabel = '';
+      period.subPartKey = '';
+      period.subPartLabel = '';
+      period.teacherId = '';
+      period.activityLabel = period.activityLabel || '';
       return;
     }
     const opt = this.subjects.find(s => s.value === value);
@@ -531,6 +573,7 @@ export class TimetableBuilderComponent implements OnInit {
     period.subPartKey = opt.subPartKey || '';
     period.subPartLabel = opt.subPartLabel || '';
     period.teacherId = '';
+    period.activityLabel = undefined;
   }
 
   loadTimetable(): void {
@@ -545,7 +588,7 @@ export class TimetableBuilderComponent implements OnInit {
         // timetables saved before scheduleConfig existed fall through to
         // the in-memory defaults — same behaviour as before, no regression.
         if (res.data?.scheduleConfig) {
-          const sc = res.data.scheduleConfig;
+          const sc: any = res.data.scheduleConfig;
           this.config = {
             firstPeriodStart: sc.firstPeriodStart || this.config.firstPeriodStart,
             periodDurationMinutes: sc.periodDurationMinutes ?? this.config.periodDurationMinutes,
@@ -553,6 +596,9 @@ export class TimetableBuilderComponent implements OnInit {
             lunchStart: sc.lunchStart || this.config.lunchStart,
             lunchEnd: sc.lunchEnd || this.config.lunchEnd,
             displayTimeFormat: sc.displayTimeFormat || this.config.displayTimeFormat,
+            // Restore per-day overrides so Saturday (or any other day)
+            // keeps its shorter/different schedule after reload.
+            perDayOverrides: sc.perDayOverrides || {},
           };
         }
         if (res.data && res.data.schedule && res.data.schedule.length > 0
@@ -585,6 +631,85 @@ export class TimetableBuilderComponent implements OnInit {
     });
   }
 
+  /** Resolve the effective config for a given day — an override present
+   *  in {@link config.perDayOverrides} wins per-field over the outer
+   *  defaults; unset override fields fall back to the outer values.
+   *  Case-insensitive on the day name. */
+  effectiveConfigForDay(day: string): {
+    firstPeriodStart: string;
+    periodDurationMinutes: number;
+    periodsBeforeLunch: number;
+    lunchStart: string;
+    lunchEnd: string;
+    periodsCount: number;
+  } {
+    const key = (day || '').toUpperCase();
+    const ov = this.config.perDayOverrides?.[key] || {};
+    return {
+      firstPeriodStart: ov.firstPeriodStart || this.config.firstPeriodStart || '08:00',
+      periodDurationMinutes: ov.periodDurationMinutes ?? this.config.periodDurationMinutes ?? 45,
+      periodsBeforeLunch: ov.periodsBeforeLunch ?? this.config.periodsBeforeLunch ?? 0,
+      lunchStart: ov.lunchStart || this.config.lunchStart || '11:00',
+      lunchEnd: ov.lunchEnd || this.config.lunchEnd || '11:30',
+      // Fallback count matches computeDefaultPeriods pre-refactor:
+      // periodsBeforeLunch + 4 leaves room for afternoon periods.
+      periodsCount: ov.periodsCount ?? ((ov.periodsBeforeLunch ?? this.config.periodsBeforeLunch ?? 0) + 4),
+    };
+  }
+
+  hasDayOverride(day: string): boolean {
+    return !!this.config.perDayOverrides?.[(day || '').toUpperCase()];
+  }
+
+  toggleDayOverride(day: string): void {
+    const key = (day || '').toUpperCase();
+    if (!this.config.perDayOverrides) this.config.perDayOverrides = {};
+    if (this.config.perDayOverrides[key]) {
+      // Turning off: drop the override entirely (day resumes main config).
+      delete this.config.perDayOverrides[key];
+    } else {
+      // Turning on: seed override with the current main-config values so
+      // the admin can tweak just what differs.
+      this.config.perDayOverrides[key] = {
+        firstPeriodStart: this.config.firstPeriodStart,
+        periodDurationMinutes: this.config.periodDurationMinutes,
+        periodsBeforeLunch: this.config.periodsBeforeLunch,
+        lunchStart: this.config.lunchStart,
+        lunchEnd: this.config.lunchEnd,
+        periodsCount: (this.config.periodsBeforeLunch || 0) + 4,
+      };
+    }
+  }
+
+  /** Regenerate ONE day's periods from its effective config. Preserves
+   *  subject / teacher assignments on any period whose periodNumber
+   *  still exists after the count change — so tweaking Saturday's
+   *  timings doesn't wipe the subjects already picked. Periods beyond
+   *  the new count are dropped; new periods start blank. */
+  applyDaySchedule(day: string): void {
+    const target = this.schedule.find(d => (d.dayOfWeek || '').toUpperCase() === (day || '').toUpperCase());
+    if (!target) return;
+    const eff = this.effectiveConfigForDay(day);
+    const rows = this.computePeriodsFromConfig(eff);
+    const existing = target.periods || [];
+    const rebuilt: TimetablePeriod[] = rows.map((r, i) => {
+      const keep = existing.find(p => p.periodNumber === i + 1);
+      if (keep) {
+        return { ...keep, startTime: r.startTime, endTime: r.endTime };
+      }
+      return {
+        periodNumber: i + 1,
+        startTime: r.startTime,
+        endTime: r.endTime,
+        subjectId: '',
+        teacherId: '',
+        roomNumber: '',
+      };
+    });
+    target.periods = rebuilt;
+    this.snackBar.open(`${day} schedule regenerated (${rebuilt.length} periods)`, 'OK', { duration: 2500 });
+  }
+
   /** Generate the default period grid from {@link config}. Returns
    *  {@code periodsBeforeLunch + 4} default rows (the +4 keeps a sensible
    *  afternoon stretch the admin can trim down). Times step by
@@ -592,20 +717,39 @@ export class TimetableBuilderComponent implements OnInit {
    *  the configured Nth period so the row after lunch lines up with
    *  {@code config.lunchEnd}. */
   private computeDefaultPeriods(): { startTime: string; endTime: string }[] {
+    return this.computePeriodsFromConfig({
+      firstPeriodStart: this.config.firstPeriodStart || '08:00',
+      periodDurationMinutes: this.config.periodDurationMinutes || 45,
+      periodsBeforeLunch: this.config.periodsBeforeLunch || 0,
+      lunchStart: this.config.lunchStart || '11:00',
+      lunchEnd: this.config.lunchEnd || '11:30',
+      periodsCount: (this.config.periodsBeforeLunch || 0) + 4,
+    });
+  }
+
+  /** Same time-stepping logic as {@link computeDefaultPeriods} but
+   *  parameterised — takes any effective config (main or per-day
+   *  override) and produces its period rows. */
+  private computePeriodsFromConfig(eff: {
+    firstPeriodStart: string;
+    periodDurationMinutes: number;
+    periodsBeforeLunch: number;
+    lunchStart: string;
+    lunchEnd: string;
+    periodsCount: number;
+  }): { startTime: string; endTime: string }[] {
     const out: { startTime: string; endTime: string }[] = [];
-    const dur = Math.max(5, this.config.periodDurationMinutes || 45);
-    const beforeLunch = Math.max(0, this.config.periodsBeforeLunch || 0);
-    const totalToGenerate = beforeLunch + 4; // leave room post-lunch
-    let cursor = this.config.firstPeriodStart || '08:00';
+    const dur = Math.max(5, eff.periodDurationMinutes || 45);
+    const beforeLunch = Math.max(0, eff.periodsBeforeLunch || 0);
+    const totalToGenerate = Math.max(1, eff.periodsCount || (beforeLunch + 4));
+    let cursor = eff.firstPeriodStart || '08:00';
     for (let i = 0; i < totalToGenerate; i++) {
       const start = cursor;
       const end = this.addMinutes(start, dur);
       out.push({ startTime: start, endTime: end });
       cursor = end;
-      // After the last pre-lunch period, jump the cursor over the break
-      // so the next row begins exactly at lunchEnd.
       if (beforeLunch > 0 && i + 1 === beforeLunch) {
-        cursor = this.config.lunchEnd || cursor;
+        cursor = eff.lunchEnd || cursor;
       }
     }
     return out;
@@ -635,18 +779,23 @@ export class TimetableBuilderComponent implements OnInit {
   }
 
   initializeEmptySchedule(): void {
-    const defaults = this.computeDefaultPeriods();
-    this.schedule = this.days.map((day) => ({
-      dayOfWeek: day,
-      periods: defaults.map((p, i) => ({
-        periodNumber: i + 1,
-        startTime: p.startTime,
-        endTime: p.endTime,
-        subjectId: '',
-        teacherId: '',
-        roomNumber: '',
-      })),
-    }));
+    this.schedule = this.days.map((day) => {
+      // Each day resolves its own rows via effectiveConfigForDay, so a
+      // Saturday override (if present at construction time) already
+      // generates the right count / timing.
+      const rows = this.computePeriodsFromConfig(this.effectiveConfigForDay(day));
+      return {
+        dayOfWeek: day,
+        periods: rows.map((p, i) => ({
+          periodNumber: i + 1,
+          startTime: p.startTime,
+          endTime: p.endTime,
+          subjectId: '',
+          teacherId: '',
+          roomNumber: '',
+        })),
+      };
+    });
     this.timetable = null;
   }
 
@@ -804,6 +953,10 @@ export class TimetableBuilderComponent implements OnInit {
 
   updateAllDaysTime(periodIndex: number, field: 'startTime' | 'endTime', value: string): void {
     this.schedule.forEach((day) => {
+      // Skip days that have a per-day override — Saturday running on a
+      // shorter timetable shouldn't be dragged back to Mon–Fri's clock
+      // when the admin edits a Mon time in the shared Time column.
+      if (this.hasDayOverride(day.dayOfWeek)) return;
       if (day.periods[periodIndex]) {
         day.periods[periodIndex][field] = value;
       }
