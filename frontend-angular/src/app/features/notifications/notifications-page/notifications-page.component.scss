@@ -637,8 +637,11 @@
 
 .history-item {
   display: grid;
-  grid-template-columns: 150px 1fr 170px 110px 70px;
-  gap: 14px;
+  // Time + Body(flex) + Audience/Channel/Stats each auto-fit their
+  // content. Body grows to eat the leftover space so long titles
+  // truncate instead of pushing the right-side cols off the card.
+  grid-template-columns: auto minmax(180px, 1fr) auto auto auto;
+  gap: 12px;
   align-items: center;
   padding: 12px 14px;
   border: 1px solid #f1ecd9;
@@ -647,6 +650,14 @@
   transition: background 0.12s ease;
 
   &:hover { background: #fffaf0; }
+
+  // Only clickable rows get pointer + hover-lift so the user knows to
+  // tap. Non-clickable rows (if any get added later) stay static.
+  &.clickable {
+    cursor: pointer;
+
+    &:hover { background: #fff8e1; }
+  }
 }
 
 .history-col {
@@ -656,9 +667,27 @@
   font-size: 13px;
   color: #4b5563;
   min-width: 0;
+  overflow: hidden;
 
   mat-icon { color: #8d6516; }
   mat-icon.mini { font-size: 15px; width: 15px; height: 15px; }
+
+  // Every col's span truncates cleanly instead of pushing neighbours.
+  > span {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // The body column stacks title-row above preview vertically, unlike
+  // the other cols which are single-line icon+text pairs. Without this
+  // the preview text sits next to the title and overflows into the
+  // audience column.
+  &.body {
+    display: block;    // block wins over flex so title + preview stack
+    align-items: initial;
+  }
 }
 
 .history-title-row {
@@ -666,6 +695,7 @@
   align-items: center;
   gap: 8px;
   margin-bottom: 2px;
+  min-width: 0;
 
   .history-title {
     font-weight: 700;
@@ -674,7 +704,10 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1 1 auto;
   }
+  .history-type-chip { flex: 0 0 auto; }
   .history-type-chip {
     font-size: 10px;
     padding: 1px 8px;

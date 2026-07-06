@@ -78,29 +78,6 @@
           </div>
         </mat-card>
 
-        <!-- Inbox detail popup — opened by clicking a row. Bigger,
-             comfortable typography so parents on phones can read the
-             full message without zooming. -->
-        <div class="inbox-detail-overlay" *ngIf="openedNotification" (click)="closeNotification()">
-          <div class="inbox-detail-dialog" (click)="$event.stopPropagation()">
-            <div class="inbox-detail-dialog__head">
-              <mat-icon class="inbox-detail-dialog__icon">{{ iconForType(openedNotification.type) }}</mat-icon>
-              <span class="inbox-detail-dialog__type">{{ openedNotification.type }}</span>
-              <button mat-icon-button class="inbox-detail-dialog__close" (click)="closeNotification()" aria-label="Close">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-            <h2 class="inbox-detail-dialog__title">{{ openedNotification.title }}</h2>
-            <div class="inbox-detail-dialog__body">{{ openedNotification.body }}</div>
-            <div class="inbox-detail-dialog__meta">
-              <mat-icon>schedule</mat-icon>
-              <span>{{ formatSentAt(openedNotification.sentAt || openedNotification.createdAt) }}</span>
-            </div>
-            <div class="inbox-detail-dialog__actions">
-              <button mat-flat-button color="primary" (click)="closeNotification()">Close</button>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- Compose tab -->
@@ -505,7 +482,10 @@
           </div>
 
           <div class="history-list" *ngIf="!isLoadingHistory && history.length > 0">
-            <div class="history-item" *ngFor="let n of history">
+            <div class="history-item clickable" *ngFor="let n of history"
+                 (click)="openNotification(n)"
+                 role="button" tabindex="0"
+                 (keyup.enter)="openNotification(n)">
               <div class="history-col time">
                 <mat-icon>schedule</mat-icon>
                 <span>{{ formatSentAt(n.sentAt || n.createdAt) }}</span>
@@ -535,6 +515,32 @@
       </div>
 
     </section>
+  </div>
+
+  <!-- Notification detail popup — opened by clicking an Inbox or
+       History row. Bigger, comfortable typography so parents on phones
+       (or admins reviewing sent history) can read the full message
+       without zooming. Sits at page-root level so it's reachable from
+       every tab, not just Inbox. -->
+  <div class="inbox-detail-overlay" *ngIf="openedNotification" (click)="closeNotification()">
+    <div class="inbox-detail-dialog" (click)="$event.stopPropagation()">
+      <div class="inbox-detail-dialog__head">
+        <mat-icon class="inbox-detail-dialog__icon">{{ iconForType(openedNotification.type) }}</mat-icon>
+        <span class="inbox-detail-dialog__type">{{ openedNotification.type }}</span>
+        <button mat-icon-button class="inbox-detail-dialog__close" (click)="closeNotification()" aria-label="Close">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      <h2 class="inbox-detail-dialog__title">{{ openedNotification.title }}</h2>
+      <div class="inbox-detail-dialog__body">{{ openedNotification.body }}</div>
+      <div class="inbox-detail-dialog__meta">
+        <mat-icon>schedule</mat-icon>
+        <span>{{ formatSentAt(openedNotification.sentAt || openedNotification.createdAt) }}</span>
+      </div>
+      <div class="inbox-detail-dialog__actions">
+        <button mat-flat-button color="primary" (click)="closeNotification()">Close</button>
+      </div>
+    </div>
   </div>
 
   <!-- Delete template confirmation -->
