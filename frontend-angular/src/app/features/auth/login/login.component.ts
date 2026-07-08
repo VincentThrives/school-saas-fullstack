@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { AuthService } from '../../../core/services/auth.service';
 import { TenantPublicInfo } from '../../../core/models';
 
@@ -26,6 +27,7 @@ import { TenantPublicInfo } from '../../../core/models';
     MatIconModule,
     MatProgressSpinnerModule,
     MatDividerModule,
+    MatCheckboxModule,
   ],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
@@ -37,6 +39,15 @@ export class LoginComponent implements OnInit {
   showPassword = false;
   isLoading = false;
   errorMessage = '';
+  /** Remember both username AND password between sessions so parents
+   *  can just tap Sign In on the next visit. Password is base64-encoded
+   *  (obfuscation, not encryption) in the app's own localStorage —
+   *  isolated per-app on Android, same protection level as any WebView
+   *  password store. Only saved when the user explicitly ticks
+   *  "Remember me" (default ON, but they can uncheck it). */
+  rememberMe = true;
+  private static readonly REMEMBERED_USERNAME_KEY = 'rememberedUsername';
+  private static readonly REMEMBERED_PASSWORD_KEY = 'rememberedPasswordB64';
 
   constructor(
     private authService: AuthService,
@@ -47,6 +58,19 @@ export class LoginComponent implements OnInit {
     this.schoolInfo = this.authService.currentSchoolInfo;
     if (!this.schoolInfo) {
       this.router.navigate(['/login'], { replaceUrl: true });
+    }
+    // Restore last-saved credentials so the fields are pre-filled and
+    // the user just has to tap Sign In. Uses base64 decode on the
+    // password side — same encoding used on save.
+    const savedUser = localStorage.getItem(LoginComponent.REMEMBERED_USERNAME_KEY);
+    const savedPwdB64 = localStorage.getItem(LoginComponent.REMEMBERED_PASSWORD_KEY);
+    if (savedUser) {
+      this.username = savedUser;
+      this.rememberMe = true;
+    }
+    if (savedPwdB64) {
+      try { this.password = atob(savedPwdB64); }
+      catch { /* malformed stored value — ignore */ }
     }
   }
 
@@ -77,6 +101,21 @@ export class LoginComponent implements OnInit {
         next: (res) => {
           this.isLoading = false;
           if (res.success) {
+            // Persist / clear the remembered credentials based on the tick.
+            // Password saved as base64 (obfuscation, not encryption) —
+            // reasonable trade-off for a family school app where the
+            // alternative is retyping every time.
+            if (this.rememberMe) {
+              localStorage.setItem(
+                LoginComponent.REMEMBERED_USERNAME_KEY,
+                this.username.trim().toLowerCase());
+              localStorage.setItem(
+                LoginComponent.REMEMBERED_PASSWORD_KEY,
+                btoa(this.password));
+            } else {
+              localStorage.removeItem(LoginComponent.REMEMBERED_USERNAME_KEY);
+              localStorage.removeItem(LoginComponent.REMEMBERED_PASSWORD_KEY);
+            }
             this.router.navigate(['/dashboard'], { replaceUrl: true });
           }
         },

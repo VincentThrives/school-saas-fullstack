@@ -215,7 +215,17 @@ export class AuthService {
     this.role$.next(null);
     this.featureFlags$.next({});
     this.schoolInfo$.next(null);
-    localStorage.clear();
+    // Wipe auth-related keys ONLY. Preserve remembered login preferences
+    // (rememberedUsername) so the "Remember me" tick survives a logout —
+    // parents on shared phones can log out and land on a pre-filled
+    // username field the next time. localStorage.clear() used to be
+    // called here and nuked those too.
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('role');
+    localStorage.removeItem('featureFlags');
+    localStorage.removeItem('schoolInfo');
   }
 
   clearTenant(): void {

@@ -1,32 +1,55 @@
 <div class="student-dashboard">
   <app-page-header title="My Dashboard"></app-page-header>
 
-  <!-- Stats Grid -->
+  <!-- Stats Grid — each card links to the full page for that data. -->
   <div class="student-dashboard__stats">
-    <app-stat-card
-      title="Attendance"
-      [value]="stats.attendancePercentage + '%'"
-      icon="event_note"
-      [color]="isGoodAttendance() ? 'success' : 'warning'"
-    ></app-stat-card>
-    <app-stat-card
-      title="Today's Classes"
-      [value]="todaySchedule.length"
-      icon="schedule"
-      color="primary"
-    ></app-stat-card>
-    <app-stat-card
-      title="Available MCQ"
-      [value]="upcomingMcqExams.length"
-      icon="quiz"
-      color="info"
-    ></app-stat-card>
-    <app-stat-card
-      title="Notifications"
-      [value]="stats.unreadNotifications"
-      icon="notifications"
-      color="warning"
-    ></app-stat-card>
+    <a routerLink="/my-attendance" class="student-dashboard__stat-link">
+      <app-stat-card
+        title="Attendance"
+        [value]="stats.attendancePercentage + '%'"
+        icon="event_note"
+        [color]="isGoodAttendance() ? 'success' : 'warning'"
+      ></app-stat-card>
+    </a>
+    <a routerLink="/timetable" class="student-dashboard__stat-link">
+      <app-stat-card
+        title="Today's Classes"
+        [value]="todaySchedule.length"
+        icon="schedule"
+        color="primary"
+      ></app-stat-card>
+    </a>
+    <!-- Available MCQ card — hidden for now until the MCQ flow is
+         customer-ready. Uncomment when we bring it back.
+    <a routerLink="/mcq/available" class="student-dashboard__stat-link">
+      <app-stat-card
+        title="Available MCQ"
+        [value]="upcomingMcqExams.length"
+        icon="quiz"
+        color="info"
+      ></app-stat-card>
+    </a>
+    -->
+    <a routerLink="/homework"
+       class="student-dashboard__stat-link"
+       [class.student-dashboard__stat-link--highlight]="stats.todaysHomework > 0">
+      <app-stat-card
+        title="Today's Homework"
+        [value]="stats.todaysHomework"
+        [subtitle]="homeworkSubtitle"
+        icon="menu_book"
+        [color]="stats.todaysHomework > 0 ? 'warning' : 'info'"
+      ></app-stat-card>
+    </a>
+
+    <a routerLink="/notifications" class="student-dashboard__stat-link">
+      <app-stat-card
+        title="Notifications"
+        [value]="stats.unreadNotifications"
+        icon="notifications"
+        color="warning"
+      ></app-stat-card>
+    </a>
   </div>
 
   <!-- Main Content -->

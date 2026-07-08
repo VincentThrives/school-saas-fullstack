@@ -422,6 +422,17 @@ export const routes: Routes = [
         data: { feature: 'notifications', title: 'Notifications' },
       },
 
+      // Homework — read-only view of notifications with type=HOMEWORK.
+      // Students/parents only; teachers/admins still send via the
+      // Notifications page. Backend query params keep the payload small.
+      {
+        path: 'homework',
+        loadComponent: () =>
+          import('./features/homework/homework-page/homework-page.component').then(m => m.HomeworkPageComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.STUDENT, UserRole.PARENT], title: 'Homework' },
+      },
+
       // ── WhatsApp (feature-gated, staff only) ─────────────
       {
         path: 'whatsapp',

@@ -1,0 +1,86 @@
+<div class="homework-page">
+  <app-page-header
+    title="Homework"
+    subtitle="Homework assigned by your teachers"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Homework' }
+    ]"
+  ></app-page-header>
+
+  <mat-card class="homework-page__filter-card">
+    <mat-card-content>
+      <mat-form-field appearance="outline" class="homework-page__date-field">
+        <mat-label>Date</mat-label>
+        <input
+          matInput
+          [matDatepicker]="picker"
+          [(ngModel)]="selectedDate"
+          (dateChange)="onDateChange()"
+        />
+        <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+        <mat-datepicker #picker></mat-datepicker>
+        <mat-hint>Change the date to see homework from another day.</mat-hint>
+      </mat-form-field>
+    </mat-card-content>
+  </mat-card>
+
+  <div class="homework-page__loading" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <div class="homework-page__empty" *ngIf="!isLoading && homework.length === 0">
+    <mat-icon>menu_book</mat-icon>
+    <h3>No homework for this day</h3>
+    <p>Try picking a different date from the picker above.</p>
+  </div>
+
+  <div class="homework-page__list" *ngIf="!isLoading && homework.length > 0">
+    <div
+      class="homework-page__item"
+      *ngFor="let h of homework"
+      (click)="open(h)"
+      role="button"
+      tabindex="0"
+      (keyup.enter)="open(h)"
+    >
+      <div class="homework-page__item-icon">
+        <mat-icon>menu_book</mat-icon>
+      </div>
+      <div class="homework-page__item-body">
+        <div class="homework-page__item-row">
+          <span class="homework-page__item-title">{{ h.title }}</span>
+          <span class="homework-page__item-chip">HOMEWORK</span>
+        </div>
+        <div class="homework-page__item-text">{{ h.body }}</div>
+        <div class="homework-page__item-meta">
+          <mat-icon class="mini">schedule</mat-icon>
+          <span>{{ formatSentAt(h.sentAt || h.createdAt) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail popup — same shape as the Notifications inbox popup for
+       a consistent reading experience. -->
+  <div class="homework-page__overlay" *ngIf="opened" (click)="close()">
+    <div class="homework-page__dialog" (click)="$event.stopPropagation()">
+      <div class="homework-page__dialog-head">
+        <mat-icon class="homework-page__dialog-icon">menu_book</mat-icon>
+        <span class="homework-page__dialog-type">HOMEWORK</span>
+        <button mat-icon-button class="homework-page__dialog-close" (click)="close()" aria-label="Close">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      <h2 class="homework-page__dialog-title">{{ opened.title }}</h2>
+      <div class="homework-page__dialog-body">{{ opened.body }}</div>
+      <div class="homework-page__dialog-meta">
+        <mat-icon>schedule</mat-icon>
+        <span>{{ formatSentAt(opened.sentAt || opened.createdAt) }}</span>
+      </div>
+      <div class="homework-page__dialog-actions">
+        <button mat-flat-button color="primary" (click)="close()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

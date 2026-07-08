@@ -45,6 +45,8 @@
               name="username"
               [disabled]="isLoading"
               autofocus
+              autocomplete="username"
+              inputmode="email"
             />
           </mat-form-field>
 
@@ -57,6 +59,7 @@
               name="password"
               [type]="showPassword ? 'text' : 'password'"
               [disabled]="isLoading"
+              autocomplete="current-password"
             />
             <button
               mat-icon-button
@@ -69,8 +72,16 @@
             </button>
           </mat-form-field>
 
-          <div class="login-page__forgot-link">
-            <a routerLink="/forgot-password">Forgot password?</a>
+          <div class="login-page__options-row">
+            <mat-checkbox
+              [(ngModel)]="rememberMe"
+              name="rememberMe"
+              class="login-page__remember-me"
+              color="primary"
+            >
+              Remember me
+            </mat-checkbox>
+            <a routerLink="/forgot-password" class="login-page__forgot-link">Forgot password?</a>
           </div>
 
           <button

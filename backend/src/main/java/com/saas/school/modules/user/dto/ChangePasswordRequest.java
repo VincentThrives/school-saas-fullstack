@@ -16,7 +16,7 @@ public class ChangePasswordRequest {
     private String currentPassword;
 
     @NotBlank(message = "New password is required")
-    @Size(min = 6, max = 100, message = "New password must be between 6 and 100 characters")
+    @Size(min = 4, max = 100, message = "New password must be between 4 and 100 characters")
     private String newPassword;
 
     public ChangePasswordRequest() {}

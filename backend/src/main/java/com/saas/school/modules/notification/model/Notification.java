@@ -1,11 +1,20 @@
 package com.saas.school.modules.notification.model;
 
 import org.springframework.data.annotation.*;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.Instant;
 import java.util.List;
 
 @Document(collection = "notifications")
+@CompoundIndexes({
+    // Feeds the Homework page query (?type=HOMEWORK&date=<day>) — the
+    // filtered inbox call rides this index directly. Keeps response
+    // times flat as a school accumulates thousands of notifications
+    // over the year.
+    @CompoundIndex(name = "type_sentAt", def = "{'type':1,'sentAt':-1}")
+})
 public class Notification {
     @Id private String notificationId;
     private String title;

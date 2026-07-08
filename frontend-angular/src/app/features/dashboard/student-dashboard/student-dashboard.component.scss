@@ -1,6 +1,69 @@
 $gold: #D4A843;
 $gold-dark: #B8860B;
 
+// Clickable stat-card wrapper — makes the card behave like a
+// navigation tile without dressing it as a hyperlink. Stretches to
+// fill its grid cell so all four cards line up at the same height,
+// even when one has a subtitle and the others don't.
+.student-dashboard__stat-link {
+  display: flex;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 16px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  cursor: pointer;
+  height: 100%;
+
+  > app-stat-card {
+    width: 100%;
+    display: flex;
+
+    ::ng-deep .stat-card {
+      flex: 1;
+      display: flex;
+    }
+    ::ng-deep .mat-mdc-card-content { flex: 1; }
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $gold;
+    outline-offset: 3px;
+  }
+}
+
+// Highlight variant — used for the Today's Homework tile when there
+// IS pending homework. Keeps the card itself calm (looks like every
+// other tile in the row) and instead draws the eye to the NUMBER and
+// ICON inside: gentle pulse on both + a small red-dot badge on the
+// icon, same grammar as the notification bell.
+.student-dashboard__stat-link--highlight {
+  // Number stays plain black to match the other tiles; the red-dot
+  // badge on the icon is what signals "there's something to check".
+  ::ng-deep .stat-card__icon-wrapper {
+    position: relative;
+
+    // Red-dot badge in the top-right of the icon square — same visual
+    // grammar as the app's notification bell.
+    &::after {
+      content: '';
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 12px;
+      height: 12px;
+      background: #f44336;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      z-index: 2;
+    }
+  }
+}
+
 // ── Events & Holidays card ───────────────────────────────
 $eh-event:    #5b8def;
 $eh-event-2:  #2f4ec9;

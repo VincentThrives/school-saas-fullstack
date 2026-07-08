@@ -259,19 +259,15 @@ public class UserService {
         if (currentPassword == null || currentPassword.isBlank()) {
             throw new BusinessException("Current password is required");
         }
-        if (newPassword == null || newPassword.length() < 6) {
-            throw new BusinessException("New password must be at least 6 characters");
+        if (newPassword == null || newPassword.length() < 4) {
+            throw new BusinessException("New password must be at least 4 characters");
         }
         if (currentPassword.equals(newPassword)) {
             throw new BusinessException("New password must be different from the current password");
         }
-        // Permissive complexity: at least one letter AND at least one digit.
-        // Schools have parents/students who'll forget anything stricter.
-        boolean hasLetter = newPassword.chars().anyMatch(Character::isLetter);
-        boolean hasDigit  = newPassword.chars().anyMatch(Character::isDigit);
-        if (!hasLetter || !hasDigit) {
-            throw new BusinessException("New password must contain at least one letter and one number");
-        }
+        // No complexity requirement — schools have parents/students who
+        // struggle with anything stricter. 4-character minimum is our
+        // only guard against blank/near-blank passwords.
 
         User user = findUser(userId);
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {

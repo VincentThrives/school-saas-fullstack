@@ -80,15 +80,12 @@ import { ApiService } from '../../../core/services/api.service';
                   [attr.aria-label]="showNew ? 'Hide password' : 'Show password'">
             <mat-icon>{{ showNew ? 'visibility_off' : 'visibility' }}</mat-icon>
           </button>
-          <mat-hint>At least 6 characters with one letter and one number.</mat-hint>
+          <mat-hint>At least 4 characters.</mat-hint>
           <mat-error *ngIf="form.get('newPassword')?.hasError('required')">
             New password is required
           </mat-error>
           <mat-error *ngIf="form.get('newPassword')?.hasError('minlength')">
-            Must be at least 6 characters
-          </mat-error>
-          <mat-error *ngIf="form.get('newPassword')?.hasError('complexity')">
-            Must contain at least one letter and one number
+            Must be at least 4 characters
           </mat-error>
           <mat-error *ngIf="form.hasError('sameAsCurrent') && !form.get('newPassword')?.errors">
             New password must be different from current
@@ -185,7 +182,7 @@ export class ChangePasswordDialogComponent {
         currentPassword: ['', [Validators.required]],
         newPassword: [
           '',
-          [Validators.required, Validators.minLength(6), this.complexityValidator],
+          [Validators.required, Validators.minLength(4)],
         ],
         confirmPassword: ['', [Validators.required]],
       },
@@ -193,15 +190,6 @@ export class ChangePasswordDialogComponent {
     );
   }
 
-  /** Must contain at least one letter AND one digit. Mirrors the
-   *  backend rule in UserService.changeMyPassword. */
-  private complexityValidator(c: AbstractControl): ValidationErrors | null {
-    const v = c.value as string;
-    if (!v) return null;
-    const hasLetter = /[A-Za-z]/.test(v);
-    const hasDigit = /\d/.test(v);
-    return hasLetter && hasDigit ? null : { complexity: true };
-  }
 
   private matchValidator(group: AbstractControl): ValidationErrors | null {
     const a = group.get('newPassword')?.value;

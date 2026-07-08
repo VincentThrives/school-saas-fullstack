@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
@@ -49,6 +50,7 @@ interface UpcomingEventRow {
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     MatCardModule,
     MatIconModule,
     MatListModule,
@@ -67,7 +69,20 @@ export class StudentDashboardComponent implements OnInit {
   stats = {
     attendancePercentage: 0,
     unreadNotifications: 0,
+    /** Homework rows the student has for today. Feeds the dashboard
+     *  Homework tile; tapping the tile goes to /homework. */
+    todaysHomework: 0,
   };
+
+  /** Short one-liner under the count so the tile reads as a message
+   *  instead of a bare number. Kept ≤ 20 chars so it fits on one line
+   *  inside the narrow stat-card without wrapping. */
+  get homeworkSubtitle(): string {
+    const n = this.stats.todaysHomework;
+    if (n === 0) return 'Nothing today';
+    if (n === 1) return '1 to do · tap';
+    return `${n} to do · tap`;
+  }
 
   todaySchedule: ScheduleRow[] = [];
   recentMarks: RecentMarkRow[] = [];
@@ -90,6 +105,11 @@ export class StudentDashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Today's date in yyyy-MM-dd for the homework filter — matches
+    // the backend @DateTimeFormat(ISO.DATE) parser.
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
     forkJoin({
       me: this.api.getMyStudentProfile().pipe(catchError(() => of({ data: null } as any))),
       summary: this.api.getMyProfileSummary().pipe(catchError(() => of({ data: null } as any))),
@@ -97,10 +117,15 @@ export class StudentDashboardComponent implements OnInit {
       unread: this.api.getUnreadNotificationCount().pipe(catchError(() => of({ data: 0 } as any))),
       events: this.api.getEvents().pipe(catchError(() => of({ data: [] as any[] } as any))),
       holidays: this.api.getHolidays().pipe(catchError(() => of({ data: [] as any[] } as any))),
-    }).subscribe(({ me, summary, mcq, unread, events, holidays }) => {
+      homework: this.api.getHomeworkNotifications(todayStr, 0, 1)
+        .pipe(catchError(() => of({ data: { content: [], totalElements: 0 } } as any))),
+    }).subscribe(({ me, summary, mcq, unread, events, holidays, homework }) => {
       const profile = me?.data as any;
       this.stats.attendancePercentage = (summary?.data as any)?.attendance?.overall?.percentage ?? 0;
       this.stats.unreadNotifications = (unread?.data as any) ?? 0;
+      // totalElements gives the true count even though we asked for
+      // just 1 row (page size 1) — cheap way to get "how many today?"
+      this.stats.todaysHomework = (homework?.data as any)?.totalElements ?? 0;
 
       // Subject-wise attendance for the dashboard "Attendance Overview" card
       const bySubject: any[] = (summary?.data as any)?.attendance?.bySubject || [];

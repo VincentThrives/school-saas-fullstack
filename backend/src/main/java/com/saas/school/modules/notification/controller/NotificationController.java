@@ -11,10 +11,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
 
 @Tag(name="Notifications")
 @RestController
@@ -32,10 +35,22 @@ public class NotificationController {
             @AuthenticationPrincipal String userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "false") boolean sentByMe) {
-        Page<Notification> result = sentByMe
-                ? notificationService.listSentBy(userId, page, size)
-                : notificationService.listForUser(userId, page, size);
+            @RequestParam(defaultValue = "false") boolean sentByMe,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        // sentByMe wins over the optional filters — history has its own
+        // dedicated page and doesn't need type/date scoping today.
+        Page<Notification> result;
+        if (sentByMe) {
+            result = notificationService.listSentBy(userId, page, size);
+        } else if ((type != null && !type.isBlank()) || date != null) {
+            // Filtered path — feeds the Homework page (type=HOMEWORK&date=<day>).
+            // Both params default to null on the wire, so legacy callers that
+            // omit them go through the unfiltered branch below.
+            result = notificationService.listForUserFiltered(userId, page, size, type, date);
+        } else {
+            result = notificationService.listForUser(userId, page, size);
+        }
         return ResponseEntity.ok(ApiResponse.success(
                 PageResponse.of(result.getContent(), result.getTotalElements(), page, size)));
     }

@@ -13,14 +13,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 
 @Service
@@ -33,6 +39,7 @@ public class NotificationService {
     @Autowired private StudentRepository studentRepository;
     @Autowired private TeacherRepository teacherRepository;
     @Autowired private PushNotificationService pushService;
+    @Autowired private MongoTemplate mongoTemplate;
 
     public Notification send(Notification req, String sentBy) {
         req.setNotificationId(UUID.randomUUID().toString());
@@ -172,6 +179,73 @@ public class NotificationService {
         }
         Collection<String> classIds = classIdsOf(userId);
         return notificationRepository.findForUser(userId, role, classIds, pageable);
+    }
+
+    /**
+     * Same audience-scoped listing as {@link #listForUser}, but with two
+     * optional server-side filters:
+     * <ul>
+     *   <li>{@code type} — restrict to a notification type (e.g. HOMEWORK).</li>
+     *   <li>{@code date} — restrict to notifications sent on that local day.</li>
+     * </ul>
+     * Both null → equivalent to the unfiltered path (used by the Homework
+     * page). Filters happen at Mongo query time so the payload stays
+     * small even as a school accumulates thousands of notifications.
+     */
+    public Page<Notification> listForUserFiltered(
+            String userId, int page, int size, String type, LocalDate date) {
+        // Fast path: no filters requested → reuse the existing method so
+        // caching and query planning stay identical for legacy callers.
+        if ((type == null || type.isBlank()) && date == null) {
+            return listForUser(userId, page, size);
+        }
+
+        String role = roleOf(userId);
+        Collection<String> classIds = classIdsOf(userId);
+
+        Criteria criteria;
+        if (isAdminLikeRole(role)) {
+            // Admin sees every broadcast + INDIVIDUAL where they're a target.
+            criteria = new Criteria().orOperator(
+                    Criteria.where("recipientType").is("ALL"),
+                    Criteria.where("recipientType").is("ROLE"),
+                    Criteria.where("recipientType").is("CLASS"),
+                    new Criteria().andOperator(
+                            Criteria.where("recipientType").is("INDIVIDUAL"),
+                            Criteria.where("recipientIds").in(userId)));
+        } else {
+            criteria = new Criteria().orOperator(
+                    Criteria.where("recipientType").is("ALL"),
+                    new Criteria().andOperator(
+                            Criteria.where("recipientType").is("ROLE"),
+                            Criteria.where("recipientRole").is(role)),
+                    new Criteria().andOperator(
+                            Criteria.where("recipientType").is("INDIVIDUAL"),
+                            Criteria.where("recipientIds").in(userId)),
+                    new Criteria().andOperator(
+                            Criteria.where("recipientType").is("CLASS"),
+                            Criteria.where("recipientClassId").in(classIds)));
+        }
+
+        List<Criteria> and = new ArrayList<>();
+        and.add(criteria);
+        if (type != null && !type.isBlank()) {
+            and.add(Criteria.where("type").is(type));
+        }
+        if (date != null) {
+            // Day boundaries in the JVM's default zone — matches how the
+            // Angular date picker sends a plain yyyy-MM-dd string.
+            Instant start = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
+            Instant end = date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+            and.add(Criteria.where("sentAt").gte(start).lt(end));
+        }
+
+        Query q = new Query(new Criteria().andOperator(and.toArray(new Criteria[0])))
+                .with(PageRequest.of(page, size, Sort.by("sentAt").descending()));
+
+        long total = mongoTemplate.count(Query.of(q).limit(-1).skip(-1), Notification.class);
+        List<Notification> content = mongoTemplate.find(q, Notification.class);
+        return new PageImpl<>(content, PageRequest.of(page, size), total);
     }
 
     /** History: notifications the logged-in user has sent. */

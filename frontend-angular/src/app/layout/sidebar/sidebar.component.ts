@@ -401,6 +401,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         // { title: 'My Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },
         // { title: 'Study Materials', path: '/study-materials', icon: 'library_books', feature: 'content' },
         { title: 'Events', path: '/events', icon: 'event', feature: 'events' },
+        { title: 'Homework', path: '/homework', icon: 'menu_book', feature: 'notifications' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications' },
         // { title: 'Fee Status', path: '/fee-status', icon: 'payment', feature: 'fee' },
         // { title: 'Messages', path: '/messages', icon: 'message', feature: 'messaging' },
@@ -418,6 +419,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'PTM', path: '/ptm', icon: 'groups' },
         { title: 'Fee Status', path: '/fee-status', icon: 'payment', feature: 'fee' },
         { title: 'Events', path: '/events', icon: 'event', feature: 'events' },
+        { title: 'Homework', path: '/homework', icon: 'menu_book', feature: 'notifications' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications' },
         // { title: 'Messages', path: '/messages', icon: 'message', feature: 'messaging' },
       );

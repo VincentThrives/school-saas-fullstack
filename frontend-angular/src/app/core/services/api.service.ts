@@ -969,6 +969,19 @@ export class ApiService {
     return this.http.get<ApiResponse<PaginatedResponse<Notification>>>(`${this.API}/notifications`, { params });
   }
 
+  /** Homework page fetch — same inbox endpoint with the two optional
+   *  filters (type=HOMEWORK + date=yyyy-MM-dd) so the server returns
+   *  only relevant rows. Payload stays constant regardless of how many
+   *  other notifications the user has accumulated. */
+  getHomeworkNotifications(date: string, page = 0, size = 50): Observable<ApiResponse<PaginatedResponse<Notification>>> {
+    const params = new HttpParams()
+      .set('page', page)
+      .set('size', size)
+      .set('type', 'HOMEWORK')
+      .set('date', date);
+    return this.http.get<ApiResponse<PaginatedResponse<Notification>>>(`${this.API}/notifications`, { params });
+  }
+
   sendNotification(notification: Partial<Notification>): Observable<ApiResponse<Notification>> {
     return this.http.post<ApiResponse<Notification>>(`${this.API}/notifications`, notification);
   }
