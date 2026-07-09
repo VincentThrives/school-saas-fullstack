@@ -87,6 +87,21 @@ export class AppComponent implements OnInit {
     // In-app update prompt — check for a newer version on Play Store.
     // Delayed a tick so it doesn't compete with login-screen render.
     setTimeout(() => this.checkForAppUpdate(), 4000);
+
+    // Proactive token refresh on boot — if we have a stored session,
+    // hit /auth/refresh immediately so every subsequent dashboard/
+    // API call uses a guaranteed-fresh access token. Fixes the "open
+    // app after update / next morning, dashboard shows 0" symptom
+    // where multiple concurrent 401s raced through the interceptor
+    // and left some requests holding a stale token.
+    this.proactivelyRefreshOnBoot();
+  }
+
+  private proactivelyRefreshOnBoot(): void {
+    if (!this.auth.refreshToken || !this.auth.accessToken) return;
+    this.auth.refreshAccessToken().subscribe({
+      error: () => { /* interceptor will bounce to login on real API 401s */ },
+    });
   }
 
   /** Wire the Capacitor App state listener AND a browser
@@ -113,10 +128,20 @@ export class AppComponent implements OnInit {
     // No session → login screen will render anyway, nothing to refresh.
     if (!this.auth.accessToken && !this.auth.refreshToken) return;
 
-    // Force ngOnInit to re-run on the current route by disabling the
-    // "don't reload same URL" default and navigating to the same URL.
-    // Angular tears down + rebuilds the component, forkJoins re-fire,
-    // interceptor takes care of any 401 → refresh transparently.
+    // Proactively refresh the access token FIRST so the upcoming route
+    // reload doesn't race against interceptor-driven refreshes for the
+    // multiple concurrent API calls a dashboard forkJoin fires. If the
+    // refresh call itself fails, the interceptor handles the eventual
+    // 401 → login redirect on the follow-up requests.
+    this.auth.refreshAccessToken().subscribe({
+      next: () => this.reloadCurrentRoute(),
+      error: () => this.reloadCurrentRoute(),
+    });
+  }
+
+  /** Force Angular to tear down + rebuild whichever component is on
+   *  screen so its ngOnInit re-fires and re-fetches data. */
+  private reloadCurrentRoute(): void {
     const savedStrategy = this.router.onSameUrlNavigation;
     this.router.onSameUrlNavigation = 'reload';
     const url = this.router.url || '/';

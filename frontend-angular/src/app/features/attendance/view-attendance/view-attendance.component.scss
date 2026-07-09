@@ -264,4 +264,33 @@ $amber-deep: #B45309;
     padding: 12px;
     .card-class { font-size: 14px; }
   }
+  // Reset the desktop-only negative margin that was aligning the
+  // filter fields with the Reload button baseline. On phones the
+  // fields stack vertically, so that negative margin makes each
+  // field's outlined border overlap the next one — reading as one
+  // giant tall field with empty inside. Neutralise it and let the
+  // fields sit at their natural height.
+  .filter-card {
+    .filter-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+    }
+    .filter-item {
+      flex: 0 0 auto;
+      width: 100%;
+      min-width: 0;
+      margin-bottom: 0;
+
+      // Hide the reserved "hint/error" strip below the field so the
+      // stacked layout stays tight — no per-field size override, the
+      // Material default 56px touch-target infix flows through so
+      // these look identical to fields on every other page.
+      ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
+    }
+    .reload-btn {
+      align-self: stretch;
+      margin-top: 8px;
+    }
+  }
 }
