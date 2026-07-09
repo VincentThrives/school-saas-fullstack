@@ -8,6 +8,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { StatCardComponent } from '../../../shared/components/stat-card/stat-card.component';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 interface UpcomingExamRow {
   name: string;
@@ -69,7 +70,25 @@ export class SchoolAdminDashboardComponent implements OnInit {
   currentYearId = '';
   currentYearLabel = '';
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private auth: AuthService,
+  ) {}
+
+  /** Name half of the header greeting — bold, primary size. */
+  get greetingName(): string {
+    const name = (this.auth.currentUser?.firstName || '').trim() || 'Admin';
+    return `Hi, ${name}`;
+  }
+
+  /** Time-of-day tail — smaller and coloured differently so the
+   *  emphasis stays on the admin's name. */
+  get greetingTail(): string {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning!';
+    if (h < 17) return 'Good afternoon!';
+    return 'Good evening!';
+  }
 
   ngOnInit(): void {
     // Resolve current academic year first so every widget is year-scoped.

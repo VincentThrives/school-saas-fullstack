@@ -1,5 +1,12 @@
 <div class="student-dashboard">
-  <app-page-header title="My Dashboard"></app-page-header>
+  <!-- Inline greeting header — name gets the emphasis, the
+       time-of-day tail sits next to it in a smaller muted style so
+       the whole thing reads as one warm line. -->
+  <div class="student-dashboard__greeting">
+    <span class="student-dashboard__greeting-name">{{ greetingName }}</span>
+    <span class="student-dashboard__greeting-sep">-</span>
+    <span class="student-dashboard__greeting-tail">{{ greetingTail }}</span>
+  </div>
 
   <!-- Stats Grid — each card links to the full page for that data. -->
   <div class="student-dashboard__stats">

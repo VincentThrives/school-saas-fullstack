@@ -1,6 +1,41 @@
 $gold: #D4A843;
 $gold-dark: #B8860B;
 
+// Inline greeting header — name in strong readable weight, followed by
+// a lighter-weight time-of-day tail and the current academic year.
+// One warm line, tight vertical footprint so the stat cards land
+// higher on the page.
+.school-admin-dashboard__greeting {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+
+.school-admin-dashboard__greeting-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.school-admin-dashboard__greeting-sep {
+  color: rgba(0, 0, 0, 0.35);
+  font-weight: 400;
+}
+
+.school-admin-dashboard__greeting-tail {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: $gold-dark;
+}
+
+.school-admin-dashboard__greeting-year {
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.55);
+  font-weight: 500;
+}
+
 .school-admin-dashboard {
   &__stats {
     display: grid;

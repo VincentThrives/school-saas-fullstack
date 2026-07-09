@@ -1,8 +1,14 @@
 <div class="school-admin-dashboard">
-  <app-page-header
-    title="School Dashboard"
-    [subtitle]="currentYearLabel ? ('Showing data for ' + currentYearLabel) : ''">
-  </app-page-header>
+  <!-- Inline greeting header — name gets the emphasis, the
+       time-of-day tail sits next to it in a smaller muted style. -->
+  <div class="school-admin-dashboard__greeting">
+    <span class="school-admin-dashboard__greeting-name">{{ greetingName }}</span>
+    <span class="school-admin-dashboard__greeting-sep">-</span>
+    <span class="school-admin-dashboard__greeting-tail">{{ greetingTail }}</span>
+    <span class="school-admin-dashboard__greeting-year" *ngIf="currentYearLabel">
+      · {{ currentYearLabel }}
+    </span>
+  </div>
 
   <!-- Stats Grid -->
   <div class="school-admin-dashboard__stats">

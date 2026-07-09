@@ -1,6 +1,34 @@
 $gold: #D4A843;
 $gold-dark: #B8860B;
 
+// Inline greeting header — name in a strong readable size, followed by
+// a lighter-weight time-of-day tail. Whole thing sits on one line so
+// the dashboard opens with a compact warm hello.
+.student-dashboard__greeting {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+
+.student-dashboard__greeting-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.student-dashboard__greeting-sep {
+  color: rgba(0, 0, 0, 0.35);
+  font-weight: 400;
+}
+
+.student-dashboard__greeting-tail {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: $gold-dark;
+}
+
 // Clickable stat-card wrapper — makes the card behave like a
 // navigation tile without dressing it as a hyperlink. Stretches to
 // fill its grid cell so all four cards line up at the same height,

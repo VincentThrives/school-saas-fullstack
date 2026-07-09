@@ -1,5 +1,11 @@
 <div class="teacher-dashboard">
-  <app-page-header title="Teacher Dashboard"></app-page-header>
+  <!-- Inline greeting header — name gets the emphasis, the
+       time-of-day tail sits next to it in a smaller muted style. -->
+  <div class="teacher-dashboard__greeting">
+    <span class="teacher-dashboard__greeting-name">{{ greetingName }}</span>
+    <span class="teacher-dashboard__greeting-sep">-</span>
+    <span class="teacher-dashboard__greeting-tail">{{ greetingTail }}</span>
+  </div>
 
   <div class="teacher-dashboard__loading" *ngIf="isLoading" style="display:flex;justify-content:center;padding:24px;">
     <mat-spinner diameter="36"></mat-spinner>

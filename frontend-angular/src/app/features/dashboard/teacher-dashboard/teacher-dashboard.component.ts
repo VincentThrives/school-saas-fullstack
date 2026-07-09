@@ -92,6 +92,21 @@ export class TeacherDashboardComponent implements OnInit {
 
   scheduleColumns = ['period', 'time', 'class', 'subject', 'room', 'attendance'];
 
+  /** Name half of the header greeting — bold, primary size. */
+  get greetingName(): string {
+    const name = (this.auth.currentUser?.firstName || '').trim() || 'Teacher';
+    return `Hi, ${name}`;
+  }
+
+  /** Time-of-day tail — smaller and coloured differently so the
+   *  emphasis stays on the teacher's name. */
+  get greetingTail(): string {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning!';
+    if (h < 17) return 'Good afternoon!';
+    return 'Good evening!';
+  }
+
   private readonly DAY_KEYS = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
 
   constructor(

@@ -74,6 +74,27 @@ export class StudentDashboardComponent implements OnInit {
     todaysHomework: 0,
   };
 
+  /** Student's first name for the personalised "Hi, Ravi" greeting
+   *  at the top of the dashboard. Falls back to empty string so the
+   *  header renders "Hi, Student" gracefully before the profile
+   *  fetch completes. */
+  studentFirstName = '';
+
+  /** Name half of the header greeting — bold, primary size. */
+  get greetingName(): string {
+    return `Hi, ${this.studentFirstName || 'Student'}`;
+  }
+
+  /** Time-of-day tail — rendered as a smaller, muted line next to
+   *  the name so the whole greeting reads as one visual unit but the
+   *  emphasis stays on the student's name. */
+  get greetingTail(): string {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning!';
+    if (h < 17) return 'Good afternoon!';
+    return 'Good evening!';
+  }
+
   /** Short one-liner under the count so the tile reads as a message
    *  instead of a bare number. Kept ≤ 20 chars so it fits on one line
    *  inside the narrow stat-card without wrapping. */
@@ -121,6 +142,8 @@ export class StudentDashboardComponent implements OnInit {
         .pipe(catchError(() => of({ data: { content: [], totalElements: 0 } } as any))),
     }).subscribe(({ me, summary, mcq, unread, events, holidays, homework }) => {
       const profile = me?.data as any;
+      // First name feeds the personalised "Hi, <name>" header title.
+      this.studentFirstName = (profile?.firstName || '').trim();
       this.stats.attendancePercentage = (summary?.data as any)?.attendance?.overall?.percentage ?? 0;
       this.stats.unreadNotifications = (unread?.data as any) ?? 0;
       // totalElements gives the true count even though we asked for
