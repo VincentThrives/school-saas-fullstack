@@ -178,7 +178,8 @@ public class NotificationService {
             return notificationRepository.findForAdmin(userId, pageable);
         }
         Collection<String> classIds = classIdsOf(userId);
-        return notificationRepository.findForUser(userId, role, classIds, pageable);
+        Collection<String> sectionIds = sectionIdsOf(userId);
+        return notificationRepository.findForUser(userId, role, classIds, sectionIds, pageable);
     }
 
     /**
@@ -194,14 +195,23 @@ public class NotificationService {
      */
     public Page<Notification> listForUserFiltered(
             String userId, int page, int size, String type, LocalDate date) {
+        return listForUserFiltered(userId, page, size, type, date, date);
+    }
+
+    /** Range variant — {@code dateFrom} inclusive, {@code dateTo}
+     *  inclusive. When both are equal, behaves like the single-date
+     *  filter above. Either may be null to leave that end open. */
+    public Page<Notification> listForUserFiltered(
+            String userId, int page, int size, String type, LocalDate dateFrom, LocalDate dateTo) {
         // Fast path: no filters requested → reuse the existing method so
         // caching and query planning stay identical for legacy callers.
-        if ((type == null || type.isBlank()) && date == null) {
+        if ((type == null || type.isBlank()) && dateFrom == null && dateTo == null) {
             return listForUser(userId, page, size);
         }
 
         String role = roleOf(userId);
         Collection<String> classIds = classIdsOf(userId);
+        Collection<String> sectionIds = sectionIdsOf(userId);
 
         Criteria criteria;
         if (isAdminLikeRole(role)) {
@@ -214,6 +224,16 @@ public class NotificationService {
                             Criteria.where("recipientType").is("INDIVIDUAL"),
                             Criteria.where("recipientIds").in(userId)));
         } else {
+            // CLASS branch scopes to the user's sections — a homework sent
+            // to "10-A" doesn't leak to "10-B" students who share classId.
+            // Notifications with no section stay visible to the whole class
+            // (matches the class-wide send from the compose form).
+            Criteria classBranch = new Criteria().andOperator(
+                    Criteria.where("recipientType").is("CLASS"),
+                    Criteria.where("recipientClassId").in(classIds),
+                    new Criteria().orOperator(
+                            Criteria.where("recipientSectionId").is(null),
+                            Criteria.where("recipientSectionId").in(sectionIds)));
             criteria = new Criteria().orOperator(
                     Criteria.where("recipientType").is("ALL"),
                     new Criteria().andOperator(
@@ -222,9 +242,7 @@ public class NotificationService {
                     new Criteria().andOperator(
                             Criteria.where("recipientType").is("INDIVIDUAL"),
                             Criteria.where("recipientIds").in(userId)),
-                    new Criteria().andOperator(
-                            Criteria.where("recipientType").is("CLASS"),
-                            Criteria.where("recipientClassId").in(classIds)));
+                    classBranch);
         }
 
         List<Criteria> and = new ArrayList<>();
@@ -232,13 +250,32 @@ public class NotificationService {
         if (type != null && !type.isBlank()) {
             and.add(Criteria.where("type").is(type));
         }
-        if (date != null) {
+        if (dateFrom != null || dateTo != null) {
             // Day boundaries in the JVM's default zone — matches how the
-            // Angular date picker sends a plain yyyy-MM-dd string.
-            Instant start = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
-            Instant end = date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
-            and.add(Criteria.where("sentAt").gte(start).lt(end));
+            // Angular date picker sends plain yyyy-MM-dd strings. When
+            // both bounds are supplied it's an inclusive range; single
+            // bound → open on the other side (legacy single-date calls
+            // send from == to so behaviour is identical).
+            Criteria at = Criteria.where("sentAt");
+            if (dateFrom != null) {
+                Instant start = dateFrom.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                at = at.gte(start);
+            }
+            if (dateTo != null) {
+                Instant end = dateTo.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+                at = at.lt(end);
+            }
+            and.add(at);
         }
+        // Hide reminder rows from the student's Homework list too —
+        // they still land in the general notifications bell, but the
+        // Homework page should only show original assignments. The
+        // reminder's status is reflected on the ORIGINAL row's chip
+        // via remindsHomeworkId, so the student never has to guess
+        // "which one is the real one".
+        and.add(new Criteria().orOperator(
+                Criteria.where("remindsHomeworkId").is(null),
+                Criteria.where("remindsHomeworkId").exists(false)));
 
         Query q = new Query(new Criteria().andOperator(and.toArray(new Criteria[0])))
                 .with(PageRequest.of(page, size, Sort.by("sentAt").descending()));
@@ -252,6 +289,58 @@ public class NotificationService {
     public Page<Notification> listSentBy(String userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         return notificationRepository.findByCreatedByOrderBySentAtDesc(userId, pageable);
+    }
+
+    /**
+     * Same as {@link #listSentBy} but scoped with the two optional
+     * server-side filters (type + date). Feeds the teacher Homework
+     * page which wants "homework I sent on this date". Both null →
+     * falls back to the unfiltered path so legacy callers stay
+     * identical.
+     */
+    public Page<Notification> listSentByFiltered(
+            String userId, int page, int size, String type, LocalDate date) {
+        return listSentByFiltered(userId, page, size, type, date, date);
+    }
+
+    /** Range variant — matches the semantics of the range overload of
+     *  {@link #listForUserFiltered}. */
+    public Page<Notification> listSentByFiltered(
+            String userId, int page, int size, String type, LocalDate dateFrom, LocalDate dateTo) {
+        if ((type == null || type.isBlank()) && dateFrom == null && dateTo == null) {
+            return listSentBy(userId, page, size);
+        }
+        List<Criteria> and = new ArrayList<>();
+        and.add(Criteria.where("createdBy").is(userId));
+        if (type != null && !type.isBlank()) {
+            and.add(Criteria.where("type").is(type));
+        }
+        if (dateFrom != null || dateTo != null) {
+            Criteria at = Criteria.where("sentAt");
+            if (dateFrom != null) {
+                Instant start = dateFrom.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                at = at.gte(start);
+            }
+            if (dateTo != null) {
+                Instant end = dateTo.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+                at = at.lt(end);
+            }
+            and.add(at);
+        }
+        // Hide reminders from the teacher's own Homework list — they
+        // want to see the assignments they posted, not the "Homework
+        // not done" nudges those assignments spawned via Save & Notify.
+        // Legacy notifications with no remindsHomeworkId field still
+        // pass through (the null-match covers both missing-field and
+        // explicit-null docs).
+        and.add(new Criteria().orOperator(
+                Criteria.where("remindsHomeworkId").is(null),
+                Criteria.where("remindsHomeworkId").exists(false)));
+        Query q = new Query(new Criteria().andOperator(and.toArray(new Criteria[0])))
+                .with(PageRequest.of(page, size, Sort.by("sentAt").descending()));
+        long total = mongoTemplate.count(Query.of(q).limit(-1).skip(-1), Notification.class);
+        List<Notification> content = mongoTemplate.find(q, Notification.class);
+        return new PageImpl<>(content, PageRequest.of(page, size), total);
     }
 
     public void markRead(String notificationId, String userId) {
@@ -273,7 +362,8 @@ public class NotificationService {
             return notificationRepository.countUnreadForAdmin(userId);
         }
         Collection<String> classIds = classIdsOf(userId);
-        return notificationRepository.findUnreadForUser(userId, role, classIds).size();
+        Collection<String> sectionIds = sectionIdsOf(userId);
+        return notificationRepository.findUnreadForUser(userId, role, classIds, sectionIds).size();
     }
 
     /** True for tenant-scoped supervisor roles that see every notification. */
@@ -349,6 +439,37 @@ public class NotificationService {
             }
         });
         // Always include a harmless sentinel so Mongo's $in never gets an empty list for non-class users.
+        if (out.isEmpty()) out.add("__none__");
+        return out;
+    }
+
+    /**
+     * Section IDs the user belongs to, used alongside {@link #classIdsOf}
+     * so a homework sent to "10-A" doesn't leak to students in "10-B"
+     * who happen to share the same classId. Students have exactly one
+     * section; teachers can span many (class-teacher + subject
+     * assignments across sections).
+     *
+     * <p>Notifications with {@code recipientSectionId == null} still
+     * reach every section on the class — that's the class-wide send —
+     * which the query handles via a null-OR-in-list branch. This
+     * helper just needs to return the list of sections that ARE ours;
+     * legacy targeting stays intact.</p>
+     */
+    private Collection<String> sectionIdsOf(String userId) {
+        Set<String> out = new HashSet<>();
+        studentRepository.findByUserIdAndDeletedAtIsNull(userId).ifPresent(s -> {
+            if (s.getSectionId() != null) out.add(s.getSectionId());
+        });
+        teacherRepository.findByUserIdAndDeletedAtIsNull(userId).ifPresent((Teacher t) -> {
+            if (t.getClassTeacherOfSectionId() != null) out.add(t.getClassTeacherOfSectionId());
+            if (t.getClassSubjectAssignments() != null) {
+                t.getClassSubjectAssignments().forEach(a -> {
+                    if (a.getSectionId() != null) out.add(a.getSectionId());
+                });
+            }
+        });
+        // Sentinel keeps Mongo's $in happy for non-class users.
         if (out.isEmpty()) out.add("__none__");
         return out;
     }

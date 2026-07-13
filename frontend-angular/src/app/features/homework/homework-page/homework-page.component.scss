@@ -16,6 +16,26 @@ $gold-dark: #B8860B;
     max-width: 320px;
   }
 
+  // Student range picker — two fields side by side on desktop, stacked
+  // on narrow screens. Uses flex so the fields share the row evenly.
+  &__range {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .homework-page__date-field {
+      flex: 1 1 220px;
+      max-width: 320px;
+    }
+  }
+
+  &__range-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #6b7280;
+  }
+
   &__loading {
     display: flex;
     justify-content: center;
@@ -57,14 +77,44 @@ $gold-dark: #B8860B;
     padding: 14px 16px;
     background: #fff;
     border: 1px solid #f1ecd9;
+    border-left: 4px solid #e5e7eb;
     border-radius: 12px;
     cursor: pointer;
     transition: background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
 
     &:hover {
-      background: #fff8e1;
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    // Card tint per teacher-marked status. Left stripe carries the
+    // primary signal so it reads at a glance even in a long list; the
+    // background wash reinforces it without drowning the text.
+    &--done {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+      border-left-color: #16a34a;
+      &:hover { background: #dcfce7; }
+    }
+
+    &--half {
+      background: #fffbeb;
+      border-color: #fde68a;
+      border-left-color: #d97706;
+      &:hover { background: #fef3c7; }
+    }
+
+    &--not_done {
+      background: #fff7ed;
+      border-color: #fed7aa;
+      border-left-color: #ea580c;
+      &:hover { background: #ffedd5; }
+    }
+
+    &--pending {
+      background: #fff;
+      border-left-color: #d4a843;
+      &:hover { background: #fff8e1; }
     }
   }
 
@@ -109,6 +159,55 @@ $gold-dark: #B8860B;
     flex: 0 0 auto;
   }
 
+  // Student-side status chip — green for done, amber for pending.
+  // Small icon inside so it reads at a glance.
+  &__item-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    flex: 0 0 auto;
+
+    mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+
+    &--done {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    // Default state — teacher hasn't touched this entry yet. Neutral
+    // amber so it reads as "waiting on the teacher", not "you're
+    // behind".
+    &--pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    // Explicit teacher call: this student was marked HALF. Mid-amber
+    // so it sits visually between Pending (soft amber) and Not done
+    // (harder amber with bell).
+    &--half {
+      background: #fde68a;
+      color: #78350f;
+    }
+
+    // Explicit teacher call: marked PENDING + reminder fired. Amber
+    // with the bell icon inside the chip so the student reads it as
+    // "you were nudged, act on this".
+    &--reminder {
+      background: #fed7aa;
+      color: #7c2d12;
+    }
+  }
+
   &__item-text {
     font-size: 14px;
     color: #4b5563;
@@ -134,6 +233,110 @@ $gold-dark: #B8860B;
       width: 14px;
       height: 14px;
     }
+  }
+
+  // Teacher-only "Not done" accordion — same visual language as the
+  // absentee list on View Attendance so the two teacher panels feel
+  // like the same feature. Amber wash + amber chips reinforces the
+  // "still owed" reading without needing an icon on every chip.
+  &__undone {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+  }
+
+  &__undone-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #7c2d12;
+    letter-spacing: 0.2px;
+  }
+
+  &__undone-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 6px;
+    background: transparent;
+    border: none;
+    color: #7c2d12;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+
+    &:hover { background: rgba(124, 45, 18, 0.08); }
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  &__undone-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  &__undone-chip {
+    display: inline-block;
+    padding: 3px 8px;
+    background: #fed7aa;
+    color: #7c2d12;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+
+    // HALF entries get a slightly lighter wash so a teacher can tell
+    // "in progress" from "not started" without opening the roster.
+    &--half {
+      background: #fde68a;
+      color: #78350f;
+    }
+  }
+
+  // Teacher-only "Tap to mark students" CTA at the bottom of each
+  // homework card. Small pill so it stays subordinate to the title
+  // + body but is unmistakably an action.
+  &__item-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 6px 12px;
+    background: rgba(212, 168, 67, 0.12);
+    color: $gold-dark;
+    border: 1px solid rgba(184, 134, 11, 0.35);
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.1px;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &-arrow {
+      margin-left: 2px;
+      opacity: 0.7;
+    }
+  }
+
+  // Slight hover lift so the card reads as clickable to teachers.
+  // Students already have the same effect via `cursor: pointer`.
+  &__item:hover &__item-cta {
+    background: rgba(212, 168, 67, 0.22);
   }
 
   &__overlay {
@@ -219,6 +422,103 @@ $gold-dark: #B8860B;
   &__dialog-actions {
     display: flex;
     justify-content: flex-end;
+  }
+
+  // ── Teacher roster section (inside the detail popup) ─────────
+  &__roster-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 10px;
+
+    mat-icon { color: $gold-dark; }
+  }
+
+  &__roster-title {
+    font-weight: 700;
+    color: #1f2937;
+    font-size: 15px;
+  }
+
+  &__roster-count {
+    font-weight: 500;
+    color: #6b7280;
+    font-size: 13px;
+    margin-left: 4px;
+  }
+
+  &__roster-loading {
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  &__roster-empty {
+    padding: 12px;
+    color: #6b7280;
+    font-size: 13px;
+    text-align: center;
+    background: #fafafa;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+
+  &__roster-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 4px 0;
+    margin-bottom: 16px;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+  }
+
+  &__roster-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+
+    &:hover {
+      background: #f9fafb;
+    }
+
+    &--done {
+      background: rgba(220, 252, 231, 0.4);
+
+      .homework-page__roster-name {
+        color: #166534;
+        text-decoration: line-through;
+        text-decoration-color: rgba(22, 101, 52, 0.35);
+      }
+    }
+  }
+
+  &__roster-name {
+    flex: 1;
+    font-size: 14px;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    word-break: break-word;
+  }
+
+  &__roster-roll {
+    display: inline-block;
+    padding: 1px 6px;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #4b5563;
+    flex: 0 0 auto;
   }
 }
 

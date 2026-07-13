@@ -72,6 +72,9 @@ export class StudentDashboardComponent implements OnInit {
     /** Homework rows the student has for today. Feeds the dashboard
      *  Homework tile; tapping the tile goes to /homework. */
     todaysHomework: 0,
+    /** How many of today's homework this student has been marked done
+     *  on. Drives the "N pending, M done" line under the tile. */
+    todaysHomeworkDone: 0,
   };
 
   /** Student's first name for the personalised "Hi, Ravi" greeting
@@ -95,14 +98,39 @@ export class StudentDashboardComponent implements OnInit {
     return 'Good evening!';
   }
 
-  /** Short one-liner under the count so the tile reads as a message
-   *  instead of a bare number. Kept ≤ 20 chars so it fits on one line
-   *  inside the narrow stat-card without wrapping. */
+  /** Refresh the tile's "M done" number after the notification list
+   *  fetch. Two-step because the batched status endpoint needs the
+   *  actual notificationIds — we ask for a fuller page here (size 50,
+   *  same page the Homework page uses) so we can count. */
+  private loadTodaysHomeworkDoneCount(todayStr: string): void {
+    this.api.getHomeworkNotifications(todayStr, 0, 50, false).subscribe({
+      next: (res) => {
+        const rows = (res?.data as any)?.content || [];
+        const ids = rows.map((r: any) => r.notificationId).filter(Boolean);
+        if (ids.length === 0) { this.stats.todaysHomeworkDone = 0; return; }
+        this.api.getMyHomeworkStatusBatch(ids).subscribe({
+          next: (statusRes) => {
+            const map = (statusRes?.data as any) || {};
+            this.stats.todaysHomeworkDone = Object.values(map).filter((v) => !!v).length;
+          },
+          error: () => { this.stats.todaysHomeworkDone = 0; },
+        });
+      },
+      error: () => { this.stats.todaysHomeworkDone = 0; },
+    });
+  }
+
+  /** Short one-liner under the count. Shows pending / done breakdown
+   *  when the student has homework; falls back to "Nothing today"
+   *  when the day is clear. */
   get homeworkSubtitle(): string {
-    const n = this.stats.todaysHomework;
-    if (n === 0) return 'Nothing today';
-    if (n === 1) return '1 to do · tap';
-    return `${n} to do · tap`;
+    const total = this.stats.todaysHomework;
+    const done = this.stats.todaysHomeworkDone;
+    if (total === 0) return 'Nothing today';
+    const pending = Math.max(0, total - done);
+    if (pending === 0) return `All ${total} done · tap`;
+    if (done === 0) return `${pending} to do · tap`;
+    return `${pending} pending, ${done} done`;
   }
 
   todaySchedule: ScheduleRow[] = [];
@@ -149,6 +177,13 @@ export class StudentDashboardComponent implements OnInit {
       // totalElements gives the true count even though we asked for
       // just 1 row (page size 1) — cheap way to get "how many today?"
       this.stats.todaysHomework = (homework?.data as any)?.totalElements ?? 0;
+      // Follow-up: fetch every id for today so we can batch the
+      // done/pending status and show "N pending, M done" on the tile.
+      if (this.stats.todaysHomework > 0) {
+        this.loadTodaysHomeworkDoneCount(todayStr);
+      } else {
+        this.stats.todaysHomeworkDone = 0;
+      }
 
       // Subject-wise attendance for the dashboard "Attendance Overview" card
       const bySubject: any[] = (summary?.data as any)?.attendance?.bySubject || [];

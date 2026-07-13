@@ -1,7 +1,7 @@
 <div class="homework-page">
   <app-page-header
     title="Homework"
-    subtitle="Homework assigned by your teachers"
+    [subtitle]="isTeacherMode ? 'Homework you posted' : 'Homework assigned by your teachers'"
     [breadcrumbs]="[
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'Homework' }
@@ -10,7 +10,8 @@
 
   <mat-card class="homework-page__filter-card">
     <mat-card-content>
-      <mat-form-field appearance="outline" class="homework-page__date-field">
+      <!-- Teacher: single date picker, "what I posted on this day". -->
+      <mat-form-field *ngIf="isTeacherMode" appearance="outline" class="homework-page__date-field">
         <mat-label>Date</mat-label>
         <input
           matInput
@@ -22,6 +23,41 @@
         <mat-datepicker #picker></mat-datepicker>
         <mat-hint>Change the date to see homework from another day.</mat-hint>
       </mat-form-field>
+
+      <!-- Student/parent: date range defaults to last 4 days so
+           earlier-in-the-week assignments aren't hidden by default.
+           From is capped at "To" (can't start after the end) and To is
+           floored at "From" (can't end before the start), so the two
+           pickers can never disagree. -->
+      <div *ngIf="!isTeacherMode" class="homework-page__range">
+        <mat-form-field appearance="outline" class="homework-page__date-field">
+          <mat-label>From</mat-label>
+          <input
+            matInput
+            [matDatepicker]="fromPicker"
+            [max]="toDate"
+            [(ngModel)]="fromDate"
+            (dateChange)="onDateChange()"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
+          <mat-datepicker #fromPicker></mat-datepicker>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="homework-page__date-field">
+          <mat-label>To</mat-label>
+          <input
+            matInput
+            [matDatepicker]="toPicker"
+            [min]="fromDate"
+            [(ngModel)]="toDate"
+            (dateChange)="onDateChange()"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
+          <mat-datepicker #toPicker></mat-datepicker>
+        </mat-form-field>
+      </div>
+      <mat-hint *ngIf="!isTeacherMode" class="homework-page__range-hint">
+        Showing the last few days by default — widen the range to look further back.
+      </mat-hint>
     </mat-card-content>
   </mat-card>
 
@@ -31,13 +67,14 @@
 
   <div class="homework-page__empty" *ngIf="!isLoading && homework.length === 0">
     <mat-icon>menu_book</mat-icon>
-    <h3>No homework for this day</h3>
+    <h3>{{ isTeacherMode ? 'You haven\'t posted homework on this day' : 'No homework for this day' }}</h3>
     <p>Try picking a different date from the picker above.</p>
   </div>
 
   <div class="homework-page__list" *ngIf="!isLoading && homework.length > 0">
     <div
       class="homework-page__item"
+      [ngClass]="!isTeacherMode ? 'homework-page__item--' + chipFor(h).toLowerCase() : ''"
       *ngFor="let h of homework"
       (click)="open(h)"
       role="button"
@@ -50,12 +87,71 @@
       <div class="homework-page__item-body">
         <div class="homework-page__item-row">
           <span class="homework-page__item-title">{{ h.title }}</span>
-          <span class="homework-page__item-chip">HOMEWORK</span>
+          <!-- Student/parent status chip. Four variants driven by the
+               teacher's latest mark on this student's entry. Reminder
+               rows are filtered out server-side, so the chip on the
+               original homework card is the single source of truth. -->
+          <ng-container *ngIf="!isTeacherMode">
+            <span *ngIf="chipFor(h) === 'DONE'"
+                  class="homework-page__item-status homework-page__item-status--done">
+              <mat-icon>check_circle</mat-icon> Done
+            </span>
+            <span *ngIf="chipFor(h) === 'HALF'"
+                  class="homework-page__item-status homework-page__item-status--half">
+              <mat-icon>timelapse</mat-icon> Half done
+            </span>
+            <span *ngIf="chipFor(h) === 'NOT_DONE'"
+                  class="homework-page__item-status homework-page__item-status--reminder">
+              <mat-icon>notifications_active</mat-icon> Not done
+            </span>
+            <span *ngIf="chipFor(h) === 'PENDING'"
+                  class="homework-page__item-status homework-page__item-status--pending">
+              <mat-icon>schedule</mat-icon> Pending
+            </span>
+          </ng-container>
+          <span *ngIf="isTeacherMode" class="homework-page__item-chip">HOMEWORK</span>
         </div>
         <div class="homework-page__item-text">{{ h.body }}</div>
         <div class="homework-page__item-meta">
           <mat-icon class="mini">schedule</mat-icon>
           <span>{{ formatSentAt(h.sentAt || h.createdAt) }}</span>
+        </div>
+        <!-- Teacher-only "Not done" accordion — mirrors the absentee
+             list on View Attendance so teachers get an at-a-glance
+             roll without opening the full roster page. Folds behind
+             a Show toggle above the threshold. Click stops
+             propagation so tapping the toggle doesn't also open the
+             roster. -->
+        <div class="homework-page__undone"
+             *ngIf="isTeacherMode && undoneOf(h).length > 0">
+          <div class="homework-page__undone-label">
+            <span>Not done ({{ undoneOf(h).length }})</span>
+            <button type="button" class="homework-page__undone-toggle"
+                    *ngIf="shouldCollapseUndone(h)"
+                    (click)="toggleUndone(h, $event)"
+                    [attr.aria-expanded]="isUndoneExpanded(h)">
+              {{ isUndoneExpanded(h) ? 'Hide' : 'Show' }}
+              <mat-icon>{{ isUndoneExpanded(h) ? 'expand_less' : 'expand_more' }}</mat-icon>
+            </button>
+          </div>
+          <div class="homework-page__undone-list"
+               *ngIf="!shouldCollapseUndone(h) || isUndoneExpanded(h)">
+            <span class="homework-page__undone-chip"
+                  *ngFor="let u of undoneOf(h)"
+                  [class.homework-page__undone-chip--half]="u.status === 'HALF'">
+              {{ undoneLabel(u) }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Teacher CTA — clarifies that tapping the card opens the
+             student roster to mark done / half / not done. Without
+             this, the card looks passive and the roster stayed hidden
+             behind an invisible click target. -->
+        <div class="homework-page__item-cta" *ngIf="isTeacherMode">
+          <mat-icon>groups</mat-icon>
+          <span>Tap to mark students</span>
+          <mat-icon class="homework-page__item-cta-arrow">chevron_right</mat-icon>
         </div>
       </div>
     </div>
@@ -78,6 +174,7 @@
         <mat-icon>schedule</mat-icon>
         <span>{{ formatSentAt(opened.sentAt || opened.createdAt) }}</span>
       </div>
+
       <div class="homework-page__dialog-actions">
         <button mat-flat-button color="primary" (click)="close()">Close</button>
       </div>

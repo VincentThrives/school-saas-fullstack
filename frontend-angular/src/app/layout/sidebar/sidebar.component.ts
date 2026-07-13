@@ -386,6 +386,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         // { title: 'Mentoring Notes', path: '/mentoring', icon: 'note' },
         // { title: 'Messages', path: '/messages', icon: 'message', feature: 'messaging' },
         // { title: 'WhatsApp', path: '/whatsapp', icon: 'chat', feature: 'whatsapp' },
+        { title: 'Homework', path: '/homework', icon: 'menu_book', feature: 'notifications' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications' },
       );
     }

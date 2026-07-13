@@ -1,0 +1,119 @@
+<div class="homework-roster">
+  <app-page-header
+    title="Homework roster"
+    [subtitle]="homework?.title ? homework.title : 'Mark done + add remarks'"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Homework', link: '/homework' },
+      { label: 'Roster' }
+    ]"
+  ></app-page-header>
+
+  <!-- Homework body card so the teacher has the original assignment
+       visible above the roster while marking. -->
+  <mat-card class="homework-roster__brief-card" *ngIf="homework">
+    <mat-card-content>
+      <div class="homework-roster__brief-body">{{ homework.body }}</div>
+      <div class="homework-roster__brief-meta">
+        <mat-icon>schedule</mat-icon>
+        <span>{{ formatSentAt(homework.sentAt || homework.createdAt) }}</span>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <div class="homework-roster__loading" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <ng-container *ngIf="!isLoading">
+    <!-- Filters — tabs on top, live search below. Both apply on top
+         of one another so a teacher can jump to "Not done → Aditya"
+         in a class of 60 without scrolling. -->
+    <mat-card class="homework-roster__stats-card">
+      <mat-card-content>
+        <mat-tab-group [(selectedIndex)]="activeTab" class="homework-roster__tabs">
+          <mat-tab label="All ({{ rows.length }})"></mat-tab>
+          <mat-tab label="Not done ({{ pendingCount }})"></mat-tab>
+          <mat-tab label="Half done ({{ halfCount }})"></mat-tab>
+          <mat-tab label="Done ({{ doneCount }})"></mat-tab>
+        </mat-tab-group>
+        <div class="homework-roster__search">
+          <mat-icon class="homework-roster__search-icon">search</mat-icon>
+          <input
+            type="text"
+            class="homework-roster__search-input"
+            placeholder="Search by name or roll number"
+            [(ngModel)]="searchQuery"
+            (keyup.escape)="searchQuery = ''"
+          />
+          <button type="button"
+                  class="homework-roster__search-clear"
+                  *ngIf="searchQuery"
+                  (click)="searchQuery = ''"
+                  aria-label="Clear search">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <div class="homework-roster__empty" *ngIf="visibleRows.length === 0">
+      <mat-icon>groups</mat-icon>
+      <p>No students in this view.</p>
+    </div>
+
+    <!-- Student list — each row has done checkbox, roll+name, remark input -->
+    <div class="homework-roster__list" *ngIf="visibleRows.length > 0">
+      <div
+        class="homework-roster__row"
+        *ngFor="let r of visibleRows; trackBy: trackByStudentId"
+        [class.homework-roster__row--done]="r.status === 'DONE'"
+        [class.homework-roster__row--half]="r.status === 'HALF'"
+        [class.homework-roster__row--pending]="r.status === 'PENDING'"
+      >
+        <div class="homework-roster__name">
+          <span class="homework-roster__roll" *ngIf="r.rollNumber">#{{ r.rollNumber }}</span>
+          <span class="homework-roster__fullname">{{ r.fullName }}</span>
+        </div>
+
+        <mat-button-toggle-group
+          [(ngModel)]="r.status"
+          class="homework-roster__status"
+          hideSingleSelectionIndicator="true"
+        >
+          <mat-button-toggle value="DONE" class="homework-roster__status-done">Done</mat-button-toggle>
+          <mat-button-toggle value="HALF" class="homework-roster__status-half">Half</mat-button-toggle>
+          <mat-button-toggle value="PENDING" class="homework-roster__status-pending">Not done</mat-button-toggle>
+        </mat-button-toggle-group>
+
+        <input
+          type="text"
+          class="homework-roster__remark"
+          [(ngModel)]="r.remark"
+          maxlength="200"
+          placeholder="Add a remark (optional)"
+        />
+      </div>
+    </div>
+
+    <!-- Sticky action footer — Save and "Save & Notify undone" side by side -->
+    <div class="homework-roster__actions">
+      <button mat-stroked-button
+              type="button"
+              [disabled]="isSaving"
+              (click)="save(false)">
+        <mat-icon>save</mat-icon>
+        Save changes
+      </button>
+      <button mat-flat-button
+              color="primary"
+              type="button"
+              [disabled]="isSaving"
+              (click)="save(true)">
+        <mat-spinner *ngIf="isSaving" diameter="18" class="homework-roster__saving-spinner"></mat-spinner>
+        <mat-icon *ngIf="!isSaving">notifications_active</mat-icon>
+        Save & Notify undone
+      </button>
+    </div>
+  </ng-container>
+</div>

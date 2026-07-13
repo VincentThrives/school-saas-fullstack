@@ -36,6 +36,11 @@ public interface StudentRepository extends MongoRepository<Student, String> {
      *  display names + roll numbers in one query rather than N. */
     List<Student> findByStudentIdInAndDeletedAtIsNull(List<String> studentIds);
 
+    /** Sibling batch lookup by userId — the HOMEWORK roster resolver
+     *  uses this when the notification's recipientIds contain userIds
+     *  (INDIVIDUAL sends target users, not students, at the wire level). */
+    List<Student> findByUserIdInAndDeletedAtIsNull(List<String> userIds);
+
     List<Student> findByClassIdAndSectionIdAndDeletedAtIsNull(String classId, String sectionId);
 
     List<Student> findByParentIdsContainingAndDeletedAtIsNull(String parentId);

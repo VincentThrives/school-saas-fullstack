@@ -16,24 +16,32 @@ public interface NotificationRepository extends MongoRepository<Notification, St
      *   - recipientType = "ROLE" and recipientRole == {role}
      *   - recipientType = "INDIVIDUAL" and userId is in recipientIds
      *   - recipientType = "CLASS" and recipientClassId is in {classIds}
+     *     AND (recipientSectionId is null OR in {sectionIds}). The section
+     *     branch scopes homework/announcements sent to "10-A" so students
+     *     in "10-B" don't see it. Legacy notifications with no section
+     *     set (or ones sent to the whole class) still reach every section.
      * Sorted by sentAt desc via Pageable.
      */
     @Query("{ '$or': [" +
             "  { 'recipientType': 'ALL' }," +
             "  { 'recipientType': 'ROLE', 'recipientRole': ?1 }," +
             "  { 'recipientType': 'INDIVIDUAL', 'recipientIds': { '$in': [?0] } }," +
-            "  { 'recipientType': 'CLASS', 'recipientClassId': { '$in': ?2 } }" +
+            "  { 'recipientType': 'CLASS', 'recipientClassId': { '$in': ?2 }," +
+            "    '$or': [ { 'recipientSectionId': null }," +
+            "             { 'recipientSectionId': { '$in': ?3 } } ] }" +
             "] }")
-    Page<Notification> findForUser(String userId, String role, Collection<String> classIds, Pageable pageable);
+    Page<Notification> findForUser(String userId, String role, Collection<String> classIds, Collection<String> sectionIds, Pageable pageable);
 
     /** Unread subset of findForUser — same $or targeting + user not in readBy. */
     @Query("{ 'readBy': { '$nin': [?0] }, '$or': [" +
             "  { 'recipientType': 'ALL' }," +
             "  { 'recipientType': 'ROLE', 'recipientRole': ?1 }," +
             "  { 'recipientType': 'INDIVIDUAL', 'recipientIds': { '$in': [?0] } }," +
-            "  { 'recipientType': 'CLASS', 'recipientClassId': { '$in': ?2 } }" +
+            "  { 'recipientType': 'CLASS', 'recipientClassId': { '$in': ?2 }," +
+            "    '$or': [ { 'recipientSectionId': null }," +
+            "             { 'recipientSectionId': { '$in': ?3 } } ] }" +
             "] }")
-    List<Notification> findUnreadForUser(String userId, String role, Collection<String> classIds);
+    List<Notification> findUnreadForUser(String userId, String role, Collection<String> classIds, Collection<String> sectionIds);
 
     // Kept for backwards compat
     @Query("{'recipientIds':{$in:[?0]},'readBy':{$not:{$in:[?0]}}}")
@@ -41,6 +49,12 @@ public interface NotificationRepository extends MongoRepository<Notification, St
 
     /** Notifications the admin/teacher themselves sent — used by the History tab. */
     Page<Notification> findByCreatedByOrderBySentAtDesc(String createdBy, Pageable pageable);
+
+    /** Wipe every reminder previously fired for a given homework —
+     *  called before {@code notifyUndone} sends a fresh reminder so
+     *  the student's inbox never stacks up multiple "Homework not
+     *  done" rows for the same homework. */
+    long deleteByRemindsHomeworkId(String remindsHomeworkId);
 
     /**
      * Admin / principal inbox feed. They see every BROADCAST — anything

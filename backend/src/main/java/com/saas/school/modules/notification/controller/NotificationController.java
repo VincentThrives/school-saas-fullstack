@@ -37,17 +37,27 @@ public class NotificationController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "false") boolean sentByMe,
             @RequestParam(required = false) String type,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        // sentByMe wins over the optional filters — history has its own
-        // dedicated page and doesn't need type/date scoping today.
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) {
+        // Route by what's asked for:
+        //   sentByMe + filters → teacher's own homework on a specific date
+        //   sentByMe only      → history tab (unchanged)
+        //   filters only       → student/parent Homework page (inbox-scoped)
+        //   nothing            → default inbox (unchanged)
+        // Range filter (dateFrom/dateTo) takes priority over the single
+        // `date` param when both are supplied — the student Homework page
+        // sends the range while legacy callers keep sending `date`.
+        LocalDate rangeFrom = dateFrom != null ? dateFrom : date;
+        LocalDate rangeTo = dateTo != null ? dateTo : date;
         Page<Notification> result;
-        if (sentByMe) {
+        final boolean hasFilters = (type != null && !type.isBlank()) || rangeFrom != null || rangeTo != null;
+        if (sentByMe && hasFilters) {
+            result = notificationService.listSentByFiltered(userId, page, size, type, rangeFrom, rangeTo);
+        } else if (sentByMe) {
             result = notificationService.listSentBy(userId, page, size);
-        } else if ((type != null && !type.isBlank()) || date != null) {
-            // Filtered path — feeds the Homework page (type=HOMEWORK&date=<day>).
-            // Both params default to null on the wire, so legacy callers that
-            // omit them go through the unfiltered branch below.
-            result = notificationService.listForUserFiltered(userId, page, size, type, date);
+        } else if (hasFilters) {
+            result = notificationService.listForUserFiltered(userId, page, size, type, rangeFrom, rangeTo);
         } else {
             result = notificationService.listForUser(userId, page, size);
         }

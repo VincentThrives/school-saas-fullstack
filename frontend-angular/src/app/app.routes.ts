@@ -423,14 +423,27 @@ export const routes: Routes = [
       },
 
       // Homework — read-only view of notifications with type=HOMEWORK.
-      // Students/parents only; teachers/admins still send via the
-      // Notifications page. Backend query params keep the payload small.
+      // Students/parents see homework they RECEIVED; teachers see
+      // homework they SENT (backend switches on sentByMe param). Same
+      // page component drives both. Admins still send + review via
+      // the Notifications page.
       {
         path: 'homework',
         loadComponent: () =>
           import('./features/homework/homework-page/homework-page.component').then(m => m.HomeworkPageComponent),
         canActivate: [roleGuard],
-        data: { roles: [UserRole.STUDENT, UserRole.PARENT], title: 'Homework' },
+        data: { roles: [UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER], title: 'Homework' },
+      },
+
+      // Homework roster — dedicated teacher page for marking done +
+      // per-student remarks. Opened from the Homework list; supports
+      // "Save & Notify undone" to fire reminder pushes.
+      {
+        path: 'homework/:id/roster',
+        loadComponent: () =>
+          import('./features/homework/homework-roster/homework-roster.component').then(m => m.HomeworkRosterComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.SCHOOL_COORDINATOR], title: 'Homework roster' },
       },
 
       // ── WhatsApp (feature-gated, staff only) ─────────────

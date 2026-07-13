@@ -25,7 +25,27 @@ public class Notification {
     private RecipientType recipientType;
     private String recipientRole;
     private String recipientClassId;
+    /**
+     * Which section of {@link #recipientClassId} this notification
+     * targets. Optional — null means "the whole class, all sections".
+     * Currently only meaningful when {@link #recipientType} is CLASS,
+     * and is used by the Homework completion roster to enumerate the
+     * right set of students. Frontend already sends it in the
+     * compose payload; older docs saved before this field existed
+     * deserialise as null and fall back to whole-class scope.
+     */
+    private String recipientSectionId;
     private List<String> recipientIds;
+    /**
+     * Homework-only backlink: when this notification is a REMINDER
+     * ("Save & Notify undone"), this points to the original homework's
+     * notificationId. Lets us (a) delete previous reminders for the
+     * same homework before sending a new one so the student's inbox
+     * doesn't stack up "Homework not done" rows, and (b) hide reminders
+     * from the teacher's own Homework list so they only see originals.
+     * Null on every other notification.
+     */
+    private String remindsHomeworkId;
     private List<String> readBy;
     private Instant sentAt;
     @CreatedDate private Instant createdAt;
@@ -82,8 +102,14 @@ public class Notification {
     public String getRecipientClassId() { return recipientClassId; }
     public void setRecipientClassId(String recipientClassId) { this.recipientClassId = recipientClassId; }
 
+    public String getRecipientSectionId() { return recipientSectionId; }
+    public void setRecipientSectionId(String recipientSectionId) { this.recipientSectionId = recipientSectionId; }
+
     public List<String> getRecipientIds() { return recipientIds; }
     public void setRecipientIds(List<String> recipientIds) { this.recipientIds = recipientIds; }
+
+    public String getRemindsHomeworkId() { return remindsHomeworkId; }
+    public void setRemindsHomeworkId(String remindsHomeworkId) { this.remindsHomeworkId = remindsHomeworkId; }
 
     public List<String> getReadBy() { return readBy; }
     public void setReadBy(List<String> readBy) { this.readBy = readBy; }

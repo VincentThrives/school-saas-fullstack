@@ -969,16 +969,95 @@ export class ApiService {
     return this.http.get<ApiResponse<PaginatedResponse<Notification>>>(`${this.API}/notifications`, { params });
   }
 
+  // ── Homework completion tracking ─────────────────────────────────
+
+  /** Teacher's roster popup — students who should have the homework
+   *  + each one's done/pending status. */
+  getHomeworkRoster(homeworkId: string): Observable<ApiResponse<{ homeworkId: string; students: any[]; doneCount: number }>> {
+    return this.http.get<ApiResponse<any>>(`${this.API}/homework/${homeworkId}/roster`);
+  }
+
+  /** Toggle a student's completion. Teacher-only. */
+  markHomeworkCompletion(homeworkId: string, studentId: string, status: 'DONE' | 'HALF' | 'PENDING'): Observable<ApiResponse<void>> {
+    return this.http.post<ApiResponse<void>>(
+        `${this.API}/homework/${homeworkId}/completion`, { studentId, status });
+  }
+
+  /** Batch save the whole roster from the Roster page — status + remark
+   *  per student, in one round trip. When {@code notifyUndone} is
+   *  true, the backend also fires a reminder notification to every
+   *  student still marked PENDING (HALF-done are NOT reminded). */
+  batchSaveHomeworkCompletions(
+    homeworkId: string,
+    entries: { studentId: string; status: 'DONE' | 'HALF' | 'PENDING'; remark: string }[],
+    notifyUndone: boolean,
+  ): Observable<ApiResponse<{ saved: number; notified: number }>> {
+    return this.http.put<ApiResponse<any>>(
+        `${this.API}/homework/${homeworkId}/completions`,
+        { entries, notifyUndone });
+  }
+
+  /** Student's own status for a specific homework. */
+  getMyHomeworkCompletion(homeworkId: string): Observable<ApiResponse<{ homeworkId: string; done: boolean }>> {
+    return this.http.get<ApiResponse<any>>(`${this.API}/homework/${homeworkId}/my-completion`);
+  }
+
+  /** Batched status map — legacy boolean form for the dashboard's
+   *  done/pending count. */
+  getMyHomeworkStatusBatch(homeworkIds: string[]): Observable<ApiResponse<Record<string, boolean>>> {
+    return this.http.post<ApiResponse<Record<string, boolean>>>(
+        `${this.API}/homework/status-batch`, homeworkIds);
+  }
+
+  /** Teacher accordion feed — per homework, the roll of students who
+   *  are still not fully done. Feeds the inline "Not done ({{n}})"
+   *  panel on each teacher Homework list card. Batched so one page
+   *  render → one request, no matter how many homeworks on it. */
+  getHomeworkUndoneBatch(homeworkIds: string[]): Observable<ApiResponse<Record<string, Array<{studentId: string; fullName: string; rollNumber: string | null; status: 'HALF' | 'PENDING' | null}>>>> {
+    return this.http.post<ApiResponse<any>>(
+        `${this.API}/homework/undone-batch`, homeworkIds);
+  }
+
+  /** Rich batched status map — returns "DONE" | "HALF" | "PENDING" |
+   *  null per homeworkId. Null means the teacher has never touched
+   *  this student's entry for that homework. Used by the student
+   *  Homework list chip so it can distinguish "not marked" from
+   *  "explicitly marked not done". */
+  getMyHomeworkStatusBatchFull(homeworkIds: string[]): Observable<ApiResponse<Record<string, 'DONE' | 'HALF' | 'PENDING' | null>>> {
+    return this.http.post<ApiResponse<any>>(
+        `${this.API}/homework/status-batch-full`, homeworkIds);
+  }
+
   /** Homework page fetch — same inbox endpoint with the two optional
    *  filters (type=HOMEWORK + date=yyyy-MM-dd) so the server returns
    *  only relevant rows. Payload stays constant regardless of how many
-   *  other notifications the user has accumulated. */
-  getHomeworkNotifications(date: string, page = 0, size = 50): Observable<ApiResponse<PaginatedResponse<Notification>>> {
-    const params = new HttpParams()
+   *  other notifications the user has accumulated.
+   *
+   *  When {@code sentByMe} is true, the server switches to the sender
+   *  scope — used by the teacher variant which wants "homework I sent
+   *  on this date" rather than "homework in my inbox".  */
+  getHomeworkNotifications(date: string, page = 0, size = 50, sentByMe = false): Observable<ApiResponse<PaginatedResponse<Notification>>> {
+    let params = new HttpParams()
       .set('page', page)
       .set('size', size)
       .set('type', 'HOMEWORK')
       .set('date', date);
+    if (sentByMe) params = params.set('sentByMe', true);
+    return this.http.get<ApiResponse<PaginatedResponse<Notification>>>(`${this.API}/notifications`, { params });
+  }
+
+  /** Range variant of {@link getHomeworkNotifications} — inclusive
+   *  {@code dateFrom} → {@code dateTo}. Used by the student Homework
+   *  page which defaults to today−3 → today so a student doesn't miss
+   *  work assigned earlier in the week. */
+  getHomeworkNotificationsRange(dateFrom: string, dateTo: string, page = 0, size = 50, sentByMe = false): Observable<ApiResponse<PaginatedResponse<Notification>>> {
+    let params = new HttpParams()
+      .set('page', page)
+      .set('size', size)
+      .set('type', 'HOMEWORK')
+      .set('dateFrom', dateFrom)
+      .set('dateTo', dateTo);
+    if (sentByMe) params = params.set('sentByMe', true);
     return this.http.get<ApiResponse<PaginatedResponse<Notification>>>(`${this.API}/notifications`, { params });
   }
 

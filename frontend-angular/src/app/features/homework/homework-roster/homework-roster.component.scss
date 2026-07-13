@@ -1,0 +1,316 @@
+$gold: #D4A843;
+$gold-dark: #B8860B;
+
+.homework-roster {
+  padding: 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-bottom: 120px; // room for the sticky action footer
+
+  &__brief-card {
+    margin-bottom: 12px;
+    border-radius: 12px;
+  }
+
+  &__brief-body {
+    font-size: 15px;
+    color: #1f2937;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  &__brief-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #6b7280;
+    font-size: 12px;
+    margin-top: 8px;
+
+    mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  }
+
+  &__loading {
+    display: flex;
+    justify-content: center;
+    padding: 32px;
+  }
+
+  &__stats-card {
+    margin-bottom: 12px;
+    border-radius: 12px;
+
+    ::ng-deep .mat-mdc-card-content { padding: 0 !important; }
+  }
+
+  &__tabs ::ng-deep .mdc-tab__text-label {
+    font-weight: 600;
+  }
+
+  // Plain search row (skipping mat-form-field so the placeholder /
+  // label / prefix all behave predictably). Slim single-line input
+  // with the magnifier tucked in the left gutter and a clear-x on
+  // the right.
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 12px 10px;
+    padding: 0 10px;
+    height: 40px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    transition: border-color 0.12s ease, background 0.12s ease;
+
+    &:focus-within {
+      background: #fff;
+      border-color: $gold-dark;
+    }
+  }
+
+  &__search-icon {
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+  }
+
+  &__search-input {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    outline: none;
+    font-size: 14px;
+    color: #1f2937;
+    padding: 0;
+
+    &::placeholder { color: rgba(0, 0, 0, 0.45); }
+  }
+
+  &__search-clear {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    padding: 4px;
+    color: rgba(0, 0, 0, 0.5);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    &:hover { background: rgba(0, 0, 0, 0.05); }
+  }
+
+  &__empty {
+    text-align: center;
+    padding: 32px 16px;
+    color: #6b7280;
+
+    mat-icon {
+      font-size: 42px;
+      width: 42px;
+      height: 42px;
+      color: rgba(0, 0, 0, 0.2);
+    }
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__row {
+    display: grid;
+    // minmax(0, …) on the flexible track prevents the remark input from
+    // widening the row when its own border+padding overflow — without
+    // it, the 1fr column expands to fit content and pushes the toggle
+    // past the card's right edge.
+    grid-template-columns: 220px auto minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px solid #f1ecd9;
+    border-left: 4px solid transparent;
+    border-radius: 10px;
+    transition: background 0.12s ease;
+    box-sizing: border-box;
+
+    // Everything inside the row respects its grid cell's width so
+    // borders / padding don't cause visual overflow past the card.
+    > * { box-sizing: border-box; min-width: 0; }
+
+    &:hover { background: #fffaf0; }
+
+    &--done {
+      background: rgba(220, 252, 231, 0.35);
+      border-left-color: #16a34a;
+
+      .homework-roster__fullname { color: #166534; }
+    }
+
+    &--half {
+      background: rgba(253, 224, 71, 0.18);
+      border-left-color: #d97706;
+    }
+
+    &--pending {
+      background: rgba(254, 226, 226, 0.55);
+      border-left-color: #dc2626;
+    }
+  }
+
+  &__name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  &__roll {
+    padding: 1px 6px;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #4b5563;
+    flex: 0 0 auto;
+  }
+
+  &__fullname {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // Three-way status toggle — Done / Half / Not done. Each option is
+  // colour-tinted when selected so a teacher scanning the roster can
+  // spot who they've marked what without reading the label every time.
+  &__status {
+    ::ng-deep .mat-button-toggle {
+      min-width: 68px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    ::ng-deep .mat-button-toggle-checked {
+      &.homework-roster__status-done   { background: #dcfce7; color: #166534; }
+      &.homework-roster__status-half   { background: #fef3c7; color: #92400e; }
+      &.homework-roster__status-pending { background: #fee2e2; color: #991b1b; }
+    }
+  }
+
+  // Plain text input for the per-row remark — same styling grammar as
+  // the search field above so the whole page reads consistently. No
+  // mat-form-field so the placeholder sits properly on a single line.
+  &__remark {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+    font-size: 14px;
+    color: #1f2937;
+    outline: none;
+    transition: border-color 0.12s ease, background 0.12s ease;
+
+    &::placeholder { color: rgba(0, 0, 0, 0.4); }
+
+    &:focus {
+      background: #fff;
+      border-color: $gold-dark;
+    }
+  }
+
+  &__actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 12px 24px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(6px);
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    z-index: 10;
+
+    button {
+      min-width: 160px;
+
+      mat-icon { margin-right: 6px; }
+    }
+  }
+
+  &__saving-spinner {
+    display: inline-block;
+    margin-right: 8px;
+
+    ::ng-deep circle { stroke: #fff; }
+  }
+}
+
+// Mobile — collapse the row into stacked sections: name up top, then
+// the status toggle full-width, then the remark. Everything sits
+// inside the row card so nothing overflows on 380 px phones.
+@media (max-width: 720px) {
+  .homework-roster {
+    padding: 16px;
+    padding-bottom: 140px;
+
+    &__row {
+      grid-template-columns: 1fr;
+      gap: 10px;
+      padding: 12px;
+      // Keep border-box everywhere so the button-toggle group's
+      // border doesn't push it past the row's inner edge.
+      box-sizing: border-box;
+    }
+
+    &__status {
+      width: 100%;
+      display: block;
+      box-sizing: border-box;
+
+      // Force the toggle group to respect the parent's width so the
+      // group's border doesn't spill out of the card on narrow screens.
+      ::ng-deep .mat-button-toggle-group {
+        display: flex !important;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      ::ng-deep .mat-button-toggle {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+      // Trim the internal padding so three tabs fit comfortably.
+      ::ng-deep .mat-button-toggle-label-content {
+        padding: 0 8px !important;
+        line-height: 38px !important;
+        font-size: 12.5px !important;
+      }
+    }
+
+    &__remark {
+      box-sizing: border-box;
+    }
+
+    &__actions {
+      padding: 10px 12px;
+      flex-direction: column-reverse;
+      align-items: stretch;
+
+      button { width: 100%; }
+    }
+  }
+}
