@@ -151,8 +151,16 @@ public class AttendanceService {
         // principals fall through (no Teacher row under their userId,
         // so the lookup is empty → skip). Subject-wise marks
         // (req.subjectId set) keep the existing component-key path
-        // with no extra gate.
-        if (req.getSubjectId() == null || req.getSubjectId().isBlank()) {
+        // with no extra gate. Activity marks (subjectId null +
+        // activityLabel set + periodNumber>0) also bypass the gate —
+        // they're admin-only via controller authz, not tied to a
+        // class-teacher assignment.
+        String reqActivityLabel = req.getActivityLabel();
+        if (reqActivityLabel != null && reqActivityLabel.isBlank()) reqActivityLabel = null;
+        boolean isActivityMark = (req.getSubjectId() == null || req.getSubjectId().isBlank())
+                && reqActivityLabel != null
+                && req.getPeriodNumber() > 0;
+        if ((req.getSubjectId() == null || req.getSubjectId().isBlank()) && !isActivityMark) {
             assertClassTeacherForDayWise(req, markedBy);
         }
 
@@ -201,6 +209,9 @@ public class AttendanceService {
             record.setSubPartKey(subPartKey);
             record.setTeacherId(req.getTeacherId());
         }
+        // Set on both branches so re-saving an activity row keeps its
+        // label stable even if the timetable was later edited.
+        if (isActivityMark) record.setActivityLabel(reqActivityLabel);
 
         // Build entries from request
         List<StudentsAttendance.StudentEntry> entries = new ArrayList<>();
@@ -342,13 +353,20 @@ public class AttendanceService {
 
         List<Map<String, Object>> periods = new ArrayList<>();
         for (Timetable.Period p : daySchedule.getPeriods()) {
-            if (p.getSubjectId() == null || p.getSubjectId().isEmpty()) continue;
+            boolean hasSubject = p.getSubjectId() != null && !p.getSubjectId().isEmpty();
+            boolean hasActivity = p.getActivityLabel() != null && !p.getActivityLabel().isBlank();
+            // Skip only truly empty slots (no subject AND no activity).
+            // Activity periods (CET, PE, Assembly, ...) surface alongside
+            // subject periods so admins can mark them from the same
+            // Subject Attendance page without a separate flow.
+            if (!hasSubject && !hasActivity) continue;
+
             Map<String, Object> pm = new LinkedHashMap<>();
             pm.put("periodNumber", p.getPeriodNumber());
             pm.put("subjectId", p.getSubjectId());
-            pm.put("subjectName", resolveSubjectName(p, subjectNameMap));
+            pm.put("subjectName", hasSubject ? resolveSubjectName(p, subjectNameMap) : null);
             pm.put("teacherId", p.getTeacherId());
-            pm.put("teacherName", resolveTeacherName(p, teacherNameMap));
+            pm.put("teacherName", hasSubject ? resolveTeacherName(p, teacherNameMap) : null);
             pm.put("startTime", p.getStartTime());
             pm.put("endTime", p.getEndTime());
             // Hybrid-subject slice (Theory / Practical / IA) — drives the
@@ -357,12 +375,19 @@ public class AttendanceService {
             // the response (possibly null) so the frontend can rely on it.
             pm.put("componentKey", p.getComponentKey());
             pm.put("componentLabel", p.getComponentLabel());
+            // Activity label — non-null when this is an activity slot;
+            // frontend uses it as the card label + sends it on save.
+            pm.put("activityLabel", hasActivity ? p.getActivityLabel() : null);
 
             StudentsAttendance marked = dayRows.stream()
                     .filter(r -> r.getPeriodNumber() == p.getPeriodNumber())
-                    .filter(r -> p.getSubjectId() == null
-                            ? r.getSubjectId() == null
-                            : p.getSubjectId().equals(r.getSubjectId()))
+                    .filter(r -> {
+                        if (hasActivity) {
+                            return r.getSubjectId() == null
+                                    && p.getActivityLabel().equals(r.getActivityLabel());
+                        }
+                        return p.getSubjectId().equals(r.getSubjectId());
+                    })
                     .findFirst()
                     .orElse(null);
             pm.put("marked", marked != null);

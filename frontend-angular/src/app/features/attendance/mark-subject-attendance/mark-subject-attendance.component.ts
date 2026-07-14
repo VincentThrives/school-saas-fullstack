@@ -50,6 +50,13 @@ interface TimetablePeriod {
    */
   subPartKey?: string;
   subPartLabel?: string;
+  /**
+   * Non-null for activity slots (CET, PE, Assembly, ...). When set,
+   * {@code subjectId} + {@code teacherId} are null; save path sends
+   * activityLabel instead of subjectId and skips the component /
+   * sub-part fields.
+   */
+  activityLabel?: string;
 }
 
 interface StudentAttendance {
@@ -857,9 +864,11 @@ export class MarkSubjectAttendanceComponent implements OnInit {
       next: (res) => {
         const records = res?.data || [];
         const p = this.selectedPeriod!;
-        // Strict subjectId match — see stampMarkedFlagsOnPeriods.
+        // Strict match — subject slots match on subjectId, activity
+        // slots on activityLabel. Both share periodNumber.
         const match = records.find((r: any) => {
           if (r.periodNumber !== p.periodNumber) return false;
+          if (p.activityLabel) return !r.subjectId && r.activityLabel === p.activityLabel;
           return p.subjectId ? r.subjectId === p.subjectId : !r.subjectId;
         });
         if (match && Array.isArray(match.entries) && match.entries.length > 0) {
@@ -909,19 +918,21 @@ export class MarkSubjectAttendanceComponent implements OnInit {
     this.isSaving = true;
     const dateStr = this.getDateStr();
 
-    // For multi-component subjects (Hybrid Physics, English with IA, etc.)
-    // we send the user-picked componentKey so the backend distinguishes
-    // Theory attendance from Practical attendance for the same period.
-    // For single-component subjects we leave it undefined; the backend
-    // auto-fills from the only component.
+    // Activity slots (CET / PE / Assembly / ...) save with activityLabel
+    // instead of subjectId and skip the component / sub-part fields —
+    // there's no teaching subject to slice. Subject slots keep the
+    // existing shape: componentKey resolves Theory vs Practical for
+    // hybrids, subPartKey routes integrated-Science sub-parts.
+    const isActivity = !!this.selectedPeriod.activityLabel;
     this.api.markAttendance({
       classId: this.selectedClassId,
       sectionId: this.selectedSectionId,
       academicYearId: this.selectedAcademicYearId,
       date: dateStr,
-      subjectId: this.selectedPeriod.subjectId,
-      componentKey: this.selectedComponentKey ?? undefined,
-      subPartKey: this.selectedSubPartKey ?? undefined,
+      subjectId: isActivity ? undefined : this.selectedPeriod.subjectId,
+      activityLabel: isActivity ? this.selectedPeriod.activityLabel : undefined,
+      componentKey: isActivity ? undefined : (this.selectedComponentKey ?? undefined),
+      subPartKey: isActivity ? undefined : (this.selectedSubPartKey ?? undefined),
       teacherId: this.selectedPeriod.teacherId,
       periodNumber: this.selectedPeriod.periodNumber,
       entries: this.students.map((s) => ({

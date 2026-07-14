@@ -149,11 +149,19 @@
         </div>
 
         <div class="period-time">{{ p.startTime }} - {{ p.endTime }}</div>
-        <div class="period-subject">
+        <!-- Activity slots (CET / PE / Assembly / ...) surface here too
+             so admins mark them from the same page. They carry no
+             subject or teacher, so the label + a small "Activity" chip
+             replace the subjectName + teacherName lines. -->
+        <div class="period-subject" *ngIf="!p.activityLabel">
           {{ p.subjectName }}<span *ngIf="p.componentLabel" class="period-component"> ({{ p.componentLabel }})</span>
         </div>
+        <div class="period-subject" *ngIf="p.activityLabel">
+          {{ p.activityLabel }}
+          <span class="period-component">(Activity)</span>
+        </div>
 
-        <div class="period-teacher" *ngIf="!isTeacherMode">
+        <div class="period-teacher" *ngIf="!isTeacherMode && !p.activityLabel">
           <mat-icon class="small-icon">person</mat-icon>
           {{ p.teacherName || '-' }}
         </div>
@@ -181,9 +189,10 @@
     <mat-card class="actions-card">
       <mat-card-content>
         <div class="selected-period-info">
-          <strong>Period {{ selectedPeriod.periodNumber }}: {{ selectedPeriod.subjectName }}<span *ngIf="selectedPeriod.componentLabel"> ({{ selectedPeriod.componentLabel }})</span></strong>
+          <strong *ngIf="!selectedPeriod.activityLabel">Period {{ selectedPeriod.periodNumber }}: {{ selectedPeriod.subjectName }}<span *ngIf="selectedPeriod.componentLabel"> ({{ selectedPeriod.componentLabel }})</span></strong>
+          <strong *ngIf="selectedPeriod.activityLabel">Period {{ selectedPeriod.periodNumber }}: {{ selectedPeriod.activityLabel }} (Activity)</strong>
           <span class="teacher-info" *ngIf="selectedPeriod.className">{{ selectedPeriod.className }}<span *ngIf="selectedPeriod.sectionName"> · {{ selectedPeriod.sectionName }}</span></span>
-          <span class="teacher-info" *ngIf="!isTeacherMode">Teacher: {{ selectedPeriod.teacherName || '-' }}</span>
+          <span class="teacher-info" *ngIf="!isTeacherMode && !selectedPeriod.activityLabel">Teacher: {{ selectedPeriod.teacherName || '-' }}</span>
           <span class="already-marked-chip" *ngIf="isAlreadyMarked">
             <mat-icon>check_circle</mat-icon>
             Already marked — editing

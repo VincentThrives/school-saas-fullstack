@@ -507,9 +507,16 @@ export class MarkAttendanceComponent implements OnInit {
           // subjectName, so a legacy doc that only stamped the name
           // still counts as "real".
           const periods: any[] = Array.isArray(day.periods) ? day.periods : [];
+          // Count subject periods AND activity slots (CET, PE, Library,
+          // Assembly, ...). Activity-only days are still working days —
+          // the class teacher marks day-wise attendance on them just
+          // like a regular day, they just don't have a teaching subject
+          // to key off. Without this, 1st/2nd PU Fri/Sat with only CET
+          // periods showed "No class scheduled" and blocked attendance.
           const realCount = periods.reduce((n, p) => {
             const hasSubject = !!(p && (p.subjectId || p.subjectName));
-            return n + (hasSubject ? 1 : 0);
+            const hasActivity = !!(p && p.activityLabel);
+            return n + ((hasSubject || hasActivity) ? 1 : 0);
           }, 0);
           this.timetablePeriodsByDay.set(
             String(day.dayOfWeek).toLowerCase(),

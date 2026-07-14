@@ -45,6 +45,16 @@ public class MarkAttendanceRequest {
      */
     private String subPartKey;
 
+    /**
+     * Snapshotted activity label ("CET", "Assembly", "PE", ...) used
+     * only by the admin activity-attendance flow. Set when
+     * {@link #subjectId} is null and {@link #periodNumber} is
+     * non-zero; ignored otherwise. Snapshot rather than lookup so a
+     * later timetable edit doesn't rewrite the label on historical
+     * rows.
+     */
+    private String activityLabel;
+
     public MarkAttendanceRequest() {
     }
 
@@ -129,6 +139,14 @@ public class MarkAttendanceRequest {
 
     public void setSubPartKey(String subPartKey) {
         this.subPartKey = subPartKey;
+    }
+
+    public String getActivityLabel() {
+        return activityLabel;
+    }
+
+    public void setActivityLabel(String activityLabel) {
+        this.activityLabel = activityLabel;
     }
 
     public static class AttendanceEntry {

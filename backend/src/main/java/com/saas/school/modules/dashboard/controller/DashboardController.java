@@ -3,7 +3,9 @@ import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.academicyear.model.AcademicYear;
 import com.saas.school.modules.academicyear.repository.AcademicYearRepository;
 import com.saas.school.modules.attendance.model.Attendance;
+import com.saas.school.modules.attendance.model.StudentsAttendance;
 import com.saas.school.modules.attendance.repository.AttendanceRepository;
+import com.saas.school.modules.attendance.repository.StudentsAttendanceRepository;
 import com.saas.school.modules.classes.model.SchoolClass;
 import com.saas.school.modules.classes.repository.SchoolClassRepository;
 import com.saas.school.modules.dashboard.dto.ClassFeeSummary;
@@ -39,6 +41,7 @@ public class DashboardController {
     @Autowired private UserRepository userRepo;
     @Autowired private SchoolClassRepository classRepo;
     @Autowired private AttendanceRepository attendanceRepo;
+    @Autowired private StudentsAttendanceRepository batchAttendanceRepo;
     @Autowired private AcademicYearRepository academicYearRepo;
     @Autowired private StudentFeeLedgerRepository feeLedgerRepo;
     @Autowired private FeeStructureRepository feeStructureRepo;
@@ -256,16 +259,40 @@ public class DashboardController {
 
     /**
      * Today's attendance rate across the whole tenant.
-     * Denominator = total attendance records entered for today.
-     * Numerator   = records with status PRESENT or LATE (late still counts as present).
-     * Returns 0.0 when no attendance has been marked yet today.
+     *
+     * <p>Walks the batched {@link StudentsAttendance} rows for today
+     * and sums the {@code entries[]} arrays. Both day-wise
+     * (periodNumber=0) and subject/activity rows contribute — for a
+     * day-wise school there's one row per section so this is a direct
+     * present% ; for a subject-wise school it averages across
+     * period-student marks, which is also a fair "attendance rate
+     * today" reading.</p>
+     *
+     * <p>The legacy {@link AttendanceRepository} (per-student rows)
+     * is intentionally NOT read — save flows write to
+     * {@code students_attendance} only, so counting the old
+     * collection always returned 0 and the card sat blank on the
+     * dashboard.</p>
+     *
+     * <p>PRESENT and LATE both count as present. Returns 0.0 when
+     * nothing has been marked yet today.</p>
      */
     private Double computeTodaysAttendancePercent() {
         LocalDate today = LocalDate.now();
-        long total = attendanceRepo.countByDate(today);
+        List<StudentsAttendance> rows = batchAttendanceRepo.findByDate(today);
+        if (rows == null || rows.isEmpty()) return 0.0;
+
+        long total = 0;
+        long present = 0;
+        for (StudentsAttendance r : rows) {
+            if (r.getEntries() == null) continue;
+            for (StudentsAttendance.StudentEntry e : r.getEntries()) {
+                total++;
+                String s = e.getStatus();
+                if ("PRESENT".equalsIgnoreCase(s) || "LATE".equalsIgnoreCase(s)) present++;
+            }
+        }
         if (total == 0) return 0.0;
-        long present = attendanceRepo.countByDateAndStatus(today, Attendance.Status.PRESENT)
-                     + attendanceRepo.countByDateAndStatus(today, Attendance.Status.LATE);
         double pct = (present * 100.0) / total;
         return Math.round(pct * 10.0) / 10.0; // one decimal place
     }

@@ -50,6 +50,15 @@ public class StudentsAttendance {
      * subjects without sub-parts — existing rows deserialise unchanged.
      */
     private String subPartKey;
+    /**
+     * Snapshotted activity label for admin-marked activity periods
+     * (CET, PE, Assembly, Library, ...). Set together with
+     * {@code subjectId=null} and {@code periodNumber>0}; snapshot rather
+     * than lookup so a later timetable edit doesn't rewrite the label
+     * on historical rows. Null for regular subject-wise and day-wise
+     * rows — existing docs deserialise unchanged.
+     */
+    private String activityLabel;
     private String teacherId;       // from timetable
     private List<StudentEntry> entries;
     private String markedBy;
@@ -91,6 +100,9 @@ public class StudentsAttendance {
 
     public String getSubPartKey() { return subPartKey; }
     public void setSubPartKey(String subPartKey) { this.subPartKey = subPartKey; }
+
+    public String getActivityLabel() { return activityLabel; }
+    public void setActivityLabel(String activityLabel) { this.activityLabel = activityLabel; }
 
     public String getTeacherId() { return teacherId; }
     public void setTeacherId(String teacherId) { this.teacherId = teacherId; }

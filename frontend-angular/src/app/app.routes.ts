@@ -204,7 +204,7 @@ export const routes: Routes = [
         canActivate: [featureGuard],
         data: { feature: 'attendance' },
       },
-      {
+{
         path: 'attendance/report',
         loadComponent: () =>
           import('./features/attendance/attendance-report/attendance-report.component').then(m => m.AttendanceReportComponent),

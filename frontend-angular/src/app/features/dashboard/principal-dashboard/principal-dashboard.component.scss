@@ -1,6 +1,41 @@
 $gold: #D4A843;
 $gold-dark: #B8860B;
 
+// Inline greeting header — mirrors the school-admin dashboard so the
+// two roles land on visually identical layouts. Kept as its own
+// selector prefix (BEM: principal-dashboard) so future divergence
+// stays cheap.
+.principal-dashboard__greeting {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+
+.principal-dashboard__greeting-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.principal-dashboard__greeting-sep {
+  color: rgba(0, 0, 0, 0.35);
+  font-weight: 400;
+}
+
+.principal-dashboard__greeting-tail {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: $gold-dark;
+}
+
+.principal-dashboard__greeting-year {
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.55);
+  font-weight: 500;
+}
+
 .principal-dashboard {
   &__stats {
     display: grid;
@@ -21,7 +56,6 @@ $gold-dark: #B8860B;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 24px;
-    margin-bottom: 24px;
 
     @media (max-width: 960px) {
       grid-template-columns: 1fr;
@@ -32,16 +66,8 @@ $gold-dark: #B8860B;
     border-radius: 12px;
   }
 
-  &__attention-card {
-    border-radius: 12px;
-  }
-
-  &__icon--success {
-    color: #4caf50;
-  }
-
-  &__icon--warning {
-    color: #ff9800;
+  &__panel-icon {
+    color: $gold;
   }
 
   &__list-item {
@@ -74,11 +100,13 @@ $gold-dark: #B8860B;
     flex: 1;
     display: flex;
     flex-direction: column;
+    min-width: 0;
   }
 
   &__item-title {
     font-weight: 600;
     font-size: 0.875rem;
+    color: #1a1a1a;
   }
 
   &__item-meta {
@@ -86,30 +114,241 @@ $gold-dark: #B8860B;
     color: rgba(0, 0, 0, 0.5);
   }
 
-  &__table {
-    width: 100%;
-  }
-
-  &__chip {
-    display: inline-block;
+  &__item-badge {
+    font-size: 0.75rem;
     padding: 4px 12px;
     border-radius: 16px;
-    font-size: 0.75rem;
-    font-weight: 600;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    color: rgba(0, 0, 0, 0.6);
+    white-space: nowrap;
+  }
+}
 
-    &--success {
-      background-color: #e8f5e9;
-      color: #2e7d32;
+.panel-loading {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.panel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 12px;
+  color: #6b7280;
+  font-size: 14px;
+
+  mat-icon { color: #9ca3af; }
+}
+
+.principal-dashboard__fees-card {
+  border-radius: 12px;
+  margin-bottom: 24px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, rgba($gold, 0.08) 0%, rgba($gold, 0.02) 100%);
+  border-left: 4px solid $gold;
+
+  &.is-clear {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(34, 197, 94, 0.02) 100%);
+    border-left-color: #22c55e;
+
+    .fees-card__title-icon { color: #22c55e; }
+    .fees-card__metric-value { color: #15803d; }
+  }
+}
+
+.fees-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.fees-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fees-card__title-icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+  color: $gold-dark;
+}
+
+.fees-card__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: 0.01em;
+}
+
+.fees-card__subtitle {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.fees-card__loading {
+  display: flex;
+  align-items: center;
+}
+
+.fees-card__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px 12px;
+  color: rgba(0, 0, 0, 0.55);
+  font-size: 0.875rem;
+
+  mat-icon { color: rgba(0, 0, 0, 0.4); }
+}
+
+.fees-card__table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.fees-card__table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  thead th {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(0, 0, 0, 0.55);
+    background: rgba($gold, 0.08);
+    border-bottom: 1px solid rgba($gold, 0.18);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    transition: background-color 0.15s ease;
+
+    &:hover { background: rgba($gold, 0.05); }
+    &:last-child { border-bottom: none; }
+  }
+
+  tbody td {
+    color: #1a1a1a;
+  }
+
+  tr.row-clear td { color: rgba(0, 0, 0, 0.55); }
+
+  tfoot tr {
+    background: rgba($gold, 0.1);
+    font-weight: 700;
+    border-top: 2px solid rgba($gold, 0.3);
+  }
+  tfoot td { color: $gold-dark; }
+
+  .col-class { font-weight: 600; }
+  .col-num { text-align: center; width: 90px; }
+  .col-money {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    width: 130px;
+  }
+
+  .col-money.paid { color: #15803d; }
+  .col-money.pending { color: #b45309; font-weight: 600; }
+  tr.row-clear .col-money.pending { color: rgba(0, 0, 0, 0.4); font-weight: 400; }
+}
+
+.pending-pill {
+  display: inline-block;
+  min-width: 28px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(180, 83, 9, 0.12);
+  color: #b45309;
+  font-weight: 700;
+  font-size: 0.8rem;
+
+  &.pill-zero {
+    background: rgba(34, 197, 94, 0.12);
+    color: #15803d;
+  }
+}
+
+@media (max-width: 600px) {
+  .principal-dashboard__fees-card { padding: 16px; }
+  .fees-card__table {
+    min-width: 520px;
+    font-size: 0.8rem;
+    th, td { padding: 8px 10px; }
+    .col-num { width: 70px; }
+    .col-money { width: 100px; }
+  }
+}
+
+:host-context(body.dark-theme) {
+  .principal-dashboard__fees-card {
+    background: linear-gradient(135deg, rgba($gold, 0.18) 0%, rgba($gold, 0.05) 100%);
+
+    &.is-clear {
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.18) 0%, rgba(34, 197, 94, 0.05) 100%);
     }
+  }
 
-    &--error {
-      background-color: #ffebee;
-      color: #c62828;
+  .fees-card__title { color: #f5f5f5; }
+  .fees-card__subtitle { color: rgba(255, 255, 255, 0.6); }
+  .fees-card__empty { color: rgba(255, 255, 255, 0.55); mat-icon { color: rgba(255, 255, 255, 0.4); } }
+
+  .fees-card__table-wrap {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .fees-card__table {
+    thead th {
+      color: rgba(255, 255, 255, 0.65);
+      background: rgba($gold, 0.15);
+      border-bottom-color: rgba($gold, 0.3);
     }
+    tbody tr {
+      border-bottom-color: rgba(255, 255, 255, 0.06);
+      &:hover { background: rgba($gold, 0.1); }
+    }
+    tbody td { color: #f0f0f0; }
+    tr.row-clear td { color: rgba(255, 255, 255, 0.45); }
 
-    &--warning {
-      background-color: #fff3e0;
-      color: #e65100;
+    tfoot tr {
+      background: rgba($gold, 0.18);
+      border-top-color: rgba($gold, 0.45);
+    }
+    tfoot td { color: #E8C97A; }
+
+    .col-money.paid { color: #4ade80; }
+    .col-money.pending { color: #fbbf24; }
+    tr.row-clear .col-money.pending { color: rgba(255, 255, 255, 0.35); }
+  }
+
+  .pending-pill {
+    background: rgba(251, 191, 36, 0.18);
+    color: #fbbf24;
+    &.pill-zero {
+      background: rgba(34, 197, 94, 0.18);
+      color: #4ade80;
     }
   }
 }
