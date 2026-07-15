@@ -324,6 +324,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
           ],
         },
         { title: 'Events', path: '/events', icon: 'event', feature: 'events', coordinatorModule: 'EVENTS' },
+        { title: 'Homework', path: '/homework', icon: 'menu_book', feature: 'notifications', coordinatorModule: 'NOTIFICATIONS' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications', coordinatorModule: 'NOTIFICATIONS' },
         // SMS — only visible when Super Admin has enabled SMS for this
         // tenant. TenantFeatureService.smsEnabled() is a signal that

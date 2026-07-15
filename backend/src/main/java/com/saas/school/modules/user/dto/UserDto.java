@@ -9,6 +9,7 @@ public class UserDto {
 
     private String userId;
     private String email;
+    private String username;
     private String firstName;
     private String lastName;
     private String phone;
@@ -69,6 +70,14 @@ public class UserDto {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public String getFirstName() {

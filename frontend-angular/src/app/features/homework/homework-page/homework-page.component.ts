@@ -55,10 +55,20 @@ export class HomeworkPageComponent implements OnInit {
   /** Detail popup — same shape as the Notifications inbox popup. */
   opened: any = null;
 
-  /** Teachers view homework they SENT (sentByMe=true on the wire);
-   *  students/parents see homework they RECEIVED. Kept as a boolean so
-   *  the template and the API call share the same source of truth. */
+  /** Reviewer view — teachers AND admin-side roles use it. Drives
+   *  the single-date picker, the "Not done" accordion, and the
+   *  "Tap to mark students" CTA that opens the roster. Students /
+   *  parents see the received-work view instead (range picker +
+   *  status chips). Kept as a single boolean so the template stays
+   *  simple; the sentByMe wire-branch below narrows it further
+   *  when the actual role matters. */
   isTeacherMode = false;
+
+  /** Narrow inner flag — only true for the TEACHER role. Controls
+   *  whether the API call passes {@code sentByMe=true} (teacher's
+   *  own posted homework) vs the inbox-scoped listing (admin sees
+   *  every homework across their scope). */
+  private isActualTeacher = false;
 
   /** Per-homeworkId status. "DONE" | "HALF" | "PENDING" | null. Null
    *  means the teacher has never touched this student's entry, which
@@ -82,7 +92,16 @@ export class HomeworkPageComponent implements OnInit {
   constructor(private api: ApiService, private auth: AuthService, private router: Router) {}
 
   ngOnInit(): void {
-    this.isTeacherMode = this.auth.currentRole === UserRole.TEACHER;
+    const role = this.auth.currentRole;
+    this.isActualTeacher = role === UserRole.TEACHER;
+    // Admin roles get the same reviewer UI as teachers — single date
+    // picker, "Not done" accordion, roster on click — so they can
+    // monitor completion the same way. Backend inbox scoping for
+    // these roles already lets them see every homework in the tenant.
+    this.isTeacherMode = this.isActualTeacher
+      || role === UserRole.SCHOOL_ADMIN
+      || role === UserRole.PRINCIPAL
+      || role === UserRole.SCHOOL_COORDINATOR;
     this.load();
   }
 
@@ -98,14 +117,23 @@ export class HomeworkPageComponent implements OnInit {
     this.undone = {};
     this.expandedUndone.clear();
     // Teachers get sentByMe=true → "homework I posted on this date".
+    // Admin roles use the same single-date picker but drop sentByMe
+    // so they see every homework on that day (they didn't send any
+    // themselves — sentByMe=true would return an empty list).
     // Students/parents send a date range → the last few days of
     // assignments in one shot, so they don't miss earlier work.
-    const req$ = this.isTeacherMode
-      ? this.api.getHomeworkNotifications(this.formatDate(this.selectedDate), 0, 50, true)
-      : this.api.getHomeworkNotificationsRange(
+    let req$;
+    if (this.isTeacherMode) {
+      const dateStr = this.formatDate(this.selectedDate);
+      req$ = this.isActualTeacher
+        ? this.api.getHomeworkNotifications(dateStr, 0, 50, true)
+        : this.api.getHomeworkNotificationsRange(dateStr, dateStr, 0, 50, false);
+    } else {
+      req$ = this.api.getHomeworkNotificationsRange(
           this.formatDate(this.fromDate),
           this.formatDate(this.toDate),
           0, 50, false);
+    }
     req$.subscribe({
       next: (res) => {
         this.homework = (res?.data as any)?.content || [];

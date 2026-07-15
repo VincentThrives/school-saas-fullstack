@@ -28,6 +28,22 @@ export class AuthService {
   private currentUser$ = new BehaviorSubject<User | null>(
     JSON.parse(localStorage.getItem('user') || 'null')
   );
+
+  /**
+   * Promise that resolves once the boot-time proactive token refresh
+   * has settled (success OR failure). Authenticated HTTP requests
+   * await this in the interceptor so a dashboard's ngOnInit doesn't
+   * race the refresh with an expired access token — the symptom was
+   * "open app after a couple of days, dashboard shows 0 in all cards,
+   * click anything and data suddenly loads".
+   *
+   * <p>Default is an already-resolved promise so nothing blocks
+   * when there's no boot refresh in flight (login screen, cold-start
+   * without a stored session, hot reloads, etc.). AppComponent
+   * replaces it with a real Promise the moment it starts the refresh
+   * and resolves that promise when the refresh call settles.</p>
+   */
+  bootReady: Promise<void> = Promise.resolve();
   private role$ = new BehaviorSubject<UserRole | null>(
     (localStorage.getItem('role') as UserRole) || null
   );

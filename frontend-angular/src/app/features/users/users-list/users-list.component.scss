@@ -128,6 +128,22 @@ $gold-dark: #B8860B;
   }
 }
 
+// Username column — value + inline copy button. Monospace so the
+// digit-heavy student usernames read cleanly at a glance.
+.username-cell {
+  white-space: nowrap;
+}
+.username-value {
+  font-family: 'Roboto Mono', 'SF Mono', Consolas, monospace;
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+.username-copy-btn {
+  margin-left: 4px;
+  transform: scale(0.75);
+  color: rgba(0, 0, 0, 0.45);
+}
+
 .actions-header {
   text-align: right;
 }

@@ -1,7 +1,7 @@
 import { HttpInterceptorFn, HttpRequest, HttpHandlerFn, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, switchMap, throwError } from 'rxjs';
+import { catchError, from, switchMap, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 
 /**
@@ -34,32 +34,44 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  const token = authService.accessToken;
-  const initial = token ? withToken(req, token) : req;
+  // Await the boot-time proactive refresh (if any) before firing the
+  // request. On cold-start after a long idle the app kicks off a
+  // /auth/refresh in the background; without this gate, a dashboard's
+  // ngOnInit fires N parallel requests with the stale access token,
+  // and if the refresh itself hiccups the 401-retry chain surfaces
+  // as errors to the caller — dashboards then show 0s until the user
+  // clicks anything. Default bootReady is Promise.resolve() so this
+  // adds zero delay in the common case (no boot refresh scheduled).
+  return from(authService.bootReady).pipe(
+    switchMap(() => {
+      const token = authService.accessToken;
+      const initial = token ? withToken(req, token) : req;
 
-  return next(initial).pipe(
-    catchError((err: HttpErrorResponse) => {
-      // Only 401s on protected endpoints are worth refreshing.
-      // 403s mean "authenticated but not allowed" — refresh won't help.
-      // Anything else: surface as-is.
-      if (err.status !== 401) return throwError(() => err);
+      return next(initial).pipe(
+        catchError((err: HttpErrorResponse) => {
+          // Only 401s on protected endpoints are worth refreshing.
+          // 403s mean "authenticated but not allowed" — refresh won't help.
+          // Anything else: surface as-is.
+          if (err.status !== 401) return throwError(() => err);
 
-      // No refresh token at all → nothing we can do; bounce to login.
-      if (!authService.refreshToken) {
-        authService.clearCredentials();
-        router.navigate(['/login']);
-        return throwError(() => err);
-      }
+          // No refresh token at all → nothing we can do; bounce to login.
+          if (!authService.refreshToken) {
+            authService.clearCredentials();
+            router.navigate(['/login']);
+            return throwError(() => err);
+          }
 
-      // Try to refresh. AuthService dedupes concurrent calls internally,
-      // so 10 parallel 401s share ONE /auth/refresh hit.
-      return authService.refreshAccessToken().pipe(
-        switchMap((newToken) => next(withToken(req, newToken))),
-        catchError((refreshErr) => {
-          // Refresh token itself is dead — full logout + redirect.
-          authService.clearCredentials();
-          router.navigate(['/login']);
-          return throwError(() => refreshErr);
+          // Try to refresh. AuthService dedupes concurrent calls internally,
+          // so 10 parallel 401s share ONE /auth/refresh hit.
+          return authService.refreshAccessToken().pipe(
+            switchMap((newToken) => next(withToken(req, newToken))),
+            catchError((refreshErr) => {
+              // Refresh token itself is dead — full logout + redirect.
+              authService.clearCredentials();
+              router.navigate(['/login']);
+              return throwError(() => refreshErr);
+            }),
+          );
         }),
       );
     }),

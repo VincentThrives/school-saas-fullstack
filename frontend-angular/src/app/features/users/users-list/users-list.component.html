@@ -66,6 +66,24 @@
         </td>
       </ng-container>
 
+      <!-- Username Column — surfaces the login username explicitly so
+           admins don't have to guess the suffix pattern used for
+           sibling students on shared parent phones. Small copy button
+           for one-tap sharing with the student / parent. -->
+      <ng-container matColumnDef="username">
+        <th mat-header-cell *matHeaderCellDef>Username</th>
+        <td mat-cell *matCellDef="let user" class="username-cell">
+          <span class="username-value">{{ user.username || '-' }}</span>
+          <button mat-icon-button
+                  class="username-copy-btn"
+                  *ngIf="user.username"
+                  matTooltip="Copy username"
+                  (click)="copyUsername(user, $event)">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
       <!-- Email Column -->
       <ng-container matColumnDef="email">
         <th mat-header-cell *matHeaderCellDef>Email</th>

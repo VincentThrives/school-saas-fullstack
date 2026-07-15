@@ -374,9 +374,15 @@ public class ResultPublicationService {
                 //   "Dear Parent, {var1} of {var2} secured {var3} in the
                 //    recent exams. Detailed marksheet …"
                 //
-                //   var1 = student name
-                //   var2 = "1st A in Unit Test 1"
-                //   var3 = "English 80/100, Math 85/100, … Total 250/300 (83.3%)"
+                //   var1 = student name                   (≤ 30 chars)
+                //   var2 = "1st A in Unit Test 1"         (≤ 30 chars)
+                //   var3 = "P-11, C-14, M-14, B-8 T47/180" (≤ 30 chars)
+                //
+                // DLT rules cap each variable at 30 characters. var3
+                // used to carry the full per-subject breakdown but was
+                // getting rejected by the gateway for classes with 4+
+                // subjects; per-subject details now live in the app
+                // (the template body already tells parents so).
                 vars.put("var1", studentName);
                 vars.put("var2", classSectionExam);
                 vars.put("var3", breakdown);
@@ -442,39 +448,52 @@ public class ResultPublicationService {
             sb.append(sectionName);
         }
         String name = examName == null ? "" : examName.trim();
-        if (sb.length() == 0) return name;
+        if (sb.length() == 0) return clampDltVar(name);
         if (!name.isEmpty()) sb.append(" in ").append(name);
-        return sb.toString();
+        return clampDltVar(sb.toString());
     }
 
-    /** {@code var3} renderer — per-subject marks + grand total + percentage,
-     *  in the shape parents expect in the template's third slot:
+    /** DLT variables are capped at 30 characters each by TRAI rules
+     *  (each {@code {#var#}} slot). Any string we build for var2 / var3
+     *  passes through this before it hits the SMS payload; if it would
+     *  overflow we truncate to 30 chars. Downstream gateways silently
+     *  drop over-length messages entirely, so a hard clamp is safer
+     *  than trusting every code path upstream. */
+    private static final int DLT_VAR_MAX = 30;
+    private static String clampDltVar(String s) {
+        if (s == null) return "";
+        return s.length() <= DLT_VAR_MAX ? s : s.substring(0, DLT_VAR_MAX);
+    }
+
+    /** {@code var3} renderer — compact per-subject line.
      *
-     *  <pre>
-     *    "English 80/100, Math 85/100, Science 78/100. Total 243/300 (81.0%)"
-     *  </pre>
+     *  <pre>"P-11, C-14, M-14, B-8 (26.1%)"</pre>
      *
-     *  <p>Hybrid subjects (Theory + Practical, etc.) are folded into a single
-     *  per-subject line by summing across components — keeps the SMS short
-     *  and matches the parent's mental model ("Maths overall"). When the
-     *  student has no marks yet (admin hit Publish before saving), we return
-     *  "result available" so the SMS still reads sensibly.</p>
+     *  <p>Each subject collapses to its first letter + obtained
+     *  marks (no max, no decimals) so 4-5 subjects still fit under
+     *  the DLT 30-char per-variable cap. Percentage is appended
+     *  only if there's room after the subject list; otherwise the
+     *  subjects are the priority. Anything longer than 30 chars
+     *  falls through {@link #clampDltVar} as a last-resort truncate
+     *  (rare — only if the exam has 7+ subjects with 3-digit
+     *  scores).</p>
      *
-     *  <p>Iteration order = exam creation order in scope.exams, so subjects
-     *  appear in the same sequence as in the marks-entry sheet.</p> */
+     *  <p>Hybrid subjects (Theory + Practical) fold into one letter
+     *  by summing across components — matches the parent's mental
+     *  model ("Maths overall").</p> */
     private String renderResultSmsVar3(Student student, ScopeData scope) {
         List<ExamMark> marks = scope.marksByStudent.getOrDefault(
                 student.getStudentId(), List.of());
         if (marks.isEmpty()) return "result available";
 
-        // exam lookup — sub-O(n²) for the typical 8-subject case.
         Map<String, Exam> examById = scope.exams.stream()
                 .collect(Collectors.toMap(Exam::getExamId, e -> e, (a, b) -> a));
 
-        // subjectId → (obtained, max) accumulator. LinkedHashMap preserves
-        // first-encounter order — keeps the SMS reading naturally.
+        // subjectId -> (obtained, max, firstLetter) accumulator, ordered
+        // by first-encounter so it reads in the order the marks-entry
+        // sheet arranged them.
         LinkedHashMap<String, double[]> bySubject = new LinkedHashMap<>();
-        Map<String, String> nameBySubject = new HashMap<>();
+        Map<String, String> letterBySubject = new HashMap<>();
 
         for (ExamMark m : marks) {
             Exam ex = examById.get(m.getExamId());
@@ -482,8 +501,9 @@ public class ResultPublicationService {
             String subjectId = ex.getSubjectId() == null
                     ? "unknown:" + m.getExamId() : ex.getSubjectId();
             String subjectName = ex.getSubjectName() == null || ex.getSubjectName().isBlank()
-                    ? "Subject" : ex.getSubjectName().trim();
-            nameBySubject.putIfAbsent(subjectId, subjectName);
+                    ? "S" : ex.getSubjectName().trim();
+            letterBySubject.putIfAbsent(subjectId,
+                    String.valueOf(Character.toUpperCase(subjectName.charAt(0))));
             double[] cur = bySubject.computeIfAbsent(subjectId, k -> new double[]{0, 0});
             cur[0] += m.getMarksObtained() == null ? 0 : m.getMarksObtained();
             cur[1] += ex.getMaxMarks();
@@ -492,23 +512,33 @@ public class ResultPublicationService {
 
         double totalObt = 0;
         double totalMax = 0;
-        StringBuilder sb = new StringBuilder();
+        StringBuilder subjects = new StringBuilder();
         for (Map.Entry<String, double[]> e : bySubject.entrySet()) {
-            if (sb.length() > 0) sb.append(", ");
+            if (subjects.length() > 0) subjects.append(", ");
             double obt = e.getValue()[0];
             double max = e.getValue()[1];
-            sb.append(nameBySubject.get(e.getKey())).append(' ')
-              .append(formatMarks(obt)).append('/').append(formatMarks(max));
+            subjects.append(letterBySubject.get(e.getKey())).append('-').append(formatMarks(obt));
             totalObt += obt;
             totalMax += max;
         }
+
+        // Build optional suffixes in priority order: total obtained/max,
+        // then percentage. We try to fit BOTH under the 30-char cap;
+        // if it won't fit we drop the percent first, then the total.
+        // Subject list is the last thing to go — clampDltVar is a
+        // last-resort truncate for an extreme number of subjects.
+        String totalSuffix = "";
+        String pctSuffix = "";
         if (totalMax > 0) {
+            totalSuffix = " T" + formatMarks(totalObt) + "/" + formatMarks(totalMax);
             double pct = (totalObt / totalMax) * 100.0;
-            sb.append(". Total ")
-              .append(formatMarks(totalObt)).append('/').append(formatMarks(totalMax))
-              .append(String.format(" (%.1f%%)", pct));
+            pctSuffix = String.format(" (%.1f%%)", pct);
         }
-        return sb.toString();
+
+        String combined = subjects.toString() + totalSuffix + pctSuffix;
+        if (combined.length() > DLT_VAR_MAX) combined = subjects.toString() + totalSuffix;
+        if (combined.length() > DLT_VAR_MAX) combined = subjects.toString();
+        return clampDltVar(combined);
     }
 
     // ── Internals ──────────────────────────────────────────────

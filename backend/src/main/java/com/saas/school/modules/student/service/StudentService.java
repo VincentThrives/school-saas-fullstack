@@ -699,32 +699,34 @@ public class StudentService {
         String oldUsername = user.getUsername();
         if (oldUsername == null) return;
 
+        // ── Preference order ───────────────────────────────────────
+        // 1) Plain phone digits — the cleanest form. Even if the
+        //    student's OLD username had the sibling-form suffix
+        //    ("9945255052stus"), when the new phone digits are free
+        //    we promote back to the clean form.
+        // 2) Digits + firstname-slug — the sibling form, used only
+        //    when the plain digits are already taken by another
+        //    student (siblings on the same phone).
+        // 3) Digits + slug + N — numeric suffix for further
+        //    collisions (rare, e.g. two siblings on new phone).
         String slug = StudentFieldNormalizer.usernameSlug(student.getFirstName());
-        boolean wasSiblingForm = slug != null
-                && oldUsername.length() > newDigits.length()
-                && oldUsername.toLowerCase(java.util.Locale.ROOT).contains(slug);
+        if (slug == null || slug.isEmpty()) slug = "child";
 
-        String candidate = wasSiblingForm
-                ? newDigits + (slug == null ? "child" : slug)
-                : newDigits;
-
-        if (candidate.equals(oldUsername)) return;
-
-        String finalCandidate = candidate;
-        int n = 2;
-        while (true) {
-            var conflict = userRepository.findByUsernameAndDeletedAtIsNull(finalCandidate);
-            if (conflict.isEmpty()
-                    || conflict.get().getUserId().equals(user.getUserId())) {
-                break;
-            }
-            finalCandidate = candidate + n;
-            n++;
-            if (n > 1000) {
-                log.warn("resyncUsernameAfterParentPhoneChange ran out of suffixes for {}", candidate);
-                return;
+        String finalCandidate = newDigits;
+        if (isUsernameTakenByOther(finalCandidate, user.getUserId())) {
+            finalCandidate = newDigits + slug;
+            int n = 2;
+            while (isUsernameTakenByOther(finalCandidate, user.getUserId())) {
+                finalCandidate = newDigits + slug + n;
+                n++;
+                if (n > 1000) {
+                    log.warn("resyncUsernameAfterParentPhoneChange ran out of suffixes for {}", newDigits);
+                    return;
+                }
             }
         }
+
+        if (finalCandidate.equals(oldUsername)) return;
 
         user.setUsername(finalCandidate);
         userRepository.save(user);
@@ -732,6 +734,15 @@ public class StudentService {
                 user.getUserId(), oldUsername, finalCandidate);
         auditService.log("RESYNC_USERNAME", "User", user.getUserId(),
                 "Username regenerated after parentPhone update: " + oldUsername + " -> " + finalCandidate);
+    }
+
+    /** True when {@code candidate} is already claimed by a user other
+     *  than {@code ownerUserId}. Self-owned matches don't count as a
+     *  conflict (a re-run of the resync must be a no-op). */
+    private boolean isUsernameTakenByOther(String candidate, String ownerUserId) {
+        return userRepository.findByUsernameAndDeletedAtIsNull(candidate)
+                .map(u -> !u.getUserId().equals(ownerUserId))
+                .orElse(false);
     }
 
     // ── Auto User Creation ─────────────────────────────────────────

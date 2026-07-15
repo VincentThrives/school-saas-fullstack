@@ -99,8 +99,17 @@ export class AppComponent implements OnInit {
 
   private proactivelyRefreshOnBoot(): void {
     if (!this.auth.refreshToken || !this.auth.accessToken) return;
-    this.auth.refreshAccessToken().subscribe({
-      error: () => { /* interceptor will bounce to login on real API 401s */ },
+    // Publish a pending promise so the auth interceptor holds every
+    // authenticated API call until the refresh settles. Without this,
+    // dashboard components fire their ngOnInit calls in parallel with
+    // this refresh and can end up racing on an expired token (the
+    // "dashboard shows 0 until you click something" symptom after
+    // the app has been idle for a day or two).
+    this.auth.bootReady = new Promise<void>((resolve) => {
+      this.auth.refreshAccessToken().subscribe({
+        next: () => resolve(),
+        error: () => resolve(),
+      });
     });
   }
 
@@ -125,17 +134,30 @@ export class AppComponent implements OnInit {
     this.lastActiveAt = Date.now();
     // Fresh return within the same tap — leave state alone.
     if (away < AppComponent.STALE_AFTER_MS) return;
+
+    // Re-check for a Play Store update on every meaningful resume so
+    // a user who dismissed the previous prompt gets re-prompted the
+    // next time they open the app. Without this, dismiss-once meant
+    // "no more prompts until full cold-start", and users happily
+    // ignored the nudge for weeks. Detached from the auth branch so
+    // it fires even on the login screen.
+    this.checkForAppUpdate();
+
     // No session → login screen will render anyway, nothing to refresh.
     if (!this.auth.accessToken && !this.auth.refreshToken) return;
 
     // Proactively refresh the access token FIRST so the upcoming route
     // reload doesn't race against interceptor-driven refreshes for the
-    // multiple concurrent API calls a dashboard forkJoin fires. If the
-    // refresh call itself fails, the interceptor handles the eventual
-    // 401 → login redirect on the follow-up requests.
-    this.auth.refreshAccessToken().subscribe({
-      next: () => this.reloadCurrentRoute(),
-      error: () => this.reloadCurrentRoute(),
+    // multiple concurrent API calls a dashboard forkJoin fires. Same
+    // bootReady gate as on cold-start — the interceptor holds every
+    // authenticated request until this refresh settles, then the
+    // route reload triggers ngOnInit which now fires against a fresh
+    // token instead of racing on an expired one.
+    this.auth.bootReady = new Promise<void>((resolve) => {
+      this.auth.refreshAccessToken().subscribe({
+        next: () => { resolve(); this.reloadCurrentRoute(); },
+        error: () => { resolve(); this.reloadCurrentRoute(); },
+      });
     });
   }
 

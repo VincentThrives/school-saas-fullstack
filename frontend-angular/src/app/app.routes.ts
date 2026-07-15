@@ -432,7 +432,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/homework/homework-page/homework-page.component').then(m => m.HomeworkPageComponent),
         canActivate: [roleGuard],
-        data: { roles: [UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER], title: 'Homework' },
+        data: {
+          roles: [UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER,
+                  UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.SCHOOL_COORDINATOR],
+          title: 'Homework',
+        },
       },
 
       // Homework roster — dedicated teacher page for marking done +

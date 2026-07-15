@@ -44,7 +44,7 @@ import { User, UserRole } from '../../../core/models';
   styleUrl: './users-list.component.scss',
 })
 export class UsersListComponent implements OnInit {
-  displayedColumns: string[] = ['name', 'email', 'role', 'status', 'actions'];
+  displayedColumns: string[] = ['name', 'username', 'email', 'role', 'status', 'actions'];
   dataSource = new MatTableDataSource<User>([]);
   totalElements = 0;
   pageSize = 10;
@@ -250,6 +250,22 @@ export class UsersListComponent implements OnInit {
     if (!user) return '?';
     const n = (user.firstName || user.email || '?').trim();
     return n.charAt(0).toUpperCase();
+  }
+
+  /** Copy the user's login username to the clipboard. Handy for admins
+   *  passing credentials to a student who can't remember which suffix
+   *  their username uses (siblings sharing a parent phone, etc.). */
+  copyUsername(user: User, event: MouseEvent): void {
+    event.stopPropagation();
+    const uname = (user as any).username;
+    if (!uname) {
+      this.snackBar.open('This user has no username set', 'Close', { duration: 2500 });
+      return;
+    }
+    navigator.clipboard.writeText(uname).then(
+      () => this.snackBar.open(`Username copied: ${uname}`, 'Close', { duration: 2500 }),
+      () => this.snackBar.open('Copy failed — long-press the cell to select instead', 'Close', { duration: 3000 }),
+    );
   }
 
   /** Unlock a user who hit the max-failed-login limit. */

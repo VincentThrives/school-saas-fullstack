@@ -494,6 +494,7 @@ public class UserService {
         UserDto dto = new UserDto();
         dto.setUserId(user.getUserId());
         dto.setEmail(user.getEmail());
+        dto.setUsername(user.getUsername());
         dto.setFirstName(user.getFirstName());
         dto.setLastName(user.getLastName());
         dto.setPhone(user.getPhone());
