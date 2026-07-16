@@ -384,11 +384,14 @@ export class EventsListComponent implements OnInit {
     }
 
     // DLT template body wants closure and reopen as "9 Jun 2026" style
-    // strings. Closure = first day of the holiday; reopen = the admin-
-    // picked date (auto-suggested as endDate+1, but editable for
-    // weekend collisions — Saturday holiday → Sunday is invalid, admin
-    // picks Monday).
-    const closureDateStr = this.formatHolidayDateForSms(hol.startDate);
+    // strings. Single-day holidays render as one date; multi-day
+    // holidays render as "17 Jul 2026 - 18 Jul 2026" so parents see
+    // BOTH days closed (previously we sent only the start, so parents
+    // thought the school reopened on the second day). reopen = the
+    // admin-picked date (auto-suggested as endDate+1, but editable
+    // for weekend collisions — Saturday holiday → Sunday is invalid,
+    // admin picks Monday).
+    const closureDateStr = this.formatHolidayClosureRange(hol);
     const reopenDateStr  = this.formatHolidayDateForSms(this.smsHolidayReopenDate);
     if (!closureDateStr || !reopenDateStr) {
       this.snackBar.open('Holiday dates are missing.', 'Close', { duration: 2500 });
@@ -439,5 +442,18 @@ export class EventsListComponent implements OnInit {
     return dt.toLocaleDateString('en-IN', {
       day: 'numeric', month: 'short', year: 'numeric',
     });
+  }
+
+  /** var1 renderer for a holiday closure — one date for single-day
+   *  holidays, "17 Jul 2026 - 18 Jul 2026" for a range. Kept comfortably
+   *  under the DLT 30-char per-variable cap (max 25 chars even for
+   *  cross-year ranges like "31 Dec 2026 - 2 Jan 2027"). */
+  private formatHolidayClosureRange(hol: SchoolEvent): string {
+    const start = this.formatHolidayDateForSms(hol?.startDate);
+    if (!start) return '';
+    const hasRange = hol?.endDate && hol.endDate !== hol.startDate;
+    if (!hasRange) return start;
+    const end = this.formatHolidayDateForSms(hol.endDate);
+    return end ? `${start} - ${end}` : start;
   }
 }
