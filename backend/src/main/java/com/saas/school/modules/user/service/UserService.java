@@ -70,9 +70,16 @@ public class UserService {
             criteria.and("role").is(role);
         }
         if (status != null && !status.isBlank()) {
-            // "active" / "inactive" — case-insensitive.
-            boolean active = "active".equalsIgnoreCase(status);
-            criteria.and("isActive").is(active);
+            // Admin filter dropdown: "active" / "inactive" / "locked",
+            // all case-insensitive. "locked" surfaces users who tripped
+            // the failed-login threshold so the admin can unlock them
+            // without scrolling every row on a big roster.
+            if ("locked".equalsIgnoreCase(status)) {
+                criteria.and("isLocked").is(true);
+            } else {
+                boolean active = "active".equalsIgnoreCase(status);
+                criteria.and("isActive").is(active);
+            }
         }
         if (search != null && !search.isBlank()) {
             String[] tokens = search.trim().split("\\s+");
