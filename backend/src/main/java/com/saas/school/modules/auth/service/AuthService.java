@@ -89,22 +89,52 @@ public class AuthService {
         if (typed.isEmpty()) {
             throw new BusinessException("Invalid credentials.");
         }
-        User user = userRepository.findByEmailAndDeletedAtIsNull(typed)
+
+        // Exact match first — the common case for staff, teachers, and
+        // students / parents who type their own full username.
+        User exactMatch = userRepository.findByEmailAndDeletedAtIsNull(typed)
                 .or(() -> userRepository.findByUsernameAndDeletedAtIsNull(typed))
-                .orElseThrow(() -> new BusinessException("Invalid credentials."));
+                .orElse(null);
 
-        if (user.getRole() == UserRole.SUPER_ADMIN) {
-            throw new TenantAccessException("Use the Super Admin login endpoint.");
-        }
-        if (!user.isActive()) {
-            throw new TenantAccessException("Account is deactivated. Contact your school admin.");
-        }
-        if (user.isLocked()) {
-            throw new AccountLockedException("Account locked");
+        User user = null;
+        if (exactMatch != null) {
+            if (exactMatch.getRole() == UserRole.SUPER_ADMIN) {
+                throw new TenantAccessException("Use the Super Admin login endpoint.");
+            }
+            if (!exactMatch.isActive()) {
+                throw new TenantAccessException("Account is deactivated. Contact your school admin.");
+            }
+            if (exactMatch.isLocked()) {
+                throw new AccountLockedException("Account locked");
+            }
+            if (passwordEncoder.matches(req.getPassword(), exactMatch.getPasswordHash())) {
+                user = exactMatch;
+            }
         }
 
-        if (!passwordEncoder.matches(req.getPassword(), user.getPasswordHash())) {
-            handleFailedAttempt(user, tenant);
+        // Smart-prefix fallback for the multi-child parent flow — when
+        // the parent types just the phone number ("9945255052") and any
+        // one child's password. The exact-match student ("9945255052")
+        // owns the bare phone digits; siblings' usernames follow the
+        // "phone + firstname-slug" pattern ("9945255052arun") which the
+        // parent shouldn't have to memorise. If a phone-shaped input
+        // failed the exact-match password check (or found no exact
+        // match), sweep every user whose username starts with that
+        // phone and try the submitted password against each. First
+        // active + unlocked match wins.
+        if (user == null && isPhoneShaped(typed)) {
+            user = tryPrefixLogin(typed, req.getPassword(),
+                    exactMatch != null ? exactMatch.getUserId() : null);
+        }
+
+        if (user == null) {
+            // No candidate matched. Only tick the exact-match user's
+            // failure counter — a wrong password shouldn't lock out
+            // every sibling on the same phone. If there was no exact
+            // match at all, don't tick anyone (nothing to attribute).
+            if (exactMatch != null) {
+                handleFailedAttempt(exactMatch, tenant);
+            }
             throw new BusinessException("Invalid credentials.");
         }
 
@@ -434,6 +464,43 @@ public class AuthService {
         resp.setFeatureFlags(flags);
         resp.setUser(toUserDto(targetUser));
         return resp;
+    }
+
+    /** True when {@code typed} looks like a bare phone number — used
+     *  as the gate for the sibling-prefix login fallback. Any input
+     *  that is 10+ digits qualifies (Indian phones are 10 digits;
+     *  admin can pad with country codes without breaking this). */
+    private boolean isPhoneShaped(String typed) {
+        if (typed == null || typed.length() < 10) return false;
+        for (int i = 0; i < typed.length(); i++) {
+            if (!Character.isDigit(typed.charAt(i))) return false;
+        }
+        return true;
+    }
+
+    /** Sweep every user whose username starts with {@code prefix} and
+     *  return the first one whose password check passes AND account is
+     *  active + unlocked. Skips the exact-match user if given (its
+     *  password already failed, no point re-hashing). Caps the scan
+     *  at 10 candidates so a common phone matching lots of unrelated
+     *  usernames doesn't fan into a bcrypt-check DDoS on the login
+     *  path. */
+    private User tryPrefixLogin(String prefix, String password, String excludeUserId) {
+        List<User> candidates = userRepository.findByUsernameStartingWithAndDeletedAtIsNull(prefix);
+        if (candidates == null || candidates.isEmpty()) return null;
+        int scanned = 0;
+        for (User c : candidates) {
+            if (scanned >= 10) break;
+            if (c == null) continue;
+            if (excludeUserId != null && excludeUserId.equals(c.getUserId())) continue;
+            if (!c.isActive() || c.isLocked()) continue;
+            if (c.getRole() == UserRole.SUPER_ADMIN) continue;
+            scanned++;
+            if (passwordEncoder.matches(password, c.getPasswordHash())) {
+                return c;
+            }
+        }
+        return null;
     }
 
     /** "First Last" — falls back to admissionNumber then studentId

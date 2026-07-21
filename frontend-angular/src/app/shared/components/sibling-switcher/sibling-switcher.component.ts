@@ -125,25 +125,33 @@ export class SiblingSwitcherComponent implements OnInit {
     return joined || u.email || '';
   }
 
-  /** Force the currently-rendered route to tear down + re-init so
-   *  every ngOnInit re-fires and re-fetches for the newly-signed-in
-   *  student.
+  /** Send the user to /dashboard so every page re-resolves from the
+   *  newly-signed-in student's scope.
    *
-   *  <p>Two-hop navigate: bounce to a throwaway URL with
-   *  {@code skipLocationChange:true} (so the address bar doesn't
-   *  flicker) then navigate back to the original. Angular treats
-   *  the return trip as a fresh navigation → RouteReuseStrategy
-   *  can't reuse the prior component instance → ngOnInit re-fires
-   *  everywhere including the dashboard cards and the sidebar user
-   *  info. Setting {@code onSameUrlNavigation:'reload'} alone doesn't
-   *  do this — the reuse strategy still hands back the cached
-   *  component.</p> */
+   *  <p>Rebounding to the SAME url the user was on worked for pages
+   *  that read their scope from AuthService (dashboard, notifications,
+   *  homework), but broke on pages that read {@code classId} /
+   *  {@code sectionId} / {@code academicYearId} from query params —
+   *  e.g. My Timetable's URL is
+   *  {@code /timetable/view?classId=…&sectionId=…}. On switch we'd
+   *  reload that exact URL and the timetable component would still
+   *  render the OLD student's class because the params are stale.
+   *  Landing back on /dashboard side-steps that entire class of bug
+   *  — every widget starts fresh with the new user's identity — and
+   *  matches the mental model of "you just switched student, take me
+   *  home".</p>
+   *
+   *  <p>Two-hop navigate through a throwaway URL with
+   *  {@code skipLocationChange:true} so Angular's RouteReuseStrategy
+   *  can't hand back a cached component — otherwise the target
+   *  dashboard's ngOnInit might not re-fire if the user was already
+   *  on /dashboard when they hit switch.</p> */
   private reloadCurrentRoute(): void {
-    const url = this.router.url || '/dashboard';
     this.router.navigateByUrl('/__switch_reload__', { skipLocationChange: true })
       .catch(() => { /* nothing routed to __switch_reload__; that's the point */ })
       .finally(() => {
-        this.router.navigateByUrl(url).catch(() => { /* nav aborted — ignore */ });
+        this.router.navigateByUrl('/dashboard')
+          .catch(() => { /* nav aborted — ignore */ });
       });
   }
 }

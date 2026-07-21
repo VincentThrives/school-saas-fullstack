@@ -45,4 +45,15 @@ public interface UserRepository extends MongoRepository<User, String> {
     List<User> findUsernamesIn(java.util.Collection<String> usernames);
 
     long countByRoleAndDeletedAtIsNull(UserRole role);
+
+    /** Users whose {@code username} starts with the given prefix. Feeds
+     *  the smart-prefix login path: when a parent types just the phone
+     *  digits ("9945255052") we sweep every sibling under that phone
+     *  ("9945255052", "9945255052arun", "9945255052priya", …) and try
+     *  the submitted password against each.
+     *
+     *  <p>Only called from the login service with an all-digits input,
+     *  so no regex special characters can appear — a plain "starts
+     *  with" derived query is safe.</p> */
+    List<User> findByUsernameStartingWithAndDeletedAtIsNull(String prefix);
 }
