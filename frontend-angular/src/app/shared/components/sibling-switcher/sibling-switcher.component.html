@@ -1,0 +1,41 @@
+<ng-container *ngIf="siblings.length > 0">
+  <button
+    mat-icon-button
+    class="switcher-trigger"
+    [matMenuTriggerFor]="switcherMenu"
+    matTooltip="Switch student"
+    [disabled]="isSwitching">
+    <mat-spinner *ngIf="isSwitching" diameter="18"></mat-spinner>
+    <mat-icon *ngIf="!isSwitching">supervisor_account</mat-icon>
+  </button>
+
+  <mat-menu #switcherMenu="matMenu" xPosition="before" class="switcher-menu">
+    <div class="switcher-header" (click)="$event.stopPropagation()">
+      <span class="switcher-title">Switch student</span>
+      <span class="switcher-current" *ngIf="currentName">Currently: {{ currentName }}</span>
+    </div>
+    <!-- Plain <button> instead of mat-menu-item so we sidestep
+         Angular Material 18's aggressive icon-reordering — a
+         trailing mat-icon in mat-menu-item was being treated as a
+         submenu indicator and getting hoisted to the LEFT of the
+         row. The custom button gives us full control on both
+         desktop and mobile. -->
+    <button type="button"
+            *ngFor="let s of siblings"
+            class="switcher-row"
+            (click)="switchTo(s)">
+      <div class="switcher-avatar">{{ initial(s.fullName) }}</div>
+      <div class="switcher-meta">
+        <div class="switcher-name">{{ s.fullName }}</div>
+        <div class="switcher-sub" *ngIf="siblingLabel(s)">{{ siblingLabel(s) }}</div>
+      </div>
+      <!-- Chevron wrapped in a span so Material's menu-item
+           auto-detection can't reach in and re-flag it as a leading
+           submenu indicator. Wrapping keeps it visually clear
+           without Material's opinionated ordering. -->
+      <span class="switcher-arrow" aria-hidden="true">
+        <mat-icon>chevron_right</mat-icon>
+      </span>
+    </button>
+  </mat-menu>
+</ng-container>

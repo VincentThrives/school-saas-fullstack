@@ -45,6 +45,14 @@ public interface StudentRepository extends MongoRepository<Student, String> {
 
     List<Student> findByParentIdsContainingAndDeletedAtIsNull(String parentId);
 
+    /** Sibling lookup — every student whose {@code parentPhone} exactly
+     *  matches the given value. Used by the "switch student" header
+     *  widget so a parent with one phone can hop between their children
+     *  without four separate logins. Whitespace / country-code trimming
+     *  happens at the caller (StudentFieldNormalizer.phoneDigits) so
+     *  this stays a plain derived query. */
+    List<Student> findByParentPhoneAndDeletedAtIsNull(String parentPhone);
+
     @Query("{'$or':[{'rollNumber':{$regex:?0,$options:'i'}},{'admissionNumber':{$regex:?0,$options:'i'}}],'deletedAt':null}")
     Page<Student> searchStudents(String query, Pageable pageable);
 

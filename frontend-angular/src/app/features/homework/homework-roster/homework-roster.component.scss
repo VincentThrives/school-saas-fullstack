@@ -276,19 +276,18 @@ $gold-dark: #B8860B;
       box-sizing: border-box;
     }
 
+    // .homework-roster__status IS the mat-button-toggle-group (the
+    // class sits on the element itself, not a wrapper). Prior CSS
+    // tried `::ng-deep .mat-button-toggle-group` under this selector
+    // which never matched, so the mobile flex rules silently no-op'd
+    // and Material's default inline-flex left only the checked toggle
+    // visible on narrow screens.
     &__status {
+      display: flex !important;
       width: 100%;
-      display: block;
+      max-width: 100%;
       box-sizing: border-box;
 
-      // Force the toggle group to respect the parent's width so the
-      // group's border doesn't spill out of the card on narrow screens.
-      ::ng-deep .mat-button-toggle-group {
-        display: flex !important;
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
-      }
       ::ng-deep .mat-button-toggle {
         flex: 1 1 0;
         min-width: 0;

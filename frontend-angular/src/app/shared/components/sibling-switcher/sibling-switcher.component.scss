@@ -1,0 +1,157 @@
+$gold: #d4a843;
+$gold-dark: #b8860b;
+
+.switcher-trigger {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+// Panel styling has to leak out of the component's view-encapsulation
+// because Angular Material renders mat-menu into an overlay outside
+// the host tree. `::ng-deep .switcher-menu` from the parent scope
+// wouldn't work; we style the class name globally instead.
+::ng-deep .switcher-menu {
+  min-width: 280px !important;
+  max-width: 340px;
+  border-radius: 14px !important;
+  overflow: hidden;
+  padding: 0 !important;
+
+  // Kill the default vertical padding Material adds around menu
+  // contents so our header + rows sit flush with the panel edge.
+  .mat-mdc-menu-content,
+  .mdc-list {
+    padding: 0 !important;
+  }
+
+  .switcher-header {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 16px 8px;
+    background: rgba($gold, 0.08);
+    border-bottom: 1px solid rgba($gold, 0.18);
+  }
+
+  .switcher-title {
+    font-weight: 700;
+    font-size: 13px;
+    color: #1f2937;
+    letter-spacing: 0.02em;
+  }
+
+  .switcher-current {
+    margin-top: 2px;
+    font-size: 12px;
+    color: #6b7280;
+  }
+
+  .switcher-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: calc(100% - 16px);
+    margin: 8px 8px 0;
+    padding: 12px 14px;
+    background: #fdfaf0;
+    border: 1px solid rgba($gold, 0.22);
+    border-radius: 12px;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    transition: background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+
+    &:hover,
+    &:focus-visible {
+      background: rgba($gold, 0.12);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+      outline: none;
+    }
+
+    &:last-child {
+      margin-bottom: 10px;
+    }
+  }
+
+  .switcher-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(0, 0, 0, 0.4);
+    flex-shrink: 0;
+
+    mat-icon {
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+    }
+  }
+
+  .switcher-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba($gold, 0.18);
+    color: $gold-dark;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .switcher-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .switcher-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .switcher-sub {
+    font-size: 11.5px;
+    color: #6b7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// Mobile — the header trigger is in the top-right corner and the
+// default overlay position leaves the panel cramped against the
+// screen edge. Give it more breathing room and let it size down
+// gracefully on narrow phones so it doesn't clip past the viewport.
+@media (max-width: 600px) {
+  ::ng-deep .switcher-menu {
+    min-width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px) !important;
+    margin: 6px 0;
+
+    .switcher-row {
+      padding: 14px 16px;
+    }
+
+    .switcher-avatar {
+      width: 40px;
+      height: 40px;
+      font-size: 15px;
+    }
+
+    .switcher-name {
+      font-size: 15px;
+    }
+
+    .switcher-sub {
+      font-size: 12.5px;
+    }
+  }
+}

@@ -10,8 +10,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Tag(name = "Authentication")
 @RestController
@@ -70,6 +73,30 @@ public class AuthController {
             @Valid @RequestBody ChangePasswordRequest req) {
         authService.changePassword(userId, req.getOldPassword(), req.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success(null, "Password changed successfully"));
+    }
+
+    // ── Sibling switch (single-phone multi-child parent flow) ────
+
+    @Operation(summary = "Siblings of the currently signed-in student "
+            + "(same parentPhone, same tenant) — powers the header switcher.")
+    @GetMapping("/api/v1/auth/siblings")
+    @PreAuthorize("hasAnyRole('STUDENT','PARENT')")
+    public ResponseEntity<ApiResponse<List<SiblingStudentDto>>> siblings(
+            @AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(ApiResponse.success(authService.getSiblings(userId)));
+    }
+
+    @Operation(summary = "Switch to a sibling under the same parentPhone. "
+            + "Returns a fresh access + refresh token pair for the target student.")
+    @PostMapping("/api/v1/auth/switch-to-sibling/{studentId}")
+    @PreAuthorize("hasAnyRole('STUDENT','PARENT')")
+    public ResponseEntity<ApiResponse<AuthResponse>> switchToSibling(
+            @AuthenticationPrincipal String userId,
+            @PathVariable String studentId,
+            @RequestHeader(value = "X-Tenant-Id", required = false) String tenantId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                authService.switchToSibling(userId, studentId, tenantId),
+                "Switched student"));
     }
 
     // ── Super Admin Auth ───────────────────────────────────────────

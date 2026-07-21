@@ -21,6 +21,11 @@
       <mat-icon>{{ isDarkMode ? 'light_mode' : 'dark_mode' }}</mat-icon>
     </button>
 
+    <!-- Sibling switcher — only renders when a student session has
+         siblings under the same parentPhone. Hidden completely for
+         staff / admin / principals (their `getSiblings` returns []). -->
+    <app-sibling-switcher></app-sibling-switcher>
+
     <!-- Notifications bell → opens the Inbox tab on /notifications -->
     <button
       *ngIf="!isSuperAdmin"

@@ -211,6 +211,15 @@ export class AuthService {
         && roles.includes(UserRole.SCHOOL_ADMIN);
   }
 
+  /** Store an {@link AuthResponse} as the active session. Public so
+   *  the sibling-switch flow can swap the parent's session onto the
+   *  target child's tokens without going through login. Not called by
+   *  anything else — regular login still routes through the private
+   *  code path below. */
+  applyAuthResponse(auth: AuthResponse): void {
+    this.setCredentials(auth);
+  }
+
   private setCredentials(auth: AuthResponse): void {
     this.accessToken$.next(auth.accessToken);
     this.refreshToken$.next(auth.refreshToken);

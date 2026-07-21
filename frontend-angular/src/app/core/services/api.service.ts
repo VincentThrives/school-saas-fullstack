@@ -700,6 +700,31 @@ export class ApiService {
     return this.http.delete<ApiResponse<void>>(`${this.API}/academic-years/${id}`);
   }
 
+  // ── Sibling switcher (multi-child single-phone parent flow) ────────
+
+  /** Every other student registered under the caller's parentPhone.
+   *  Feeds the header "Switch student" widget. Returns [] when the
+   *  caller isn't a student or has no siblings. */
+  getSiblings(): Observable<ApiResponse<Array<{
+    studentId: string;
+    userId: string;
+    fullName: string;
+    rollNumber: string | null;
+    className: string | null;
+    sectionName: string | null;
+  }>>> {
+    return this.http.get<ApiResponse<any>>(`${this.API}/auth/siblings`);
+  }
+
+  /** Swap the current session for the target sibling's session. The
+   *  response carries a fresh access + refresh token pair and the
+   *  target student's user profile — feed it through
+   *  {@code authService.applyAuthResponse} to activate. */
+  switchToSibling(studentId: string): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(
+        `${this.API}/auth/switch-to-sibling/${studentId}`, {});
+  }
+
   // ── Attendance ─────────────────────────────────────────────────────────
 
   markAttendance(payload: any): Observable<ApiResponse<any>> {

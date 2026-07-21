@@ -8,10 +8,15 @@ import com.saas.school.common.exception.TenantAccessException;
 import com.saas.school.config.mongodb.TenantContext;
 import com.saas.school.config.security.JwtUtil;
 import com.saas.school.modules.auth.dto.*;
+import com.saas.school.modules.auth.dto.SiblingStudentDto;
 import com.saas.school.modules.superadmin.model.SuperAdminUser;
 import com.saas.school.modules.superadmin.repository.SuperAdminUserRepository;
 import com.saas.school.modules.tenant.model.Tenant;
 import com.saas.school.modules.tenant.repository.TenantRepository;
+import com.saas.school.modules.classes.model.SchoolClass;
+import com.saas.school.modules.classes.repository.SchoolClassRepository;
+import com.saas.school.modules.student.model.Student;
+import com.saas.school.modules.student.repository.StudentRepository;
 import com.saas.school.modules.user.model.User;
 import com.saas.school.modules.user.model.UserRole;
 import com.saas.school.modules.user.repository.UserRepository;
@@ -25,8 +30,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class AuthService {
@@ -36,10 +46,17 @@ public class AuthService {
     @Autowired private UserRepository userRepository;
     @Autowired private SuperAdminUserRepository superAdminUserRepository;
     @Autowired private TenantRepository tenantRepository;
+    @Autowired private StudentRepository studentRepository;
+    @Autowired private SchoolClassRepository classRepository;
     @Autowired private JwtUtil jwtUtil;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private AuditService auditService;
     @Autowired private JavaMailSender mailSender;
+
+    /** Cap on sibling list length. Real families max out around 3-4;
+     *  the cap is defence against a mis-entered {@code parentPhone}
+     *  matching a large group of unrelated students. */
+    private static final int MAX_SIBLINGS = 10;
 
     @Value("${app.jwt.refresh-token-expiry-ms:2592000000}")
     private long refreshTokenExpiryMs;
@@ -251,6 +268,186 @@ public class AuthService {
         user.setPasswordChangedAt(Instant.now());
         userRepository.save(user);
         auditService.log("CHANGE_PASSWORD", "User", userId, "Password changed");
+    }
+
+    // ── Sibling switch (multi-child single-phone parent flow) ────
+
+    /**
+     * Every other student registered under the caller's
+     * {@code parentPhone}, in the same tenant. Powers the header
+     * "Switch student" widget so a parent whose phone is the login
+     * for four children can hop between them without four logouts.
+     *
+     * <p>Returns an empty list when the caller is not a Student (staff,
+     * admin, standalone parent account) or has no {@code parentPhone}
+     * on file. Never surfaces the caller themselves in the list.</p>
+     *
+     * <p>Capped at {@link #MAX_SIBLINGS} entries — a mis-entered
+     * phone matching a large group of unrelated students shouldn't
+     * blow up the header menu.</p>
+     */
+    public List<SiblingStudentDto> getSiblings(String callerUserId) {
+        if (callerUserId == null || callerUserId.isBlank()) return Collections.emptyList();
+
+        Student caller = studentRepository.findByUserIdAndDeletedAtIsNull(callerUserId).orElse(null);
+        if (caller == null) return Collections.emptyList();
+        String parentPhone = caller.getParentPhone();
+        if (parentPhone == null || parentPhone.isBlank()) return Collections.emptyList();
+
+        List<Student> matches = studentRepository.findByParentPhoneAndDeletedAtIsNull(parentPhone);
+        if (matches == null || matches.isEmpty()) return Collections.emptyList();
+
+        List<Student> siblings = matches.stream()
+                .filter(s -> s.getStudentId() != null
+                        && !s.getStudentId().equals(caller.getStudentId()))
+                .limit(MAX_SIBLINGS)
+                .toList();
+        if (siblings.isEmpty()) return Collections.emptyList();
+
+        // Resolve className / sectionName in one batched lookup so we
+        // don't hit Mongo per sibling. Class ids are typically <= 15
+        // school-wide so this stays cheap even for tenants with many
+        // classes.
+        List<String> classIds = siblings.stream()
+                .map(Student::getClassId)
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .toList();
+        Map<String, SchoolClass> classById = new HashMap<>();
+        if (!classIds.isEmpty()) {
+            classRepository.findAllById(classIds).forEach(c -> classById.put(c.getClassId(), c));
+        }
+
+        List<SiblingStudentDto> out = new ArrayList<>(siblings.size());
+        for (Student s : siblings) {
+            String className = null;
+            String sectionName = null;
+            SchoolClass cls = classById.get(s.getClassId());
+            if (cls != null) {
+                className = cls.getName();
+                if (cls.getSections() != null && s.getSectionId() != null) {
+                    sectionName = cls.getSections().stream()
+                            .filter(sec -> s.getSectionId().equals(sec.getSectionId()))
+                            .map(SchoolClass.Section::getName)
+                            .findFirst()
+                            .orElse(null);
+                }
+            }
+            out.add(new SiblingStudentDto(
+                    s.getStudentId(),
+                    s.getUserId(),
+                    fullName(s),
+                    s.getRollNumber(),
+                    className,
+                    sectionName));
+        }
+        return out;
+    }
+
+    /**
+     * Swap the caller's session for the target student's session.
+     *
+     * <p>Validates: (1) caller resolves to a Student in this tenant,
+     * (2) target studentId resolves to a Student in this tenant with a
+     * live {@code userId}, (3) both share a non-blank {@code parentPhone}.
+     * Any failure surfaces as {@link BusinessException} — the interceptor
+     * on the client turns it into a "not allowed" toast.</p>
+     *
+     * <p>Password is never re-checked: proving parent-phone ownership at
+     * the initial login is authorisation to walk between siblings.
+     * Refresh tokens are freshly issued for the target user, and the
+     * old caller's refresh token stays alive until it expires or the
+     * caller explicitly logs out (matching how a normal login flow
+     * behaves — no invalidation cascade).</p>
+     */
+    public AuthResponse switchToSibling(String callerUserId, String targetStudentId, String tenantId) {
+        if (callerUserId == null || callerUserId.isBlank()
+                || targetStudentId == null || targetStudentId.isBlank()) {
+            throw new BusinessException("Invalid switch request.");
+        }
+
+        Student caller = studentRepository.findByUserIdAndDeletedAtIsNull(callerUserId)
+                .orElseThrow(() -> new BusinessException("Only student accounts can switch."));
+        Student target = studentRepository.findByStudentIdAndDeletedAtIsNull(targetStudentId)
+                .orElseThrow(() -> new BusinessException("Sibling not found."));
+
+        if (caller.getStudentId() != null && caller.getStudentId().equals(target.getStudentId())) {
+            throw new BusinessException("Already signed in as this student.");
+        }
+
+        String callerPhone = caller.getParentPhone();
+        String targetPhone = target.getParentPhone();
+        if (callerPhone == null || callerPhone.isBlank()
+                || !callerPhone.equals(targetPhone)) {
+            throw new BusinessException("This student is not linked to your parent phone.");
+        }
+
+        String targetUserId = target.getUserId();
+        if (targetUserId == null || targetUserId.isBlank()) {
+            throw new BusinessException("Sibling has no login account yet.");
+        }
+        User targetUser = userRepository.findByUserIdAndDeletedAtIsNull(targetUserId)
+                .orElseThrow(() -> new BusinessException("Sibling account is inactive."));
+        if (!targetUser.isActive()) {
+            throw new BusinessException("Sibling account is deactivated.");
+        }
+        if (targetUser.isLocked()) {
+            throw new BusinessException("Sibling account is locked.");
+        }
+
+        // Look up the tenant for feature flags on the new access token.
+        // TenantContext is already scoped by the auth interceptor for the
+        // caller's request; we still need the Tenant doc from the central DB.
+        String effectiveTenantId = tenantId != null && !tenantId.isBlank()
+                ? tenantId : TenantContext.getTenantId();
+        Tenant tenant = null;
+        if (effectiveTenantId != null) {
+            String priorTenant = TenantContext.getTenantId();
+            TenantContext.clear();
+            try {
+                tenant = tenantRepository.findById(effectiveTenantId).orElse(null);
+            } finally {
+                if (priorTenant != null) TenantContext.setTenantId(priorTenant);
+            }
+        }
+        Map<String, Boolean> flags = tenant != null ? tenant.getFeatureFlags() : Map.of();
+
+        String accessToken  = jwtUtil.generateAccessToken(
+                targetUserId, effectiveTenantId, targetUser.getRole(), flags);
+        String refreshToken = jwtUtil.generateRefreshToken(
+                targetUserId, effectiveTenantId, targetUser.getRole());
+
+        targetUser.setRefreshToken(passwordEncoder.encode(refreshToken));
+        targetUser.setRefreshTokenExpiresAt(Instant.now().plusMillis(refreshTokenExpiryMs));
+        targetUser.setLastLoginAt(Instant.now());
+        userRepository.save(targetUser);
+
+        auditService.log("STUDENT_SIBLING_SWITCH", "User", targetUserId,
+                "Sibling switch from userId=" + callerUserId
+                        + " to userId=" + targetUserId
+                        + " parentPhone=" + callerPhone);
+
+        AuthResponse resp = new AuthResponse();
+        resp.setAccessToken(accessToken);
+        resp.setRefreshToken(refreshToken);
+        resp.setRole(targetUser.getRole());
+        resp.setFeatureFlags(flags);
+        resp.setUser(toUserDto(targetUser));
+        return resp;
+    }
+
+    /** "First Last" — falls back to admissionNumber then studentId
+     *  when either name field is blank (matches the display fallback
+     *  used elsewhere in the app). */
+    private String fullName(Student s) {
+        String first = s.getFirstName() == null ? "" : s.getFirstName().trim();
+        String last = s.getLastName() == null ? "" : s.getLastName().trim();
+        String joined = (first + " " + last).trim();
+        if (!joined.isEmpty()) return joined;
+        if (s.getAdmissionNumber() != null && !s.getAdmissionNumber().isBlank()) {
+            return s.getAdmissionNumber();
+        }
+        return s.getStudentId();
     }
 
     // ── Helpers ────────────────────────────────────────────────────

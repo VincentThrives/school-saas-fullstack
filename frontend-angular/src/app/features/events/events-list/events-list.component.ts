@@ -444,16 +444,41 @@ export class EventsListComponent implements OnInit {
     });
   }
 
-  /** var1 renderer for a holiday closure — one date for single-day
-   *  holidays, "17 Jul 2026 - 18 Jul 2026" for a range. Kept comfortably
-   *  under the DLT 30-char per-variable cap (max 25 chars even for
-   *  cross-year ranges like "31 Dec 2026 - 2 Jan 2027"). */
+  /** var1 renderer for a holiday closure — compact when the range
+   *  is within a single month, expanded when it crosses months.
+   *
+   *  <ul>
+   *    <li>Single-day: "17 Jul 2026"</li>
+   *    <li>Same month + year: "17-18 Jul 2026" — saves 11 chars over
+   *        the long form, which was pushing the total SMS body past
+   *        the 160-char single-segment boundary and doubling the
+   *        SMS credit cost.</li>
+   *    <li>Cross-month or cross-year: "30 Jun 2026 - 2 Jul 2026"
+   *        (falls back to the long form so nothing is ambiguous).</li>
+   *  </ul>
+   *
+   *  All variants stay under the DLT 30-char per-variable cap. */
   private formatHolidayClosureRange(hol: SchoolEvent): string {
-    const start = this.formatHolidayDateForSms(hol?.startDate);
-    if (!start) return '';
-    const hasRange = hol?.endDate && hol.endDate !== hol.startDate;
-    if (!hasRange) return start;
-    const end = this.formatHolidayDateForSms(hol.endDate);
-    return end ? `${start} - ${end}` : start;
+    if (!hol?.startDate) return '';
+    const startDate = new Date(hol.startDate);
+    if (isNaN(startDate.getTime())) return '';
+    const startFull = this.formatHolidayDateForSms(startDate);
+
+    if (!hol.endDate || hol.endDate === hol.startDate) return startFull;
+    const endDate = new Date(hol.endDate);
+    if (isNaN(endDate.getTime())) return startFull;
+    const endFull = this.formatHolidayDateForSms(endDate);
+
+    // Same month AND same year → "17-18 Jul 2026"
+    if (startDate.getFullYear() === endDate.getFullYear()
+        && startDate.getMonth() === endDate.getMonth()) {
+      const startDay = startDate.getDate();
+      const endDay = endDate.getDate();
+      const monthYear = endDate.toLocaleDateString('en-IN',
+          { month: 'short', year: 'numeric' });
+      return `${startDay}-${endDay} ${monthYear}`;
+    }
+
+    return `${startFull} - ${endFull}`;
   }
 }

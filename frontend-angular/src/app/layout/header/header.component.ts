@@ -15,6 +15,7 @@ import { ApiService } from '../../core/services/api.service';
 import { NotificationBusService } from '../../core/services/notification-bus.service';
 import { User, UserRole } from '../../core/models';
 import { ChangePasswordDialogComponent } from '../../shared/components/change-password-dialog/change-password-dialog.component';
+import { SiblingSwitcherComponent } from '../../shared/components/sibling-switcher/sibling-switcher.component';
 
 @Component({
   selector: 'app-header',
@@ -30,6 +31,7 @@ import { ChangePasswordDialogComponent } from '../../shared/components/change-pa
     MatDividerModule,
     MatTooltipModule,
     MatDialogModule,
+    SiblingSwitcherComponent,
   ],
   templateUrl: './header.component.html',
   styleUrl: './header.component.scss',
