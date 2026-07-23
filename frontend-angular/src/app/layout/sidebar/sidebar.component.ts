@@ -312,6 +312,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
             { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams', coordinatorModule: 'EXAMS' },
             { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams', coordinatorModule: 'EXAMS' },
             { title: 'Exam Types', path: '/exam-types', icon: 'category', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+            // Non-academic assessments (weekly CET, mock exams). Admin
+            // only; kept separate from Exams so week-wise CET tests
+            // don't drown the regular exam list. Stored in a distinct
+            // Mongo collection and doesn't touch report cards.
+            { title: 'Other Assessments', path: '/other-assessments', icon: 'assignment', roles: [UserRole.SCHOOL_ADMIN] },
             // { title: 'MCQ Exams', path: '/mcq', icon: 'quiz', feature: 'mcq' },
           ],
         },
@@ -397,6 +402,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'My Timetable', path: '/timetable', icon: 'calendar_month', feature: 'timetable' },
         { title: 'My Attendance', path: '/my-attendance', icon: 'event_note', feature: 'attendance' },
         { title: 'My Marks', path: '/my-marks', icon: 'assignment', feature: 'exams' },
+        // Non-academic tests (weekly CETs, mocks, etc.) — separate
+        // page so it doesn't get muddled up with My Marks / Report Card.
+        { title: 'Other Assessments', path: '/my-other-assessments', icon: 'quiz' },
         // { title: 'MCQ Exams', path: '/mcq/available', icon: 'quiz', feature: 'mcq' },
         // { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
         { title: 'My Report Card', path: '/my-report-card', icon: 'description', feature: 'report_cards' },
@@ -415,6 +423,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { title: 'My Children', path: '/children', icon: 'family_restroom' },
         { title: 'Attendance', path: '/child-attendance', icon: 'event_note', feature: 'attendance' },
         { title: 'Marks', path: '/child-marks', icon: 'assignment', feature: 'exams' },
+        { title: 'Other Assessments', path: '/my-other-assessments', icon: 'quiz' },
         { title: 'Report Cards', path: '/report-cards', icon: 'description', feature: 'report_cards' },
         { title: 'Assignments', path: '/assignments', icon: 'assignment_turned_in' },
         { title: 'Analytics', path: '/analytics', icon: 'analytics', feature: 'analytics' },

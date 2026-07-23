@@ -1,0 +1,324 @@
+<div class="oa-detail">
+  <app-page-header
+    [title]="assessment?.name || 'Assessment'"
+    [subtitle]="assessment?.type ? assessment.type + ' · ' + rows.length + ' students' : rows.length + ' students'"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Other Assessments', link: '/other-assessments' },
+      { label: assessment?.name || 'Assessment' }
+    ]"
+    actionLabel="Upload"
+    actionIcon="upload_file"
+    (actionClick)="openUploadDialog()"
+  ></app-page-header>
+
+  <div class="oa-loading" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <ng-container *ngIf="!isLoading && assessment">
+    <mat-card class="oa-search-card">
+      <mat-card-content>
+        <div class="oa-search-row">
+          <mat-icon class="oa-search-icon">search</mat-icon>
+          <input
+            type="text"
+            class="oa-search-input"
+            [(ngModel)]="searchQuery"
+            placeholder="Search by name or roll number"
+          />
+          <button mat-icon-button *ngIf="searchQuery" (click)="searchQuery = ''"
+                  aria-label="Clear search">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <div class="oa-empty" *ngIf="rows.length === 0">
+      <mat-icon>groups</mat-icon>
+      <p>No students in this assessment.</p>
+    </div>
+
+    <div class="oa-table-wrap" *ngIf="rows.length > 0">
+      <table class="oa-table">
+        <thead>
+          <tr>
+            <th class="oa-col-roll">Roll</th>
+            <th class="oa-col-name">Name</th>
+            <th class="oa-col-sub" *ngFor="let s of subjects">
+              {{ s.subjectName }}
+              <span class="oa-max">/ {{ s.maxMarks }}</span>
+            </th>
+            <th class="oa-col-total">Total<br /><span class="oa-max">/ {{ totalMax() }}</span></th>
+            <th class="oa-col-rank">Rank</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of visibleRows">
+            <td class="oa-col-roll">
+              <span class="oa-roll-chip">{{ r.rollNumber || '—' }}</span>
+            </td>
+            <td class="oa-col-name">{{ r.fullName }}</td>
+            <td class="oa-col-sub" *ngFor="let s of subjects; let colIdx = index">
+              <input
+                type="number"
+                class="oa-mark-input"
+                [max]="s.maxMarks"
+                min="0"
+                [ngModel]="r.marksBySubject[s.subjectId]"
+                (ngModelChange)="onMarkChange(r, s, $event)"
+                (keydown)="onMarkKeydown($event, r, colIdx)"
+                [attr.data-student-id]="r.studentId"
+                [attr.data-col]="colIdx"
+                placeholder="—"
+              />
+            </td>
+            <td class="oa-col-total">{{ totalOf(r) }}</td>
+            <td class="oa-col-rank">
+              <span class="oa-rank-chip" *ngIf="r.rank !== null">#{{ r.rank }}</span>
+              <span class="oa-rank-dash" *ngIf="r.rank === null">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+
+  <div class="oa-actions" *ngIf="!isLoading && rows.length > 0">
+    <button mat-stroked-button (click)="back()" [disabled]="isSaving">
+      <mat-icon>arrow_back</mat-icon>
+      Back
+    </button>
+    <button mat-stroked-button
+            class="oa-notify-btn"
+            [disabled]="!canNotify || isSaving"
+            (click)="openNotifyDialog()"
+            matTooltip="Save marks first to enable notifications"
+            [matTooltipDisabled]="canNotify">
+      <mat-icon>notifications_active</mat-icon>
+      Notify
+    </button>
+    <button mat-flat-button color="primary" (click)="save()" [disabled]="isSaving">
+      <mat-spinner *ngIf="isSaving" diameter="18" class="oa-save-spinner"></mat-spinner>
+      <mat-icon *ngIf="!isSaving">save</mat-icon>
+      {{ isSaving ? 'Saving...' : 'Save Marks' }}
+    </button>
+  </div>
+
+  <!-- Notify preview popup — shows the sample body + recipient
+       counts before firing. The Send button is the only path that
+       actually fans notifications out. -->
+  <div class="oa-overlay" *ngIf="notifyDialogOpen" (click)="closeNotifyDialog()">
+    <div class="oa-dialog" (click)="$event.stopPropagation()">
+      <div class="oa-dialog-head">
+        <div class="oa-dialog-title">
+          <mat-icon>notifications_active</mat-icon>
+          Notify Students
+        </div>
+        <button mat-icon-button class="oa-dialog-close"
+                [disabled]="isSendingNotify"
+                (click)="closeNotifyDialog()" aria-label="Close">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <p class="oa-dialog-hint">
+        Preview of the notification each student will receive.
+      </p>
+
+      <div class="oa-notify-loading" *ngIf="isPreviewingNotify">
+        <mat-spinner diameter="28"></mat-spinner>
+      </div>
+
+      <ng-container *ngIf="!isPreviewingNotify && notifyPreview">
+        <!-- Recipient count summary. -->
+        <div class="oa-notify-stats">
+          <div class="oa-stat">
+            <mat-icon>groups</mat-icon>
+            <div class="oa-stat-text">
+              <div class="oa-stat-value">{{ notifyPreview.studentCount }}</div>
+              <div class="oa-stat-label">student{{ notifyPreview.studentCount === 1 ? '' : 's' }}</div>
+            </div>
+          </div>
+          <div class="oa-stat" *ngIf="notifyPreview.parentCount > 0">
+            <mat-icon>family_restroom</mat-icon>
+            <div class="oa-stat-text">
+              <div class="oa-stat-value">{{ notifyPreview.parentCount }}</div>
+              <div class="oa-stat-label">parent{{ notifyPreview.parentCount === 1 ? '' : 's' }}</div>
+            </div>
+          </div>
+          <div class="oa-stat total">
+            <mat-icon>send</mat-icon>
+            <div class="oa-stat-text">
+              <div class="oa-stat-value">{{ notifyPreview.totalRecipients }}</div>
+              <div class="oa-stat-label">recipient{{ notifyPreview.totalRecipients === 1 ? '' : 's' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sample notification card — mirrors the phone push style. -->
+        <div class="oa-notify-preview">
+          <div class="oa-notify-preview-head">
+            <mat-icon>notifications</mat-icon>
+            <span>Preview</span>
+            <span class="oa-notify-preview-sample" *ngIf="notifyPreview.sampleStudentName">
+              · Sample for {{ notifyPreview.sampleStudentName }}
+            </span>
+          </div>
+          <div class="oa-notify-title">{{ notifyPreview.title }}</div>
+          <pre class="oa-notify-body">{{ notifyPreview.body }}</pre>
+        </div>
+      </ng-container>
+
+      <div class="oa-dialog-actions">
+        <button mat-stroked-button
+                [disabled]="isSendingNotify"
+                (click)="closeNotifyDialog()">Cancel</button>
+        <button mat-flat-button color="primary"
+                [disabled]="isSendingNotify || isPreviewingNotify || !notifyPreview || notifyPreview.totalRecipients === 0"
+                (click)="confirmNotify()">
+          <mat-spinner *ngIf="isSendingNotify" diameter="18" class="oa-save-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isSendingNotify">send</mat-icon>
+          {{ isSendingNotify ? 'Sending…' : 'Send' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk upload popup — two options: download the pre-filled
+       template Excel for this assessment, or upload a filled one. -->
+  <div class="oa-overlay" *ngIf="uploadDialogOpen" (click)="closeUploadDialog()">
+    <div class="oa-dialog" (click)="$event.stopPropagation()">
+      <div class="oa-dialog-head">
+        <div class="oa-dialog-title">
+          <mat-icon>upload_file</mat-icon>
+          Bulk Marks Upload
+        </div>
+        <button mat-icon-button class="oa-dialog-close"
+                (click)="closeUploadDialog()" aria-label="Close">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <p class="oa-dialog-hint">
+        Download the template, fill marks in Excel, then upload it back.
+      </p>
+
+      <div class="oa-dialog-choices">
+        <div class="oa-choice-block">
+          <button type="button" class="oa-choice" (click)="onDownloadTemplate()">
+            <mat-icon class="oa-choice-icon">download</mat-icon>
+            <div class="oa-choice-text">
+              <div class="oa-choice-title">Download Template</div>
+              <div class="oa-choice-sub">Excel sheet pre-filled with the roster and subjects</div>
+            </div>
+          </button>
+          <mat-checkbox class="oa-choice-opt"
+                        [(ngModel)]="templateIncludeRoll"
+                        (click)="$event.stopPropagation()">
+            Include Roll No column
+          </mat-checkbox>
+        </div>
+
+        <button type="button" class="oa-choice"
+                [disabled]="isUploading"
+                (click)="onUploadFile()">
+          <mat-icon class="oa-choice-icon">cloud_upload</mat-icon>
+          <div class="oa-choice-text">
+            <div class="oa-choice-title">
+              {{ pendingFile ? 'Change File' : 'Upload File' }}
+            </div>
+            <div class="oa-choice-sub">
+              Select a filled template — matches students by Admission No
+            </div>
+          </div>
+        </button>
+
+        <input #uploadInput
+               type="file"
+               accept=".xlsx"
+               hidden
+               (change)="onFileChosen($event)" />
+
+        <!-- Selected-file preview + explicit confirm step. The
+             upload only fires when Upload is clicked here — picking
+             a file just stages it. -->
+        <div class="oa-pending-file" *ngIf="pendingFile">
+          <div class="oa-pending-info">
+            <mat-icon>description</mat-icon>
+            <div class="oa-pending-text">
+              <div class="oa-pending-name">{{ pendingFile.name }}</div>
+              <div class="oa-pending-size">{{ formatFileSize(pendingFile.size) }}</div>
+            </div>
+            <button mat-icon-button
+                    class="oa-pending-clear"
+                    [disabled]="isUploading"
+                    (click)="clearPendingFile()"
+                    aria-label="Remove file">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          <button mat-flat-button
+                  color="primary"
+                  class="oa-pending-confirm"
+                  [disabled]="isUploading"
+                  (click)="confirmUpload()">
+            <mat-spinner *ngIf="isUploading" diameter="18" class="oa-save-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isUploading">cloud_upload</mat-icon>
+            {{ isUploading ? 'Uploading…' : 'Upload' }}
+          </button>
+        </div>
+
+        <!-- Inline error surfaced under the Upload File tile — keeps
+             the message visible even after the snackbar auto-hides. -->
+        <div class="oa-upload-error" *ngIf="uploadError">
+          <mat-icon>error</mat-icon>
+          <span>{{ uploadError }}</span>
+        </div>
+      </div>
+
+      <!-- Result summary — only shown after an upload completes. -->
+      <div class="oa-upload-summary" *ngIf="uploadResult">
+        <div class="oa-summary-line ok">
+          <mat-icon>check_circle</mat-icon>
+          <span><strong>{{ uploadResult.matched }}</strong> student{{ uploadResult.matched === 1 ? '' : 's' }} updated</span>
+        </div>
+
+        <details class="oa-summary-details" *ngIf="uploadResult.unmatched.length">
+          <summary>
+            <mat-icon>error_outline</mat-icon>
+            {{ uploadResult.unmatched.length }} unmatched admission number{{ uploadResult.unmatched.length === 1 ? '' : 's' }}
+          </summary>
+          <ul>
+            <li *ngFor="let a of uploadResult.unmatched">{{ a }}</li>
+          </ul>
+        </details>
+
+        <details class="oa-summary-details" *ngIf="uploadResult.invalidRows.length">
+          <summary>
+            <mat-icon>warning_amber</mat-icon>
+            {{ uploadResult.invalidRows.length }} skipped row{{ uploadResult.invalidRows.length === 1 ? '' : 's' }}
+          </summary>
+          <ul>
+            <li *ngFor="let e of uploadResult.invalidRows">{{ e }}</li>
+          </ul>
+        </details>
+
+        <details class="oa-summary-details" *ngIf="uploadResult.missingSubjectHeaders.length">
+          <summary>
+            <mat-icon>help_outline</mat-icon>
+            {{ uploadResult.missingSubjectHeaders.length }} missing subject header{{ uploadResult.missingSubjectHeaders.length === 1 ? '' : 's' }}
+          </summary>
+          <ul>
+            <li *ngFor="let s of uploadResult.missingSubjectHeaders">{{ s }}</li>
+          </ul>
+        </details>
+      </div>
+
+      <div class="oa-dialog-actions">
+        <button mat-stroked-button (click)="closeUploadDialog()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>

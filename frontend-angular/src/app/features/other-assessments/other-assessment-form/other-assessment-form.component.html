@@ -1,0 +1,135 @@
+<div class="oa-form">
+  <app-page-header
+    title="New Assessment"
+    subtitle="Create a non-academic test (weekly CET, mock, etc.)"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Other Assessments', link: '/other-assessments' },
+      { label: 'New' }
+    ]"
+  ></app-page-header>
+
+  <mat-card class="oa-form-card">
+    <mat-card-content>
+      <div class="oa-row">
+        <mat-form-field appearance="outline" class="oa-field">
+          <mat-label>Academic Year</mat-label>
+          <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onYearChange()">
+            <mat-option *ngFor="let y of academicYears" [value]="y.academicYearId">{{ y.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="oa-field">
+          <mat-label>Classes</mat-label>
+          <mat-select multiple [(ngModel)]="selectedClassIds"
+                      (selectionChange)="onClassChange()"
+                      [disabled]="!selectedAcademicYearId">
+            <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="oa-field">
+          <mat-label>Sections</mat-label>
+          <mat-select multiple [(ngModel)]="selectedSectionValues"
+                      (selectionChange)="onSectionChange()"
+                      [disabled]="selectedClassIds.length === 0">
+            <mat-option *ngFor="let s of sectionOptions" [value]="s.value">{{ s.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="oa-field">
+          <mat-label>Date</mat-label>
+          <input matInput [matDatepicker]="picker" [(ngModel)]="testDate" />
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+      </div>
+
+      <div class="oa-row">
+        <mat-form-field appearance="outline" class="oa-field">
+          <mat-label>Name</mat-label>
+          <input matInput [(ngModel)]="name" placeholder="e.g. CET Week 1" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="oa-field">
+          <mat-label>Type</mat-label>
+          <input matInput [(ngModel)]="type" placeholder="e.g. CET, Mock" />
+        </mat-form-field>
+      </div>
+
+      <div class="oa-subjects-head">
+        <h3>Subjects</h3>
+        <!-- Picker is only rendered while there's something left to
+             add — an empty disabled dropdown looked frozen to admins.
+             When every subject is already in the list, we swap it
+             for a small "All added" pill so the section still reads
+             as complete rather than broken. -->
+        <mat-form-field appearance="outline" class="oa-subject-picker"
+                        *ngIf="pickableSubjects.length > 0">
+          <mat-label>Add Subjects</mat-label>
+          <mat-select multiple [(ngModel)]="subjectPickerModel"
+                      (selectionChange)="onSubjectsPicked($event.value)">
+            <mat-option *ngFor="let opt of pickableSubjects" [value]="opt.subjectId">
+              {{ opt.name }}
+              <span class="oa-scope-hint" *ngIf="opt.scopeLabel">{{ opt.scopeLabel }}</span>
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+        <span class="oa-subjects-complete"
+              *ngIf="pickableSubjects.length === 0 && subjects.length > 0">
+          <mat-icon>check_circle</mat-icon>
+          All subjects added
+        </span>
+      </div>
+
+      <!-- Bulk max marks — set once, apply to every row in one tap.
+           Handy for CETs where every subject uses the same cap
+           ("everything out of 45"). Per-row inputs still override
+           after this. -->
+      <div class="oa-bulk-max" *ngIf="subjects.length > 0">
+        <mat-form-field appearance="outline" class="oa-bulk-field">
+          <mat-label>Max marks (all subjects)</mat-label>
+          <input matInput type="number" min="1" [(ngModel)]="bulkMaxMarks"
+                 placeholder="e.g. 45" />
+        </mat-form-field>
+        <button mat-stroked-button color="primary" type="button"
+                (click)="applyBulkMaxMarks()"
+                [disabled]="!bulkMaxMarks || bulkMaxMarks <= 0">
+          <mat-icon>done_all</mat-icon>
+          Apply to all
+        </button>
+      </div>
+
+      <div class="oa-subjects-empty" *ngIf="subjects.length === 0">
+        <mat-icon>menu_book</mat-icon>
+        <span>Pick one or more subjects above, then set max marks for each.</span>
+      </div>
+
+      <div class="oa-subject-row" *ngFor="let s of subjects; let i = index">
+        <div class="oa-subject-label">
+          {{ s.subjectName }}
+          <span class="oa-scope-chip" *ngIf="scopeFor(s.subjectName)">{{ scopeFor(s.subjectName) }}</span>
+        </div>
+        <mat-form-field appearance="outline" class="oa-max-field">
+          <mat-label>Max Marks</mat-label>
+          <input matInput type="number" min="1" [(ngModel)]="s.maxMarks" />
+        </mat-form-field>
+        <button mat-icon-button color="warn" type="button" (click)="removeSubject(i)" matTooltip="Remove">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="oa-actions">
+        <button mat-stroked-button type="button" (click)="cancel()" [disabled]="isSaving">
+          Cancel
+        </button>
+        <button mat-flat-button color="primary" type="button" (click)="save()"
+                [disabled]="!canSave()">
+          <mat-spinner *ngIf="isSaving" diameter="18" class="oa-save-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isSaving">save</mat-icon>
+          {{ isSaving ? 'Saving...' : 'Create Assessment' }}
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

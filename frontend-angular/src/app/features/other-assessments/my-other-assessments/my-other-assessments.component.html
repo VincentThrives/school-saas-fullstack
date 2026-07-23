@@ -1,0 +1,177 @@
+<div class="my-oa">
+  <app-page-header
+    title="Other Assessments"
+    subtitle="Weekly CETs, mocks and other practice tests"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Other Assessments' }
+    ]"
+  ></app-page-header>
+
+  <div class="my-oa-loading" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <div class="my-oa-empty" *ngIf="!isLoading && rows.length === 0">
+    <mat-icon>assignment</mat-icon>
+    <h3>No assessments yet</h3>
+    <p>Weekly CETs and mock tests will appear here once your school posts them.</p>
+  </div>
+
+  <ng-container *ngIf="!isLoading && rows.length > 0">
+    <!-- Search + type filter — scales cleanly past 30+ rows. -->
+    <mat-card class="my-oa-filters">
+      <mat-card-content>
+        <div class="my-oa-filter-row">
+          <mat-form-field appearance="outline" class="my-oa-search-field">
+            <mat-label>Search</mat-label>
+            <mat-icon matPrefix>search</mat-icon>
+            <input matInput [(ngModel)]="searchQuery" (ngModelChange)="onFilterChange()"
+                   placeholder="Name or type" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="my-oa-type-field">
+            <mat-label>Type</mat-label>
+            <mat-select [(ngModel)]="typeFilter" (selectionChange)="onFilterChange()">
+              <mat-option value="all">All types</mat-option>
+              <mat-option *ngFor="let t of availableTypes" [value]="t">{{ t }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <span class="my-oa-count">
+            <mat-icon>fact_check</mat-icon>
+            {{ filteredRows.length }} of {{ rows.length }}
+          </span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <div class="my-oa-no-match" *ngIf="filteredRows.length === 0">
+      <mat-icon>search_off</mat-icon>
+      <span>Nothing matches your search. Try a different word or reset the filter.</span>
+    </div>
+
+    <!-- Card list — one clickable card per row. Click opens the
+         details popup with the subject-wise breakdown. -->
+    <div class="my-oa-list" *ngIf="visibleRows.length > 0">
+      <button type="button"
+              class="my-oa-item"
+              *ngFor="let r of visibleRows; let i = index"
+              (click)="openDetails(r)">
+        <div class="my-oa-item-main">
+          <div class="my-oa-item-title">
+            <span class="my-oa-latest-chip" *ngIf="i === 0">LATEST</span>
+            <span class="my-oa-item-name">{{ r.name }}</span>
+            <span class="my-oa-item-type" *ngIf="r.type">{{ r.type }}</span>
+          </div>
+          <div class="my-oa-item-sub">
+            <span class="my-oa-item-date">
+              <mat-icon class="mini">event</mat-icon>
+              {{ formatDate(r.testDate) }}
+            </span>
+          </div>
+        </div>
+        <div class="my-oa-item-right">
+          <div class="my-oa-item-score">{{ totalObtained(r) }} / {{ totalMax(r) }}</div>
+          <div class="my-oa-item-pct">{{ percentage(r) }}%</div>
+          <div class="my-oa-item-rank" *ngIf="r.myRank !== null">
+            <mat-icon class="mini">emoji_events</mat-icon>
+            Rank {{ r.myRank }}<span *ngIf="r.rankedCount"> / {{ r.rankedCount }}</span>
+          </div>
+        </div>
+        <mat-icon class="my-oa-item-arrow">chevron_right</mat-icon>
+      </button>
+    </div>
+
+    <!-- Pagination — prev/next arrows plus a "1–5 of 12" label. Only
+         renders when there's more than one page to walk. -->
+    <div class="my-oa-pager" *ngIf="totalPages > 1">
+      <button mat-icon-button
+              (click)="prevPage()"
+              [disabled]="currentPage === 1"
+              matTooltip="Previous">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <span class="my-oa-pager-label">
+        {{ pageStart }}–{{ pageEnd }} of {{ filteredRows.length }}
+      </span>
+      <button mat-icon-button
+              (click)="nextPage()"
+              [disabled]="currentPage === totalPages"
+              matTooltip="Next">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+    </div>
+  </ng-container>
+
+  <!-- Details popup — full subject-wise breakdown for the tapped
+       assessment. Same overlay pattern used elsewhere in the app
+       (Homework detail popup, etc.) so it feels familiar. -->
+  <div class="my-oa-overlay" *ngIf="opened" (click)="closeDetails()">
+    <div class="my-oa-dialog" (click)="$event.stopPropagation()">
+      <div class="my-oa-dialog-head">
+        <div class="my-oa-dialog-title">
+          <span class="my-oa-name">{{ opened.name }}</span>
+          <span class="my-oa-type" *ngIf="opened.type">{{ opened.type }}</span>
+        </div>
+        <button mat-icon-button class="my-oa-dialog-close"
+                (click)="closeDetails()" aria-label="Close">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="my-oa-dialog-meta">
+        <span>
+          <mat-icon class="mini">event</mat-icon>
+          {{ formatDate(opened.testDate) }}
+        </span>
+      </div>
+
+      <div class="my-oa-dialog-total">
+        <div class="my-oa-score">{{ totalObtained(opened) }} / {{ totalMax(opened) }}</div>
+        <div class="my-oa-percent">{{ percentage(opened) }}%</div>
+      </div>
+
+      <div class="my-oa-dialog-rank" *ngIf="opened.myRank !== null">
+        <mat-icon>emoji_events</mat-icon>
+        <div class="my-oa-rank-text">
+          <span class="my-oa-rank-value">Rank {{ opened.myRank }}</span>
+          <span class="my-oa-rank-sub" *ngIf="opened.rankedCount">
+            out of {{ opened.rankedCount }} student{{ opened.rankedCount === 1 ? '' : 's' }}
+          </span>
+        </div>
+      </div>
+
+      <table class="my-oa-subjects">
+        <thead>
+          <tr>
+            <th>Subject</th>
+            <th class="my-oa-num">Marks</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of opened.subjects">
+            <td class="my-oa-subject">{{ s.subjectName }}</td>
+            <td class="my-oa-num">
+              <span *ngIf="markFor(opened, s.subjectId) !== null">
+                {{ markFor(opened, s.subjectId) }} / {{ s.maxMarks }}
+              </span>
+              <span *ngIf="markFor(opened, s.subjectId) === null" class="my-oa-pending">
+                Not marked yet
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="my-oa-remark" *ngIf="opened.remark">
+        <mat-icon>info</mat-icon>
+        <span>{{ opened.remark }}</span>
+      </div>
+
+      <div class="my-oa-dialog-actions">
+        <button mat-flat-button color="primary" (click)="closeDetails()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

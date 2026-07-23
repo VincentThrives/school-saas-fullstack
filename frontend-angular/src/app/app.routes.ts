@@ -240,6 +240,52 @@ export const routes: Routes = [
         data: { roles: [UserRole.STUDENT], feature: 'report_cards' },
       },
 
+      // ── Other Assessments (non-academic: CET, mock, weekly tests) ─
+      // Admin-only. Stored in its own collection, unrelated to Exams /
+      // ReportCards so it can't disturb the academic pipeline.
+      {
+        path: 'other-assessments',
+        loadComponent: () =>
+          import('./features/other-assessments/other-assessments-list/other-assessments-list.component')
+              .then(m => m.OtherAssessmentsListComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN] },
+      },
+      {
+        path: 'other-assessments/new',
+        loadComponent: () =>
+          import('./features/other-assessments/other-assessment-form/other-assessment-form.component')
+              .then(m => m.OtherAssessmentFormComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN] },
+      },
+      {
+        path: 'other-assessments/:id',
+        loadComponent: () =>
+          import('./features/other-assessments/other-assessment-detail/other-assessment-detail.component')
+              .then(m => m.OtherAssessmentDetailComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN] },
+      },
+      {
+        path: 'other-assessments/:id/edit',
+        loadComponent: () =>
+          import('./features/other-assessments/other-assessment-edit/other-assessment-edit.component')
+              .then(m => m.OtherAssessmentEditComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN] },
+      },
+      // Student / parent view — per-student list with only the
+      // caller's own marks (peers' scores stripped server-side).
+      {
+        path: 'my-other-assessments',
+        loadComponent: () =>
+          import('./features/other-assessments/my-other-assessments/my-other-assessments.component')
+              .then(m => m.MyOtherAssessmentsComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.STUDENT, UserRole.PARENT] },
+      },
+
       // ── Exams (feature-gated) ────────────────────────────
       {
         path: 'exams',

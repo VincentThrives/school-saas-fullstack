@@ -1,0 +1,114 @@
+<div class="oa-edit">
+  <app-page-header
+    [title]="'Edit ' + (assessment?.name || 'Assessment')"
+    subtitle="Change date, add subjects. Subjects with marks entered are locked."
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Other Assessments', link: '/other-assessments' },
+      { label: 'Edit' }
+    ]"
+  ></app-page-header>
+
+  <div class="oa-loading" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <mat-card class="oa-edit-card" *ngIf="!isLoading && assessment">
+    <mat-card-content>
+      <div class="oa-row">
+        <!-- Read-only summary — assessment identity is locked so
+             historical marks stay attached to the same class/section
+             they were entered against. -->
+        <mat-form-field appearance="outline" class="oa-field" [class.oa-readonly]="true">
+          <mat-label>Name</mat-label>
+          <input matInput [value]="assessment.name" disabled />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="oa-field" [class.oa-readonly]="true">
+          <mat-label>Type</mat-label>
+          <input matInput [value]="assessment.type || '—'" disabled />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="oa-field">
+          <mat-label>Date</mat-label>
+          <input matInput [matDatepicker]="picker" [(ngModel)]="testDate" />
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+      </div>
+
+      <div class="oa-subjects-head">
+        <h3>Subjects</h3>
+        <mat-form-field appearance="outline" class="oa-subject-picker"
+                        *ngIf="pickableSubjects.length > 0">
+          <mat-label>Add Subjects</mat-label>
+          <mat-select multiple [(ngModel)]="subjectPickerModel"
+                      (selectionChange)="onSubjectsPicked($event.value)">
+            <mat-option *ngFor="let opt of pickableSubjects" [value]="opt.subjectId">
+              {{ opt.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+        <span class="oa-subjects-complete"
+              *ngIf="pickableSubjects.length === 0 && rows.length > 0">
+          <mat-icon>check_circle</mat-icon>
+          All subjects added
+        </span>
+      </div>
+
+      <div class="oa-bulk-max" *ngIf="rows.length > 0">
+        <mat-form-field appearance="outline" class="oa-bulk-field">
+          <mat-label>Max marks (all subjects)</mat-label>
+          <input matInput type="number" min="1" [(ngModel)]="bulkMaxMarks"
+                 placeholder="e.g. 45" />
+        </mat-form-field>
+        <button mat-stroked-button color="primary" type="button"
+                (click)="applyBulkMaxMarks()"
+                [disabled]="!bulkMaxMarks || bulkMaxMarks <= 0">
+          <mat-icon>done_all</mat-icon>
+          Apply to all
+        </button>
+      </div>
+
+      <div class="oa-subjects-empty" *ngIf="rows.length === 0">
+        <mat-icon>menu_book</mat-icon>
+        <span>Pick one or more subjects above.</span>
+      </div>
+
+      <div class="oa-subject-row" *ngFor="let r of rows; let i = index"
+           [class.oa-row-locked]="r.hasMarks">
+        <div class="oa-subject-label">
+          {{ r.subjectName }}
+          <span class="oa-lock-chip" *ngIf="r.hasMarks" matTooltip="Marks already entered">
+            <mat-icon>lock</mat-icon>
+            marks entered
+          </span>
+        </div>
+        <mat-form-field appearance="outline" class="oa-max-field">
+          <mat-label>Max Marks</mat-label>
+          <input matInput type="number" min="1" [(ngModel)]="r.maxMarks" />
+        </mat-form-field>
+        <button mat-icon-button color="warn" type="button"
+                (click)="removeRow(i)"
+                [disabled]="r.hasMarks"
+                [matTooltip]="r.hasMarks
+                  ? 'Marks are already entered — cannot remove'
+                  : 'Remove'">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="oa-actions">
+        <button mat-stroked-button type="button" (click)="cancel()" [disabled]="isSaving">
+          Cancel
+        </button>
+        <button mat-flat-button color="primary" type="button" (click)="save()"
+                [disabled]="!canSave()">
+          <mat-spinner *ngIf="isSaving" diameter="18" class="oa-save-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isSaving">save</mat-icon>
+          {{ isSaving ? 'Saving...' : 'Save Changes' }}
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

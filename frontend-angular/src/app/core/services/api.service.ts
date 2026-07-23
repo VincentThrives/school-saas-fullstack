@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
@@ -698,6 +698,118 @@ export class ApiService {
 
   deleteAcademicYear(id: string): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.API}/academic-years/${id}`);
+  }
+
+  // ── Other Assessments (non-academic, weekly-CET style tests) ──────
+
+  /** Admin list — assessments in the given year, optionally scoped
+   *  to a class, section, and/or filtered by type (e.g. "CET"). Pass
+   *  empty {@code classId} to get every assessment for the year
+   *  (drives the "All Classes" filter option). When
+   *  {@code archived=true}, returns only soft-deleted rows — powers
+   *  the admin's Archive view + Restore action. */
+  listOtherAssessments(classId: string, academicYearId: string,
+                       sectionId?: string, type?: string,
+                       archived = false): Observable<ApiResponse<any[]>> {
+    let params = new HttpParams().set('academicYearId', academicYearId);
+    if (classId) params = params.set('classId', classId);
+    if (sectionId) params = params.set('sectionId', sectionId);
+    if (type) params = params.set('type', type);
+    if (archived) params = params.set('archived', 'true');
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/other-assessments`, { params });
+  }
+
+  /** Restore a previously-archived assessment. */
+  restoreOtherAssessment(assessmentId: string): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(
+        `${this.API}/other-assessments/${assessmentId}/restore`, {});
+  }
+
+  /** Student / parent — every LIVE assessment the caller appears in,
+   *  with ONLY the caller's own marks (peers' scores are stripped
+   *  server-side). */
+  getMyOtherAssessments(): Observable<ApiResponse<any[]>> {
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/other-assessments/mine`);
+  }
+
+  createOtherAssessment(payload: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.API}/other-assessments`, payload);
+  }
+
+  getOtherAssessment(assessmentId: string): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.API}/other-assessments/${assessmentId}`);
+  }
+
+  /** Bulk-save the full students[] array for an assessment. */
+  saveOtherAssessmentMarks(assessmentId: string, students: any[]): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(
+        `${this.API}/other-assessments/${assessmentId}/marks`, { students });
+  }
+
+  /** Preview the notification body + recipient counts before firing. */
+  previewOtherAssessmentNotify(assessmentId: string): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(
+        `${this.API}/other-assessments/${assessmentId}/notify/preview`);
+  }
+
+  /** Send in-app notifications to students + parents with a marks
+   *  breakdown. Server derives content from the assessment's stored
+   *  marks, so any last-minute edit is reflected. */
+  sendOtherAssessmentNotify(assessmentId: string): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(
+        `${this.API}/other-assessments/${assessmentId}/notify`, {});
+  }
+
+  /** Uploads a filled-in template. Server matches students by
+   *  Admission No and merges marks in — untouched students keep
+   *  their existing marks. Returns a summary of matched, unmatched
+   *  and invalid rows. */
+  uploadOtherAssessmentMarks(assessmentId: string, file: File): Observable<ApiResponse<any>> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return this.http.post<ApiResponse<any>>(
+        `${this.API}/other-assessments/${assessmentId}/upload`, form);
+  }
+
+  /** Downloads the .xlsx marks-entry template for the assessment.
+   *  Server pre-fills school name, class label, roster and subject
+   *  columns; admin fills the marks, then uploads it back.
+   *
+   *  @param includeRoll  when false, the Roll No column is omitted
+   *      — schools with unreliable roll numbers rely on Adm No as
+   *      the upload match key. Defaults to true. */
+  downloadOtherAssessmentTemplate(
+      assessmentId: string,
+      includeRoll = true): Observable<HttpResponse<Blob>> {
+    const params = new HttpParams().set('includeRoll', includeRoll ? 'true' : 'false');
+    return this.http.get(`${this.API}/other-assessments/${assessmentId}/template`, {
+      responseType: 'blob',
+      observe: 'response',
+      params,
+    });
+  }
+
+  /** Edit an existing assessment — change date and/or subject list.
+   *  Backend enforces the "can't remove a subject with marks" rule. */
+  updateOtherAssessment(assessmentId: string, payload: any): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(
+        `${this.API}/other-assessments/${assessmentId}`, payload);
+  }
+
+  /** Cheap yes/no lookup — feeds the delete-confirmation dialog's
+   *  "marks already entered" warning without loading the full doc. */
+  getOtherAssessmentMarksStatus(assessmentId: string):
+      Observable<ApiResponse<{ hasAnyMarks: boolean }>> {
+    return this.http.get<ApiResponse<any>>(
+        `${this.API}/other-assessments/${assessmentId}/marks-status`);
+  }
+
+  /** Delete — soft (archive) by default; pass hard=true for a full
+   *  Mongo removal. */
+  deleteOtherAssessment(assessmentId: string, hard = false): Observable<ApiResponse<void>> {
+    const params = new HttpParams().set('hard', hard);
+    return this.http.delete<ApiResponse<void>>(
+        `${this.API}/other-assessments/${assessmentId}`, { params });
   }
 
   // ── Sibling switcher (multi-child single-phone parent flow) ────────

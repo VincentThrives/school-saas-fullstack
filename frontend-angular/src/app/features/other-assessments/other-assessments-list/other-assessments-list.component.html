@@ -1,0 +1,275 @@
+<div class="oa-list">
+  <app-page-header
+    title="Other Assessments"
+    subtitle="Weekly CETs, mock exams, and any non-academic tests"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Other Assessments' }
+    ]"
+    actionLabel="New Assessment"
+    actionIcon="add"
+    (actionClick)="onCreate()"
+  ></app-page-header>
+
+  <mat-card class="oa-filter-card">
+    <mat-card-content>
+      <div class="oa-filters">
+        <mat-form-field appearance="outline" class="oa-filter">
+          <mat-label>Academic Year</mat-label>
+          <mat-select [(ngModel)]="selectedAcademicYearId" (selectionChange)="onYearChange()">
+            <mat-option *ngFor="let y of academicYears" [value]="y.academicYearId">{{ y.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="oa-filter">
+          <mat-label>Class</mat-label>
+          <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()"
+                      [disabled]="!selectedAcademicYearId">
+            <mat-option value="">All classes</mat-option>
+            <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="oa-filter">
+          <mat-label>Section</mat-label>
+          <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSectionChange()"
+                      [disabled]="!selectedClassId">
+            <mat-option value="">All sections</mat-option>
+            <mat-option *ngFor="let s of sections" [value]="s.sectionId">{{ s.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="oa-filter">
+          <mat-label>Type</mat-label>
+          <input matInput [(ngModel)]="typeFilter" (change)="onTypeChange()"
+                 placeholder="e.g. CET, Mock" />
+        </mat-form-field>
+      </div>
+
+      <!-- Archive toggle — swaps the list to soft-deleted rows only.
+           When on, the row actions change to Restore + Delete
+           permanently instead of Edit + Archive. -->
+      <div class="oa-archive-row">
+        <mat-slide-toggle [(ngModel)]="showArchived" (change)="onArchivedToggle()">
+          Show archived
+        </mat-slide-toggle>
+        <span class="oa-archive-hint" *ngIf="showArchived">
+          <mat-icon>archive</mat-icon>
+          Viewing archived assessments — restore to bring back to the live list.
+        </span>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <div class="oa-loading" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <div class="oa-empty"
+       *ngIf="!isLoading && assessments.length === 0 && !showArchived">
+    <mat-icon>assignment</mat-icon>
+    <h3>No assessments yet</h3>
+    <p>Tap <strong>New Assessment</strong> above to create the first one.</p>
+  </div>
+  <div class="oa-empty"
+       *ngIf="!isLoading && assessments.length === 0 && showArchived">
+    <mat-icon>inventory_2</mat-icon>
+    <h3>Nothing in the archive</h3>
+    <p>Archived assessments appear here — delete or archive an assessment to see it.</p>
+  </div>
+
+  <mat-card class="oa-table-card" *ngIf="!isLoading && assessments.length > 0">
+    <div class="oa-table-wrap">
+      <table class="oa-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Class</th>
+            <th>Section</th>
+            <th>Type</th>
+            <th>Date</th>
+            <th class="oa-num">Students</th>
+            <th class="oa-num">Subjects</th>
+            <th class="oa-actions-head"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let a of assessments" (click)="onOpen(a)" class="oa-row">
+            <td class="oa-name-cell">
+              <span class="oa-name">{{ a.name }}</span>
+              <span class="oa-arrow">Enter marks →</span>
+            </td>
+            <td>{{ classNameFor(a.classId) || '—' }}</td>
+            <td>{{ sectionNameFor(a.classId, a.sectionId) || '—' }}</td>
+            <td>
+              <span class="oa-type-chip" *ngIf="a.type">{{ a.type }}</span>
+              <span *ngIf="!a.type" class="oa-dash">—</span>
+            </td>
+            <td>{{ formatDate(a.testDate) }}</td>
+            <td class="oa-num">{{ a.students?.length || 0 }}</td>
+            <td class="oa-num">{{ a.subjects?.length || 0 }}</td>
+            <td class="oa-actions">
+              <ng-container *ngIf="!showArchived">
+                <button mat-icon-button
+                        class="oa-notify-icon"
+                        [disabled]="!hasAnyMarks(a)"
+                        (click)="onNotify(a, $event)"
+                        [matTooltip]="hasAnyMarks(a) ? 'Notify students' : 'Enter marks to enable'">
+                  <mat-icon>notifications_active</mat-icon>
+                </button>
+                <button mat-icon-button (click)="onEdit(a, $event)" matTooltip="Edit">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button color="warn"
+                        (click)="onDelete(a, $event)"
+                        matTooltip="Delete">
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              </ng-container>
+              <ng-container *ngIf="showArchived">
+                <button mat-icon-button color="primary"
+                        (click)="onRestore(a, $event)"
+                        matTooltip="Restore">
+                  <mat-icon>unarchive</mat-icon>
+                </button>
+                <button mat-icon-button color="warn"
+                        (click)="onDelete(a, $event)"
+                        matTooltip="Delete permanently">
+                  <mat-icon>delete_forever</mat-icon>
+                </button>
+              </ng-container>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </mat-card>
+
+  <!-- Notify preview dialog — same two-step flow as the detail page:
+       preview loads the sample body + recipient counts, admin confirms
+       with Send. Only visible when the row has marks entered. -->
+  <div class="oa-notify-overlay" *ngIf="notifyDialogOpen" (click)="closeNotifyDialog()">
+    <div class="oa-notify-dialog" (click)="$event.stopPropagation()">
+      <div class="oa-notify-head">
+        <div class="oa-notify-title-row">
+          <mat-icon class="oa-notify-head-icon">notifications_active</mat-icon>
+          <div class="oa-notify-head-text">
+            <h3>Notify Students</h3>
+            <span class="oa-notify-target" *ngIf="notifyTarget">
+              {{ notifyTarget.name }}
+              <span *ngIf="notifyTarget.type"> · {{ notifyTarget.type }}</span>
+            </span>
+          </div>
+        </div>
+        <button mat-icon-button class="oa-notify-close"
+                [disabled]="isSendingNotify"
+                (click)="closeNotifyDialog()" aria-label="Close">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <p class="oa-notify-hint">
+        Preview of the notification each student will receive.
+      </p>
+
+      <div class="oa-notify-loading" *ngIf="isPreviewingNotify">
+        <mat-spinner diameter="28"></mat-spinner>
+      </div>
+
+      <ng-container *ngIf="!isPreviewingNotify && notifyPreview">
+        <div class="oa-notify-stats">
+          <div class="oa-notify-stat">
+            <mat-icon>groups</mat-icon>
+            <div>
+              <div class="oa-notify-stat-value">{{ notifyPreview.studentCount }}</div>
+              <div class="oa-notify-stat-label">student{{ notifyPreview.studentCount === 1 ? '' : 's' }}</div>
+            </div>
+          </div>
+          <div class="oa-notify-stat" *ngIf="notifyPreview.parentCount > 0">
+            <mat-icon>family_restroom</mat-icon>
+            <div>
+              <div class="oa-notify-stat-value">{{ notifyPreview.parentCount }}</div>
+              <div class="oa-notify-stat-label">parent{{ notifyPreview.parentCount === 1 ? '' : 's' }}</div>
+            </div>
+          </div>
+          <div class="oa-notify-stat total">
+            <mat-icon>send</mat-icon>
+            <div>
+              <div class="oa-notify-stat-value">{{ notifyPreview.totalRecipients }}</div>
+              <div class="oa-notify-stat-label">recipient{{ notifyPreview.totalRecipients === 1 ? '' : 's' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="oa-notify-preview">
+          <div class="oa-notify-preview-head">
+            <mat-icon>notifications</mat-icon>
+            <span>Preview</span>
+            <span class="oa-notify-preview-sample" *ngIf="notifyPreview.sampleStudentName">
+              · Sample for {{ notifyPreview.sampleStudentName }}
+            </span>
+          </div>
+          <div class="oa-notify-preview-title">{{ notifyPreview.title }}</div>
+          <pre class="oa-notify-preview-body">{{ notifyPreview.body }}</pre>
+        </div>
+      </ng-container>
+
+      <div class="oa-notify-actions">
+        <button mat-stroked-button
+                [disabled]="isSendingNotify"
+                (click)="closeNotifyDialog()">Cancel</button>
+        <button mat-flat-button color="primary"
+                [disabled]="isSendingNotify || isPreviewingNotify || !notifyPreview || notifyPreview.totalRecipients === 0"
+                (click)="confirmNotify()">
+          <mat-spinner *ngIf="isSendingNotify" diameter="18" class="oa-notify-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isSendingNotify">send</mat-icon>
+          {{ isSendingNotify ? 'Sending…' : 'Send' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete confirmation dialog — two-tier: Archive (soft, default,
+       row hidden but kept in DB) vs Delete permanently (hard, wipes
+       from Mongo). Warns when marks are already entered so admins
+       don't wipe visible data by mistake. -->
+  <div class="oa-delete-overlay" *ngIf="deleteDialogOpen" (click)="closeDeleteDialog()">
+    <div class="oa-delete-dialog" (click)="$event.stopPropagation()">
+      <div class="oa-delete-head">
+        <mat-icon class="oa-delete-icon">warning_amber</mat-icon>
+        <h3>Delete "{{ deleteTarget?.name }}"?</h3>
+      </div>
+
+      <p class="oa-delete-body" *ngIf="!deleteHasMarks">
+        No marks have been entered yet. You can archive it (hidden but
+        recoverable) or delete it permanently from the database.
+      </p>
+      <p class="oa-delete-body oa-delete-warn" *ngIf="deleteHasMarks">
+        <mat-icon>info</mat-icon>
+        Marks are already entered for at least one student. Archive keeps
+        the data in the database but hides it from this list. Permanent
+        delete removes everything including the marks — this cannot be
+        undone.
+      </p>
+
+      <div class="oa-delete-actions">
+        <button mat-stroked-button (click)="closeDeleteDialog()" [disabled]="isDeleting">
+          Cancel
+        </button>
+        <button mat-flat-button color="accent"
+                (click)="confirmArchive()"
+                [disabled]="isDeleting">
+          <mat-spinner *ngIf="isDeleting" diameter="18" class="oa-delete-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isDeleting">archive</mat-icon>
+          Archive
+        </button>
+        <button mat-flat-button color="warn"
+                (click)="confirmHardDelete()"
+                [disabled]="isDeleting">
+          <mat-icon *ngIf="!isDeleting">delete_forever</mat-icon>
+          Delete permanently
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

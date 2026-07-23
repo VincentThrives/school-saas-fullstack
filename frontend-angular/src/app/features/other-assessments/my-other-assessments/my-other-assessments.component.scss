@@ -1,0 +1,497 @@
+$gold: #d4a843;
+$gold-dark: #b8860b;
+
+.my-oa {
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.my-oa-loading {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.my-oa-empty,
+.my-oa-no-match {
+  text-align: center;
+  padding: 40px 16px;
+  color: #6b7280;
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: rgba(0, 0, 0, 0.2);
+    margin-bottom: 8px;
+  }
+
+  h3 { margin: 8px 0 4px; color: #1f2937; }
+  p  { margin: 0; font-size: 14px; }
+}
+
+.my-oa-no-match {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  background: #fafafa;
+  border-radius: 12px;
+  margin-bottom: 16px;
+
+  mat-icon {
+    margin: 0;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+// ── Search + filter row ────────────────────────────────────────
+.my-oa-filters {
+  border-radius: 12px;
+  margin-bottom: 14px;
+}
+
+.my-oa-filter-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.my-oa-search-field {
+  flex: 1 1 260px;
+  min-width: 200px;
+  margin: 0;
+}
+
+.my-oa-type-field {
+  flex: 0 1 180px;
+  min-width: 140px;
+  margin: 0;
+}
+
+.my-oa-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  background: rgba($gold, 0.08);
+  border-radius: 999px;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: $gold-dark;
+  }
+}
+
+// ── Card list ──────────────────────────────────────────────────
+.my-oa-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.my-oa-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #f1ecd9;
+  border-left: 4px solid $gold;
+  border-radius: 12px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+
+  &:hover,
+  &:focus-visible {
+    background: rgba($gold, 0.06);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    outline: none;
+  }
+}
+
+.my-oa-item-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.my-oa-item-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.my-oa-item-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: #1f2937;
+  word-break: break-word;
+}
+
+.my-oa-item-type {
+  padding: 2px 8px;
+  background: rgba($gold, 0.18);
+  color: $gold-dark;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.my-oa-latest-chip {
+  padding: 2px 10px;
+  background: $gold-dark;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.my-oa-item-sub {
+  display: flex;
+  gap: 12px;
+  color: #6b7280;
+  font-size: 12.5px;
+  align-items: center;
+}
+
+.my-oa-item-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  mat-icon.mini {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.my-oa-item-right {
+  text-align: right;
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+.my-oa-item-score {
+  font-weight: 700;
+  font-size: 15px;
+  color: $gold-dark;
+  font-variant-numeric: tabular-nums;
+}
+
+.my-oa-item-pct {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.my-oa-item-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 4px;
+  padding: 2px 8px;
+  background: rgba($gold, 0.14);
+  color: $gold-dark;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+
+  mat-icon.mini {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+  }
+}
+
+.my-oa-item-arrow {
+  color: rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+
+// ── Pager ──────────────────────────────────────────────────────
+.my-oa-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 18px 0 8px;
+
+  button {
+    background: rgba($gold, 0.08);
+    color: $gold-dark;
+    transition: background 0.12s ease;
+
+    &:hover:not([disabled]) {
+      background: rgba($gold, 0.2);
+    }
+
+    &[disabled] {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.my-oa-pager-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+  min-width: 120px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+// ── Details popup ──────────────────────────────────────────────
+.my-oa-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.my-oa-dialog {
+  background: #fff;
+  width: min(560px, 95vw);
+  max-height: 88vh;
+  overflow: auto;
+  border-radius: 16px;
+  padding: 20px 22px 22px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.my-oa-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.my-oa-dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.my-oa-dialog-close {
+  flex-shrink: 0;
+}
+
+.my-oa-dialog-meta {
+  color: #6b7280;
+  font-size: 13px;
+  margin-bottom: 12px;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  mat-icon.mini {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+  }
+}
+
+.my-oa-dialog-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba($gold, 0.1), rgba($gold, 0.02));
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.my-oa-dialog-rank {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba($gold-dark, 0.14), rgba($gold, 0.05));
+  border-left: 4px solid $gold-dark;
+  border-radius: 10px;
+  margin-bottom: 12px;
+
+  mat-icon {
+    color: $gold-dark;
+    font-size: 26px;
+    width: 26px;
+    height: 26px;
+  }
+}
+
+.my-oa-rank-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.my-oa-rank-value {
+  font-weight: 800;
+  color: $gold-dark;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.my-oa-rank-sub {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.my-oa-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+// ── Shared bits ────────────────────────────────────────────────
+.my-oa-name {
+  font-weight: 700;
+  font-size: 17px;
+  color: #1f2937;
+  word-break: break-word;
+}
+
+.my-oa-type {
+  padding: 2px 10px;
+  background: rgba($gold, 0.18);
+  color: $gold-dark;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.my-oa-score {
+  font-weight: 700;
+  font-size: 20px;
+  color: $gold-dark;
+  font-variant-numeric: tabular-nums;
+}
+
+.my-oa-percent {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.my-oa-subjects {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+
+  thead th {
+    padding: 8px 4px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(0, 0, 0, 0.55);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    &:last-child { border-bottom: none; }
+  }
+
+  tbody td {
+    padding: 10px 4px;
+    color: #1f2937;
+  }
+}
+
+.my-oa-subject { font-weight: 600; }
+
+.my-oa-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.my-oa-pending {
+  color: #92400e;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.my-oa-remark {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #fff7ed;
+  border-radius: 8px;
+  color: #7c2d12;
+  font-size: 13px;
+
+  mat-icon {
+    color: #ea580c;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+}
+
+// ── Mobile ─────────────────────────────────────────────────────
+@media (max-width: 600px) {
+  .my-oa { padding: 16px; }
+
+  .my-oa-item {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .my-oa-item-name { font-size: 14px; }
+  .my-oa-item-score { font-size: 14px; }
+  .my-oa-item-right { min-width: 74px; }
+
+  .my-oa-item-arrow { display: none; }
+
+  .my-oa-dialog {
+    padding: 16px 18px 18px;
+    max-height: 92vh;
+  }
+
+  .my-oa-name { font-size: 15.5px; }
+  .my-oa-score { font-size: 18px; }
+}
