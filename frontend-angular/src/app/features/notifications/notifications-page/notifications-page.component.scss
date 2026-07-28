@@ -178,6 +178,64 @@
 }
 .audience-detail .span-2 { grid-column: span 2; }
 
+/* Individual users picker — employee/student source chooser +
+   context-appropriate dropdowns + chip list of picks. */
+.individual-picker {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.picker-source-radio {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 4px 2px;
+
+  mat-radio-button mat-icon {
+    vertical-align: middle;
+    margin-right: 6px;
+    font-size: 18px;
+    color: #b8860b;
+  }
+}
+
+.picker-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.picker-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.picker-field { width: 100%; margin: 0; }
+.picker-field-wide { width: 100%; }
+
+.picker-chips {
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #f1ecd9;
+  border-radius: 10px;
+}
+
+.picker-chips-head {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 600px) {
+  .picker-filters { grid-template-columns: 1fr; }
+}
+
 /* Channels */
 .channels-row {
   display: flex;

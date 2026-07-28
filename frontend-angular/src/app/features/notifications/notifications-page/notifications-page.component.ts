@@ -19,7 +19,7 @@ import { PageHeaderComponent } from '../../../shared/components/page-header/page
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { NotificationBusService } from '../../../core/services/notification-bus.service';
-import { SchoolClass, UserRole } from '../../../core/models';
+import { SchoolClass, UserRole, Student, Teacher } from '../../../core/models';
 import { PublishResultComponent } from '../publish-result/publish-result.component';
 
 type RecipientType = 'ALL' | 'ROLE' | 'CLASS' | 'INDIVIDUAL';
@@ -106,6 +106,30 @@ export class NotificationsPageComponent implements OnInit {
   recipientClassId = '';
   recipientSectionId = '';
   recipientUserIds: string[] = [];
+
+  /** Individual-users picker sub-mode. Blank = admin hasn't chosen
+   *  the source yet, so we show a small chooser instead of a giant
+   *  dropdown of everyone. */
+  individualPickerMode: '' | 'EMPLOYEE' | 'STUDENT' = '';
+
+  /** Employee dropdown state. Loaded lazily on entering Employee mode. */
+  pickerEmployees: Teacher[] = [];
+  pickerEmployeeSelectedId = '';
+
+  /** Student dropdown state — class + section filters drive which
+   *  students appear. Selected via the picker → chip flow. */
+  pickerClassId = '';
+  pickerSectionId = '';
+  pickerSections: { sectionId: string; name: string }[] = [];
+  pickerStudents: Student[] = [];
+  pickerStudentSelectedId = '';
+
+  isLoadingPicker = false;
+
+  /** Picked recipients — each becomes a chip below the dropdown so
+   *  the admin can see who they've queued, and remove individually.
+   *  These are the source of truth for the payload's recipientIds. */
+  selectedRecipients: Array<{ userId: string; label: string; kind: 'EMPLOYEE' | 'STUDENT' }> = [];
 
   channelInApp = true;
   channelEmail = false;
@@ -507,6 +531,135 @@ export class NotificationsPageComponent implements OnInit {
     this.recipientSectionId = '';
     this.sections = [];
     this.recipientUserIds = [];
+    this.resetIndividualPicker();
+  }
+
+  // ── Individual users picker (Employee / Student) ──────────────
+
+  /** Reset all sub-picker state so switching audience away from
+   *  Individual doesn't leave stale employee/student picks around. */
+  private resetIndividualPicker(): void {
+    this.individualPickerMode = '';
+    this.pickerEmployees = [];
+    this.pickerEmployeeSelectedId = '';
+    this.pickerClassId = '';
+    this.pickerSectionId = '';
+    this.pickerSections = [];
+    this.pickerStudents = [];
+    this.pickerStudentSelectedId = '';
+    this.selectedRecipients = [];
+  }
+
+  onIndividualModeChange(): void {
+    // Switching source clears the picker inputs (previously-added
+    // chips stay — admin can mix employees + students in one send).
+    this.pickerEmployeeSelectedId = '';
+    this.pickerClassId = '';
+    this.pickerSectionId = '';
+    this.pickerSections = [];
+    this.pickerStudents = [];
+    this.pickerStudentSelectedId = '';
+    if (this.individualPickerMode === 'EMPLOYEE') this.loadPickerEmployees();
+  }
+
+  loadPickerEmployees(): void {
+    if (this.pickerEmployees.length > 0) return;   // already cached
+    this.isLoadingPicker = true;
+    // Large page — schools rarely have > a few hundred employees
+    // and we want one shot at loading rather than pagination inside
+    // a dropdown.
+    this.api.getTeachers(0, 500).subscribe({
+      next: (res) => {
+        this.pickerEmployees = ((res?.data as any)?.content || [])
+            .filter((e: Teacher) => !!e.userId);
+        this.pickerEmployees.sort((a, b) =>
+            this.employeeLabel(a).localeCompare(this.employeeLabel(b),
+                undefined, { sensitivity: 'base' }));
+        this.isLoadingPicker = false;
+      },
+      error: () => { this.pickerEmployees = []; this.isLoadingPicker = false; },
+    });
+  }
+
+  onPickerClassChange(): void {
+    const cls = this.classes.find(c => c.classId === this.pickerClassId);
+    this.pickerSections = (cls?.sections || []).map(s => ({
+      sectionId: (s as any).sectionId || '', name: s.name,
+    }));
+    this.pickerSectionId = '';
+    this.pickerStudents = [];
+    this.pickerStudentSelectedId = '';
+    this.loadPickerStudents();
+  }
+
+  onPickerSectionChange(): void {
+    this.pickerStudentSelectedId = '';
+    this.loadPickerStudents();
+  }
+
+  loadPickerStudents(): void {
+    if (!this.pickerClassId) { this.pickerStudents = []; return; }
+    this.isLoadingPicker = true;
+    this.api.getStudents(0, 1000, {
+      classId: this.pickerClassId,
+      sectionId: this.pickerSectionId || undefined,
+    }).subscribe({
+      next: (res) => {
+        this.pickerStudents = ((res?.data as any)?.content || [])
+            .filter((s: Student) => !!s.userId);
+        this.pickerStudents.sort((a, b) =>
+            this.studentLabel(a).localeCompare(this.studentLabel(b),
+                undefined, { sensitivity: 'base' }));
+        this.isLoadingPicker = false;
+      },
+      error: () => { this.pickerStudents = []; this.isLoadingPicker = false; },
+    });
+  }
+
+  addPickedEmployee(): void {
+    const uid = this.pickerEmployeeSelectedId;
+    if (!uid) return;
+    if (this.selectedRecipients.some(r => r.userId === uid)) {
+      this.pickerEmployeeSelectedId = '';
+      return;
+    }
+    const t = this.pickerEmployees.find(e => e.userId === uid);
+    if (!t) return;
+    this.selectedRecipients.push({
+      userId: uid, label: this.employeeLabel(t), kind: 'EMPLOYEE',
+    });
+    this.pickerEmployeeSelectedId = '';   // ready for next pick
+  }
+
+  addPickedStudent(): void {
+    const uid = this.pickerStudentSelectedId;
+    if (!uid) return;
+    if (this.selectedRecipients.some(r => r.userId === uid)) {
+      this.pickerStudentSelectedId = '';
+      return;
+    }
+    const s = this.pickerStudents.find(x => x.userId === uid);
+    if (!s) return;
+    this.selectedRecipients.push({
+      userId: uid, label: this.studentLabel(s), kind: 'STUDENT',
+    });
+    this.pickerStudentSelectedId = '';
+  }
+
+  removeRecipient(userId: string): void {
+    this.selectedRecipients = this.selectedRecipients.filter(r => r.userId !== userId);
+  }
+
+  employeeLabel(t: Teacher): string {
+    const name = [t.firstName, t.lastName].filter(Boolean).join(' ').trim() || t.employeeId || 'Employee';
+    const role = t.employeeRole ? ` · ${t.employeeRole.replace(/_/g, ' ').toLowerCase()}` : '';
+    return `${name}${role}`;
+  }
+
+  studentLabel(s: Student): string {
+    const name = [s.firstName, s.lastName].filter(Boolean).join(' ').trim() || s.admissionNumber || 'Student';
+    const roll = s.rollNumber ? ` · #${s.rollNumber}` : '';
+    return `${name}${roll}`;
   }
 
   onClassChange(): void {
@@ -528,7 +681,9 @@ export class NotificationsPageComponent implements OnInit {
         if (!cls) return 'Specific class';
         return sec ? `${cls.name} · ${sec.name}` : cls.name;
       case 'INDIVIDUAL':
-        return this.recipientUserIds.length ? `${this.recipientUserIds.length} user(s)` : 'Specific users';
+        return this.selectedRecipients.length
+            ? `${this.selectedRecipients.length} user(s)`
+            : 'Specific users';
     }
   }
 
@@ -543,7 +698,7 @@ export class NotificationsPageComponent implements OnInit {
     if (!this.title.trim() || !this.body.trim()) return false;
     if (!this.channelInApp && !this.channelEmail) return false;
     if (this.recipientType === 'CLASS' && !this.recipientClassId) return false;
-    if (this.recipientType === 'INDIVIDUAL' && this.recipientUserIds.length === 0) return false;
+    if (this.recipientType === 'INDIVIDUAL' && this.selectedRecipients.length === 0) return false;
     return true;
   }
 
@@ -564,6 +719,7 @@ export class NotificationsPageComponent implements OnInit {
     this.recipientSectionId = '';
     this.sections = [];
     this.recipientUserIds = [];
+    this.resetIndividualPicker();
     this.channelInApp = true;
     this.channelEmail = false;
   }
@@ -613,7 +769,9 @@ export class NotificationsPageComponent implements OnInit {
       payload.recipientClassId = this.recipientClassId;
       if (this.recipientSectionId) payload.recipientSectionId = this.recipientSectionId;
     }
-    if (this.recipientType === 'INDIVIDUAL') payload.recipientIds = [...this.recipientUserIds];
+    if (this.recipientType === 'INDIVIDUAL') {
+      payload.recipientIds = this.selectedRecipients.map(r => r.userId);
+    }
 
     this.api.sendNotification(payload).subscribe({
       next: () => {

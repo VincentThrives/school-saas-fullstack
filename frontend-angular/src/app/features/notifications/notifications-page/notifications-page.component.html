@@ -182,20 +182,93 @@
             </mat-form-field>
           </div>
 
-          <div class="audience-detail" *ngIf="recipientType === 'INDIVIDUAL'">
-            <mat-form-field appearance="outline" class="span-2">
-              <mat-label>User IDs</mat-label>
-              <mat-chip-grid #chipGrid>
-                <mat-chip-row *ngFor="let id of recipientUserIds" (removed)="recipientUserIds.splice(recipientUserIds.indexOf(id), 1)">
-                  {{ id }}
-                  <button matChipRemove><mat-icon>cancel</mat-icon></button>
-                </mat-chip-row>
-                <input placeholder="Paste user IDs and press Enter"
-                       [matChipInputFor]="chipGrid"
-                       (matChipInputTokenEnd)="recipientUserIds.push($event.value.trim()); $event.chipInput!.clear()" />
-              </mat-chip-grid>
-              <mat-hint>Full user picker coming soon. For now, paste user IDs.</mat-hint>
-            </mat-form-field>
+          <div class="audience-detail individual-picker" *ngIf="recipientType === 'INDIVIDUAL'">
+            <!-- Step 1: choose the source (employee vs student) so
+                 admin isn't hit with a merged 500-item dropdown. -->
+            <mat-radio-group [(ngModel)]="individualPickerMode"
+                             (change)="onIndividualModeChange()"
+                             class="picker-source-radio">
+              <mat-radio-button value="EMPLOYEE">
+                <mat-icon>badge</mat-icon> Employee
+              </mat-radio-button>
+              <mat-radio-button value="STUDENT">
+                <mat-icon>school</mat-icon> Student
+              </mat-radio-button>
+            </mat-radio-group>
+
+            <!-- Step 2a: Employee picker — one flat dropdown. -->
+            <div class="picker-block" *ngIf="individualPickerMode === 'EMPLOYEE'">
+              <mat-form-field appearance="outline" class="picker-field">
+                <mat-label>Employee</mat-label>
+                <mat-select [(ngModel)]="pickerEmployeeSelectedId"
+                            (selectionChange)="addPickedEmployee()"
+                            [disabled]="isLoadingPicker">
+                  <mat-option *ngIf="isLoadingPicker" disabled>Loading…</mat-option>
+                  <mat-option *ngFor="let e of pickerEmployees" [value]="e.userId">
+                    {{ employeeLabel(e) }}
+                  </mat-option>
+                  <mat-option *ngIf="!isLoadingPicker && pickerEmployees.length === 0" disabled>
+                    No employees with a login account
+                  </mat-option>
+                </mat-select>
+                <mat-hint>Pick one; add another to include multiple.</mat-hint>
+              </mat-form-field>
+            </div>
+
+            <!-- Step 2b: Student picker — Class → (Section) → Student. -->
+            <div class="picker-block" *ngIf="individualPickerMode === 'STUDENT'">
+              <div class="picker-filters">
+                <mat-form-field appearance="outline" class="picker-field">
+                  <mat-label>Class</mat-label>
+                  <mat-select [(ngModel)]="pickerClassId" (selectionChange)="onPickerClassChange()">
+                    <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="picker-field">
+                  <mat-label>Section (optional)</mat-label>
+                  <mat-select [(ngModel)]="pickerSectionId"
+                              (selectionChange)="onPickerSectionChange()"
+                              [disabled]="!pickerSections.length">
+                    <mat-option value="">All sections</mat-option>
+                    <mat-option *ngFor="let s of pickerSections" [value]="s.sectionId">{{ s.name }}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+
+              <mat-form-field appearance="outline" class="picker-field picker-field-wide">
+                <mat-label>Student</mat-label>
+                <mat-select [(ngModel)]="pickerStudentSelectedId"
+                            (selectionChange)="addPickedStudent()"
+                            [disabled]="isLoadingPicker || !pickerClassId">
+                  <mat-option *ngIf="isLoadingPicker" disabled>Loading…</mat-option>
+                  <mat-option *ngFor="let s of pickerStudents" [value]="s.userId">
+                    {{ studentLabel(s) }}
+                  </mat-option>
+                  <mat-option *ngIf="!isLoadingPicker && pickerClassId && pickerStudents.length === 0" disabled>
+                    No students with a login account in this class
+                  </mat-option>
+                </mat-select>
+                <mat-hint *ngIf="!pickerClassId">Pick a class first.</mat-hint>
+                <mat-hint *ngIf="pickerClassId">Pick one; add another to include multiple.</mat-hint>
+              </mat-form-field>
+            </div>
+
+            <!-- Picked-recipients chip list — the actual payload. -->
+            <div class="picker-chips" *ngIf="selectedRecipients.length > 0">
+              <div class="picker-chips-head">
+                Selected ({{ selectedRecipients.length }})
+              </div>
+              <mat-chip-set>
+                <mat-chip *ngFor="let r of selectedRecipients" (removed)="removeRecipient(r.userId)">
+                  <mat-icon matChipAvatar>{{ r.kind === 'EMPLOYEE' ? 'badge' : 'school' }}</mat-icon>
+                  {{ r.label }}
+                  <button matChipRemove aria-label="Remove">
+                    <mat-icon>cancel</mat-icon>
+                  </button>
+                </mat-chip>
+              </mat-chip-set>
+            </div>
           </div>
 
           <mat-divider></mat-divider>

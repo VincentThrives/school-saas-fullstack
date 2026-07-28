@@ -93,6 +93,11 @@ export class HomeworkRosterComponent implements OnInit {
           status: (s.status as HomeworkStatus) || 'DONE',
           remark: s.remark || '',
         }));
+        // Sort alphabetically by name — the API returns them in
+        // roll-number string order (10 / 100 / 2 …) which reads badly
+        // for a teacher scanning 100+ names to find one to update.
+        this.rows.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || '',
+            undefined, { sensitivity: 'base' }));
         this.isLoading = false;
       },
       error: () => {
