@@ -297,6 +297,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
             { title: 'Subject Attendance', path: '/attendance/subject-wise', icon: 'menu_book', feature: 'attendance', coordinatorModule: 'ATTENDANCE' },
             { title: 'Attendance Report', path: '/attendance/report', icon: 'assessment', feature: 'attendance', coordinatorModule: 'ATTENDANCE' },
             { title: 'Subject Report', path: '/attendance/subject-report', icon: 'analytics', feature: 'attendance', coordinatorModule: 'ATTENDANCE' },
+            // Biometric attendance — gated per tenant. Face + card
+            // gate scanning; each tenant picks which methods are on
+            // from Biometric Settings.
+            { title: 'Biometric Settings', path: '/biometric/settings', icon: 'fingerprint', feature: 'biometric_attendance', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+            { title: 'Kiosk Devices', path: '/biometric/devices', icon: 'tablet', feature: 'biometric_attendance', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+            { title: 'Biometric Enrolment', path: '/biometric/enrollment', icon: 'face', feature: 'biometric_attendance', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
           ],
         },
         { title: 'Timetable', path: '/timetable', icon: 'calendar_month', feature: 'timetable', coordinatorModule: 'TIMETABLE' },

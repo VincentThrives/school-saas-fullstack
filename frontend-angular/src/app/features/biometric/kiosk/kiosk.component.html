@@ -1,0 +1,135 @@
+<div class="kiosk">
+
+  <!-- ─── Pairing screen ─── -->
+  <div class="k-pairing" *ngIf="!state">
+    <div class="k-pair-inner">
+      <div class="k-brand">NAMMA VIDYALAYA · KIOSK</div>
+      <h1 class="k-h1">Pair this device</h1>
+      <p class="k-hint">Ask your admin to generate a pairing code, then enter it below.</p>
+
+      <label class="k-field-lbl">SCHOOL CODE</label>
+      <input class="k-school-input" type="text"
+             [(ngModel)]="pairSchoolCode"
+             placeholder="e.g. st-annes"
+             autocomplete="off" />
+
+      <label class="k-field-lbl">6-DIGIT CODE</label>
+      <div class="k-digits">
+        <input *ngFor="let d of pairCodeDigits; let i = index"
+               class="k-digit"
+               type="tel"
+               inputmode="numeric"
+               maxlength="1"
+               [attr.data-digit]="i"
+               [ngModel]="d"
+               (input)="onDigitInput(i, $event)"
+               (keydown)="onDigitBackspace(i, $event)"
+               autocomplete="off" />
+      </div>
+
+      <div class="k-pair-error" *ngIf="pairError">{{ pairError }}</div>
+
+      <button class="k-cta" [disabled]="!canPair || isPairing" (click)="pair()">
+        {{ isPairing ? 'Pairing…' : 'Pair device' }}
+      </button>
+
+      <p class="k-footnote">Code expires 15 minutes after generation. Once paired, this tablet
+        marks attendance and nothing else.</p>
+    </div>
+  </div>
+
+  <!-- ─── Scan screen ─── -->
+  <ng-container *ngIf="state">
+    <div class="k-header">
+      <div class="k-brand-small">{{ state.tenantName }} · {{ state.deviceLabel }}</div>
+      <div class="k-time">{{ clockLabel() }}</div>
+    </div>
+
+    <div class="k-body">
+      <!-- Welcome overlay -->
+      <div class="k-welcome" *ngIf="showResult">
+        <div class="k-photo-wrap">
+          <img *ngIf="resultPhoto" [src]="resultPhoto" alt="face" />
+          <div *ngIf="!resultPhoto" class="k-photo-fallback">
+            {{ resultName.charAt(0) }}
+          </div>
+          <div class="k-check" [class.late]="resultStatus === 'LATE'">
+            {{ resultStatus === 'LATE' ? '!' : '✓' }}
+          </div>
+        </div>
+        <div class="k-welcome-name">
+          {{ resultAlreadyMarked ? 'Already marked' : 'Welcome' }}, {{ resultName }}
+        </div>
+        <div class="k-welcome-sub">
+          {{ resultStatus === 'LATE' ? 'LATE' : 'Marked present' }} at {{ resultTime }}
+        </div>
+        <div class="k-welcome-meta">
+          {{ resultClassName }}<span *ngIf="resultMethod"> · via {{ resultMethod }}</span>
+        </div>
+      </div>
+
+      <!-- Scan input (hidden while welcome is showing) -->
+      <div class="k-scan" *ngIf="!showResult">
+        <div class="k-scan-title">Ready to scan</div>
+        <div class="k-scan-sub">Type a card UID or pick a student by name.</div>
+
+        <!-- Card UID input (works for both card mode + testing) -->
+        <div class="k-card-row">
+          <input class="k-card-input"
+                 type="text"
+                 [(ngModel)]="cardInput"
+                 placeholder="Card UID (or admission number for testing)"
+                 (keyup.enter)="submitCardScan()"
+                 autocomplete="off"
+                 autofocus />
+          <button class="k-scan-btn" [disabled]="!cardInput.trim() || isScanning"
+                  (click)="submitCardScan()">
+            {{ isScanning ? '…' : 'Scan' }}
+          </button>
+        </div>
+
+        <!-- Face-mode fallback: pick from list -->
+        <div class="k-face-fallback">
+          <div class="k-face-lbl">or pick a student (face mode)</div>
+          <input class="k-search-input"
+                 type="text"
+                 [(ngModel)]="studentSearch"
+                 placeholder="Search by name / roll / class" />
+          <div class="k-roster">
+            <button class="k-roster-item"
+                    *ngFor="let r of filteredRoster"
+                    (click)="submitFaceScan(r.studentId)">
+              <div class="k-roster-photo" [class.has-photo]="r.photoBase64">
+                <img *ngIf="r.photoBase64" [src]="'data:image/jpeg;base64,' + r.photoBase64" />
+                <span *ngIf="!r.photoBase64">{{ r.name.charAt(0) }}</span>
+              </div>
+              <div class="k-roster-body">
+                <div class="k-roster-name">{{ r.name }}</div>
+                <div class="k-roster-sub">{{ r.className }} · Roll {{ r.rollNumber || '—' }}</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div class="k-scan-error" *ngIf="scanError">{{ scanError }}</div>
+      </div>
+    </div>
+
+    <div class="k-footer">
+      <div class="k-stat">
+        <div class="k-stat-num">{{ scannedCount }}</div>
+        <div class="k-stat-lbl">MARKED</div>
+      </div>
+      <div class="k-stat">
+        <div class="k-stat-num">{{ roster.length - scannedCount }}</div>
+        <div class="k-stat-lbl">PENDING</div>
+      </div>
+      <div class="k-stat">
+        <div class="k-stat-num late">{{ lateCount }}</div>
+        <div class="k-stat-lbl">LATE</div>
+      </div>
+    </div>
+
+    <button class="k-clear-state" (click)="clearState()" title="Unpair this device">×</button>
+  </ng-container>
+</div>

@@ -47,6 +47,14 @@ public class Tenant {
      */
     private java.util.List<String> coordinatorEnabledModules;
 
+    /**
+     * Per-tenant biometric attendance configuration. Present only when
+     * the {@code biometric_attendance} feature flag is enabled. Nested
+     * so the top-level Tenant document stays tidy; null-safe on read
+     * for tenants without the feature.
+     */
+    private BiometricSettings biometricSettings;
+
     @CreatedDate
     private Instant createdAt;
 
@@ -209,6 +217,9 @@ public class Tenant {
         this.coordinatorEnabledModules = coordinatorEnabledModules;
     }
 
+    public BiometricSettings getBiometricSettings() { return biometricSettings; }
+    public void setBiometricSettings(BiometricSettings biometricSettings) { this.biometricSettings = biometricSettings; }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -312,6 +323,43 @@ public class Tenant {
         public void setZip(String zip) {
             this.zip = zip;
         }
+    }
+
+    /** Nested biometric attendance configuration. Held on the Tenant
+     *  document (nested — not a separate collection) because the values
+     *  are small, per-tenant, and always fetched with the tenant.
+     *
+     *  Set via {@code PUT /api/v1/biometric/settings} from the tenant's
+     *  admin. Null / absent for tenants with the feature disabled. */
+    public static class BiometricSettings {
+        /** Whether the kiosk accepts card taps at all. */
+        private boolean cardEnabled;
+        /** Whether the kiosk runs the face camera at all. */
+        private boolean faceEnabled;
+        /** Late cutoff in HH:mm. Scans after this are marked LATE. */
+        private String lateCutoff = "09:15";
+        /** School-wide arrival window open time (defaults to 06:00). */
+        private String openTime = "06:00";
+        /** Face-match confidence threshold (0..1). Below this the kiosk
+         *  rejects the match and prompts the student to try again. */
+        private double faceThreshold = 0.55;
+
+        public BiometricSettings() {}
+
+        public boolean isCardEnabled() { return cardEnabled; }
+        public void setCardEnabled(boolean cardEnabled) { this.cardEnabled = cardEnabled; }
+
+        public boolean isFaceEnabled() { return faceEnabled; }
+        public void setFaceEnabled(boolean faceEnabled) { this.faceEnabled = faceEnabled; }
+
+        public String getLateCutoff() { return lateCutoff; }
+        public void setLateCutoff(String lateCutoff) { this.lateCutoff = lateCutoff; }
+
+        public String getOpenTime() { return openTime; }
+        public void setOpenTime(String openTime) { this.openTime = openTime; }
+
+        public double getFaceThreshold() { return faceThreshold; }
+        public void setFaceThreshold(double faceThreshold) { this.faceThreshold = faceThreshold; }
     }
 
     public static class TenantLimits {

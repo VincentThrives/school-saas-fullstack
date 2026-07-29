@@ -1,0 +1,101 @@
+$gold: #d4a843;
+$gold-dark: #b8860b;
+
+.be {
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.be-card {
+  border-radius: 12px;
+  margin-bottom: 14px;
+}
+
+.be-section {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #6b7280;
+  margin: 6px 0 10px;
+}
+
+.be-hint {
+  color: #6b7280;
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+
+.be-picker-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+
+  button { min-width: 150px; height: 44px; mat-icon { margin-right: 6px; } }
+}
+
+.be-picker { flex: 1 1 200px; }
+
+.be-student-field {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.be-card-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  button { min-width: 130px; mat-icon { margin-right: 6px; } }
+}
+
+.be-card-field {
+  flex: 1 1 260px;
+}
+
+.be-face-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.be-photo-slot {
+  width: 160px;
+  height: 160px;
+  border-radius: 14px;
+  background: #fdfaf2;
+  border: 2px solid $gold-dark;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.be-photo-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: $gold-dark;
+
+  mat-icon { font-size: 40px; width: 40px; height: 40px; }
+  span { font-size: 12px; }
+}
+
+.be-face-actions {
+  flex: 1 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  button {
+    min-width: 200px;
+    mat-icon { margin-right: 6px; }
+  }
+}

@@ -25,6 +25,12 @@ public class Student {
 
     @Indexed(unique = true)
     private String admissionNumber;
+    /** Biometric card UID mapping. Sparse-indexed so students without
+     *  a card mapped (or tenants with card mode off) are fine. Used
+     *  by the biometric attendance module to resolve card taps to
+     *  students at the gate. */
+    @Indexed(sparse = true)
+    private String cardUid;
     private String rollNumber;
     private String classId;
     private String sectionId;
@@ -119,6 +125,9 @@ public class Student {
     public void setAdmissionNumber(String admissionNumber) {
         this.admissionNumber = admissionNumber;
     }
+
+    public String getCardUid() { return cardUid; }
+    public void setCardUid(String cardUid) { this.cardUid = cardUid; }
 
     public String getRollNumber() {
         return rollNumber;

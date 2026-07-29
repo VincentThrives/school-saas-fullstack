@@ -1,0 +1,178 @@
+$gold: #d4a843;
+$gold-dark: #b8860b;
+
+.kd {
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.kd-loading {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.kd-card {
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.kd-pair-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+
+  button {
+    min-width: 170px;
+    mat-icon { margin-right: 6px; }
+  }
+}
+
+.kd-label-field {
+  flex: 1 1 240px;
+  min-width: 220px;
+}
+
+.kd-code-panel {
+  background: #fdfaf2;
+  border: 1.5px solid $gold-dark;
+  border-radius: 12px;
+  padding: 22px 24px;
+}
+
+.kd-code-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.kd-code-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: $gold-dark;
+  margin-bottom: 4px;
+}
+
+.kd-code-sub {
+  font-size: 12.5px;
+  color: #6b7280;
+}
+
+.kd-code-digits {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 8px 0 18px;
+  flex-wrap: wrap;
+}
+
+.kd-digit {
+  width: 54px;
+  height: 66px;
+  background: #fff;
+  border: 2px solid $gold-dark;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  font-size: 32px;
+  font-weight: 700;
+  color: $gold-dark;
+  letter-spacing: 0;
+}
+
+.kd-code-help {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4b5563;
+  font-size: 13px;
+
+  mat-icon {
+    color: $gold-dark;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.kd-list-card {
+  margin-top: 4px;
+}
+
+.kd-section {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6b7280;
+  font-weight: 700;
+  margin: 4px 0 12px;
+}
+
+.kd-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: #6b7280;
+
+  mat-icon {
+    font-size: 44px;
+    width: 44px;
+    height: 44px;
+    color: rgba(0, 0, 0, 0.18);
+    margin-bottom: 6px;
+  }
+  p { margin: 6px 0 0; font-size: 14px; }
+}
+
+.kd-device {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #f1ecd9;
+  border-left: 4px solid $gold;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.kd-device-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: rgba($gold, 0.12);
+  color: $gold-dark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kd-device-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.kd-device-label {
+  font-weight: 700;
+  color: #1f2937;
+  font-size: 14.5px;
+}
+
+.kd-device-meta {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.kd-spinner {
+  display: inline-block;
+  margin-right: 8px;
+  ::ng-deep circle { stroke: #fff; }
+}

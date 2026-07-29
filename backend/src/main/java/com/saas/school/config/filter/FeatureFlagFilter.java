@@ -59,7 +59,8 @@ public class FeatureFlagFilter extends OncePerRequestFilter {
             Map.entry("/api/v1/syllabus",     "syllabus"),
             Map.entry("/api/v1/assignments",  "assignments"),
             Map.entry("/api/v1/analytics",    "analytics"),
-            Map.entry("/api/v1/ptm",          "ptm")
+            Map.entry("/api/v1/ptm",          "ptm"),
+            Map.entry("/api/v1/biometric",    "biometric_attendance")
     );
 
     @Override

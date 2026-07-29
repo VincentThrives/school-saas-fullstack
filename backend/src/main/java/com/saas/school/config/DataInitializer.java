@@ -52,31 +52,44 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void seedFeatureCatalog() {
+        int order = 0;
+        List<FeatureCatalog> catalog = List.of(
+            feature("attendance",    "Attendance",          "Daily attendance tracking",                     true,  "academics",      false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("timetable",     "Timetable",           "Class schedule management",                     true,  "academics",      false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("exams",         "Exams & Marks",       "Traditional exam management",                   true,  "exams",          false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("mcq",           "MCQ Engine",          "Online MCQ exam system",                        false, "exams",          false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("fee",           "Fee Management",      "Fee structure and payments",                    true,  "finance",        false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("notifications", "Notifications",       "In-app and email notifications",                true,  "communication",  false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("events",        "Events & Holidays",   "School calendar management",                    true,  "academics",      false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("messaging",     "Messaging",           "Internal messaging between users",              false, "communication",  false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("content",       "Study Materials",     "Upload and manage study content",               true,  "academics",      false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("report_cards",  "Report Cards",        "Generate PDF report cards",                     true,  "reports",        false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("bulk_import",   "Bulk Import",         "CSV/Excel data import",                         false, "system",         false, ++order, SubscriptionPlan.ENTERPRISE),
+            feature("parent_portal", "Parent Portal",       "Parent access and notifications",               false, "communication",  false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("analytics",     "Analytics",           "Advanced reports and charts",                   false, "reports",        false, ++order, SubscriptionPlan.ENTERPRISE),
+            feature("whatsapp",      "WhatsApp Messaging",  "Send bulk WhatsApp messages to parents",       false, "communication",  false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("idcards",       "ID Card Generator",   "Generate student and staff ID cards with QR codes", false, "system",    false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("syllabus",      "Syllabus Tracker",    "Track syllabus completion per subject per class",   false, "academics", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("assignments",   "Assignments",         "Create assignments, students submit online",        false, "academics", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("ptm",           "PTM Scheduler",       "Schedule parent-teacher meetings with time slots",  false, "communication", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("biometric_attendance", "Biometric Attendance", "Face and card scan attendance at the school gate", false, "academics", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE)
+        );
         if (featureCatalogRepo.count() == 0) {
-            int order = 0;
-            List<FeatureCatalog> catalog = List.of(
-                feature("attendance",    "Attendance",          "Daily attendance tracking",                     true,  "academics",      false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("timetable",     "Timetable",           "Class schedule management",                     true,  "academics",      false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("exams",         "Exams & Marks",       "Traditional exam management",                   true,  "exams",          false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("mcq",           "MCQ Engine",          "Online MCQ exam system",                        false, "exams",          false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("fee",           "Fee Management",      "Fee structure and payments",                    true,  "finance",        false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("notifications", "Notifications",       "In-app and email notifications",                true,  "communication",  false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("events",        "Events & Holidays",   "School calendar management",                    true,  "academics",      false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("messaging",     "Messaging",           "Internal messaging between users",              false, "communication",  false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("content",       "Study Materials",     "Upload and manage study content",               true,  "academics",      false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("report_cards",  "Report Cards",        "Generate PDF report cards",                     true,  "reports",        false, ++order, SubscriptionPlan.BASIC, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("bulk_import",   "Bulk Import",         "CSV/Excel data import",                         false, "system",         false, ++order, SubscriptionPlan.ENTERPRISE),
-                feature("parent_portal", "Parent Portal",       "Parent access and notifications",               false, "communication",  false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("analytics",     "Analytics",           "Advanced reports and charts",                   false, "reports",        false, ++order, SubscriptionPlan.ENTERPRISE),
-                feature("whatsapp",      "WhatsApp Messaging",  "Send bulk WhatsApp messages to parents",       false, "communication",  false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("idcards",       "ID Card Generator",   "Generate student and staff ID cards with QR codes", false, "system",    false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("syllabus",      "Syllabus Tracker",    "Track syllabus completion per subject per class",   false, "academics", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("assignments",   "Assignments",         "Create assignments, students submit online",        false, "academics", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-                feature("ptm",           "PTM Scheduler",       "Schedule parent-teacher meetings with time slots",  false, "communication", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE)
-            );
             featureCatalogRepo.saveAll(catalog);
             log.info("Feature catalog seeded with {} features", catalog.size());
+            return;
         }
+        // Backfill any missing keys added in later releases so a
+        // long-lived deployment picks up newly-shipped features
+        // (like biometric_attendance) without a manual migration.
+        int added = 0;
+        for (FeatureCatalog f : catalog) {
+            if (featureCatalogRepo.findByFeatureKey(f.getFeatureKey()).isEmpty()) {
+                featureCatalogRepo.save(f);
+                added++;
+            }
+        }
+        if (added > 0) log.info("Feature catalog backfilled {} newly-added feature(s)", added);
     }
 
     private FeatureCatalog feature(String key, String name, String desc,

@@ -1,0 +1,135 @@
+$gold: #d4a843;
+$gold-dark: #b8860b;
+
+.bio-settings {
+  padding: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.bio-loading {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.bio-card {
+  border-radius: 12px;
+}
+
+.bio-section-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6b7280;
+  font-weight: 700;
+  margin: 8px 0 12px;
+}
+
+.method-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #e7dfc9;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: background 0.12s ease, border-color 0.12s ease;
+
+  &:hover {
+    background: rgba($gold, 0.06);
+  }
+
+  &.on {
+    background: #fdfaf2;
+    border-color: $gold-dark;
+    border-width: 2px;
+    padding: 13px 15px;
+  }
+}
+
+.method-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: rgba($gold, 0.12);
+  color: $gold-dark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  .method-row.on & {
+    background: $gold-dark;
+    color: #fff;
+  }
+}
+
+.method-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.method-title {
+  font-weight: 700;
+  color: #1f2937;
+  font-size: 14.5px;
+}
+
+.method-desc {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.bio-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #92400e;
+  background: #fef3c7;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-top: 10px;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.bio-divider {
+  margin: 22px 0 18px;
+}
+
+.timing-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.timing-field {
+  flex: 1 1 220px;
+}
+
+.bio-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+
+  button {
+    min-width: 130px;
+    mat-icon { margin-right: 6px; }
+  }
+}
+
+.bio-spinner {
+  display: inline-block;
+  margin-right: 8px;
+  ::ng-deep circle { stroke: #fff; }
+}

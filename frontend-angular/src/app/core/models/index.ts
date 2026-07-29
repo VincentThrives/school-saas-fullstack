@@ -49,6 +49,7 @@ export type FeatureKey =
   | 'assignments'
   | 'syllabus'
   | 'ptm'
+  | 'biometric_attendance'
   | 'id_cards';
 
 // API Response

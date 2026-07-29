@@ -1,0 +1,84 @@
+<div class="bio-settings">
+  <app-page-header
+    title="Biometric Settings"
+    subtitle="Pick the methods your gate tablet will accept"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Biometric Settings' }
+    ]"
+  ></app-page-header>
+
+  <div class="bio-loading" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <ng-container *ngIf="!isLoading">
+    <mat-card class="bio-card">
+      <mat-card-content>
+        <h3 class="bio-section-label">METHODS</h3>
+
+        <div class="method-row" [class.on]="cardEnabled" (click)="cardEnabled = !cardEnabled">
+          <div class="method-icon">
+            <mat-icon>credit_card</mat-icon>
+          </div>
+          <div class="method-body">
+            <div class="method-title">Card tap</div>
+            <div class="method-desc">Students tap an NFC card at the gate to mark themselves in.</div>
+          </div>
+          <mat-checkbox [(ngModel)]="cardEnabled" (click)="$event.stopPropagation()"></mat-checkbox>
+        </div>
+
+        <div class="method-row" [class.on]="faceEnabled" (click)="faceEnabled = !faceEnabled">
+          <div class="method-icon">
+            <mat-icon>face</mat-icon>
+          </div>
+          <div class="method-body">
+            <div class="method-title">Face match</div>
+            <div class="method-desc">Camera reads face against enrolled student photos.</div>
+          </div>
+          <mat-checkbox [(ngModel)]="faceEnabled" (click)="$event.stopPropagation()"></mat-checkbox>
+        </div>
+
+        <div class="bio-hint" *ngIf="!cardEnabled && !faceEnabled">
+          <mat-icon>error_outline</mat-icon>
+          <span>At least one method must be enabled. Otherwise the gate tablet has nothing to do.</span>
+        </div>
+
+        <mat-divider class="bio-divider"></mat-divider>
+
+        <h3 class="bio-section-label">TIMINGS</h3>
+
+        <div class="timing-row">
+          <mat-form-field appearance="outline" class="timing-field">
+            <mat-label>Late cutoff (HH:mm)</mat-label>
+            <input matInput [(ngModel)]="lateCutoff" placeholder="09:15" />
+            <mat-hint>Scans after this are marked LATE.</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="timing-field">
+            <mat-label>Gate open (HH:mm)</mat-label>
+            <input matInput [(ngModel)]="openTime" placeholder="06:00" />
+            <mat-hint>Scans before this are rejected.</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <div class="timing-row" *ngIf="faceEnabled">
+          <mat-form-field appearance="outline" class="timing-field">
+            <mat-label>Face match confidence (0.30 – 0.90)</mat-label>
+            <input matInput type="number" step="0.05" min="0.3" max="0.9"
+                   [(ngModel)]="faceThreshold" />
+            <mat-hint>Lower = more permissive, higher = stricter.</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <div class="bio-actions">
+          <button mat-flat-button color="primary" [disabled]="!canSave || isSaving" (click)="save()">
+            <mat-spinner *ngIf="isSaving" diameter="18" class="bio-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isSaving">save</mat-icon>
+            {{ isSaving ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </ng-container>
+</div>

@@ -15,6 +15,9 @@ const PUBLIC_URLS = [
   '/api/v1/auth/refresh',
   '/api/v1/super/auth/login',
   '/api/v1/super/auth/refresh',
+  // Biometric kiosk endpoints authenticate with an X-Device-Token
+  // header, not a user JWT. The kiosk page injects that header itself.
+  '/api/v1/biometric/kiosk/',
 ];
 
 const isPublic = (url: string) => PUBLIC_URLS.some((u) => url.includes(u));

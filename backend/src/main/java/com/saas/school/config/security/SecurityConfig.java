@@ -3,6 +3,7 @@ package com.saas.school.config.security;
 import com.saas.school.config.filter.FeatureFlagFilter;
 import com.saas.school.config.filter.JwtAuthFilter;
 import com.saas.school.config.filter.RateLimitFilter;
+import com.saas.school.config.filter.ScannerDeviceAuthFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -34,6 +35,7 @@ public class SecurityConfig {
     @Autowired private JwtAuthFilter jwtAuthFilter;
     @Autowired private FeatureFlagFilter featureFlagFilter;
     @Autowired private RateLimitFilter rateLimitFilter;
+    @Autowired private ScannerDeviceAuthFilter scannerDeviceAuthFilter;
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
@@ -46,6 +48,10 @@ public class SecurityConfig {
             "/api/v1/auth/reset-password",
             "/api/v1/super/auth/login",
             "/api/v1/super/auth/refresh",
+            // Biometric kiosk tablet pairing — public because a fresh
+            // tablet has no credentials yet. Tenant is resolved from
+            // the request body's schoolCode query parameter.
+            "/api/v1/biometric/kiosk/pair",
             "/swagger-ui/**",
             "/api-docs/**",
             "/actuator/health"
@@ -86,10 +92,17 @@ public class SecurityConfig {
                 // All authenticated tenant users
                 .anyRequest().authenticated()
             )
-            // Filter order: RateLimit → JWT → FeatureFlag → actual handler
+            // Filter order: RateLimit → JWT → ScannerDeviceAuth → FeatureFlag → handler
+            //
+            // ScannerDeviceAuthFilter runs after JwtAuthFilter so that
+            // an admin's JWT still wins on shared paths; the device
+            // filter only fires when there's no Bearer + an X-Device-Token
+            // header. It stamps ROLE_SCANNER and TenantContext exactly
+            // like JwtAuthFilter would for a user.
             .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(featureFlagFilter, JwtAuthFilter.class);
+            .addFilterAfter(scannerDeviceAuthFilter, JwtAuthFilter.class)
+            .addFilterAfter(featureFlagFilter, ScannerDeviceAuthFilter.class);
 
         return http.build();
     }

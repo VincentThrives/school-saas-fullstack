@@ -700,6 +700,73 @@ export class ApiService {
     return this.http.delete<ApiResponse<void>>(`${this.API}/academic-years/${id}`);
   }
 
+  // ── Biometric Attendance ──────────────────────────────────────────
+
+  /** Load the current tenant's biometric settings (card / face / cutoff). */
+  getBiometricSettings(): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.API}/biometric/settings`);
+  }
+
+  /** Save the current tenant's biometric settings. */
+  saveBiometricSettings(payload: {
+    cardEnabled: boolean;
+    faceEnabled: boolean;
+    lateCutoff?: string;
+    openTime?: string;
+    faceThreshold?: number;
+  }): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.API}/biometric/settings`, payload);
+  }
+
+  /** Map a card UID to a student. */
+  setStudentCardUid(studentId: string, cardUid: string): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(
+        `${this.API}/biometric/students/${studentId}/card`, { cardUid });
+  }
+
+  /** Enrol a student's face — photo (base64) + embedding (128 numbers)
+   *  computed on the browser by face-api.js before this call. */
+  enrollStudentFace(studentId: string, photoBase64: string,
+                    faceEmbedding: number[]): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(
+        `${this.API}/biometric/students/${studentId}/face`,
+        { photoBase64, faceEmbedding });
+  }
+
+  /** Remove a student's face enrolment. */
+  clearStudentFace(studentId: string): Observable<ApiResponse<any>> {
+    return this.http.delete<ApiResponse<any>>(
+        `${this.API}/biometric/students/${studentId}/face`);
+  }
+
+  /** Get a student's face enrolment (if any). */
+  getStudentFace(studentId: string): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(
+        `${this.API}/biometric/students/${studentId}/face`);
+  }
+
+  /** Generate a fresh pairing code for a tablet. */
+  createKioskPairingCode(label?: string): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(
+        `${this.API}/biometric/devices/pairing-code`, { label });
+  }
+
+  /** List paired tablets. */
+  listKioskDevices(): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.API}/biometric/devices`);
+  }
+
+  /** Revoke a paired tablet (kill switch). */
+  revokeKioskDevice(deviceId: string): Observable<ApiResponse<any>> {
+    return this.http.delete<ApiResponse<any>>(
+        `${this.API}/biometric/devices/${deviceId}`);
+  }
+
+  /** Live scans (today) for the admin's Kiosk Health page. */
+  getScansToday(): Observable<ApiResponse<any>> {
+    return this.http.get<ApiResponse<any>>(`${this.API}/biometric/scans/today`);
+  }
+
   // ── Other Assessments (non-academic, weekly-CET style tests) ──────
 
   /** Admin list — assessments in the given year, optionally scoped

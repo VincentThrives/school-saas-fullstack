@@ -28,6 +28,15 @@ export const routes: Routes = [
       import('./features/auth/forgot-password/forgot-password.component').then(m => m.ForgotPasswordComponent),
   },
 
+  // ── Public Kiosk (gate tablet) ──────────────────────────
+  // Fullscreen route outside MainLayoutComponent + no authGuard.
+  // Authenticates via X-Device-Token that the page manages itself.
+  {
+    path: 'kiosk',
+    loadComponent: () =>
+      import('./features/biometric/kiosk/kiosk.component').then(m => m.KioskComponent),
+  },
+
   // ── Protected Routes (with layout) ─────────────────────
   {
     path: '',
@@ -274,6 +283,31 @@ export const routes: Routes = [
               .then(m => m.OtherAssessmentEditComponent),
         canActivate: [roleGuard],
         data: { roles: [UserRole.SCHOOL_ADMIN] },
+      },
+      // ── Biometric Attendance (feature-gated) ─────────────
+      {
+        path: 'biometric/settings',
+        loadComponent: () =>
+          import('./features/biometric/biometric-settings/biometric-settings.component')
+              .then(m => m.BiometricSettingsComponent),
+        canActivate: [featureGuard, roleGuard],
+        data: { feature: 'biometric_attendance', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+      },
+      {
+        path: 'biometric/devices',
+        loadComponent: () =>
+          import('./features/biometric/kiosk-devices/kiosk-devices.component')
+              .then(m => m.KioskDevicesComponent),
+        canActivate: [featureGuard, roleGuard],
+        data: { feature: 'biometric_attendance', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
+      },
+      {
+        path: 'biometric/enrollment',
+        loadComponent: () =>
+          import('./features/biometric/biometric-enrollment/biometric-enrollment.component')
+              .then(m => m.BiometricEnrollmentComponent),
+        canActivate: [featureGuard, roleGuard],
+        data: { feature: 'biometric_attendance', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
       },
       // Student / parent view — per-student list with only the
       // caller's own marks (peers' scores stripped server-side).

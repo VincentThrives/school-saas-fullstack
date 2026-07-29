@@ -1,0 +1,83 @@
+<div class="kd">
+  <app-page-header
+    title="Kiosk Devices"
+    subtitle="Pair a tablet at the school gate"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Kiosk Devices' }
+    ]"
+  ></app-page-header>
+
+  <!-- Pair new device panel -->
+  <mat-card class="kd-card">
+    <mat-card-content>
+      <div class="kd-pair-row" *ngIf="!activeCode">
+        <mat-form-field appearance="outline" class="kd-label-field">
+          <mat-label>Device label (optional)</mat-label>
+          <input matInput [(ngModel)]="newLabel" placeholder="Main Gate" />
+        </mat-form-field>
+        <button mat-flat-button color="primary"
+                [disabled]="isGenerating"
+                (click)="generateCode()">
+          <mat-spinner *ngIf="isGenerating" diameter="18" class="kd-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isGenerating">add</mat-icon>
+          {{ isGenerating ? 'Generating…' : 'Pair new device' }}
+        </button>
+      </div>
+
+      <div class="kd-code-panel" *ngIf="activeCode">
+        <div class="kd-code-head">
+          <div>
+            <div class="kd-code-label">TYPE THIS CODE ON THE TABLET</div>
+            <div class="kd-code-sub">Expires in {{ countdownLabel() }} · single use</div>
+          </div>
+          <button mat-icon-button (click)="cancelCode()" matTooltip="Cancel">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="kd-code-digits">
+          <span class="kd-digit" *ngFor="let d of splitCodeDigits()">{{ d }}</span>
+        </div>
+
+        <div class="kd-code-help">
+          <mat-icon>info</mat-icon>
+          Open <strong>{{ '/kiosk' }}</strong> on the tablet's browser, enter your school code and this
+          6-digit code to finish pairing.
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Paired devices list -->
+  <div class="kd-loading" *ngIf="isLoading">
+    <mat-spinner diameter="32"></mat-spinner>
+  </div>
+
+  <mat-card class="kd-card kd-list-card" *ngIf="!isLoading">
+    <mat-card-content>
+      <h3 class="kd-section">PAIRED DEVICES</h3>
+
+      <div class="kd-empty" *ngIf="devices.length === 0">
+        <mat-icon>tablet_android</mat-icon>
+        <p>No tablets paired yet. Generate a code above and pair the tablet at the gate.</p>
+      </div>
+
+      <div class="kd-device" *ngFor="let d of devices">
+        <div class="kd-device-icon">
+          <mat-icon>tablet_android</mat-icon>
+        </div>
+        <div class="kd-device-body">
+          <div class="kd-device-label">{{ d.label }}</div>
+          <div class="kd-device-meta">
+            Paired {{ formatDate(d.pairedAt) }} · Last seen {{ formatDate(d.lastSeenAt) }}
+          </div>
+        </div>
+        <button mat-stroked-button color="warn" (click)="revoke(d)">
+          <mat-icon>block</mat-icon>
+          Revoke
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

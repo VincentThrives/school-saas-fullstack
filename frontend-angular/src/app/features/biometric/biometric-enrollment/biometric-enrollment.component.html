@@ -1,0 +1,109 @@
+<div class="be">
+  <app-page-header
+    title="Biometric Enrolment"
+    subtitle="Map cards and upload face photos"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Biometric Enrolment' }
+    ]"
+  ></app-page-header>
+
+  <!-- Step 1: pick a student -->
+  <mat-card class="be-card">
+    <mat-card-content>
+      <h3 class="be-section">STUDENT</h3>
+
+      <div class="be-picker-row">
+        <mat-form-field appearance="outline" class="be-picker">
+          <mat-label>Class</mat-label>
+          <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()">
+            <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="be-picker">
+          <mat-label>Section (optional)</mat-label>
+          <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="loadStudents()"
+                      [disabled]="!selectedClassId">
+            <mat-option value="">All sections</mat-option>
+            <mat-option *ngFor="let s of sections" [value]="s.sectionId">{{ s.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <button mat-stroked-button (click)="loadStudents()"
+                [disabled]="!selectedClassId || isLoadingStudents">
+          <mat-icon *ngIf="!isLoadingStudents">search</mat-icon>
+          <mat-spinner *ngIf="isLoadingStudents" diameter="18"></mat-spinner>
+          Load students
+        </button>
+      </div>
+
+      <mat-form-field appearance="outline" class="be-student-field" *ngIf="students.length > 0">
+        <mat-label>Student</mat-label>
+        <mat-select [(ngModel)]="selectedStudentId" (selectionChange)="onStudentChange()">
+          <mat-option *ngFor="let s of students" [value]="s.studentId">
+            {{ studentLabel(s) }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </mat-card-content>
+  </mat-card>
+
+  <ng-container *ngIf="selectedStudentId">
+    <!-- Card mapping -->
+    <mat-card class="be-card">
+      <mat-card-content>
+        <h3 class="be-section">CARD MAPPING</h3>
+        <p class="be-hint">Enter the NFC card's UID that this student will tap at the gate.
+          For testing, any string works — the kiosk just needs to match this exact value.</p>
+
+        <div class="be-card-row">
+          <mat-form-field appearance="outline" class="be-card-field">
+            <mat-label>Card UID</mat-label>
+            <input matInput [(ngModel)]="cardUid" placeholder="e.g. 04:A3:2F:81 or STA-2024-812" />
+          </mat-form-field>
+          <button mat-flat-button color="primary" [disabled]="isSaving" (click)="saveCard()">
+            <mat-icon>save</mat-icon>
+            Save card
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Face enrolment -->
+    <mat-card class="be-card">
+      <mat-card-content>
+        <h3 class="be-section">FACE ENROLMENT</h3>
+        <p class="be-hint">Upload a clear, front-facing photo of the student. It gets compressed on
+          your device and stored inside the app — no cloud, no photos leaving your school.</p>
+
+        <div class="be-face-row">
+          <div class="be-photo-slot">
+            <img *ngIf="photoPreview" [src]="photoPreview" alt="face preview" />
+            <div *ngIf="!photoPreview" class="be-photo-empty">
+              <mat-icon>face</mat-icon>
+              <span>No photo</span>
+            </div>
+          </div>
+          <div class="be-face-actions">
+            <button mat-stroked-button (click)="openFilePicker()">
+              <mat-icon>upload</mat-icon>
+              Choose photo
+            </button>
+            <input #fileInput type="file" accept="image/*" hidden (change)="onFileSelected($event)" />
+            <button mat-stroked-button color="warn" *ngIf="photoPreview" (click)="clearPhoto()">
+              <mat-icon>close</mat-icon>
+              Clear
+            </button>
+            <button mat-flat-button color="primary"
+                    [disabled]="!photoBase64 || isSaving"
+                    (click)="saveFace()">
+              <mat-icon>save</mat-icon>
+              Save enrolment
+            </button>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </ng-container>
+</div>
