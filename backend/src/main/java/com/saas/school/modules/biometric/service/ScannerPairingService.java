@@ -133,7 +133,8 @@ public class ScannerPairingService {
                     device.getDeviceId(),
                     device.getLabel(),
                     tenant.getTenantId(),
-                    tenant.getSchoolName()
+                    tenant.getSchoolName(),
+                    tenant.getSubdomain()
             );
         } finally {
             if (previousContext != null) TenantContext.setTenantId(previousContext);

@@ -714,6 +714,11 @@ export class ApiService {
     lateCutoff?: string;
     openTime?: string;
     faceThreshold?: number;
+    exitTracking?: 'OFF' | 'AUTO' | 'MANUAL';
+    earliestExitTime?: string;
+    notifyOnEntry?: boolean;
+    notifyOnExit?: boolean;
+    notifyOnEarlyLeave?: boolean;
   }): Observable<ApiResponse<any>> {
     return this.http.put<ApiResponse<any>>(`${this.API}/biometric/settings`, payload);
   }
@@ -743,6 +748,12 @@ export class ApiService {
   getStudentFace(studentId: string): Observable<ApiResponse<any>> {
     return this.http.get<ApiResponse<any>>(
         `${this.API}/biometric/students/${studentId}/face`);
+  }
+
+  /** IDs of every student in this tenant who has a face enrolled. */
+  getFaceEnrolledStudentIds(): Observable<ApiResponse<string[]>> {
+    return this.http.get<ApiResponse<string[]>>(
+        `${this.API}/biometric/students/face-enrolled-ids`);
   }
 
   /** Generate a fresh pairing code for a tablet. */

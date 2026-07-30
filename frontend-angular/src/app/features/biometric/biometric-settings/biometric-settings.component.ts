@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -30,6 +31,7 @@ import { ApiService } from '../../../core/services/api.service';
     MatCheckboxModule,
     MatFormFieldModule,
     MatInputModule,
+    MatSelectModule,
     MatDividerModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
@@ -44,7 +46,14 @@ export class BiometricSettingsComponent implements OnInit {
   faceEnabled = true;
   lateCutoff = '09:15';
   openTime = '06:00';
-  faceThreshold = 0.55;
+  faceThreshold = 0.65;
+
+  // Punch-in / out
+  exitTracking: 'OFF' | 'AUTO' | 'MANUAL' = 'OFF';
+  earliestExitTime = '14:00';
+  notifyOnEntry = true;
+  notifyOnExit = false;
+  notifyOnEarlyLeave = true;
 
   isLoading = false;
   isSaving = false;
@@ -70,7 +79,12 @@ export class BiometricSettingsComponent implements OnInit {
         this.faceEnabled = s.faceEnabled === undefined ? true : !!s.faceEnabled;
         this.lateCutoff = s.lateCutoff || '09:15';
         this.openTime = s.openTime || '06:00';
-        this.faceThreshold = typeof s.faceThreshold === 'number' ? s.faceThreshold : 0.55;
+        this.faceThreshold = typeof s.faceThreshold === 'number' ? s.faceThreshold : 0.65;
+        this.exitTracking = (s.exitTracking as any) || 'OFF';
+        this.earliestExitTime = s.earliestExitTime || '14:00';
+        this.notifyOnEntry = s.notifyOnEntry !== false;   // default true
+        this.notifyOnExit = !!s.notifyOnExit;
+        this.notifyOnEarlyLeave = s.notifyOnEarlyLeave !== false;   // default true
         this.isLoading = false;
       },
       error: () => {
@@ -89,6 +103,11 @@ export class BiometricSettingsComponent implements OnInit {
       lateCutoff: this.lateCutoff,
       openTime: this.openTime,
       faceThreshold: this.faceThreshold,
+      exitTracking: this.exitTracking,
+      earliestExitTime: this.earliestExitTime,
+      notifyOnEntry: this.notifyOnEntry,
+      notifyOnExit: this.notifyOnExit,
+      notifyOnEarlyLeave: this.notifyOnEarlyLeave,
     }).subscribe({
       next: () => {
         this.isSaving = false;

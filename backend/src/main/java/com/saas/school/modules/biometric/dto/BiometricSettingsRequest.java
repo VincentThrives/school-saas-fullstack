@@ -8,6 +8,13 @@ public class BiometricSettingsRequest {
     private String openTime;
     private Double faceThreshold;
 
+    /** OFF | AUTO | MANUAL — see BiometricSettings.exitTracking. */
+    private String exitTracking;
+    private String earliestExitTime;
+    private Boolean notifyOnEntry;
+    private Boolean notifyOnExit;
+    private Boolean notifyOnEarlyLeave;
+
     public boolean isCardEnabled() { return cardEnabled; }
     public void setCardEnabled(boolean cardEnabled) { this.cardEnabled = cardEnabled; }
 
@@ -22,4 +29,19 @@ public class BiometricSettingsRequest {
 
     public Double getFaceThreshold() { return faceThreshold; }
     public void setFaceThreshold(Double faceThreshold) { this.faceThreshold = faceThreshold; }
+
+    public String getExitTracking() { return exitTracking; }
+    public void setExitTracking(String exitTracking) { this.exitTracking = exitTracking; }
+
+    public String getEarliestExitTime() { return earliestExitTime; }
+    public void setEarliestExitTime(String earliestExitTime) { this.earliestExitTime = earliestExitTime; }
+
+    public Boolean getNotifyOnEntry() { return notifyOnEntry; }
+    public void setNotifyOnEntry(Boolean notifyOnEntry) { this.notifyOnEntry = notifyOnEntry; }
+
+    public Boolean getNotifyOnExit() { return notifyOnExit; }
+    public void setNotifyOnExit(Boolean notifyOnExit) { this.notifyOnExit = notifyOnExit; }
+
+    public Boolean getNotifyOnEarlyLeave() { return notifyOnEarlyLeave; }
+    public void setNotifyOnEarlyLeave(Boolean notifyOnEarlyLeave) { this.notifyOnEarlyLeave = notifyOnEarlyLeave; }
 }

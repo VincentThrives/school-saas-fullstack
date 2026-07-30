@@ -71,6 +71,62 @@
           </mat-form-field>
         </div>
 
+        <mat-divider class="bio-divider"></mat-divider>
+
+        <h3 class="bio-section-label">PUNCH IN / OUT</h3>
+
+        <div class="timing-row">
+          <mat-form-field appearance="outline" class="timing-field">
+            <mat-label>Exit tracking mode</mat-label>
+            <mat-select [(ngModel)]="exitTracking">
+              <mat-option value="OFF">Off — every scan is IN, no exit tracking</mat-option>
+              <mat-option value="AUTO">Auto — 1st scan of day = IN, 2nd = OUT</mat-option>
+              <mat-option value="MANUAL">Manual — kiosk shows IN / OUT toggle</mat-option>
+            </mat-select>
+            <mat-hint>Auto is simplest for most schools.</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="timing-field" *ngIf="exitTracking !== 'OFF'">
+            <mat-label>Earliest exit time (HH:mm)</mat-label>
+            <input matInput [(ngModel)]="earliestExitTime" placeholder="14:00" />
+            <mat-hint>OUT scans before this are treated as early leave.</mat-hint>
+          </mat-form-field>
+        </div>
+
+        <mat-divider class="bio-divider"></mat-divider>
+
+        <h3 class="bio-section-label">PARENT NOTIFICATIONS</h3>
+
+        <div class="notify-list">
+          <label class="notify-row">
+            <mat-checkbox [(ngModel)]="notifyOnEntry"></mat-checkbox>
+            <div class="notify-body">
+              <div class="notify-title">Notify on arrival</div>
+              <div class="notify-desc">Push parents when their child is marked IN.</div>
+            </div>
+          </label>
+
+          <label class="notify-row" [class.dim]="exitTracking === 'OFF'">
+            <mat-checkbox [(ngModel)]="notifyOnExit"
+                          [disabled]="exitTracking === 'OFF'"></mat-checkbox>
+            <div class="notify-body">
+              <div class="notify-title">Notify on departure</div>
+              <div class="notify-desc">Push parents every time their child punches OUT.
+                Off by default — can be noisy for daily dismissal.</div>
+            </div>
+          </label>
+
+          <label class="notify-row" [class.dim]="exitTracking === 'OFF'">
+            <mat-checkbox [(ngModel)]="notifyOnEarlyLeave"
+                          [disabled]="exitTracking === 'OFF'"></mat-checkbox>
+            <div class="notify-body">
+              <div class="notify-title">Notify on early leave</div>
+              <div class="notify-desc">Push parents when their child leaves before
+                the earliest-exit time above. Recommended.</div>
+            </div>
+          </label>
+        </div>
+
         <div class="bio-actions">
           <button mat-flat-button color="primary" [disabled]="!canSave || isSaving" (click)="save()">
             <mat-spinner *ngIf="isSaving" diameter="18" class="bio-spinner"></mat-spinner>

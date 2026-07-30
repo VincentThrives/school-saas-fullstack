@@ -21,10 +21,14 @@
                inputmode="numeric"
                maxlength="1"
                [attr.data-digit]="i"
-               [ngModel]="d"
+               [attr.name]="'nvpair-' + i"
+               [(ngModel)]="pairCodeDigits[i]"
+               [ngModelOptions]="{ standalone: true }"
                (input)="onDigitInput(i, $event)"
                (keydown)="onDigitBackspace(i, $event)"
-               autocomplete="off" />
+               autocomplete="off"
+               data-lpignore="true"
+               data-form-type="other" />
       </div>
 
       <div class="k-pair-error" *ngIf="pairError">{{ pairError }}</div>
@@ -38,90 +42,197 @@
     </div>
   </div>
 
-  <!-- ─── Scan screen ─── -->
+  <!-- ─── Scanner screen ─── -->
   <ng-container *ngIf="state">
     <div class="k-header">
       <div class="k-brand-small">{{ state.tenantName }} · {{ state.deviceLabel }}</div>
+
+      <!-- MANUAL mode: big IN/OUT toggle so the gate operator flips it
+           at dismissal time. Hidden entirely in OFF / AUTO modes. -->
+      <div class="k-dir-toggle" *ngIf="exitTracking === 'MANUAL'">
+        <button class="k-dir-btn"
+                [class.active]="manualDirection === 'IN'"
+                (click)="manualDirection = 'IN'">IN</button>
+        <button class="k-dir-btn out"
+                [class.active]="manualDirection === 'OUT'"
+                (click)="manualDirection = 'OUT'">OUT</button>
+      </div>
+
       <div class="k-time">{{ clockLabel() }}</div>
     </div>
 
-    <div class="k-body">
-      <!-- Welcome overlay -->
-      <div class="k-welcome" *ngIf="showResult">
-        <div class="k-photo-wrap">
-          <img *ngIf="resultPhoto" [src]="resultPhoto" alt="face" />
-          <div *ngIf="!resultPhoto" class="k-photo-fallback">
-            {{ resultName.charAt(0) }}
-          </div>
-          <div class="k-check" [class.late]="resultStatus === 'LATE'">
-            {{ resultStatus === 'LATE' ? '!' : '✓' }}
-          </div>
-        </div>
-        <div class="k-welcome-name">
-          {{ resultAlreadyMarked ? 'Already marked' : 'Welcome' }}, {{ resultName }}
-        </div>
-        <div class="k-welcome-sub">
-          {{ resultStatus === 'LATE' ? 'LATE' : 'Marked present' }} at {{ resultTime }}
-        </div>
-        <div class="k-welcome-meta">
-          {{ resultClassName }}<span *ngIf="resultMethod"> · via {{ resultMethod }}</span>
-        </div>
-      </div>
+    <div class="k-split">
 
-      <!-- Scan input (hidden while welcome is showing) -->
-      <div class="k-scan" *ngIf="!showResult">
-        <div class="k-scan-title">Ready to scan</div>
-        <div class="k-scan-sub">Type a card UID or pick a student by name.</div>
+      <!-- LEFT: camera + card input + welcome overlay -->
+      <div class="k-cam-side">
+        <div class="k-cam-shell" [class.matched]="showResult">
+          <!-- Live video -->
+          <video #kioskVideo class="k-cam-video" *ngIf="cameraOpen && !cameraError"
+                 playsinline muted></video>
 
-        <!-- Card UID input (works for both card mode + testing) -->
+          <!-- Stop button — quick way to shut the camera off without
+               unpairing the device. -->
+          <button class="k-cam-stop" *ngIf="cameraOpen && !cameraError"
+                  (click)="stopCamera()" title="Stop scanner">
+            <span class="k-cam-stop-icon">■</span>
+            <span>Stop</span>
+          </button>
+
+          <!-- Start button before camera is on -->
+          <div class="k-cam-start" *ngIf="!cameraOpen && !cameraError">
+            <button class="k-start-btn" (click)="startCamera()">
+              <span class="k-start-icon">▶</span>
+              <span>Start scanner</span>
+            </button>
+            <div class="k-start-hint">Tap to allow camera access</div>
+          </div>
+
+          <!-- Camera error -->
+          <div class="k-cam-err" *ngIf="cameraError">
+            <div>Camera unavailable</div>
+            <div class="sub">{{ cameraError }}</div>
+            <button class="k-start-btn" (click)="startCamera()">Try again</button>
+          </div>
+
+          <!-- Ambient hint (matching, already-marked, etc) -->
+          <div class="k-cam-hint-pill" *ngIf="hint && !showResult && !scanError">{{ hint }}</div>
+
+          <!-- Rejection overlay — shown when the server rejects a scan
+               (OUT-without-IN, etc). Sits inside the camera shell so
+               it's always in view regardless of scroll. -->
+          <div class="k-cam-error-overlay" *ngIf="scanError && !showResult">
+            <div class="k-cam-error-card">
+              <div class="k-cam-error-icon">!</div>
+              <div class="k-cam-error-msg">{{ scanError }}</div>
+            </div>
+          </div>
+
+          <!-- Welcome overlay -->
+          <div class="k-welcome" *ngIf="showResult" [class.out]="resultDirection === 'OUT'">
+            <div class="k-photo-wrap">
+              <img *ngIf="resultPhoto" [src]="resultPhoto" alt="face" />
+              <div *ngIf="!resultPhoto" class="k-photo-fallback">
+                {{ resultName.charAt(0) }}
+              </div>
+              <div class="k-check"
+                   [class.late]="resultStatus === 'LATE'"
+                   [class.out]="resultDirection === 'OUT'">
+                {{ resultDirection === 'OUT' ? '→' : (resultStatus === 'LATE' ? '!' : '✓') }}
+              </div>
+            </div>
+            <div class="k-welcome-name">
+              <ng-container *ngIf="resultDirection === 'IN'">
+                {{ resultAlreadyMarked ? 'Already marked' : 'Welcome' }}, {{ resultName }}
+              </ng-container>
+              <ng-container *ngIf="resultDirection === 'OUT'">
+                {{ resultAlreadyMarked ? 'Already left' : 'Goodbye' }}, {{ resultName }}
+              </ng-container>
+            </div>
+            <div class="k-welcome-sub">
+              <ng-container *ngIf="resultDirection === 'IN'">
+                {{ resultStatus === 'LATE' ? 'LATE' : 'Marked present' }} at {{ resultTime }}
+              </ng-container>
+              <ng-container *ngIf="resultDirection === 'OUT'">
+                <span *ngIf="resultStatus === 'EARLY_LEAVE'">Early leave · </span>
+                Left at {{ resultTime }}
+              </ng-container>
+            </div>
+            <div class="k-welcome-meta">
+              {{ resultClassName }}<span *ngIf="resultMethod"> · via {{ resultMethod }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card UID input below camera -->
         <div class="k-card-row">
           <input class="k-card-input"
                  type="text"
                  [(ngModel)]="cardInput"
-                 placeholder="Card UID (or admission number for testing)"
+                 placeholder="Or tap card / type UID"
                  (keyup.enter)="submitCardScan()"
-                 autocomplete="off"
-                 autofocus />
-          <button class="k-scan-btn" [disabled]="!cardInput.trim() || isScanning"
-                  (click)="submitCardScan()">
-            {{ isScanning ? '…' : 'Scan' }}
+                 autocomplete="off" />
+          <button class="k-scan-btn"
+                  [disabled]="!cardInput.trim() || isScanning"
+                  (click)="submitCardScan()">Scan</button>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: tabbed sidebar (Marked | Unmarked) -->
+      <aside class="k-sidebar">
+        <div class="k-tabs">
+          <button class="k-tab"
+                  [class.active]="activeTab === 'marked'"
+                  (click)="activeTab = 'marked'">
+            <span>Marked</span>
+            <span class="k-tab-count">{{ markedCount }}</span>
+          </button>
+          <button class="k-tab"
+                  [class.active]="activeTab === 'unmarked'"
+                  (click)="activeTab = 'unmarked'">
+            <span>Unmarked</span>
+            <span class="k-tab-count">{{ pendingRoster.length }}</span>
           </button>
         </div>
 
-        <!-- Face-mode fallback: pick from list -->
-        <div class="k-face-fallback">
-          <div class="k-face-lbl">or pick a student (face mode)</div>
-          <input class="k-search-input"
-                 type="text"
-                 [(ngModel)]="studentSearch"
-                 placeholder="Search by name / roll / class" />
-          <div class="k-roster">
-            <button class="k-roster-item"
-                    *ngFor="let r of filteredRoster"
-                    (click)="submitFaceScan(r.studentId)">
-              <div class="k-roster-photo" [class.has-photo]="r.photoBase64">
-                <img *ngIf="r.photoBase64" [src]="'data:image/jpeg;base64,' + r.photoBase64" />
-                <span *ngIf="!r.photoBase64">{{ r.name.charAt(0) }}</span>
+        <!-- Marked tab body -->
+        <div class="k-tab-body" *ngIf="activeTab === 'marked'">
+          <div class="k-list-empty" *ngIf="markedRows.length === 0">
+            No students marked yet. Scans will land here.
+          </div>
+          <div class="k-mark-row" *ngFor="let m of markedRows">
+            <div class="k-mark-photo" [class.has-photo]="m.photoBase64">
+              <img *ngIf="m.photoBase64" [src]="'data:image/jpeg;base64,' + m.photoBase64" alt="face" />
+              <span *ngIf="!m.photoBase64">{{ m.name.charAt(0) }}</span>
+            </div>
+            <div class="k-mark-body">
+              <div class="k-mark-name">{{ m.name }}</div>
+              <div class="k-mark-sub">
+                {{ m.className }} · Roll {{ m.rollNumber || '—' }}
               </div>
-              <div class="k-roster-body">
-                <div class="k-roster-name">{{ r.name }}</div>
-                <div class="k-roster-sub">{{ r.className }} · Roll {{ r.rollNumber || '—' }}</div>
+              <div class="k-mark-inout" *ngIf="m.entryTime || m.exitTime">
+                <span class="k-io-chip in" *ngIf="m.entryTime">IN {{ m.entryTime }}</span>
+                <span class="k-io-sep" *ngIf="m.entryTime && m.exitTime">→</span>
+                <span class="k-io-chip out" *ngIf="m.exitTime">OUT {{ m.exitTime }}</span>
               </div>
-            </button>
+            </div>
+            <div class="k-mark-right">
+              <div class="k-mark-tag"
+                   [class.late]="m.status === 'LATE'"
+                   [class.out]="m.direction === 'OUT'">
+                {{ m.direction === 'OUT' ? (m.status === 'EARLY_LEAVE' ? 'EARLY' : 'OUT') : m.status }}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="k-scan-error" *ngIf="scanError">{{ scanError }}</div>
-      </div>
+        <!-- Unmarked tab body -->
+        <div class="k-tab-body" *ngIf="activeTab === 'unmarked'">
+          <div class="k-list-empty" *ngIf="pendingRoster.length === 0">
+            Everyone accounted for.
+          </div>
+          <div class="k-pend-row" *ngFor="let r of pendingRoster">
+            <div class="k-mark-photo" [class.has-photo]="r.photoBase64">
+              <img *ngIf="r.photoBase64" [src]="'data:image/jpeg;base64,' + r.photoBase64" alt="face" />
+              <span *ngIf="!r.photoBase64">{{ r.name.charAt(0) }}</span>
+            </div>
+            <div class="k-mark-body">
+              <div class="k-mark-name">{{ r.name }}</div>
+              <div class="k-mark-sub">{{ r.className }} · Roll {{ r.rollNumber || '—' }}</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
     </div>
 
     <div class="k-footer">
       <div class="k-stat">
-        <div class="k-stat-num">{{ scannedCount }}</div>
+        <div class="k-stat-num">{{ markedCount }}</div>
         <div class="k-stat-lbl">MARKED</div>
       </div>
       <div class="k-stat">
-        <div class="k-stat-num">{{ roster.length - scannedCount }}</div>
+        <div class="k-stat-num">{{ pendingRoster.length }}</div>
         <div class="k-stat-lbl">PENDING</div>
       </div>
       <div class="k-stat">

@@ -1,9 +1,11 @@
 $gold: #d4a843;
 $gold-dark: #b8860b;
+$good: #166534;
+$good-bg: #dcfce7;
 
 .be {
   padding: 24px;
-  max-width: 900px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 
@@ -12,50 +14,229 @@ $gold-dark: #b8860b;
   margin-bottom: 14px;
 }
 
-.be-section {
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: #6b7280;
-  margin: 6px 0 10px;
-}
-
-.be-hint {
-  color: #6b7280;
-  font-size: 13px;
-  margin: 0 0 14px;
-}
-
 .be-picker-row {
   display: flex;
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
+}
+.be-picker { flex: 1 1 220px; }
 
-  button { min-width: 150px; height: 44px; mat-icon { margin-right: 6px; } }
+.be-load-btn {
+  min-width: 160px;
+  height: 44px;
+  mat-icon { margin-right: 6px; }
+}
+.be-spinner {
+  display: inline-block;
+  margin-right: 8px;
+  ::ng-deep circle { stroke: #fff; }
 }
 
-.be-picker { flex: 1 1 200px; }
+/* Toolbar above the table */
+.be-toolbar {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.be-search {
+  flex: 1 1 260px;
+  min-width: 220px;
+  margin: 0;
+}
+.be-summary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.be-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: rgba(0, 0, 0, 0.05);
+  color: #4b5563;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  mat-icon { font-size: 15px; width: 15px; height: 15px; }
 
-.be-student-field {
+  &.good { background: $good-bg; color: $good; }
+}
+
+/* Table */
+.be-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #f1ecd9;
+  border-radius: 10px;
+}
+.be-table {
   width: 100%;
-  margin-top: 8px;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 14px;
+
+  thead th {
+    background: rgba($gold, 0.08);
+    color: #1f2937;
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba($gold, 0.22);
+  }
+  tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    color: #1f2937;
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: rgba($gold, 0.05); }
+
+  .be-col-photo { width: 56px; }
+  .be-col-name { font-weight: 600; }
+  .be-col-roll { width: 80px; color: #6b7280; }
+  .be-col-status { width: 140px; }
+  .be-col-action { width: 130px; text-align: right; }
 }
 
-.be-card-row {
+.be-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba($gold, 0.18);
+  color: $gold-dark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.be-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: rgba(0, 0, 0, 0.05);
+  color: #6b7280;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+
+  &.good { background: $good-bg; color: $good; }
+}
+
+.be-empty-row {
+  text-align: center;
+  color: #6b7280;
+  padding: 40px 20px !important;
+  font-style: italic;
+}
+
+/* ── Enrol popup ─────────────────────────────────────────── */
+
+.be-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  // Do NOT set overflow: auto here — the dialog itself owns scroll
+  // (max-height + inner scrolling body). Making the overlay
+  // scrollable pushes the dialog off the top when content is tall.
+}
+.be-dialog {
+  background: #fff;
+  width: min(640px, 96vw);
+  max-height: calc(100vh - 32px);
+  margin-top: 50px;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.be-dialog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 5px 22px 4px;
+  border-bottom: 1px solid #f1ecd9;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.be-dialog-body {
+  padding: 0 22px 16px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.be-dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  > mat-icon {
+    color: $gold-dark;
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+    padding: 6px;
+    background: rgba($gold, 0.15);
+    border-radius: 8px;
+  }
+}
+.be-dialog-name {
+  font-size: 17px;
+  font-weight: 800;
+  color: #1f2937;
+}
+.be-dialog-sub {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.be-dlg-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #f1ecd9;
+}
+.be-dlg-section-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  color: #7a7365;
+  margin-bottom: 10px;
+  mat-icon { color: $gold-dark; font-size: 18px; width: 18px; height: 18px; }
+}
+
+.be-dlg-card-row {
   display: flex;
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
   button { min-width: 130px; mat-icon { margin-right: 6px; } }
 }
+.be-dlg-card-field { flex: 1 1 260px; }
 
-.be-card-field {
-  flex: 1 1 260px;
-}
-
-.be-face-row {
+.be-dlg-face {
   display: flex;
   gap: 20px;
   align-items: flex-start;
@@ -73,29 +254,118 @@ $gold-dark: #b8860b;
   display: flex;
   align-items: center;
   justify-content: center;
-
   img { width: 100%; height: 100%; object-fit: cover; }
 }
-
 .be-photo-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   color: $gold-dark;
-
   mat-icon { font-size: 40px; width: 40px; height: 40px; }
   span { font-size: 12px; }
 }
 
 .be-face-actions {
   flex: 1 1 240px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 
   button {
-    min-width: 200px;
-    mat-icon { margin-right: 6px; }
+    height: 40px;
+    font-size: 13px;
+    padding: 0 12px;
+    line-height: 40px;
+    mat-icon { margin-right: 4px; font-size: 18px; width: 18px; height: 18px; }
   }
+  // Primary save spans both columns for prominence.
+  button[color="primary"] { grid-column: span 2; }
+  // Remove-enrolment (warn) also full width and pushed to the bottom.
+  button[color="warn"]:last-child { grid-column: span 2; }
 }
+
+@media (max-width: 500px) {
+  .be-face-actions { grid-template-columns: 1fr; }
+  .be-face-actions button[color="primary"],
+  .be-face-actions button[color="warn"]:last-child { grid-column: span 1; }
+}
+
+/* ── Camera overlay ──────────────────────────────────────── */
+
+.be-cam-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.be-cam-panel {
+  background: #fff;
+  width: min(560px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+  border-radius: 16px;
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+}
+.be-cam-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.be-cam-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+  mat-icon { color: $gold-dark; font-size: 22px; width: 22px; height: 22px; }
+}
+.be-cam-body {
+  background: #14120e;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  max-height: 460px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a09985;
+}
+.be-cam-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+.be-cam-error {
+  text-align: center;
+  padding: 32px 20px;
+  color: #fca5a5;
+  mat-icon { font-size: 44px; width: 44px; height: 44px; margin-bottom: 8px; }
+  p { margin: 0; font-size: 13.5px; }
+}
+.be-cam-hint {
+  margin: 12px 4px 0;
+  color: #6b7280;
+  font-size: 13px;
+  text-align: center;
+}
+.be-cam-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+  button { min-width: 130px; mat-icon { margin-right: 6px; } }
+}
+
+/* Restart backend needed for the /face-enrolled-ids endpoint —
+   restart the dev server too since we swapped many components. */

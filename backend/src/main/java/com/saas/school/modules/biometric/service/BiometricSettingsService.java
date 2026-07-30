@@ -54,6 +54,20 @@ public class BiometricSettingsService {
             if (req.getFaceThreshold() != null) {
                 s.setFaceThreshold(req.getFaceThreshold());
             }
+            // Punch-in/out configuration.
+            if (req.getExitTracking() != null && !req.getExitTracking().isBlank()) {
+                String mode = req.getExitTracking().trim().toUpperCase();
+                if (!mode.equals("OFF") && !mode.equals("AUTO") && !mode.equals("MANUAL")) {
+                    throw new BusinessException("exitTracking must be OFF, AUTO, or MANUAL.");
+                }
+                s.setExitTracking(mode);
+            }
+            if (req.getEarliestExitTime() != null && !req.getEarliestExitTime().isBlank()) {
+                s.setEarliestExitTime(req.getEarliestExitTime());
+            }
+            if (req.getNotifyOnEntry() != null) s.setNotifyOnEntry(req.getNotifyOnEntry());
+            if (req.getNotifyOnExit() != null) s.setNotifyOnExit(req.getNotifyOnExit());
+            if (req.getNotifyOnEarlyLeave() != null) s.setNotifyOnEarlyLeave(req.getNotifyOnEarlyLeave());
             t.setBiometricSettings(s);
             tenantRepository.save(t);
             return s;

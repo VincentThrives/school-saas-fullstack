@@ -14,6 +14,10 @@ public class ScanRequest {
     private String matchedStudentId;
     /** ISO instant. Optional — server uses now() if absent. */
     private String scannedAt;
+    /** Only honored when the tenant's exitTracking is MANUAL — the
+     *  kiosk sends "IN" or "OUT" based on its current toggle. In OFF
+     *  and AUTO modes the server decides direction and ignores this. */
+    private String direction;
 
     public AttendanceScan.ScanMethod getMethod() { return method; }
     public void setMethod(AttendanceScan.ScanMethod method) { this.method = method; }
@@ -26,4 +30,7 @@ public class ScanRequest {
 
     public String getScannedAt() { return scannedAt; }
     public void setScannedAt(String scannedAt) { this.scannedAt = scannedAt; }
+
+    public String getDirection() { return direction; }
+    public void setDirection(String direction) { this.direction = direction; }
 }

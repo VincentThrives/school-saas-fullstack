@@ -89,6 +89,15 @@ public class BiometricAdminController {
         return ResponseEntity.ok(ApiResponse.success(enrollmentService.getFace(studentId)));
     }
 
+    /** IDs of every student who has a face enrolled — feeds the
+     *  enrolment table's "Face ✓" chip without fetching photo blobs
+     *  per row. */
+    @GetMapping("/students/face-enrolled-ids")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
+    public ResponseEntity<ApiResponse<java.util.Set<String>>> faceEnrolledIds() {
+        return ResponseEntity.ok(ApiResponse.success(enrollmentService.faceEnrolledIds()));
+    }
+
     // ── Kiosk devices ───────────────────────────────────────
 
     @PostMapping("/devices/pairing-code")

@@ -9,16 +9,21 @@ public class PairDeviceResponse {
     private String deviceLabel;
     private String tenantId;
     private String tenantName;
+    /** School code / subdomain — the tablet sends this back as the
+     *  {@code X-School-Code} header on every subsequent request so
+     *  the device-auth filter can resolve the tenant DB. */
+    private String schoolCode;
 
     public PairDeviceResponse() {}
 
     public PairDeviceResponse(String deviceToken, String deviceId, String deviceLabel,
-                              String tenantId, String tenantName) {
+                              String tenantId, String tenantName, String schoolCode) {
         this.deviceToken = deviceToken;
         this.deviceId = deviceId;
         this.deviceLabel = deviceLabel;
         this.tenantId = tenantId;
         this.tenantName = tenantName;
+        this.schoolCode = schoolCode;
     }
 
     public String getDeviceToken() { return deviceToken; }
@@ -35,4 +40,7 @@ public class PairDeviceResponse {
 
     public String getTenantName() { return tenantName; }
     public void setTenantName(String tenantName) { this.tenantName = tenantName; }
+
+    public String getSchoolCode() { return schoolCode; }
+    public void setSchoolCode(String schoolCode) { this.schoolCode = schoolCode; }
 }

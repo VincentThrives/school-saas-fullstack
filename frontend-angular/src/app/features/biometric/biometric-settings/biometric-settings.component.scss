@@ -133,3 +133,41 @@ $gold-dark: #b8860b;
   margin-right: 8px;
   ::ng-deep circle { stroke: #fff; }
 }
+
+/* Parent notification toggles */
+.notify-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.notify-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #e7dfc9;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+
+  &:hover:not(.dim) { background: rgba($gold, 0.06); }
+  &.dim { opacity: 0.55; cursor: not-allowed; }
+}
+
+.notify-body { flex: 1; }
+
+.notify-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.notify-desc {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin-top: 2px;
+  line-height: 1.45;
+}

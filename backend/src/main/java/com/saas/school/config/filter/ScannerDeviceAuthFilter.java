@@ -3,6 +3,8 @@ package com.saas.school.config.filter;
 import com.saas.school.config.mongodb.TenantContext;
 import com.saas.school.modules.biometric.model.ScannerDevice;
 import com.saas.school.modules.biometric.repository.ScannerDeviceRepository;
+import com.saas.school.modules.tenant.model.Tenant;
+import com.saas.school.modules.tenant.repository.TenantRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,10 +26,15 @@ import java.util.List;
 
 /**
  * Alternative authentication path for kiosk tablets. Runs after
- * {@link JwtAuthFilter} — if there's no Bearer token but there IS an
- * {@code X-Device-Token} header, we resolve it against
- * {@code scanner_devices}, stamp the tenant context, and inject a
- * synthetic {@code ROLE_SCANNER} principal.
+ * {@link JwtAuthFilter} — if there's no Bearer token but the request
+ * carries both {@code X-School-Code} and {@code X-Device-Token}
+ * headers, we resolve the tenant from the master DB, set the tenant
+ * context, then look up the device in the tenant's own DB and inject
+ * a {@code ROLE_SCANNER} principal.
+ *
+ * <p>Devices live in the tenant DB — clean per-tenant isolation. The
+ * {@code X-School-Code} header is how the tablet tells us which
+ * tenant to route to (subdomain or tenantId, resolved in master).</p>
  *
  * <p>The tablet cannot become an admin, teacher, or student — the
  * only authority it ever holds is {@code ROLE_SCANNER}, which is
@@ -38,10 +45,12 @@ import java.util.List;
 public class ScannerDeviceAuthFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(ScannerDeviceAuthFilter.class);
-    public static final String HEADER = "X-Device-Token";
+    public static final String HEADER_DEVICE_TOKEN = "X-Device-Token";
+    public static final String HEADER_SCHOOL_CODE  = "X-School-Code";
     public static final String REQUEST_ATTR_DEVICE_ID = "scannerDeviceId";
 
     @Autowired private ScannerDeviceRepository deviceRepository;
+    @Autowired private TenantRepository tenantRepository;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -55,15 +64,31 @@ public class ScannerDeviceAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        String header = request.getHeader(HEADER);
-        if (!StringUtils.hasText(header)) {
+        String tokenHeader = request.getHeader(HEADER_DEVICE_TOKEN);
+        String schoolCode  = request.getHeader(HEADER_SCHOOL_CODE);
+        if (!StringUtils.hasText(tokenHeader) || !StringUtils.hasText(schoolCode)) {
             filterChain.doFilter(request, response);
             return;
         }
 
+        boolean contextSet = false;
         try {
-            String hash = sha256(header.trim());
-            ScannerDevice device = deviceRepository.findByDeviceTokenHash(hash).orElse(null);
+            // Resolve tenant in master DB — the tablet's schoolCode is
+            // either the tenant's subdomain or its tenantId.
+            Tenant tenant = resolveTenant(schoolCode.trim());
+            if (tenant == null) {
+                log.debug("Scanner request references unknown school: {}", schoolCode);
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // Set tenant context BEFORE the device lookup so the query
+            // routes to that tenant's DB where scanner_devices lives.
+            TenantContext.setTenantId(tenant.getTenantId());
+            contextSet = true;
+
+            String tokenHash = sha256(tokenHeader.trim());
+            ScannerDevice device = deviceRepository.findByDeviceTokenHash(tokenHash).orElse(null);
             if (device == null) {
                 log.debug("Unknown scanner device token on {}", request.getRequestURI());
                 filterChain.doFilter(request, response);
@@ -74,9 +99,14 @@ public class ScannerDeviceAuthFilter extends OncePerRequestFilter {
                 filterChain.doFilter(request, response);
                 return;
             }
-
-            // Stamp tenant context for DB routing (mirrors JwtAuthFilter).
-            TenantContext.setTenantId(device.getTenantId());
+            if (!tenant.getTenantId().equals(device.getTenantId())) {
+                // Should not happen unless the token was minted for a
+                // different tenant — refuse quietly.
+                log.warn("Scanner device tenant mismatch: schoolCode={} deviceTenant={}",
+                        schoolCode, device.getTenantId());
+                filterChain.doFilter(request, response);
+                return;
+            }
 
             // Synthetic principal — only ROLE_SCANNER authority.
             var auth = new UsernamePasswordAuthenticationToken(
@@ -85,16 +115,28 @@ public class ScannerDeviceAuthFilter extends OncePerRequestFilter {
                     List.of(new SimpleGrantedAuthority("ROLE_SCANNER"))
             );
             SecurityContextHolder.getContext().setAuthentication(auth);
-
             request.setAttribute(REQUEST_ATTR_DEVICE_ID, device.getDeviceId());
 
             filterChain.doFilter(request, response);
         } finally {
-            // JwtAuthFilter's finally already clears the context on the
-            // parent chain — but if we set it and JWT filter never ran
-            // (device-token requests don't have a Bearer), we must clear
-            // it here too. Idempotent-safe.
-            TenantContext.clear();
+            // Only clear if we set it. JwtAuthFilter has its own
+            // finally that also clears, so double-clear is safe.
+            if (contextSet) TenantContext.clear();
+        }
+    }
+
+    /** Resolve a tenant from either its subdomain (public identifier
+     *  admins type in) or its raw tenantId. Runs in master DB — clear
+     *  and restore the tenant context around the lookup. */
+    private Tenant resolveTenant(String schoolCode) {
+        String saved = TenantContext.getTenantId();
+        TenantContext.clear();
+        try {
+            Tenant t = tenantRepository.findBySubdomain(schoolCode).orElse(null);
+            if (t == null) t = tenantRepository.findById(schoolCode).orElse(null);
+            return t;
+        } finally {
+            if (saved != null) TenantContext.setTenantId(saved);
         }
     }
 

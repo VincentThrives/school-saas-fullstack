@@ -342,7 +342,33 @@ public class Tenant {
         private String openTime = "06:00";
         /** Face-match confidence threshold (0..1). Below this the kiosk
          *  rejects the match and prompts the student to try again. */
-        private double faceThreshold = 0.55;
+        // Cosine-similarity threshold for face-api.js FaceNet embeddings.
+        // Typical same-person cosine is 0.75-0.95; different-person 0.30-0.60.
+        // 0.65 is a safe default; admin can adjust per tenant.
+        private double faceThreshold = 0.65;
+
+        // ── Punch in / out ────────────────────────────────────────
+
+        /** How exit tracking is decided:
+         *  <ul>
+         *    <li>{@code OFF} — every scan is IN, no exit tracking (default).</li>
+         *    <li>{@code AUTO} — first scan of day = IN, second = OUT.</li>
+         *    <li>{@code MANUAL} — kiosk shows an IN/OUT toggle; direction
+         *        comes from the tablet.</li>
+         *  </ul>
+         */
+        private String exitTracking = "OFF";
+        /** OUT scans before this time are treated as "early leave"
+         *  and can fire the EARLY_LEAVE_ALERT rule. HH:mm. */
+        private String earliestExitTime = "14:00";
+        /** Fire the ARRIVAL notification when a student is marked IN. */
+        private boolean notifyOnEntry = true;
+        /** Fire the DEPARTURE notification when a student is marked OUT. */
+        private boolean notifyOnExit = false;
+        /** Fire an EARLY_LEAVE notification when OUT lands before
+         *  {@link #earliestExitTime}. On by default because this is
+         *  the ping parents actually value. */
+        private boolean notifyOnEarlyLeave = true;
 
         public BiometricSettings() {}
 
@@ -360,6 +386,21 @@ public class Tenant {
 
         public double getFaceThreshold() { return faceThreshold; }
         public void setFaceThreshold(double faceThreshold) { this.faceThreshold = faceThreshold; }
+
+        public String getExitTracking() { return exitTracking; }
+        public void setExitTracking(String exitTracking) { this.exitTracking = exitTracking; }
+
+        public String getEarliestExitTime() { return earliestExitTime; }
+        public void setEarliestExitTime(String earliestExitTime) { this.earliestExitTime = earliestExitTime; }
+
+        public boolean isNotifyOnEntry() { return notifyOnEntry; }
+        public void setNotifyOnEntry(boolean notifyOnEntry) { this.notifyOnEntry = notifyOnEntry; }
+
+        public boolean isNotifyOnExit() { return notifyOnExit; }
+        public void setNotifyOnExit(boolean notifyOnExit) { this.notifyOnExit = notifyOnExit; }
+
+        public boolean isNotifyOnEarlyLeave() { return notifyOnEarlyLeave; }
+        public void setNotifyOnEarlyLeave(boolean notifyOnEarlyLeave) { this.notifyOnEarlyLeave = notifyOnEarlyLeave; }
     }
 
     public static class TenantLimits {

@@ -16,7 +16,7 @@ $tab-muted: #a09985;
   position: relative;
 }
 
-/* ── Pairing screen ── */
+/* ── Pairing screen (unchanged from prior) ── */
 
 .k-pairing {
   min-height: 100vh;
@@ -25,7 +25,6 @@ $tab-muted: #a09985;
   justify-content: center;
   padding: 40px 20px;
 }
-
 .k-pair-inner {
   background: rgba(240, 235, 222, 0.03);
   border: 1px solid rgba(240, 235, 222, 0.10);
@@ -34,7 +33,6 @@ $tab-muted: #a09985;
   max-width: 500px;
   width: 100%;
 }
-
 .k-brand {
   color: $gold;
   font-size: 12px;
@@ -42,20 +40,17 @@ $tab-muted: #a09985;
   font-weight: 700;
   margin-bottom: 22px;
 }
-
 .k-h1 {
   font-size: 32px;
   font-weight: 700;
   margin: 0 0 10px;
   letter-spacing: -0.01em;
 }
-
 .k-hint {
   color: $tab-muted;
   font-size: 14px;
   margin: 0 0 26px;
 }
-
 .k-field-lbl {
   display: block;
   color: $tab-muted;
@@ -64,7 +59,6 @@ $tab-muted: #a09985;
   font-weight: 700;
   margin: 18px 0 8px;
 }
-
 .k-school-input {
   width: 100%;
   padding: 14px 16px;
@@ -74,16 +68,9 @@ $tab-muted: #a09985;
   color: $tab-ink;
   font-size: 17px;
   outline: none;
-
   &:focus { border-color: $gold; }
 }
-
-.k-digits {
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-}
-
+.k-digits { display: flex; gap: 8px; justify-content: space-between; }
 .k-digit {
   width: 100%;
   height: 60px;
@@ -96,10 +83,8 @@ $tab-muted: #a09985;
   text-align: center;
   outline: none;
   font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
-
   &:focus { border-color: $gold; }
 }
-
 .k-pair-error {
   color: #fca5a5;
   font-size: 13.5px;
@@ -108,7 +93,6 @@ $tab-muted: #a09985;
   background: rgba(220, 38, 38, 0.15);
   border-radius: 8px;
 }
-
 .k-cta {
   width: 100%;
   padding: 16px;
@@ -122,11 +106,9 @@ $tab-muted: #a09985;
   letter-spacing: 0.04em;
   cursor: pointer;
   transition: background 0.15s ease;
-
   &:hover:not(:disabled) { background: $gold; }
   &:disabled { opacity: 0.4; cursor: not-allowed; }
 }
-
 .k-footnote {
   color: rgba($tab-muted, 0.7);
   font-size: 12px;
@@ -134,52 +116,253 @@ $tab-muted: #a09985;
   text-align: center;
 }
 
-/* ── Scan screen ── */
+/* ── Scanner screen ── */
 
 .k-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 28px;
+  padding: 14px 24px;
   border-bottom: 1px solid rgba(50, 45, 36, 0.6);
 }
-
 .k-brand-small {
   color: $gold;
   font-size: 12px;
   letter-spacing: 0.14em;
   font-weight: 700;
 }
+.k-time { color: $tab-muted; font-size: 13px; }
 
-.k-time {
+/* MANUAL-mode direction toggle (IN / OUT) that sits in the header */
+.k-dir-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(240, 235, 222, 0.05);
+  border: 1px solid rgba(240, 235, 222, 0.10);
+  border-radius: 12px;
+}
+.k-dir-btn {
+  border: none;
+  background: transparent;
   color: $tab-muted;
-  font-size: 13px;
+  padding: 8px 22px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &.active {
+    background: $gold-dark;
+    color: #0f0e0b;
+  }
+  &.out.active {
+    background: #b23a3a;
+    color: #fff;
+  }
+  &:hover:not(.active) { color: $tab-ink; }
 }
 
-.k-body {
-  min-height: calc(100vh - 200px);
+.k-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 18px;
+  padding: 18px 20px 74px;
+  // Fixed to viewport — 50px header + 60px footer + 32px padding.
+  height: calc(100vh - 50px);
+}
+
+/* Left column — camera + card input */
+
+.k-cam-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.k-cam-shell {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;              // let flex shrink me
+  background: $tab-black;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1.5px solid rgba(240, 235, 222, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &.matched {
+    border-color: $gold;
+    box-shadow: 0 0 0 4px rgba($gold, 0.15);
+  }
+}
+
+.k-cam-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scaleX(-1);   // selfie mirror
+}
+
+.k-cam-start {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: $tab-black;
+}
+
+.k-start-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 32px;
+  background: $gold-dark;
+  color: #fff;
+  border: 0;
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba($gold, 0.35);
+  &:hover { background: $gold; }
+}
+.k-start-icon { font-size: 20px; }
+.k-start-hint { color: $tab-muted; font-size: 13px; }
+
+.k-cam-err {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #fca5a5;
+  padding: 20px;
+  text-align: center;
+
+  .sub { color: rgba(#fca5a5, 0.75); font-size: 13px; max-width: 320px; }
+}
+
+.k-cam-hint-pill {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.72);
+  color: $gold;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  border: 1px solid rgba($gold, 0.35);
+  backdrop-filter: blur(6px);
+}
+
+/* Stop-scanner button — floats in the top-right of the camera. */
+.k-cam-stop {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.62);
+  color: $tab-ink;
+  border: 1px solid rgba(240, 235, 222, 0.22);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: background 0.12s ease, border-color 0.12s ease;
+
+  &:hover {
+    background: rgba(178, 58, 58, 0.78);
+    border-color: #b23a3a;
+    color: #fff;
+  }
+}
+.k-cam-stop-icon { font-size: 11px; line-height: 1; }
+
+/* Scan-rejection overlay — appears on the camera when the server
+   refuses a scan (OUT-without-IN, disabled method, etc). Auto-clears
+   after ~3s the same way the trailing error banner used to. */
+.k-cam-error-overlay {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(80, 20, 20, 0.85));
+  animation: k-pop 0.24s ease-out;
+  padding: 30px;
+  z-index: 4;
+}
+.k-cam-error-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 480px;
+  text-align: center;
+}
+.k-cam-error-icon {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: #b23a3a;
+  color: #fff;
+  font-size: 44px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid $tab-screen;
+  box-shadow: 0 0 0 3px rgba(178, 58, 58, 0.35);
+}
+.k-cam-error-msg {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 /* Welcome overlay */
 .k-welcome {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.85));
+  animation: k-pop 0.28s ease-out;
   text-align: center;
-  animation: k-pop 0.3s ease-out;
+  padding: 30px;
 }
 
 @keyframes k-pop {
-  from { transform: scale(0.9); opacity: 0; }
+  from { transform: scale(0.94); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
 
 .k-photo-wrap {
   position: relative;
-  width: 160px;
-  height: 160px;
-  margin: 0 auto 22px;
+  width: 180px;
+  height: 180px;
+  margin-bottom: 18px;
 }
 
 .k-photo-wrap img,
@@ -187,206 +370,290 @@ $tab-muted: #a09985;
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 3px solid $gold;
+  border: 4px solid $gold;
   object-fit: cover;
   background: rgba($gold, 0.15);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 60px;
+  font-size: 66px;
   font-weight: 700;
   color: $gold;
 }
 
 .k-check {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 46px;
-  height: 46px;
+  bottom: 6px;
+  right: 6px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: #16a34a;
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 700;
-  border: 3px solid $tab-screen;
+  border: 4px solid $tab-screen;
 
   &.late { background: #ea580c; }
+  &.out  { background: #b23a3a; }
 }
 
-.k-welcome-name {
-  font-size: 32px;
-  font-weight: 700;
-  margin-bottom: 6px;
+.k-welcome-name { font-size: 30px; font-weight: 700; margin-top: 4px; }
+.k-welcome-sub { color: $gold; font-size: 16px; margin: 4px 0; }
+.k-welcome-meta { color: $tab-muted; font-size: 13.5px; }
+
+/* OUT variant recolours the ring + subheading so entry vs exit is
+   readable across the room. */
+.k-welcome.out {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(80, 20, 20, 0.85));
+  .k-photo-wrap img,
+  .k-photo-fallback { border-color: #b23a3a; }
+  .k-welcome-sub { color: #fca5a5; }
 }
 
-.k-welcome-sub {
-  color: $gold;
-  font-size: 16px;
-  margin-bottom: 4px;
-}
-
-.k-welcome-meta {
-  color: $tab-muted;
-  font-size: 13.5px;
-}
-
-/* Scan input */
-.k-scan {
-  max-width: 620px;
-  width: 100%;
-}
-
-.k-scan-title {
-  font-size: 26px;
-  font-weight: 700;
-  margin-bottom: 6px;
-  text-align: center;
-}
-
-.k-scan-sub {
-  color: $tab-muted;
-  font-size: 14px;
-  margin-bottom: 22px;
-  text-align: center;
-}
+/* Card input row */
 
 .k-card-row {
   display: flex;
   gap: 10px;
-  margin-bottom: 30px;
 }
 
 .k-card-input {
   flex: 1;
-  padding: 16px 18px;
-  background: rgba(240, 235, 222, 0.08);
-  border: 1.5px solid rgba(240, 235, 222, 0.20);
+  padding: 14px 16px;
+  background: rgba(240, 235, 222, 0.06);
+  border: 1.5px solid rgba(240, 235, 222, 0.15);
   border-radius: 10px;
   color: $tab-ink;
-  font-size: 18px;
+  font-size: 15px;
   outline: none;
-
-  &:focus { border-color: $gold; background: rgba(240, 235, 222, 0.12); }
+  &:focus { border-color: $gold; background: rgba(240, 235, 222, 0.10); }
 }
 
 .k-scan-btn {
-  padding: 0 26px;
+  padding: 0 24px;
   background: $gold-dark;
-  color: white;
+  color: #fff;
   border: 0;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  min-width: 100px;
-
+  min-width: 90px;
   &:hover:not(:disabled) { background: $gold; }
   &:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
-.k-face-fallback {
-  border-top: 1px dashed rgba(240, 235, 222, 0.15);
-  padding-top: 22px;
+.k-scan-error {
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: rgba(220, 38, 38, 0.15);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 13px;
 }
 
-.k-face-lbl {
+/* Right sidebar */
+
+.k-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: rgba(240, 235, 222, 0.03);
+  border: 1px solid rgba(240, 235, 222, 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.k-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 8px;
+  gap: 6px;
+  border-bottom: 1px solid rgba(240, 235, 222, 0.08);
+  background: rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.k-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
   color: $tab-muted;
-  font-size: 12px;
-  letter-spacing: 0.14em;
+  font-size: 13px;
   font-weight: 700;
-  text-transform: uppercase;
-  margin-bottom: 10px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+  &:hover { color: $tab-ink; }
+
+  &.active {
+    background: rgba($gold, 0.15);
+    color: $gold;
+    border-color: rgba($gold, 0.4);
+  }
+}
+
+.k-tab-count {
+  background: rgba($gold, 0.20);
+  color: $gold;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 26px;
   text-align: center;
 }
 
-.k-search-input {
-  width: 100%;
-  padding: 12px 14px;
-  background: rgba(240, 235, 222, 0.06);
-  border: 1.5px solid rgba(240, 235, 222, 0.12);
-  border-radius: 8px;
-  color: $tab-ink;
-  font-size: 14px;
-  outline: none;
-  margin-bottom: 12px;
-
-  &:focus { border-color: $gold; }
-}
-
-.k-roster {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 8px;
-  max-height: 320px;
+.k-tab-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  padding: 10px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba($gold, 0.30);
+    border-radius: 3px;
+  }
 }
 
-.k-roster-item {
+.k-list-empty {
+  color: $tab-muted;
+  font-size: 12.5px;
+  text-align: center;
+  padding: 40px 20px;
+  font-style: italic;
+}
+
+.k-mark-row,
+.k-pend-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
+  gap: 12px;
+  padding: 10px 12px;
   background: rgba(240, 235, 222, 0.04);
   border: 1px solid rgba(240, 235, 222, 0.08);
-  border-radius: 8px;
+  border-radius: 10px;
   color: $tab-ink;
-  cursor: pointer;
   text-align: left;
-  transition: background 0.12s ease;
-
-  &:hover { background: rgba($gold, 0.15); border-color: $gold; }
+  margin-bottom: 6px;
+  min-height: 56px;
 }
 
-.k-roster-photo {
-  width: 38px;
-  height: 38px;
+.k-mark-row {
+  cursor: default;
+  background: rgba(22, 163, 74, 0.10);
+  border-color: rgba(22, 163, 74, 0.25);
+  animation: k-fade-in 0.24s ease-out;
+}
+
+@keyframes k-fade-in {
+  from { transform: translateY(-6px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.k-mark-photo {
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: rgba($gold, 0.2);
+  background: rgba($gold, 0.20);
   color: $gold;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   flex-shrink: 0;
   overflow: hidden;
 
   img { width: 100%; height: 100%; object-fit: cover; }
-
   &.has-photo { background: transparent; }
 }
 
-.k-roster-body {
+.k-mark-body {
   min-width: 0;
   flex: 1;
 }
 
-.k-roster-name {
+.k-mark-name {
   font-size: 13px;
   font-weight: 600;
+  color: $tab-ink;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.k-roster-sub {
+.k-mark-sub {
   font-size: 11px;
   color: $tab-muted;
+  margin-top: 1px;
 }
 
-.k-scan-error {
-  margin-top: 16px;
-  padding: 10px 12px;
-  background: rgba(220, 38, 38, 0.15);
-  border-radius: 8px;
-  color: #fca5a5;
-  font-size: 13.5px;
-  text-align: center;
+.k-mark-right {
+  text-align: right;
+  flex-shrink: 0;
 }
+
+.k-mark-time {
+  color: $tab-ink;
+  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.k-mark-tag {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.25);
+  color: #86efac;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+
+  &.late { background: rgba(234, 88, 12, 0.28); color: #fdba74; }
+  &.out { background: rgba(178, 58, 58, 0.28); color: #fca5a5; }
+}
+
+/* IN → OUT time pair under the student name */
+.k-mark-inout {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.k-io-chip {
+  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+
+  &.in  { background: rgba(22, 163, 74, 0.20); color: #86efac; }
+  &.out { background: rgba(178, 58, 58, 0.22); color: #fca5a5; }
+}
+.k-io-sep { color: $tab-muted; font-size: 11px; }
+
 
 /* Footer */
 .k-footer {
@@ -395,16 +662,12 @@ $tab-muted: #a09985;
   right: 0;
   bottom: 0;
   display: flex;
-  padding: 14px 28px;
+  padding: 12px 24px;
   border-top: 1px solid rgba(50, 45, 36, 0.6);
   background: $tab-screen;
   justify-content: space-around;
 }
-
-.k-stat {
-  text-align: center;
-}
-
+.k-stat { text-align: center; }
 .k-stat-num {
   font-size: 22px;
   font-weight: 700;
@@ -412,7 +675,6 @@ $tab-muted: #a09985;
 
   &.late { color: $gold; }
 }
-
 .k-stat-lbl {
   color: $tab-muted;
   font-size: 10px;
@@ -434,6 +696,15 @@ $tab-muted: #a09985;
   font-size: 18px;
   cursor: pointer;
   opacity: 0.4;
+  z-index: 2000;
 
   &:hover { opacity: 1; color: $tab-ink; }
+}
+
+/* Responsive — collapse sidebar under camera on narrow screens */
+@media (max-width: 900px) {
+  .k-split {
+    grid-template-columns: 1fr;
+  }
+  .k-sidebar { max-height: none; }
 }

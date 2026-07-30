@@ -20,10 +20,13 @@ import java.time.Instant;
  */
 @Document(collection = "attendance_scans")
 @CompoundIndexes({
+    // Non-unique lookup index (per tenant + student + day + direction).
+    // Uniqueness is enforced in application code because dev DBs may
+    // still carry an older unique-constrained index that we drop at
+    // boot; see BiometricScanService's @PostConstruct.
     @CompoundIndex(
-        name = "unique_scan_per_student_per_day",
-        def = "{'tenantId':1,'studentId':1,'scanDateKey':1}",
-        unique = true
+        name = "scan_by_student_day_direction",
+        def = "{'tenantId':1,'studentId':1,'scanDateKey':1,'direction':1}"
     )
 })
 public class AttendanceScan {
@@ -42,14 +45,18 @@ public class AttendanceScan {
     private ScanMethod method;
 
     /** Attendance status derived on ingest — PRESENT if before the
-     *  tenant's late cutoff, LATE otherwise. */
+     *  tenant's late cutoff, LATE otherwise. Only meaningful on the
+     *  IN scan. */
     private ScanStatus status;
+
+    /** IN or OUT. Decided by the tenant's exitTracking mode — see
+     *  {@code Tenant.BiometricSettings.exitTracking}. */
+    private Direction direction;
 
     private Instant scannedAt;
 
-    /** {@code yyyy-MM-dd} in the tenant's timezone; used as the
-     *  idempotency key so two scans on the same calendar day don't
-     *  double-write. */
+    /** {@code yyyy-MM-dd} in the tenant's timezone; used with
+     *  direction as the daily-uniqueness key. */
     private String scanDateKey;
 
     private Instant rolledUpAt;
@@ -60,7 +67,11 @@ public class AttendanceScan {
     public AttendanceScan() {}
 
     public enum ScanMethod { CARD, FACE }
-    public enum ScanStatus { PRESENT, LATE }
+    /** IN scans: PRESENT or LATE. OUT scans: PRESENT (on-time) or
+     *  EARLY_LEAVE (before the tenant's earliestExitTime). Merged into
+     *  one enum so the same field serialises for both directions. */
+    public enum ScanStatus { PRESENT, LATE, EARLY_LEAVE }
+    public enum Direction { IN, OUT }
 
     public String getScanId() { return scanId; }
     public void setScanId(String scanId) { this.scanId = scanId; }
@@ -79,6 +90,9 @@ public class AttendanceScan {
 
     public ScanStatus getStatus() { return status; }
     public void setStatus(ScanStatus status) { this.status = status; }
+
+    public Direction getDirection() { return direction; }
+    public void setDirection(Direction direction) { this.direction = direction; }
 
     public Instant getScannedAt() { return scannedAt; }
     public void setScannedAt(Instant scannedAt) { this.scannedAt = scannedAt; }

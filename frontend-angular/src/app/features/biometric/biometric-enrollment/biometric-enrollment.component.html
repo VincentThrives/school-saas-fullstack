@@ -8,11 +8,9 @@
     ]"
   ></app-page-header>
 
-  <!-- Step 1: pick a student -->
+  <!-- Class + section picker -->
   <mat-card class="be-card">
     <mat-card-content>
-      <h3 class="be-section">STUDENT</h3>
-
       <div class="be-picker-row">
         <mat-form-field appearance="outline" class="be-picker">
           <mat-label>Class</mat-label>
@@ -23,87 +21,206 @@
 
         <mat-form-field appearance="outline" class="be-picker">
           <mat-label>Section (optional)</mat-label>
-          <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="loadStudents()"
-                      [disabled]="!selectedClassId">
+          <mat-select [(ngModel)]="selectedSectionId" [disabled]="!selectedClassId">
             <mat-option value="">All sections</mat-option>
             <mat-option *ngFor="let s of sections" [value]="s.sectionId">{{ s.name }}</mat-option>
           </mat-select>
         </mat-form-field>
 
-        <button mat-stroked-button (click)="loadStudents()"
-                [disabled]="!selectedClassId || isLoadingStudents">
+        <button mat-flat-button color="primary" class="be-load-btn"
+                [disabled]="!selectedClassId || isLoadingStudents"
+                (click)="loadStudents()">
           <mat-icon *ngIf="!isLoadingStudents">search</mat-icon>
-          <mat-spinner *ngIf="isLoadingStudents" diameter="18"></mat-spinner>
+          <mat-spinner *ngIf="isLoadingStudents" diameter="18" class="be-spinner"></mat-spinner>
           Load students
         </button>
       </div>
-
-      <mat-form-field appearance="outline" class="be-student-field" *ngIf="students.length > 0">
-        <mat-label>Student</mat-label>
-        <mat-select [(ngModel)]="selectedStudentId" (selectionChange)="onStudentChange()">
-          <mat-option *ngFor="let s of students" [value]="s.studentId">
-            {{ studentLabel(s) }}
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
     </mat-card-content>
   </mat-card>
 
-  <ng-container *ngIf="selectedStudentId">
-    <!-- Card mapping -->
-    <mat-card class="be-card">
-      <mat-card-content>
-        <h3 class="be-section">CARD MAPPING</h3>
-        <p class="be-hint">Enter the NFC card's UID that this student will tap at the gate.
-          For testing, any string works — the kiosk just needs to match this exact value.</p>
+  <!-- Students table -->
+  <mat-card class="be-card" *ngIf="rows.length > 0">
+    <mat-card-content>
+      <div class="be-toolbar">
+        <mat-form-field appearance="outline" class="be-search">
+          <mat-label>Search</mat-label>
+          <mat-icon matPrefix>search</mat-icon>
+          <input matInput [(ngModel)]="searchQuery" placeholder="Name or roll" />
+        </mat-form-field>
+        <div class="be-summary">
+          <span class="be-chip"><mat-icon>groups</mat-icon> {{ rows.length }} students</span>
+          <span class="be-chip good"><mat-icon>face</mat-icon> {{ enrolledCount }} face</span>
+          <span class="be-chip good"><mat-icon>credit_card</mat-icon> {{ cardMappedCount }} card</span>
+        </div>
+      </div>
 
-        <div class="be-card-row">
-          <mat-form-field appearance="outline" class="be-card-field">
+      <div class="be-table-wrap">
+        <table class="be-table">
+          <thead>
+            <tr>
+              <th class="be-col-photo"></th>
+              <th class="be-col-name">Name</th>
+              <th class="be-col-roll">Roll</th>
+              <th class="be-col-status">Card</th>
+              <th class="be-col-status">Face</th>
+              <th class="be-col-action"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of filteredRows">
+              <td class="be-col-photo">
+                <div class="be-avatar">{{ initial(r.name) }}</div>
+              </td>
+              <td class="be-col-name">{{ r.name }}</td>
+              <td class="be-col-roll">{{ r.rollNumber || '—' }}</td>
+              <td class="be-col-status">
+                <span *ngIf="r.cardUid" class="be-tag good">
+                  <mat-icon>check_circle</mat-icon> Mapped
+                </span>
+                <span *ngIf="!r.cardUid" class="be-tag">
+                  Not mapped
+                </span>
+              </td>
+              <td class="be-col-status">
+                <span *ngIf="r.hasFace" class="be-tag good">
+                  <mat-icon>check_circle</mat-icon> Enrolled
+                </span>
+                <span *ngIf="!r.hasFace" class="be-tag">
+                  Not enrolled
+                </span>
+              </td>
+              <td class="be-col-action">
+                <button mat-stroked-button color="primary" (click)="openEnrollDialog(r)">
+                  <mat-icon>edit</mat-icon>
+                  Enrol
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="filteredRows.length === 0">
+              <td colspan="6" class="be-empty-row">
+                No students match your search.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Enrol popup -->
+  <div class="be-overlay" *ngIf="dialogOpen && dialogRow" (click)="closeDialog()">
+    <div class="be-dialog" (click)="$event.stopPropagation()">
+      <div class="be-dialog-head">
+        <div class="be-dialog-title">
+          <mat-icon>fingerprint</mat-icon>
+          <div>
+            <div class="be-dialog-name">Enrol {{ dialogRow.name }}</div>
+            <div class="be-dialog-sub">Roll {{ dialogRow.rollNumber || '—' }}</div>
+          </div>
+        </div>
+        <button mat-icon-button (click)="closeDialog()" aria-label="Close">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="be-dialog-body">
+      <!-- Card section -->
+      <div class="be-dlg-section">
+        <div class="be-dlg-section-h">
+          <mat-icon>credit_card</mat-icon>
+          <span>CARD UID</span>
+        </div>
+        <div class="be-dlg-card-row">
+          <mat-form-field appearance="outline" class="be-dlg-card-field">
             <mat-label>Card UID</mat-label>
-            <input matInput [(ngModel)]="cardUid" placeholder="e.g. 04:A3:2F:81 or STA-2024-812" />
+            <input matInput [(ngModel)]="dialogCardUid" placeholder="e.g. 04:A3:2F:81" />
           </mat-form-field>
-          <button mat-flat-button color="primary" [disabled]="isSaving" (click)="saveCard()">
+          <button mat-flat-button color="primary" (click)="saveCard()" [disabled]="isSaving">
             <mat-icon>save</mat-icon>
             Save card
           </button>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
 
-    <!-- Face enrolment -->
-    <mat-card class="be-card">
-      <mat-card-content>
-        <h3 class="be-section">FACE ENROLMENT</h3>
-        <p class="be-hint">Upload a clear, front-facing photo of the student. It gets compressed on
-          your device and stored inside the app — no cloud, no photos leaving your school.</p>
+      <!-- Face section -->
+      <div class="be-dlg-section">
+        <div class="be-dlg-section-h">
+          <mat-icon>face</mat-icon>
+          <span>FACE ENROLMENT</span>
+        </div>
 
-        <div class="be-face-row">
+        <div class="be-dlg-face">
           <div class="be-photo-slot">
-            <img *ngIf="photoPreview" [src]="photoPreview" alt="face preview" />
-            <div *ngIf="!photoPreview" class="be-photo-empty">
+            <img *ngIf="dialogPhotoPreview" [src]="dialogPhotoPreview" alt="face" />
+            <div *ngIf="!dialogPhotoPreview" class="be-photo-empty">
               <mat-icon>face</mat-icon>
               <span>No photo</span>
             </div>
           </div>
           <div class="be-face-actions">
-            <button mat-stroked-button (click)="openFilePicker()">
+            <button mat-stroked-button (click)="openFilePicker()" [disabled]="isSaving">
               <mat-icon>upload</mat-icon>
               Choose photo
             </button>
+            <button mat-stroked-button (click)="openCamera()" [disabled]="isSaving">
+              <mat-icon>photo_camera</mat-icon>
+              Capture from camera
+            </button>
             <input #fileInput type="file" accept="image/*" hidden (change)="onFileSelected($event)" />
-            <button mat-stroked-button color="warn" *ngIf="photoPreview" (click)="clearPhoto()">
+            <button mat-stroked-button color="warn"
+                    *ngIf="dialogPhotoPreview"
+                    [disabled]="isSaving"
+                    (click)="clearPhoto()">
               <mat-icon>close</mat-icon>
               Clear
             </button>
             <button mat-flat-button color="primary"
-                    [disabled]="!photoBase64 || isSaving"
+                    [disabled]="!dialogPhotoBase64 || isSaving"
                     (click)="saveFace()">
               <mat-icon>save</mat-icon>
               Save enrolment
             </button>
+            <button mat-stroked-button color="warn"
+                    *ngIf="dialogRow.hasFace"
+                    [disabled]="isSaving"
+                    (click)="clearFaceEnrolment()">
+              <mat-icon>delete</mat-icon>
+              Remove face enrolment
+            </button>
           </div>
         </div>
-      </mat-card-content>
-    </mat-card>
-  </ng-container>
+      </div>
+      </div><!-- /.be-dialog-body -->
+    </div>
+  </div>
+
+  <!-- Camera capture overlay — appears above the enrol dialog -->
+  <div class="be-cam-overlay" *ngIf="cameraOpen" (click)="closeCamera()">
+    <div class="be-cam-panel" (click)="$event.stopPropagation()">
+      <div class="be-cam-head">
+        <div class="be-cam-title">
+          <mat-icon>photo_camera</mat-icon>
+          <span>Capture photo</span>
+        </div>
+        <button mat-icon-button (click)="closeCamera()"><mat-icon>close</mat-icon></button>
+      </div>
+      <div class="be-cam-body">
+        <video #videoEl class="be-cam-video" *ngIf="!cameraError" playsinline muted></video>
+        <div class="be-cam-error" *ngIf="cameraError">
+          <mat-icon>videocam_off</mat-icon>
+          <p>{{ cameraError }}</p>
+        </div>
+      </div>
+      <div class="be-cam-hint">Position the student's face inside the frame, then tap Capture.</div>
+      <div class="be-cam-actions">
+        <button mat-stroked-button (click)="closeCamera()">Cancel</button>
+        <button mat-flat-button color="primary"
+                [disabled]="!!cameraError"
+                (click)="capturePhoto()">
+          <mat-icon>camera</mat-icon>
+          Capture
+        </button>
+      </div>
+    </div>
+  </div>
 </div>

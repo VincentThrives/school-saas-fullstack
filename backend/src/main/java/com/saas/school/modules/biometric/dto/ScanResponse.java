@@ -13,6 +13,14 @@ public class ScanResponse {
     private String scannedAt;       // ISO instant
     private boolean alreadyMarked;
     private String method;          // CARD / FACE
+    /** IN or OUT — the kiosk uses this to swap the welcome copy
+     *  ("Welcome, Priya" vs "Goodbye, Priya"). */
+    private String direction;
+    /** ISO instant of the IN scan (may be null if this response IS
+     *  the IN scan and no earlier one existed). */
+    private String entryAt;
+    /** ISO instant of the OUT scan (null until the student punches out). */
+    private String exitAt;
 
     public String getStudentId() { return studentId; }
     public void setStudentId(String studentId) { this.studentId = studentId; }
@@ -40,4 +48,13 @@ public class ScanResponse {
 
     public String getMethod() { return method; }
     public void setMethod(String method) { this.method = method; }
+
+    public String getDirection() { return direction; }
+    public void setDirection(String direction) { this.direction = direction; }
+
+    public String getEntryAt() { return entryAt; }
+    public void setEntryAt(String entryAt) { this.entryAt = entryAt; }
+
+    public String getExitAt() { return exitAt; }
+    public void setExitAt(String exitAt) { this.exitAt = exitAt; }
 }

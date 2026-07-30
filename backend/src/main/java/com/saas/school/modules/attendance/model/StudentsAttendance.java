@@ -125,6 +125,13 @@ public class StudentsAttendance {
         private String studentId;
         private String status;      // PRESENT, ABSENT, LATE, HALF_DAY
         private String remarks;
+        /** Biometric punch-in timestamp. Set when the kiosk records an
+         *  IN scan for this student on this day. Null for entries
+         *  created by teacher marking (preserves existing behaviour). */
+        private Instant entryAt;
+        /** Biometric punch-out timestamp. Null if the student hasn't
+         *  scanned out yet, or if the tenant has exitTracking = OFF. */
+        private Instant exitAt;
 
         public StudentEntry() {}
 
@@ -142,5 +149,11 @@ public class StudentsAttendance {
 
         public String getRemarks() { return remarks; }
         public void setRemarks(String remarks) { this.remarks = remarks; }
+
+        public Instant getEntryAt() { return entryAt; }
+        public void setEntryAt(Instant entryAt) { this.entryAt = entryAt; }
+
+        public Instant getExitAt() { return exitAt; }
+        public void setExitAt(Instant exitAt) { this.exitAt = exitAt; }
     }
 }

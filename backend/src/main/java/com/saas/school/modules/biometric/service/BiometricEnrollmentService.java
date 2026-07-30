@@ -75,6 +75,19 @@ public class BiometricEnrollmentService {
         return biometricRepository.findByStudentIdIn(studentIds);
     }
 
+    /** IDs of all students in this tenant with a face enrolled — used
+     *  by the admin enrolment table to show a "Face ✓" chip per row
+     *  without fetching each student's photo blob. */
+    public java.util.Set<String> faceEnrolledIds() {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        for (StudentBiometric b : biometricRepository.findAll()) {
+            if (b.getFaceEmbedding() != null && !b.getFaceEmbedding().isEmpty()) {
+                out.add(b.getStudentId());
+            }
+        }
+        return out;
+    }
+
     // ── Helpers ─────────────────────────────────────────────
 
     private Student requireStudent(String studentId) {

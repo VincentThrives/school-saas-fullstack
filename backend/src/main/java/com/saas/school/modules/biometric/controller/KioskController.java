@@ -7,7 +7,9 @@ import com.saas.school.modules.biometric.dto.PairDeviceResponse;
 import com.saas.school.modules.biometric.dto.ScanRequest;
 import com.saas.school.modules.biometric.dto.ScanResponse;
 import com.saas.school.modules.biometric.service.BiometricScanService;
+import com.saas.school.modules.biometric.service.BiometricSettingsService;
 import com.saas.school.modules.biometric.service.ScannerPairingService;
+import com.saas.school.modules.tenant.model.Tenant;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +38,7 @@ public class KioskController {
 
     @Autowired private ScannerPairingService pairingService;
     @Autowired private BiometricScanService scanService;
+    @Autowired private BiometricSettingsService settingsService;
 
     /**
      * Public. Fresh tablet redeems a pairing code + tenant identifier
@@ -60,6 +63,29 @@ public class KioskController {
     @PreAuthorize("hasRole('SCANNER')")
     public ResponseEntity<ApiResponse<List<KioskRosterEntry>>> roster() {
         return ResponseEntity.ok(ApiResponse.success(scanService.buildRosterBundle()));
+    }
+
+    /**
+     * Device-token authenticated. Returns today's already-marked scans
+     * so a freshly-loaded kiosk can populate its Marked tab with
+     * anyone who was marked earlier in the day.
+     */
+    @GetMapping("/scans/today")
+    @PreAuthorize("hasRole('SCANNER')")
+    public ResponseEntity<ApiResponse<List<KioskRosterEntry>>> scansToday() {
+        return ResponseEntity.ok(ApiResponse.success(
+                (List<KioskRosterEntry>) (List<?>) scanService.listTodayScansForKiosk()));
+    }
+
+    /**
+     * Device-token authenticated. Returns the tenant's biometric
+     * settings so the kiosk can honor the admin-picked match threshold
+     * (and, later, any other kiosk-relevant knobs).
+     */
+    @GetMapping("/settings")
+    @PreAuthorize("hasRole('SCANNER')")
+    public ResponseEntity<ApiResponse<Tenant.BiometricSettings>> kioskSettings() {
+        return ResponseEntity.ok(ApiResponse.success(settingsService.get()));
     }
 
     /**
