@@ -49,6 +49,9 @@ public class SendCustomNoticeRequest {
     /** Required only when {@link SmsAudience#CLASS} is among the chosen audiences. */
     private String classId;
 
+    /** Optional section filter under CLASS — null means whole class. */
+    private String sectionId;
+
     @NotBlank(message = "message is required")
     @Size(max = 300, message = "message must be 300 characters or fewer")
     private String message;
@@ -60,6 +63,9 @@ public class SendCustomNoticeRequest {
 
     public String getClassId() { return classId; }
     public void setClassId(String classId) { this.classId = classId; }
+
+    public String getSectionId() { return sectionId; }
+    public void setSectionId(String sectionId) { this.sectionId = sectionId; }
 
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }

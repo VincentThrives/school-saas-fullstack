@@ -31,6 +31,9 @@ public class SendHolidayNoticeRequest {
     /** Required only when {@link SmsAudience#CLASS} is among the chosen audiences. */
     private String classId;
 
+    /** Optional section filter under CLASS — null means whole class. */
+    private String sectionId;
+
     /** Free-form closure date. Kept as a plain string so the admin
      *  controls what gets printed ("9 May 2026", "Monday 9 May", "9-11 May"). */
     @NotBlank(message = "closureDate is required")
@@ -52,6 +55,9 @@ public class SendHolidayNoticeRequest {
 
     public String getClassId() { return classId; }
     public void setClassId(String classId) { this.classId = classId; }
+
+    public String getSectionId() { return sectionId; }
+    public void setSectionId(String sectionId) { this.sectionId = sectionId; }
 
     public String getClosureDate() { return closureDate; }
     public void setClosureDate(String closureDate) { this.closureDate = closureDate; }

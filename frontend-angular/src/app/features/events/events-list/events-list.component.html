@@ -163,7 +163,8 @@
 
   <!-- Send Event SMS dialog — per-card broadcast using the school's
        EVENT_NOTICE DLT template. -->
-  <div class="delete-overlay" *ngIf="smsDialogOpen" (click)="cancelSendSms()">
+  <div class="delete-overlay" *ngIf="smsDialogOpen"
+       (click)="$event.target === $event.currentTarget && cancelSendSms()">
     <div class="delete-dialog" (click)="$event.stopPropagation()">
       <h3>Send SMS · {{ smsEvent?.title }}</h3>
       <p style="margin-bottom: 12px;">
@@ -177,8 +178,25 @@
           <mat-option value="ALL_STUDENTS">All Students</mat-option>
           <mat-option value="ALL_EMPLOYEES">All Employees</mat-option>
           <mat-option value="ALL">Everyone (students + employees)</mat-option>
+          <mat-option value="CLASS">Particular class / section</mat-option>
         </mat-select>
       </mat-form-field>
+
+      <div *ngIf="smsAudience === 'CLASS'" style="display: flex; gap: 10px;">
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Class</mat-label>
+          <mat-select [(ngModel)]="smsClassId" (selectionChange)="onSmsClassChange()">
+            <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Section (optional)</mat-label>
+          <mat-select [(ngModel)]="smsSectionId" [disabled]="!smsClassId">
+            <mat-option value="">All sections</mat-option>
+            <mat-option *ngFor="let s of smsSections" [value]="s.sectionId">{{ s.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
 
       <mat-form-field appearance="outline" style="width: 100%;">
         <mat-label>Time</mat-label>
@@ -199,7 +217,8 @@
        HOLIDAY_NOTICE DLT template. Closure date comes from the holiday's
        startDate; reopen date is auto-derived (endDate + 1 day) so the
        parent receives an accurate "school reopens on X" line. -->
-  <div class="delete-overlay" *ngIf="smsHolidayDialogOpen" (click)="cancelSendHolidaySms()">
+  <div class="delete-overlay" *ngIf="smsHolidayDialogOpen"
+       (click)="$event.target === $event.currentTarget && cancelSendHolidaySms()">
     <div class="delete-dialog" (click)="$event.stopPropagation()">
       <h3>Send SMS · {{ smsHoliday?.title }}</h3>
       <p style="margin-bottom: 12px;">
@@ -213,8 +232,25 @@
           <mat-option value="ALL_STUDENTS">All Students</mat-option>
           <mat-option value="ALL_EMPLOYEES">All Employees</mat-option>
           <mat-option value="ALL">Everyone (students + employees)</mat-option>
+          <mat-option value="CLASS">Particular class / section</mat-option>
         </mat-select>
       </mat-form-field>
+
+      <div *ngIf="smsHolidayAudience === 'CLASS'" style="display: flex; gap: 10px;">
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Class</mat-label>
+          <mat-select [(ngModel)]="smsHolidayClassId" (selectionChange)="onSmsHolidayClassChange()">
+            <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Section (optional)</mat-label>
+          <mat-select [(ngModel)]="smsHolidaySectionId" [disabled]="!smsHolidayClassId">
+            <mat-option value="">All sections</mat-option>
+            <mat-option *ngFor="let s of smsHolidaySections" [value]="s.sectionId">{{ s.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
 
       <mat-form-field appearance="outline" style="width: 100%;">
         <mat-label>Reason</mat-label>

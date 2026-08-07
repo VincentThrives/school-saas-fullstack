@@ -147,7 +147,10 @@ export type SmsAudience = 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' | 'CLASS';
 /** Body for POST /api/v1/sms/holiday-notice. */
 export interface SendHolidayNoticeRequest {
   audiences: SmsAudience[];
+  /** Required when audiences contains 'CLASS'. */
   classId?: string;
+  /** Optional narrower filter under CLASS — omit for whole class. */
+  sectionId?: string;
   closureDate: string;
   reason: string;
   reopenDate: string;
@@ -166,7 +169,10 @@ export interface SendHolidayNoticeResponse {
  *  both. eventTime is free-form ("10:00 AM"). */
 export interface SendEventNoticeRequest {
   audiences: SmsAudience[];
+  /** Required when audiences contains 'CLASS'. */
   classId?: string;
+  /** Optional narrower filter under CLASS — omit for whole class. */
+  sectionId?: string;
   eventName: string;
   eventDate: string;
   eventTime: string;
@@ -241,6 +247,8 @@ export type SmsBroadcastAudience = 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' | 'C
 export interface SendCustomNoticeRequest {
   audiences: SmsBroadcastAudience[];
   classId?: string;
+  /** Optional narrower filter under CLASS — omit for whole class. */
+  sectionId?: string;
   message: string;
 }
 
