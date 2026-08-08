@@ -324,7 +324,7 @@ public class SmsService {
                 "Custom notices are disabled for your school. Contact platform support to enable.");
         }
 
-        AudienceTargets targets = resolveAudiences(audiences, req.getClassId());
+        AudienceTargets targets = resolveAudiences(audiences, req.getClassId(), req.getSectionId());
         if (targets.userIds().isEmpty() && targets.extraPhones().isEmpty()) {
             throw new BusinessException("No recipients matched the chosen audience(s).");
         }
@@ -356,6 +356,7 @@ public class SmsService {
         auditService.log("SMS_CUSTOM_NOTICE", "CustomNotice", tenantId,
                 "Broadcast queued by " + adminUserId + " audiences=" + audienceLabel
                         + (req.getClassId() != null ? " classId=" + req.getClassId() : "")
+                        + (req.getSectionId() != null ? " sectionId=" + req.getSectionId() : "")
                         + " recipients=" + recipientCount);
 
         return new SendCustomNoticeResponse(audienceNames, recipientCount, Instant.now());
@@ -413,7 +414,7 @@ public class SmsService {
                 "Holiday notice template not configured for your school. Ask the platform admin to set it up.");
         }
 
-        AudienceTargets targets = resolveAudiences(audiences, req.getClassId());
+        AudienceTargets targets = resolveAudiences(audiences, req.getClassId(), req.getSectionId());
         if (targets.userIds().isEmpty() && targets.extraPhones().isEmpty()) {
             throw new BusinessException("No recipients matched the chosen audience(s).");
         }
@@ -451,6 +452,7 @@ public class SmsService {
         auditService.log("SMS_HOLIDAY_NOTICE", "HolidayNotice", tenantId,
                 "Holiday broadcast queued by " + adminUserId + " audiences=" + audienceLabel
                         + (req.getClassId() != null ? " classId=" + req.getClassId() : "")
+                        + (req.getSectionId() != null ? " sectionId=" + req.getSectionId() : "")
                         + " closure=" + req.getClosureDate()
                         + " reopen=" + req.getReopenDate()
                         + " recipients=" + recipientCount);
@@ -503,7 +505,7 @@ public class SmsService {
                 "Event notice template not configured for your school. Ask the platform admin to set it up.");
         }
 
-        AudienceTargets targets = resolveAudiences(audiences, req.getClassId());
+        AudienceTargets targets = resolveAudiences(audiences, req.getClassId(), req.getSectionId());
         if (targets.userIds().isEmpty() && targets.extraPhones().isEmpty()) {
             throw new BusinessException("No recipients matched the chosen audience(s).");
         }
@@ -555,6 +557,7 @@ public class SmsService {
         auditService.log("SMS_EVENT_NOTICE", "EventNotice", tenantId,
                 "Event broadcast queued by " + adminUserId + " audiences=" + audienceLabel
                         + (req.getClassId() != null ? " classId=" + req.getClassId() : "")
+                        + (req.getSectionId() != null ? " sectionId=" + req.getSectionId() : "")
                         + " event=" + req.getEventName()
                         + " date=" + req.getEventDate()
                         + " recipients=" + recipientCount);
@@ -583,11 +586,18 @@ public class SmsService {
      * @param classId   required only when the list contains {@code CLASS}
      */
     private AudienceTargets resolveAudiences(List<SmsAudience> audiences, String classId) {
+        return resolveAudiences(audiences, classId, null);
+    }
+
+    /** Overload that supports narrowing {@code CLASS} to one section.
+     *  When {@code sectionId} is null the CLASS audience means the whole
+     *  class (all sections) — same behaviour as the old single-arg call. */
+    private AudienceTargets resolveAudiences(List<SmsAudience> audiences, String classId, String sectionId) {
         // LinkedHashSet → preserve audience ordering, kill obvious duplicates.
         LinkedHashSet<String> ids = new LinkedHashSet<>();
         LinkedHashSet<String> phones = new LinkedHashSet<>();
         for (SmsAudience a : audiences) {
-            AudienceTargets t = resolveOneAudience(a, classId);
+            AudienceTargets t = resolveOneAudience(a, classId, sectionId);
             ids.addAll(t.userIds());
             phones.addAll(t.extraPhones());
         }
@@ -595,7 +605,7 @@ public class SmsService {
     }
 
     /** Resolves a single audience to its userIds + raw extra phones. */
-    private AudienceTargets resolveOneAudience(SmsAudience audience, String classId) {
+    private AudienceTargets resolveOneAudience(SmsAudience audience, String classId, String sectionId) {
         return switch (audience) {
             case ALL -> {
                 List<String> userIds = collectUserIds(userRepository.findAllByDeletedAtIsNull());
@@ -620,7 +630,11 @@ public class SmsService {
                 yield new AudienceTargets(ids, List.of());
             }
             case CLASS -> {
-                List<Student> students = studentRepository.findAllByClassIdAndDeletedAtIsNull(classId);
+                // Narrow to one section when the admin picked one; otherwise
+                // fall back to the whole class.
+                List<Student> students = (sectionId != null && !sectionId.isBlank())
+                        ? studentRepository.findByClassIdAndSectionIdAndDeletedAtIsNull(classId, sectionId)
+                        : studentRepository.findAllByClassIdAndDeletedAtIsNull(classId);
                 yield new AudienceTargets(
                         collectStudentParentUserIds(students),
                         collectStudentParentPhones(students));

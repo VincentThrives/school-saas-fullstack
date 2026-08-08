@@ -35,11 +35,17 @@ public class StudentBiometric {
      *  kiosk each morning so the welcome card can show the face. */
     private String photoBase64;
 
-    /** Face embedding vector (typically 128 floats for FaceNet, 512 for
-     *  face-api.js's TinyFaceDescriptor). Not human-readable — the kiosk
-     *  compares it against the vector computed live from the camera
-     *  frame using cosine similarity. */
+    /** Legacy single-shot embedding. Kept for reads of records enrolled
+     *  before multi-shot support landed. New enrolments populate
+     *  {@link #faceEmbeddings} instead; the roster bundle prefers that
+     *  list when non-empty and falls back to this field for old rows. */
     private List<Double> faceEmbedding;
+
+    /** Multiple embeddings from separate enrolment captures. The kiosk
+     *  matches against the MAX cosine similarity across all shots per
+     *  student — one shot in each of a few poses / lighting conditions
+     *  dramatically reduces false rejects and false matches. */
+    private List<List<Double>> faceEmbeddings;
 
     private String enrolledBy;
 
@@ -62,6 +68,9 @@ public class StudentBiometric {
 
     public List<Double> getFaceEmbedding() { return faceEmbedding; }
     public void setFaceEmbedding(List<Double> faceEmbedding) { this.faceEmbedding = faceEmbedding; }
+
+    public List<List<Double>> getFaceEmbeddings() { return faceEmbeddings; }
+    public void setFaceEmbeddings(List<List<Double>> faceEmbeddings) { this.faceEmbeddings = faceEmbeddings; }
 
     public String getEnrolledBy() { return enrolledBy; }
     public void setEnrolledBy(String enrolledBy) { this.enrolledBy = enrolledBy; }

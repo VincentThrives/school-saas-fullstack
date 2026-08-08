@@ -13,7 +13,11 @@ interface RosterEntry {
   className: string;
   cardUid: string | null;
   photoBase64: string | null;
+  /** Legacy single embedding. Fallback when {@link faceEmbeddings} is
+   *  empty — old enrolments still work without re-enrolling. */
   faceEmbedding: number[] | null;
+  /** Multi-shot embeddings; matched against MAX cosine per student. */
+  faceEmbeddings: number[][] | null;
 }
 
 interface KioskState {
@@ -62,9 +66,23 @@ export class KioskComponent implements OnInit, OnDestroy {
   private readonly AUTO_LOOP_MS = 1400;
 
   /** Match threshold — read from tenant settings on boot, falls back
-   *  to 0.65 (matches the backend default for FaceNet cosine) if the
+   *  to 0.75 (matches the backend default for FaceNet cosine) if the
    *  fetch fails. */
-  matchThreshold = 0.65;
+  matchThreshold = 0.75;
+
+  /** Minimum gap between the winning candidate and the runner-up
+   *  required to accept a match. Small gap = the crowd looked ambiguous
+   *  (two students look similar from this angle), so we reject rather
+   *  than mark the wrong student. Read from tenant settings. */
+  matchMargin = 0.0;
+
+  /** Number of consecutive frames that must vote for the same student
+   *  before we accept a scan. Kills one-off false matches at the cost
+   *  of an extra ~1 second of latency. */
+  private readonly VOTE_FRAMES = 3;
+
+  /** Sliding window of recent (studentId, score) results from tick(). */
+  private voteWindow: { studentId: string; score: number; margin: number }[] = [];
 
   /** Tenant's exit-tracking mode — decides whether the IN/OUT toggle
    *  appears on the kiosk and whether the tablet sends a direction
@@ -263,6 +281,9 @@ export class KioskComponent implements OnInit, OnDestroy {
             if (typeof s.faceThreshold === 'number' && s.faceThreshold > 0 && s.faceThreshold < 1) {
               this.matchThreshold = s.faceThreshold;
             }
+            if (typeof s.matchMargin === 'number' && s.matchMargin >= 0 && s.matchMargin < 1) {
+              this.matchMargin = s.matchMargin;
+            }
             if (s.exitTracking === 'AUTO' || s.exitTracking === 'MANUAL' || s.exitTracking === 'OFF') {
               this.exitTracking = s.exitTracking;
             }
@@ -393,11 +414,48 @@ export class KioskComponent implements OnInit, OnDestroy {
       const match = this.matchAgainstRoster(embedding);
       if (!match) return;
 
+      // Threshold check (per tenant setting). Failing frames don't
+      // reset the vote streak — a momentarily blurred frame shouldn't
+      // wipe out several good ones. Just skip adding it.
       if (match.score < this.matchThreshold) {
         this.hint = `Looking… best guess ${match.name} (${Math.round(match.score * 100)}%)`;
         setTimeout(() => { if (!this.showResult) this.hint = null; }, 1200);
         return;
       }
+
+      // Optional margin check — only enforced when the tenant has set
+      // matchMargin > 0. At small rosters (2-20 students) the runner-up
+      // is always close by construction and the check misfires; at
+      // larger rosters admin can dial it up to reject ambiguous crowds.
+      if (this.matchMargin > 0 && match.margin < this.matchMargin) {
+        const pct = (n: number) => Math.round(n * 100);
+        this.hint = `Ambiguous — ${match.name} ${pct(match.score)}% (margin ${pct(match.margin)}% < ${pct(this.matchMargin)}%).`;
+        setTimeout(() => { if (!this.showResult) this.hint = null; }, 1600);
+        return;
+      }
+
+      // Multi-frame vote — majority-of-window (2 of 3) so a single
+      // frame with a different top candidate doesn't reset the streak.
+      this.voteWindow.push({ studentId: match.studentId, score: match.score, margin: match.margin });
+      if (this.voteWindow.length > this.VOTE_FRAMES) this.voteWindow.shift();
+      const counts = new Map<string, number>();
+      for (const v of this.voteWindow) counts.set(v.studentId, (counts.get(v.studentId) || 0) + 1);
+      const winner = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+      const majority = Math.floor(this.VOTE_FRAMES / 2) + 1;   // 2 of 3
+      if (!winner || winner[1] < majority) {
+        this.hint = `Hold still — ${match.name} (${this.voteWindow.length}/${this.VOTE_FRAMES})`;
+        return;
+      }
+
+      // Winner confirmed. Use the winning student's best score/margin
+      // from the window; clear the window so history doesn't leak
+      // forward to the next student who steps up.
+      const winnerVotes = this.voteWindow.filter(v => v.studentId === winner[0]);
+      const bestScore = Math.max(...winnerVotes.map(v => v.score));
+      const bestMargin = Math.max(...winnerVotes.map(v => v.margin));
+      match.studentId = winner[0];
+      match.name = this.roster.find(r => r.studentId === winner[0])?.name || match.name;
+      this.voteWindow = [];
 
       if (this.isStudentDone(match.studentId)) {
         const row = this.markedRows.find(r => r.studentId === match.studentId);
@@ -408,8 +466,12 @@ export class KioskComponent implements OnInit, OnDestroy {
       this.hint = null;
       // Keep busy=true across the network call so the next tick doesn't
       // stack on top; scan()'s onFinally callback releases it.
-      this.scan({ method: 'FACE', matchedStudentId: match.studentId },
-                () => this.busy = false);
+      this.scan({
+        method: 'FACE',
+        matchedStudentId: match.studentId,
+        matchScore: bestScore,
+        matchMargin: bestMargin,
+      }, () => this.busy = false);
       return;
     } finally {
       // Release busy for every path except the scan() branch above,
@@ -418,24 +480,48 @@ export class KioskComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Given a live-frame face embedding, pick the closest enrolled
-   *  student. Returns null if the roster has no enrolled embeddings
-   *  of matching dimension. */
+  /** Match the live-frame embedding against every enrolled student.
+   *  For each student we take the MAX cosine across all their enrolment
+   *  shots — one shot in each of a few poses / lighting conditions
+   *  dramatically boosts recall.
+   *
+   *  We also return the margin between the top score and the runner-up
+   *  so the caller can reject ambiguous matches (crowd of similar-
+   *  looking students, blurred frame, etc.). */
   private matchAgainstRoster(embedding: number[]):
-      { studentId: string; name: string; score: number } | null {
+      { studentId: string; name: string; score: number; margin: number } | null {
     let bestId: string | null = null;
     let bestName = '';
-    let bestScore = -1;
+    let bestScore = -Infinity;
+    let secondScore = -Infinity;
     for (const s of this.roster) {
-      if (!s.faceEmbedding || s.faceEmbedding.length !== embedding.length) continue;
-      const score = this.faceRecognition.cosineSimilarity(embedding, s.faceEmbedding);
-      if (score > bestScore) {
-        bestScore = score;
+      // Only use multi-shot enrolments. Older single-embedding records
+      // may be stubs from before the face-api migration and comparing
+      // them against a real FaceNet embedding produces spuriously high
+      // cosine scores — those students need to be re-enrolled with the
+      // 3-shot flow before the kiosk will consider them.
+      const shots: number[][] = (s.faceEmbeddings && s.faceEmbeddings.length > 0)
+          ? s.faceEmbeddings
+          : [];
+      let studentBest = -Infinity;
+      for (const shot of shots) {
+        if (!shot || shot.length !== embedding.length) continue;
+        const score = this.faceRecognition.cosineSimilarity(embedding, shot);
+        if (score > studentBest) studentBest = score;
+      }
+      if (studentBest === -Infinity) continue;
+      if (studentBest > bestScore) {
+        secondScore = bestScore;
+        bestScore = studentBest;
         bestId = s.studentId;
         bestName = s.name;
+      } else if (studentBest > secondScore) {
+        secondScore = studentBest;
       }
     }
-    return bestId ? { studentId: bestId, name: bestName, score: bestScore } : null;
+    if (!bestId) return null;
+    const margin = secondScore === -Infinity ? 1 : (bestScore - secondScore);
+    return { studentId: bestId, name: bestName, score: bestScore, margin };
   }
 
 

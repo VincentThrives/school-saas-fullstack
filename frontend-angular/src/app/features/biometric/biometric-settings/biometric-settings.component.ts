@@ -46,7 +46,8 @@ export class BiometricSettingsComponent implements OnInit {
   faceEnabled = true;
   lateCutoff = '09:15';
   openTime = '06:00';
-  faceThreshold = 0.65;
+  faceThreshold = 0.75;
+  matchMargin = 0.0;
 
   // Punch-in / out
   exitTracking: 'OFF' | 'AUTO' | 'MANUAL' = 'OFF';
@@ -79,7 +80,8 @@ export class BiometricSettingsComponent implements OnInit {
         this.faceEnabled = s.faceEnabled === undefined ? true : !!s.faceEnabled;
         this.lateCutoff = s.lateCutoff || '09:15';
         this.openTime = s.openTime || '06:00';
-        this.faceThreshold = typeof s.faceThreshold === 'number' ? s.faceThreshold : 0.65;
+        this.faceThreshold = typeof s.faceThreshold === 'number' ? s.faceThreshold : 0.75;
+        this.matchMargin = typeof s.matchMargin === 'number' ? s.matchMargin : 0.0;
         this.exitTracking = (s.exitTracking as any) || 'OFF';
         this.earliestExitTime = s.earliestExitTime || '14:00';
         this.notifyOnEntry = s.notifyOnEntry !== false;   // default true
@@ -103,6 +105,7 @@ export class BiometricSettingsComponent implements OnInit {
       lateCutoff: this.lateCutoff,
       openTime: this.openTime,
       faceThreshold: this.faceThreshold,
+      matchMargin: this.matchMargin,
       exitTracking: this.exitTracking,
       earliestExitTime: this.earliestExitTime,
       notifyOnEntry: this.notifyOnEntry,

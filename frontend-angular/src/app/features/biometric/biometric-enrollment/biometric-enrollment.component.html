@@ -150,35 +150,52 @@
         </div>
 
         <div class="be-dlg-face">
-          <div class="be-photo-slot">
-            <img *ngIf="dialogPhotoPreview" [src]="dialogPhotoPreview" alt="face" />
-            <div *ngIf="!dialogPhotoPreview" class="be-photo-empty">
-              <mat-icon>face</mat-icon>
-              <span>No photo</span>
+          <div class="be-shots-explain">
+            Capture <strong>{{ SHOT_TARGET }} clear shots</strong> — vary the angle slightly
+            (straight, slight left, slight right). More shots = far more accurate matching.
+          </div>
+
+          <div class="be-shots-row">
+            <div class="be-shot-slot" *ngFor="let i of [].constructor(SHOT_TARGET); let idx = index"
+                 [class.filled]="dialogShots[idx]">
+              <img *ngIf="dialogShots[idx]" [src]="dialogShots[idx].preview" alt="shot" />
+              <div *ngIf="!dialogShots[idx]" class="be-shot-empty">
+                <span class="be-shot-num">{{ idx + 1 }}</span>
+              </div>
+              <button *ngIf="dialogShots[idx]" class="be-shot-remove" type="button"
+                      (click)="removeShot(idx)" title="Remove this shot">×</button>
             </div>
           </div>
+
+          <div class="be-capture-error" *ngIf="captureError">
+            <mat-icon>error_outline</mat-icon>
+            <span>{{ captureError }}</span>
+          </div>
+
           <div class="be-face-actions">
-            <button mat-stroked-button (click)="openFilePicker()" [disabled]="isSaving">
+            <button mat-stroked-button (click)="openFilePicker()"
+                    [disabled]="isSaving || isCapturing || dialogShots.length >= SHOT_TARGET">
               <mat-icon>upload</mat-icon>
               Choose photo
             </button>
-            <button mat-stroked-button (click)="openCamera()" [disabled]="isSaving">
+            <button mat-stroked-button (click)="openCamera()"
+                    [disabled]="isSaving || dialogShots.length >= SHOT_TARGET">
               <mat-icon>photo_camera</mat-icon>
               Capture from camera
             </button>
             <input #fileInput type="file" accept="image/*" hidden (change)="onFileSelected($event)" />
             <button mat-stroked-button color="warn"
-                    *ngIf="dialogPhotoPreview"
-                    [disabled]="isSaving"
-                    (click)="clearPhoto()">
+                    *ngIf="dialogShots.length > 0"
+                    [disabled]="isSaving || isCapturing"
+                    (click)="clearShots()">
               <mat-icon>close</mat-icon>
-              Clear
+              Clear shots
             </button>
             <button mat-flat-button color="primary"
-                    [disabled]="!dialogPhotoBase64 || isSaving"
+                    [disabled]="!canSaveShots || isSaving || isCapturing"
                     (click)="saveFace()">
               <mat-icon>save</mat-icon>
-              Save enrolment
+              {{ canSaveShots ? 'Save enrolment' : (dialogShots.length + '/' + SHOT_TARGET + ' shots') }}
             </button>
             <button mat-stroked-button color="warn"
                     *ngIf="dialogRow.hasFace"
@@ -211,14 +228,23 @@
           <p>{{ cameraError }}</p>
         </div>
       </div>
-      <div class="be-cam-hint">Position the student's face inside the frame, then tap Capture.</div>
+      <div class="be-cam-hint">
+        Shot <strong>{{ dialogShots.length + 1 }} of {{ SHOT_TARGET }}</strong> —
+        vary the angle slightly between shots.
+      </div>
+      <div class="be-capture-error" *ngIf="captureError">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ captureError }}</span>
+      </div>
       <div class="be-cam-actions">
-        <button mat-stroked-button (click)="closeCamera()">Cancel</button>
+        <button mat-stroked-button (click)="closeCamera()">
+          {{ canSaveShots ? 'Done' : 'Cancel' }}
+        </button>
         <button mat-flat-button color="primary"
-                [disabled]="!!cameraError"
+                [disabled]="!!cameraError || isCapturing || dialogShots.length >= SHOT_TARGET"
                 (click)="capturePhoto()">
           <mat-icon>camera</mat-icon>
-          Capture
+          {{ isCapturing ? 'Capturing…' : 'Capture shot ' + (dialogShots.length + 1) }}
         </button>
       </div>
     </div>

@@ -54,6 +54,9 @@ public class BiometricSettingsService {
             if (req.getFaceThreshold() != null) {
                 s.setFaceThreshold(req.getFaceThreshold());
             }
+            if (req.getMatchMargin() != null) {
+                s.setMatchMargin(req.getMatchMargin());
+            }
             // Punch-in/out configuration.
             if (req.getExitTracking() != null && !req.getExitTracking().isBlank()) {
                 String mode = req.getExitTracking().trim().toUpperCase();

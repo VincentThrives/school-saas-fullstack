@@ -64,9 +64,21 @@ export class BiometricEnrollmentComponent implements OnInit {
   dialogOpen = false;
   dialogRow: EnrollmentRow | null = null;
   dialogCardUid = '';
+  /** The best photo of the batch — shown as the enrolled thumbnail. */
   dialogPhotoPreview: string | null = null;
   dialogPhotoBase64: string | null = null;
-  dialogFaceEmbedding: number[] | null = null;
+  /** Number of shots the operator captures per enrolment. Three is the
+   *  sweet spot: enough angle/lighting variance to boost recall, few
+   *  enough to keep enrolment fast. */
+  readonly SHOT_TARGET = 3;
+  /** Quality thresholds — reject a shot that fails these so bad frames
+   *  don't poison the student's embedding set forever. */
+  readonly MIN_DETECT_SCORE = 0.7;
+  readonly MIN_FACE_AREA_RATIO = 0.05;    // face must fill ≥5% of frame
+  /** Captured shots — one thumbnail + one embedding each. */
+  dialogShots: { preview: string; base64: string; embedding: number[] }[] = [];
+  captureError: string | null = null;
+  isCapturing = false;
   isSaving = false;
 
   // Camera
@@ -169,9 +181,12 @@ export class BiometricEnrollmentComponent implements OnInit {
     this.dialogCardUid = row.cardUid || '';
     this.dialogPhotoPreview = null;
     this.dialogPhotoBase64 = null;
-    this.dialogFaceEmbedding = null;
+    this.dialogShots = [];
+    this.captureError = null;
 
-    // Pre-fill existing face photo, if any.
+    // Pre-fill existing face thumbnail so admin sees what's already
+    // saved. Shots list stays empty — re-enrolment always captures
+    // fresh so we don't mix old low-quality embeddings with new ones.
     if (row.hasFace) {
       this.api.getStudentFace(row.studentId).subscribe({
         next: (res) => {
@@ -179,7 +194,6 @@ export class BiometricEnrollmentComponent implements OnInit {
           if (bio?.photoBase64) {
             this.dialogPhotoBase64 = bio.photoBase64;
             this.dialogPhotoPreview = 'data:image/jpeg;base64,' + bio.photoBase64;
-            this.dialogFaceEmbedding = bio.faceEmbedding || null;
           }
         },
       });
@@ -227,20 +241,8 @@ export class BiometricEnrollmentComponent implements OnInit {
       this.snackBar.open('Please select an image file.', 'Close', { duration: 3000 });
       return;
     }
-    this.processImageFile(file);
+    this.processImageFileToShot(file);
     if (input) input.value = '';
-  }
-
-  private processImageFile(file: File): void {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        this.captureImageToPreview(img, img.width, img.height, false);
-      };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(file);
   }
 
   // ── Webcam capture ───────────────────────────────────────
@@ -277,78 +279,123 @@ export class BiometricEnrollmentComponent implements OnInit {
   capturePhoto(): void {
     const video = this.videoEl?.nativeElement;
     if (!video || !this.stream) return;
-    this.captureImageToPreview(video, video.videoWidth || 480, video.videoHeight || 480, true);
-    this.closeCamera();
+    this.addShot(video, video.videoWidth || 480, video.videoHeight || 480, true);
   }
 
-  private async captureImageToPreview(source: CanvasImageSource, vw: number, vh: number, mirror: boolean): Promise<void> {
-    const max = 256;
-    const scale = Math.min(1, max / Math.max(vw, vh));
-    const w = Math.round(vw * scale);
-    const h = Math.round(vh * scale);
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d')!;
-    if (mirror) { ctx.translate(w, 0); ctx.scale(-1, 1); }
-    ctx.drawImage(source, 0, 0, w, h);
-    if (mirror) ctx.setTransform(1, 0, 0, 1, 0, 0);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
-
-    // Run face detection + embedding on a HIGHER-resolution canvas —
-    // TinyFaceDetector needs enough pixels to actually find the face,
-    // but the stored photo can stay small for Mongo. So render a
-    // detection-only canvas at the source resolution and compute the
-    // embedding from that.
-    const detectMax = 512;
-    const dScale = Math.min(1, detectMax / Math.max(vw, vh));
-    const dw = Math.round(vw * dScale);
-    const dh = Math.round(vh * dScale);
-    const detectCanvas = document.createElement('canvas');
-    detectCanvas.width = dw;
-    detectCanvas.height = dh;
-    const dctx = detectCanvas.getContext('2d')!;
-    if (mirror) { dctx.translate(dw, 0); dctx.scale(-1, 1); }
-    dctx.drawImage(source, 0, 0, dw, dh);
-    if (mirror) dctx.setTransform(1, 0, 0, 1, 0, 0);
-
-    // If the admin clicked Capture before the ngOnInit warm-up finished
-    // loading the models, wait for it here rather than erroring out.
-    // initialize() is idempotent — returns immediately if already ready.
-    if (!this.faceRecognition.isReady()) {
-      const snack = this.snackBar.open('Loading face model — this only happens once…', '', { duration: 0 });
-      try {
-        await this.faceRecognition.initialize();
-      } catch (err) {
-        snack.dismiss();
-        this.snackBar.open('Face model failed to load. Refresh the page and try again.',
-            'Close', { duration: 4000 });
-        return;
-      }
-      snack.dismiss();
+  removeShot(idx: number): void {
+    this.dialogShots.splice(idx, 1);
+    if (this.dialogShots.length === 0) {
+      this.dialogPhotoPreview = null;
+      this.dialogPhotoBase64 = null;
+    } else {
+      // Keep the top-of-list shot as the display thumbnail.
+      this.dialogPhotoPreview = this.dialogShots[0].preview;
+      this.dialogPhotoBase64 = this.dialogShots[0].base64;
     }
-    const embedding = await this.faceRecognition.computeEmbedding(detectCanvas);
-    if (!embedding) {
-      this.snackBar.open('No face detected in the photo. Please retake with the face clearly visible.',
-          'Close', { duration: 4000 });
-      return;
-    }
-    this.dialogPhotoPreview = dataUrl;
-    this.dialogPhotoBase64 = dataUrl.split(',')[1];
-    this.dialogFaceEmbedding = embedding;
   }
 
-  clearPhoto(): void {
+  clearShots(): void {
+    this.dialogShots = [];
     this.dialogPhotoPreview = null;
     this.dialogPhotoBase64 = null;
-    this.dialogFaceEmbedding = null;
+    this.captureError = null;
+  }
+
+  /** True once the operator has captured SHOT_TARGET clear shots and
+   *  Save Face should be enabled. */
+  get canSaveShots(): boolean {
+    return this.dialogShots.length >= this.SHOT_TARGET;
+  }
+
+  private async addShot(source: CanvasImageSource, vw: number, vh: number, mirror: boolean): Promise<void> {
+    if (this.isCapturing) return;
+    if (this.dialogShots.length >= this.SHOT_TARGET) return;
+    this.isCapturing = true;
+    this.captureError = null;
+    try {
+      // Store a small JPEG for display; run detection on a bigger crop
+      // so TinyFaceDetector has enough pixels.
+      const max = 256;
+      const scale = Math.min(1, max / Math.max(vw, vh));
+      const w = Math.round(vw * scale);
+      const h = Math.round(vh * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d')!;
+      if (mirror) { ctx.translate(w, 0); ctx.scale(-1, 1); }
+      ctx.drawImage(source, 0, 0, w, h);
+      if (mirror) ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+
+      const detectMax = 512;
+      const dScale = Math.min(1, detectMax / Math.max(vw, vh));
+      const dw = Math.round(vw * dScale);
+      const dh = Math.round(vh * dScale);
+      const detectCanvas = document.createElement('canvas');
+      detectCanvas.width = dw;
+      detectCanvas.height = dh;
+      const dctx = detectCanvas.getContext('2d')!;
+      if (mirror) { dctx.translate(dw, 0); dctx.scale(-1, 1); }
+      dctx.drawImage(source, 0, 0, dw, dh);
+      if (mirror) dctx.setTransform(1, 0, 0, 1, 0, 0);
+
+      if (!this.faceRecognition.isReady()) {
+        const snack = this.snackBar.open('Loading face model — this only happens once…', '', { duration: 0 });
+        try {
+          await this.faceRecognition.initialize();
+        } catch (err) {
+          snack.dismiss();
+          this.captureError = 'Face model failed to load. Refresh the page and try again.';
+          return;
+        }
+        snack.dismiss();
+      }
+
+      const detection = await this.faceRecognition.detect(detectCanvas);
+      if (!detection) {
+        this.captureError = 'No face detected. Move closer and face the camera.';
+        return;
+      }
+      if (detection.score < this.MIN_DETECT_SCORE) {
+        this.captureError = `Face not clear enough (score ${detection.score.toFixed(2)}). Improve lighting and try again.`;
+        return;
+      }
+      if (detection.areaRatio < this.MIN_FACE_AREA_RATIO) {
+        this.captureError = 'Face is too small in the frame. Move closer to the camera.';
+        return;
+      }
+
+      const shot = { preview: dataUrl, base64: dataUrl.split(',')[1], embedding: detection.embedding };
+      this.dialogShots.push(shot);
+      // The first captured shot becomes the display thumbnail.
+      if (this.dialogShots.length === 1) {
+        this.dialogPhotoPreview = shot.preview;
+        this.dialogPhotoBase64 = shot.base64;
+      }
+    } finally {
+      this.isCapturing = false;
+    }
+  }
+
+  /** File upload path — reuses the shot capture flow so uploaded
+   *  photos go through the same quality gate as webcam captures. */
+  private async processImageFileToShot(file: File): Promise<void> {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => this.addShot(img, img.width, img.height, false);
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
   }
 
   saveFace(): void {
-    if (!this.dialogRow || !this.dialogPhotoBase64 || !this.dialogFaceEmbedding) return;
+    if (!this.dialogRow || !this.canSaveShots) return;
     this.isSaving = true;
-    this.api.enrollStudentFace(this.dialogRow.studentId, this.dialogPhotoBase64,
-                               this.dialogFaceEmbedding).subscribe({
+    const embeddings = this.dialogShots.map(s => s.embedding);
+    const displayPhoto = this.dialogShots[0].base64;
+    this.api.enrollStudentFace(this.dialogRow.studentId, displayPhoto, embeddings).subscribe({
       next: () => {
         this.isSaving = false;
         this.snackBar.open('Face enrolled', 'Close', { duration: 2200 });
@@ -379,7 +426,9 @@ export class BiometricEnrollmentComponent implements OnInit {
         const row = this.rows.find(r => r.studentId === this.dialogRow?.studentId);
         if (row) row.hasFace = false;
         this.faceEnrolledIds.delete(this.dialogRow!.studentId);
-        this.clearPhoto();
+        this.clearShots();
+        this.dialogPhotoPreview = null;
+        this.dialogPhotoBase64 = null;
       },
       error: (err) => {
         this.isSaving = false;

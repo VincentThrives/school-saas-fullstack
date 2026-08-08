@@ -18,7 +18,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService, SendHolidayNoticeRequest } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { SchoolEvent, AcademicYear, UserRole } from '../../../core/models';
+import { SchoolEvent, AcademicYear, UserRole, SchoolClass } from '../../../core/models';
 
 @Component({
   selector: 'app-events-list',
@@ -68,7 +68,11 @@ export class EventsListComponent implements OnInit {
    *  card actions share the same single-event scope. */
   smsDialogOpen = false;
   smsEvent: SchoolEvent | null = null;
-  smsAudience: 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' = 'ALL_STUDENTS';
+  smsAudience: 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' | 'CLASS' = 'ALL_STUDENTS';
+  /** Only used when smsAudience === 'CLASS'. */
+  smsClassId = '';
+  /** Optional narrower filter under CLASS — empty means whole class. */
+  smsSectionId = '';
   smsTime = '';
   smsSending = false;
 
@@ -77,8 +81,13 @@ export class EventsListComponent implements OnInit {
    *  half-mixed state when admin opens one while the other is closing. */
   smsHolidayDialogOpen = false;
   smsHoliday: SchoolEvent | null = null;
-  smsHolidayAudience: 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' = 'ALL_STUDENTS';
+  smsHolidayAudience: 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' | 'CLASS' = 'ALL_STUDENTS';
+  smsHolidayClassId = '';
+  smsHolidaySectionId = '';
   smsHolidayReason = '';
+
+  /** Loaded once on init — feeds both SMS dialogs' class dropdown. */
+  classes: SchoolClass[] = [];
   /** Reopen date is editable — auto-derived from endDate+1 but admin
    *  overrides it for weekend collisions (Saturday holiday → school
    *  doesn't reopen Sunday, so admin picks Monday). */
@@ -133,6 +142,37 @@ export class EventsListComponent implements OnInit {
     }
 
     this.loadAcademicYears();
+    // Preload classes so the CLASS-audience dropdown is instant when the
+    // admin opens either SMS dialog. Silent fail — the dropdown will
+    // just show empty and the admin knows.
+    this.apiService.getClasses().subscribe({
+      next: (res) => { if (res?.success && res.data) this.classes = res.data; },
+    });
+  }
+
+  /** Cached section lists — bound directly by the template so mat-select
+   *  doesn't see a fresh array on every change-detection tick (a getter
+   *  returning .map() would; that thrashes Angular Material and locks
+   *  the UI). Rebuilt only when the picked class actually changes. */
+  smsSections: { sectionId: string; name: string }[] = [];
+  smsHolidaySections: { sectionId: string; name: string }[] = [];
+
+  onSmsClassChange(): void {
+    this.smsSectionId = '';
+    this.smsSections = this.sectionsFor(this.smsClassId);
+  }
+
+  onSmsHolidayClassChange(): void {
+    this.smsHolidaySectionId = '';
+    this.smsHolidaySections = this.sectionsFor(this.smsHolidayClassId);
+  }
+
+  private sectionsFor(classId: string): { sectionId: string; name: string }[] {
+    if (!classId) return [];
+    const cls = this.classes.find(c => c.classId === classId);
+    return ((cls?.sections as any[]) || []).map(s => ({
+      sectionId: s.sectionId, name: s.name,
+    }));
   }
 
   loadAcademicYears(): void {
@@ -286,6 +326,9 @@ export class EventsListComponent implements OnInit {
   openSendSms(event: SchoolEvent): void {
     this.smsEvent = event;
     this.smsAudience = 'ALL_STUDENTS';
+    this.smsClassId = '';
+    this.smsSectionId = '';
+    this.smsSections = [];
     const start = (event as any).startTime;
     const end = (event as any).endTime;
     this.smsTime = start
@@ -306,6 +349,10 @@ export class EventsListComponent implements OnInit {
       this.snackBar.open('Enter the event time.', 'Close', { duration: 2500 });
       return;
     }
+    if (this.smsAudience === 'CLASS' && !this.smsClassId) {
+      this.snackBar.open('Pick a class.', 'Close', { duration: 2500 });
+      return;
+    }
     this.smsSending = true;
     const dateLabel = this.formatEventDateForSms(ev);
     // Concatenate name + description into var1 so the single template
@@ -314,6 +361,8 @@ export class EventsListComponent implements OnInit {
     const nameWithDesc = desc ? `${ev.title} · ${desc}` : ev.title;
     this.apiService.sendEventNoticeSms({
       audiences: [this.smsAudience as any],
+      classId: this.smsAudience === 'CLASS' ? this.smsClassId : undefined,
+      sectionId: this.smsAudience === 'CLASS' && this.smsSectionId ? this.smsSectionId : undefined,
       eventName: nameWithDesc,
       eventDate: dateLabel,
       eventTime: this.smsTime.trim(),
@@ -354,6 +403,9 @@ export class EventsListComponent implements OnInit {
   openSendHolidaySms(holiday: SchoolEvent): void {
     this.smsHoliday = holiday;
     this.smsHolidayAudience = 'ALL_STUDENTS';
+    this.smsHolidayClassId = '';
+    this.smsHolidaySectionId = '';
+    this.smsHolidaySections = [];
     const desc = (holiday as any).description?.trim();
     this.smsHolidayReason = desc
         ? `${holiday.title} · ${desc}`
@@ -382,6 +434,10 @@ export class EventsListComponent implements OnInit {
       this.snackBar.open('Pick the reopen date.', 'Close', { duration: 2500 });
       return;
     }
+    if (this.smsHolidayAudience === 'CLASS' && !this.smsHolidayClassId) {
+      this.snackBar.open('Pick a class.', 'Close', { duration: 2500 });
+      return;
+    }
 
     // DLT template body wants closure and reopen as "9 Jun 2026" style
     // strings. Single-day holidays render as one date; multi-day
@@ -401,6 +457,8 @@ export class EventsListComponent implements OnInit {
     this.smsHolidaySending = true;
     const req: SendHolidayNoticeRequest = {
       audiences: [this.smsHolidayAudience as any],
+      classId: this.smsHolidayAudience === 'CLASS' ? this.smsHolidayClassId : undefined,
+      sectionId: this.smsHolidayAudience === 'CLASS' && this.smsHolidaySectionId ? this.smsHolidaySectionId : undefined,
       closureDate: closureDateStr,
       reopenDate: reopenDateStr,
       reason,

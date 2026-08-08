@@ -147,7 +147,10 @@ export type SmsAudience = 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' | 'CLASS';
 /** Body for POST /api/v1/sms/holiday-notice. */
 export interface SendHolidayNoticeRequest {
   audiences: SmsAudience[];
+  /** Required when audiences contains 'CLASS'. */
   classId?: string;
+  /** Optional narrower filter under CLASS — omit for whole class. */
+  sectionId?: string;
   closureDate: string;
   reason: string;
   reopenDate: string;
@@ -166,7 +169,10 @@ export interface SendHolidayNoticeResponse {
  *  both. eventTime is free-form ("10:00 AM"). */
 export interface SendEventNoticeRequest {
   audiences: SmsAudience[];
+  /** Required when audiences contains 'CLASS'. */
   classId?: string;
+  /** Optional narrower filter under CLASS — omit for whole class. */
+  sectionId?: string;
   eventName: string;
   eventDate: string;
   eventTime: string;
@@ -241,6 +247,8 @@ export type SmsBroadcastAudience = 'ALL' | 'ALL_STUDENTS' | 'ALL_EMPLOYEES' | 'C
 export interface SendCustomNoticeRequest {
   audiences: SmsBroadcastAudience[];
   classId?: string;
+  /** Optional narrower filter under CLASS — omit for whole class. */
+  sectionId?: string;
   message: string;
 }
 
@@ -714,6 +722,7 @@ export class ApiService {
     lateCutoff?: string;
     openTime?: string;
     faceThreshold?: number;
+    matchMargin?: number;
     exitTracking?: 'OFF' | 'AUTO' | 'MANUAL';
     earliestExitTime?: string;
     notifyOnEntry?: boolean;
@@ -729,13 +738,22 @@ export class ApiService {
         `${this.API}/biometric/students/${studentId}/card`, { cardUid });
   }
 
-  /** Enrol a student's face — photo (base64) + embedding (128 numbers)
-   *  computed on the browser by face-api.js before this call. */
+  /** Enrol a student's face — photo (base64) + one or more 128-D
+   *  face-api.js FaceNet descriptors computed in the browser. Multiple
+   *  shots (different poses/lighting) massively improve match recall
+   *  without dropping precision. */
   enrollStudentFace(studentId: string, photoBase64: string,
-                    faceEmbedding: number[]): Observable<ApiResponse<any>> {
+                    faceEmbeddings: number[][]): Observable<ApiResponse<any>> {
     return this.http.put<ApiResponse<any>>(
         `${this.API}/biometric/students/${studentId}/face`,
-        { photoBase64, faceEmbedding });
+        {
+          photoBase64,
+          faceEmbeddings,
+          // Legacy field — some older clients only send one embedding.
+          // Keep in sync with shots[0] so the backend can populate its
+          // legacy column too during the transition.
+          faceEmbedding: faceEmbeddings[0],
+        });
   }
 
   /** Remove a student's face enrolment. */

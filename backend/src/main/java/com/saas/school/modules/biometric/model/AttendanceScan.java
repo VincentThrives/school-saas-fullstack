@@ -53,6 +53,14 @@ public class AttendanceScan {
      *  {@code Tenant.BiometricSettings.exitTracking}. */
     private Direction direction;
 
+    /** Cosine similarity of the winning match. Null for card scans. */
+    private Double matchScore;
+
+    /** How much the winning match beat the runner-up (top - 2nd best).
+     *  Small margin = ambiguous crowd — useful audit signal. Null for
+     *  card scans or when only one candidate existed. */
+    private Double matchMargin;
+
     private Instant scannedAt;
 
     /** {@code yyyy-MM-dd} in the tenant's timezone; used with
@@ -96,6 +104,12 @@ public class AttendanceScan {
 
     public Instant getScannedAt() { return scannedAt; }
     public void setScannedAt(Instant scannedAt) { this.scannedAt = scannedAt; }
+
+    public Double getMatchScore() { return matchScore; }
+    public void setMatchScore(Double matchScore) { this.matchScore = matchScore; }
+
+    public Double getMatchMargin() { return matchMargin; }
+    public void setMatchMargin(Double matchMargin) { this.matchMargin = matchMargin; }
 
     public String getScanDateKey() { return scanDateKey; }
     public void setScanDateKey(String scanDateKey) { this.scanDateKey = scanDateKey; }

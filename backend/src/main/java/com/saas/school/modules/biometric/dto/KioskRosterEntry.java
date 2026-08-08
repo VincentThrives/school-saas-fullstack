@@ -13,6 +13,10 @@ public class KioskRosterEntry {
     private String cardUid;
     private String photoBase64;
     private List<Double> faceEmbedding;
+    /** Multiple embeddings per student — one per enrolment shot. Kiosk
+     *  matches against the MAX cosine over this list. When empty, the
+     *  legacy single {@link #faceEmbedding} is used instead. */
+    private List<List<Double>> faceEmbeddings;
 
     public String getStudentId() { return studentId; }
     public void setStudentId(String studentId) { this.studentId = studentId; }
@@ -34,4 +38,7 @@ public class KioskRosterEntry {
 
     public List<Double> getFaceEmbedding() { return faceEmbedding; }
     public void setFaceEmbedding(List<Double> faceEmbedding) { this.faceEmbedding = faceEmbedding; }
+
+    public List<List<Double>> getFaceEmbeddings() { return faceEmbeddings; }
+    public void setFaceEmbeddings(List<List<Double>> faceEmbeddings) { this.faceEmbeddings = faceEmbeddings; }
 }

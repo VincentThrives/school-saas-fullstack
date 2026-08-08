@@ -64,10 +64,17 @@
 
         <div class="timing-row" *ngIf="faceEnabled">
           <mat-form-field appearance="outline" class="timing-field">
-            <mat-label>Face match confidence (0.30 – 0.90)</mat-label>
-            <input matInput type="number" step="0.05" min="0.3" max="0.9"
+            <mat-label>Face match confidence (0.60 – 0.90)</mat-label>
+            <input matInput type="number" step="0.05" min="0.6" max="0.9"
                    [(ngModel)]="faceThreshold" />
-            <mat-hint>Lower = more permissive, higher = stricter.</mat-hint>
+            <mat-hint>0.75 is a strict default. Raise if false matches appear; lower if a real student is rejected.</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="timing-field">
+            <mat-label>Match margin over runner-up (0 – 0.20)</mat-label>
+            <input matInput type="number" step="0.01" min="0" max="0.20"
+                   [(ngModel)]="matchMargin" />
+            <mat-hint>Leave at 0 for pilots. At 100+ students raise to 0.05–0.08 to reject ambiguous matches.</mat-hint>
           </mat-form-field>
         </div>
 

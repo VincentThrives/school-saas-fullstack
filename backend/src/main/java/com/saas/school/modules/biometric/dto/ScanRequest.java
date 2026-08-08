@@ -18,6 +18,11 @@ public class ScanRequest {
      *  kiosk sends "IN" or "OUT" based on its current toggle. In OFF
      *  and AUTO modes the server decides direction and ignores this. */
     private String direction;
+    /** Audit-only: cosine similarity of the winning face match, as
+     *  computed on the kiosk. Persisted on the scan record. */
+    private Double matchScore;
+    /** Audit-only: how much the winner beat the runner-up. */
+    private Double matchMargin;
 
     public AttendanceScan.ScanMethod getMethod() { return method; }
     public void setMethod(AttendanceScan.ScanMethod method) { this.method = method; }
@@ -33,4 +38,10 @@ public class ScanRequest {
 
     public String getDirection() { return direction; }
     public void setDirection(String direction) { this.direction = direction; }
+
+    public Double getMatchScore() { return matchScore; }
+    public void setMatchScore(Double matchScore) { this.matchScore = matchScore; }
+
+    public Double getMatchMargin() { return matchMargin; }
+    public void setMatchMargin(Double matchMargin) { this.matchMargin = matchMargin; }
 }

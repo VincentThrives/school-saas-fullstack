@@ -43,22 +43,40 @@ export class FaceRecognitionService {
 
   /** Compute a 128-D FaceNet descriptor for the largest face in the
    *  given input. Returns null if no face was found or the models
-   *  aren't loaded yet. */
+   *  aren't loaded yet. Kept for backward-compatible call sites. */
   async computeEmbedding(
       input: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement,
   ): Promise<number[] | null> {
+    const d = await this.detect(input);
+    return d ? d.embedding : null;
+  }
+
+  /** Full detection result — embedding plus the metadata enrolment
+   *  needs to gate quality (detection score, face-box area ratio). */
+  async detect(
+      input: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement,
+  ): Promise<{ embedding: number[]; score: number; areaRatio: number } | null> {
     if (!this.ready) return null;
-    // Tiny detector is fast enough for realtime kiosk use. inputSize
-    // 320 is a decent quality/speed trade-off for a laptop webcam.
+    // inputSize 416 gives noticeably better crops on webcam-quality
+    // frames than 320 for a small perf hit (~40ms/detect).
     const detected = await faceapi
         .detectSingleFace(input, new faceapi.TinyFaceDetectorOptions({
-          inputSize: 320,
+          inputSize: 416,
           scoreThreshold: 0.5,
         }))
         .withFaceLandmarks()
         .withFaceDescriptor();
     if (!detected || !detected.descriptor) return null;
-    return Array.from(detected.descriptor);
+    const box = detected.detection.box;
+    const iw = (input as any).videoWidth || (input as any).naturalWidth || (input as any).width;
+    const ih = (input as any).videoHeight || (input as any).naturalHeight || (input as any).height;
+    const totalArea = Math.max(1, iw * ih);
+    const areaRatio = (box.width * box.height) / totalArea;
+    return {
+      embedding: Array.from(detected.descriptor),
+      score: detected.detection.score,
+      areaRatio,
+    };
   }
 
   /** Cosine similarity — the metric the kiosk uses when comparing a

@@ -367,5 +367,82 @@ $good-bg: #dcfce7;
   button { min-width: 130px; mat-icon { margin-right: 6px; } }
 }
 
-/* Restart backend needed for the /face-enrolled-ids endpoint —
-   restart the dev server too since we swapped many components. */
+/* ── Multi-shot enrolment ── */
+.be-shots-explain {
+  color: #6b7280;
+  font-size: 13px;
+  margin: 4px 0 12px;
+  line-height: 1.45;
+}
+.be-shots-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.be-shot-slot {
+  position: relative;
+  flex: 0 0 108px;
+  height: 108px;
+  border: 2px dashed #d4a843;
+  border-radius: 12px;
+  background: rgba(212, 168, 67, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+
+  &.filled {
+    border-style: solid;
+    background: #fff;
+  }
+}
+.be-shot-empty {
+  color: #b8860b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.be-shot-num {
+  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  font-size: 28px;
+  font-weight: 700;
+  opacity: 0.55;
+}
+.be-shot-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  &:hover { background: #b23a3a; }
+}
+
+.be-capture-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin: 6px 0 10px;
+  background: rgba(178, 58, 58, 0.10);
+  border: 1px solid rgba(178, 58, 58, 0.30);
+  color: #b23a3a;
+  border-radius: 8px;
+  font-size: 13px;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+

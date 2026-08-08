@@ -7,6 +7,7 @@ public class BiometricSettingsRequest {
     private String lateCutoff;
     private String openTime;
     private Double faceThreshold;
+    private Double matchMargin;
 
     /** OFF | AUTO | MANUAL — see BiometricSettings.exitTracking. */
     private String exitTracking;
@@ -29,6 +30,9 @@ public class BiometricSettingsRequest {
 
     public Double getFaceThreshold() { return faceThreshold; }
     public void setFaceThreshold(Double faceThreshold) { this.faceThreshold = faceThreshold; }
+
+    public Double getMatchMargin() { return matchMargin; }
+    public void setMatchMargin(Double matchMargin) { this.matchMargin = matchMargin; }
 
     public String getExitTracking() { return exitTracking; }
     public void setExitTracking(String exitTracking) { this.exitTracking = exitTracking; }

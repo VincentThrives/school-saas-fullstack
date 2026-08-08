@@ -35,6 +35,11 @@ public class SendEventNoticeRequest {
     /** Required only when {@link SmsAudience#CLASS} is among the chosen audiences. */
     private String classId;
 
+    /** Optional narrower filter under {@link SmsAudience#CLASS}. When
+     *  set, only parents of students in this section receive the SMS.
+     *  When null the whole class (all sections) is targeted. */
+    private String sectionId;
+
     /** Event name + optional description, already concatenated by the
      *  frontend (e.g. "Annual Day - Cultural performances"). Lands in
      *  var1 of the DLT template. Capped at 70 so the rendered SMS
@@ -66,6 +71,9 @@ public class SendEventNoticeRequest {
 
     public String getClassId() { return classId; }
     public void setClassId(String classId) { this.classId = classId; }
+
+    public String getSectionId() { return sectionId; }
+    public void setSectionId(String sectionId) { this.sectionId = sectionId; }
 
     public String getEventName() { return eventName; }
     public void setEventName(String eventName) { this.eventName = eventName; }

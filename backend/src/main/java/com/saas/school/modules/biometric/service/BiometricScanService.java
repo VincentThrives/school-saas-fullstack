@@ -196,6 +196,12 @@ public class BiometricScanService {
                 : decideExitStatus(now, settings));
         scan.setScannedAt(now);
         scan.setScanDateKey(dateKey);
+        // Audit the face-match confidence the kiosk reported so we can
+        // debug false matches after the fact.
+        if (req.getMethod() == AttendanceScan.ScanMethod.FACE) {
+            scan.setMatchScore(req.getMatchScore());
+            scan.setMatchMargin(req.getMatchMargin());
+        }
         try {
             scan = scanRepository.save(scan);
         } catch (DuplicateKeyException e) {
@@ -273,6 +279,14 @@ public class BiometricScanService {
             if (bio != null) {
                 e.setPhotoBase64(bio.getPhotoBase64());
                 e.setFaceEmbedding(bio.getFaceEmbedding());
+                // Prefer the multi-shot list. If absent, wrap the legacy
+                // single embedding as a one-element list so the kiosk
+                // can treat every student uniformly.
+                if (bio.getFaceEmbeddings() != null && !bio.getFaceEmbeddings().isEmpty()) {
+                    e.setFaceEmbeddings(bio.getFaceEmbeddings());
+                } else if (bio.getFaceEmbedding() != null && !bio.getFaceEmbedding().isEmpty()) {
+                    e.setFaceEmbeddings(java.util.List.of(bio.getFaceEmbedding()));
+                }
             }
             out.add(e);
         }

@@ -344,8 +344,17 @@ public class Tenant {
          *  rejects the match and prompts the student to try again. */
         // Cosine-similarity threshold for face-api.js FaceNet embeddings.
         // Typical same-person cosine is 0.75-0.95; different-person 0.30-0.60.
-        // 0.65 is a safe default; admin can adjust per tenant.
-        private double faceThreshold = 0.65;
+        // 0.75 default gives strong precision at small cost to recall.
+        private double faceThreshold = 0.75;
+
+        /** How much the winning candidate must beat the runner-up. A
+         *  small margin means the crowd was ambiguous (two students look
+         *  alike from this angle) so we reject rather than guess.
+         *  Default 0 (off) — the margin check is only useful once the
+         *  roster is large enough that random runner-ups score low.
+         *  For 100+ students set to 0.05-0.08 to reject ambiguous
+         *  matches; for small pilots leave at 0 and trust the threshold. */
+        private double matchMargin = 0.0;
 
         // ── Punch in / out ────────────────────────────────────────
 
@@ -386,6 +395,9 @@ public class Tenant {
 
         public double getFaceThreshold() { return faceThreshold; }
         public void setFaceThreshold(double faceThreshold) { this.faceThreshold = faceThreshold; }
+
+        public double getMatchMargin() { return matchMargin; }
+        public void setMatchMargin(double matchMargin) { this.matchMargin = matchMargin; }
 
         public String getExitTracking() { return exitTracking; }
         public void setExitTracking(String exitTracking) { this.exitTracking = exitTracking; }

@@ -40,11 +40,18 @@ public class BiometricEnrollmentService {
         if (req == null || req.getPhotoBase64() == null || req.getPhotoBase64().isBlank()) {
             throw new BusinessException("Photo is required.");
         }
-        if (req.getFaceEmbedding() == null || req.getFaceEmbedding().isEmpty()) {
-            throw new BusinessException("Face embedding is missing — the client must compute it before upload.");
-        }
-        if (req.getFaceEmbedding().size() < 64) {
-            throw new BusinessException("Face embedding is too short.");
+
+        // Multi-shot is the preferred path; fall back to the single
+        // embedding for older client versions that haven't updated yet.
+        List<List<Double>> shots = req.getFaceEmbeddings();
+        List<Double> single = req.getFaceEmbedding();
+
+        boolean multiOk = shots != null && !shots.isEmpty()
+                && shots.stream().allMatch(v -> v != null && v.size() >= 64);
+        boolean singleOk = single != null && single.size() >= 64;
+        if (!multiOk && !singleOk) {
+            throw new BusinessException(
+                    "Face embedding is missing — the client must capture at least one clear face.");
         }
 
         String photo = stripDataUrlPrefix(req.getPhotoBase64());
@@ -56,7 +63,15 @@ public class BiometricEnrollmentService {
                 .orElseGet(StudentBiometric::new);
         bio.setStudentId(s.getStudentId());
         bio.setPhotoBase64(photo);
-        bio.setFaceEmbedding(req.getFaceEmbedding());
+        if (multiOk) {
+            bio.setFaceEmbeddings(shots);
+            // Keep the legacy single field synced to shots[0] so older
+            // roster readers still resolve a usable embedding.
+            bio.setFaceEmbedding(shots.get(0));
+        } else {
+            bio.setFaceEmbeddings(java.util.List.of(single));
+            bio.setFaceEmbedding(single);
+        }
         bio.setEnrolledBy(userId);
         return biometricRepository.save(bio);
     }
@@ -81,7 +96,10 @@ public class BiometricEnrollmentService {
     public java.util.Set<String> faceEnrolledIds() {
         java.util.Set<String> out = new java.util.HashSet<>();
         for (StudentBiometric b : biometricRepository.findAll()) {
-            if (b.getFaceEmbedding() != null && !b.getFaceEmbedding().isEmpty()) {
+            // Only count multi-shot enrolments. Legacy single-embedding
+            // records may be pre-face-api stubs that the kiosk now
+            // ignores — showing them as "Enrolled" would be misleading.
+            if (b.getFaceEmbeddings() != null && !b.getFaceEmbeddings().isEmpty()) {
                 out.add(b.getStudentId());
             }
         }
