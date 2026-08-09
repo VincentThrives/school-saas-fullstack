@@ -328,6 +328,17 @@ export class SidebarComponent implements OnInit, OnDestroy {
             { title: 'Fee Payments', path: '/fees/payments', icon: 'receipt_long', feature: 'fee', roles: [UserRole.SCHOOL_ADMIN, UserRole.SCHOOL_COORDINATOR], coordinatorModule: 'FEES' },
           ],
         },
+        // ── Biometric Terminals group ── (admin-only, feature-gated)
+        // Group header stays hidden when the feature flag is off
+        // because both children carry `feature: 'biometric_terminal'`
+        // and hasVisibleChildren() would collapse the group.
+        {
+          title: 'Biometric', path: '', icon: 'fingerprint',
+          children: [
+            { title: 'Attendance Terminals', path: '/biometric/terminals', icon: 'sensors', feature: 'biometric_terminal', roles: [UserRole.SCHOOL_ADMIN] },
+            { title: 'Biometric Settings', path: '/biometric/settings', icon: 'tune', feature: 'biometric_terminal', roles: [UserRole.SCHOOL_ADMIN] },
+          ],
+        },
         { title: 'Events', path: '/events', icon: 'event', feature: 'events', coordinatorModule: 'EVENTS' },
         { title: 'Homework', path: '/homework', icon: 'menu_book', feature: 'notifications', coordinatorModule: 'NOTIFICATIONS' },
         { title: 'Notifications', path: '/notifications', icon: 'notifications', feature: 'notifications', coordinatorModule: 'NOTIFICATIONS' },

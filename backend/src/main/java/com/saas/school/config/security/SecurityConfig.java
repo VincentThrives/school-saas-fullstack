@@ -46,6 +46,11 @@ public class SecurityConfig {
             "/api/v1/auth/reset-password",
             "/api/v1/super/auth/login",
             "/api/v1/super/auth/refresh",
+            // ADMS receiver for biometric terminals. Terminals can't hold
+            // a JWT — they authenticate by (schoolCode in URL + SN query
+            // param); AdmsPushController resolves the tenant and installs
+            // TenantContext manually before every write.
+            "/api/v1/adms/**",
             "/swagger-ui/**",
             "/api-docs/**",
             "/actuator/health"

@@ -49,7 +49,8 @@ export type FeatureKey =
   | 'assignments'
   | 'syllabus'
   | 'ptm'
-  | 'id_cards';
+  | 'id_cards'
+  | 'biometric_terminal';
 
 // API Response
 export interface ApiResponse<T> {
@@ -1037,4 +1038,46 @@ export interface Timetable {
   schedule: TimetableDaySchedule[];
   scheduleConfig?: ScheduleConfig;
   createdAt?: string;
+}
+
+// ── Biometric Terminal ─────────────────────────────────────────────────
+export interface BiometricTerminal {
+  serial: string;
+  label: string;
+  lastSeenAt?: string;
+  bindingCount: number;
+  createdAt?: string;
+}
+
+export interface BiometricTerminalBinding {
+  terminalUserId: string;
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  className?: string;
+  sectionName?: string;
+  boundAt?: string;
+  boundBy?: string;
+}
+
+export interface RegisterTerminalRequest {
+  serial: string;
+  label: string;
+}
+
+export interface UpdateTerminalRequest {
+  label: string;
+}
+
+export interface BindTerminalUserRequest {
+  terminalUserId: string;
+  studentId: string;
+}
+
+export interface BiometricSettings {
+  lateCutoff: string;
+  earliestExitTime: string;
+  notifyOnEntry: boolean;
+  notifyOnExit: boolean;
+  notifyOnEarlyLeave: boolean;
 }

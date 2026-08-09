@@ -1,0 +1,52 @@
+.settings-page {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 720px;
+}
+
+.loading {
+  padding: 48px;
+  display: flex;
+  justify-content: center;
+}
+
+.section-card {
+  padding: 20px;
+
+  h3 {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .section-help {
+    margin: 0 0 16px;
+    font-size: 13px;
+    color: #64748b;
+  }
+
+  .row-two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+
+    @media (max-width: 480px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .toggle-row {
+    padding: 8px 0;
+  }
+}
+
+.footer-actions {
+  display: flex;
+  justify-content: flex-end;
+
+  button {
+    min-width: 160px;
+  }
+}

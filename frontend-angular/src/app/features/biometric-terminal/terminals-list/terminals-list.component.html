@@ -1,0 +1,140 @@
+<div class="terminals-page">
+  <app-page-header
+    title="Attendance Terminals"
+    subtitle="Hardware devices at the school gate that push scans over the network."
+    actionLabel="Register Terminal"
+    actionIcon="add"
+    (actionClick)="openRegister()">
+  </app-page-header>
+
+  <mat-card class="setup-hint">
+    <div class="hint-body">
+      <mat-icon>info</mat-icon>
+      <div>
+        <div class="hint-title">Terminal setup URL</div>
+        <div class="hint-subtitle">On the eSSL / ZKTeco device, open <em>Menu → Comm → Cloud server</em> and paste:</div>
+        <div class="url-row">
+          <code>{{ admsUrl }}</code>
+          <button mat-icon-button matTooltip="Copy" (click)="copyAdmsUrl()">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+        <div class="hint-tip">Replace <code>&lt;schoolCode&gt;</code> with the code you type at nammavidyalaya.com login. Port 443, HTTPS.</div>
+      </div>
+    </div>
+  </mat-card>
+
+  <mat-card class="terminals-card">
+    <div class="loading" *ngIf="isLoading">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+
+    <div class="empty" *ngIf="!isLoading && terminals.length === 0">
+      <mat-icon>sensors_off</mat-icon>
+      <div class="empty-title">No terminals registered yet</div>
+      <div class="empty-subtitle">Click "Register Terminal" above to add your first device.</div>
+    </div>
+
+    <table mat-table [dataSource]="terminals" *ngIf="!isLoading && terminals.length > 0" class="terminals-table">
+      <ng-container matColumnDef="label">
+        <th mat-header-cell *matHeaderCellDef>Label</th>
+        <td mat-cell *matCellDef="let t">{{ t.label }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="serial">
+        <th mat-header-cell *matHeaderCellDef>Serial</th>
+        <td mat-cell *matCellDef="let t"><code>{{ t.serial }}</code></td>
+      </ng-container>
+
+      <ng-container matColumnDef="lastSeen">
+        <th mat-header-cell *matHeaderCellDef>Last seen</th>
+        <td mat-cell *matCellDef="let t">
+          <span class="last-seen" [class.stale]="!t.lastSeenAt">{{ lastSeenRelative(t.lastSeenAt) }}</span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="bindings">
+        <th mat-header-cell *matHeaderCellDef>Bindings</th>
+        <td mat-cell *matCellDef="let t">
+          <mat-chip>{{ t.bindingCount }}</mat-chip>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let t" class="actions">
+          <a mat-icon-button [routerLink]="['/biometric/terminals', t.serial, 'bindings']" matTooltip="Manage bindings">
+            <mat-icon>people</mat-icon>
+          </a>
+          <button mat-icon-button matTooltip="Edit label" (click)="openEdit(t)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button color="warn" matTooltip="Delete terminal" (click)="openDelete(t)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+  </mat-card>
+
+  <!-- Register dialog -->
+  <div class="scrim" *ngIf="registerOpen" (click)="closeRegister()">
+    <mat-card class="dialog" (click)="$event.stopPropagation()">
+      <h2>Register Terminal</h2>
+      <p class="dialog-help">Enter the serial number printed on the device label (typically 10 characters, e.g. AAKS20250031).</p>
+      <mat-form-field appearance="outline" class="full">
+        <mat-label>Serial number</mat-label>
+        <input matInput [(ngModel)]="register.serial" placeholder="e.g. AAKS20250031" autocomplete="off">
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full">
+        <mat-label>Label</mat-label>
+        <input matInput [(ngModel)]="register.label" placeholder="e.g. Main gate" autocomplete="off">
+      </mat-form-field>
+      <div class="dialog-actions">
+        <button mat-button (click)="closeRegister()" [disabled]="isRegistering">Cancel</button>
+        <button mat-raised-button color="primary" (click)="submitRegister()" [disabled]="isRegistering">
+          <mat-spinner *ngIf="isRegistering" diameter="18"></mat-spinner>
+          <span *ngIf="!isRegistering">Register</span>
+        </button>
+      </div>
+    </mat-card>
+  </div>
+
+  <!-- Edit label dialog -->
+  <div class="scrim" *ngIf="editOpen" (click)="closeEdit()">
+    <mat-card class="dialog" (click)="$event.stopPropagation()">
+      <h2>Edit Terminal</h2>
+      <div class="dialog-serial"><code>{{ editState.serial }}</code></div>
+      <mat-form-field appearance="outline" class="full">
+        <mat-label>Label</mat-label>
+        <input matInput [(ngModel)]="editState.label" autocomplete="off">
+      </mat-form-field>
+      <div class="dialog-actions">
+        <button mat-button (click)="closeEdit()" [disabled]="isSaving">Cancel</button>
+        <button mat-raised-button color="primary" (click)="submitEdit()" [disabled]="isSaving">
+          <mat-spinner *ngIf="isSaving" diameter="18"></mat-spinner>
+          <span *ngIf="!isSaving">Save</span>
+        </button>
+      </div>
+    </mat-card>
+  </div>
+
+  <!-- Delete confirm -->
+  <div class="scrim" *ngIf="deleteOpen" (click)="closeDelete()">
+    <mat-card class="dialog" (click)="$event.stopPropagation()">
+      <h2>Delete Terminal</h2>
+      <p>Remove <strong>{{ toDelete?.label }}</strong> (<code>{{ toDelete?.serial }}</code>)?</p>
+      <p class="dialog-warn">All {{ toDelete?.bindingCount }} bindings on this terminal will be removed too. Scans already recorded are kept.</p>
+      <div class="dialog-actions">
+        <button mat-button (click)="closeDelete()" [disabled]="isDeleting">Cancel</button>
+        <button mat-raised-button color="warn" (click)="confirmDelete()" [disabled]="isDeleting">
+          <mat-spinner *ngIf="isDeleting" diameter="18"></mat-spinner>
+          <span *ngIf="!isDeleting">Delete</span>
+        </button>
+      </div>
+    </mat-card>
+  </div>
+</div>

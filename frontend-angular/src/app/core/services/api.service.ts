@@ -51,6 +51,12 @@ import {
   CreatePtmRequest,
   BookPtmSlotRequest,
   Timetable,
+  BiometricTerminal,
+  BiometricTerminalBinding,
+  RegisterTerminalRequest,
+  UpdateTerminalRequest,
+  BindTerminalUserRequest,
+  BiometricSettings,
 } from '../models';
 
 /** Scope an admin picks on the Publish Result tab. {@code subjectId} is
@@ -1982,5 +1988,51 @@ export class ApiService {
 
   getAuditLogEntityTypes(): Observable<ApiResponse<string[]>> {
     return this.http.get<ApiResponse<string[]>>(`${this.API}/super/audit-logs/entity-types`);
+  }
+
+  // ── Biometric Terminals ──────────────────────────────────────────────
+  // Admin CRUD backed by /api/v1/biometric/terminals (feature-gated on
+  // 'biometric_terminal'). Terminals themselves POST to /api/v1/adms/...
+  // which stays unauthenticated and isn't exposed here.
+
+  listBiometricTerminals(): Observable<ApiResponse<BiometricTerminal[]>> {
+    return this.http.get<ApiResponse<BiometricTerminal[]>>(`${this.API}/biometric/terminals`);
+  }
+
+  registerBiometricTerminal(req: RegisterTerminalRequest): Observable<ApiResponse<BiometricTerminal>> {
+    return this.http.post<ApiResponse<BiometricTerminal>>(`${this.API}/biometric/terminals`, req);
+  }
+
+  updateBiometricTerminal(serial: string, req: UpdateTerminalRequest): Observable<ApiResponse<BiometricTerminal>> {
+    return this.http.put<ApiResponse<BiometricTerminal>>(
+      `${this.API}/biometric/terminals/${encodeURIComponent(serial)}`, req);
+  }
+
+  deleteBiometricTerminal(serial: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(
+      `${this.API}/biometric/terminals/${encodeURIComponent(serial)}`);
+  }
+
+  listBiometricTerminalBindings(serial: string): Observable<ApiResponse<BiometricTerminalBinding[]>> {
+    return this.http.get<ApiResponse<BiometricTerminalBinding[]>>(
+      `${this.API}/biometric/terminals/${encodeURIComponent(serial)}/bindings`);
+  }
+
+  bindBiometricTerminalUser(serial: string, req: BindTerminalUserRequest): Observable<ApiResponse<BiometricTerminalBinding>> {
+    return this.http.post<ApiResponse<BiometricTerminalBinding>>(
+      `${this.API}/biometric/terminals/${encodeURIComponent(serial)}/bindings`, req);
+  }
+
+  unbindBiometricTerminalUser(serial: string, terminalUserId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(
+      `${this.API}/biometric/terminals/${encodeURIComponent(serial)}/bindings/${encodeURIComponent(terminalUserId)}`);
+  }
+
+  getBiometricSettings(): Observable<ApiResponse<BiometricSettings>> {
+    return this.http.get<ApiResponse<BiometricSettings>>(`${this.API}/biometric/settings`);
+  }
+
+  saveBiometricSettings(req: BiometricSettings): Observable<ApiResponse<BiometricSettings>> {
+    return this.http.put<ApiResponse<BiometricSettings>>(`${this.API}/biometric/settings`, req);
   }
 }

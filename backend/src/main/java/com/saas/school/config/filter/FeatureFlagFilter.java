@@ -59,7 +59,14 @@ public class FeatureFlagFilter extends OncePerRequestFilter {
             Map.entry("/api/v1/syllabus",     "syllabus"),
             Map.entry("/api/v1/assignments",  "assignments"),
             Map.entry("/api/v1/analytics",    "analytics"),
-            Map.entry("/api/v1/ptm",          "ptm")
+            Map.entry("/api/v1/ptm",          "ptm"),
+            // Hardware attendance terminals — separate flag so a school
+            // can subscribe to the feature only after they've physically
+            // installed a device. Gates /biometric/terminals and
+            // /biometric/settings only; the ADMS receiver at
+            // /api/v1/adms/** is unauthenticated and bypasses this
+            // filter entirely.
+            Map.entry("/api/v1/biometric",    "biometric_terminal")
     );
 
     @Override

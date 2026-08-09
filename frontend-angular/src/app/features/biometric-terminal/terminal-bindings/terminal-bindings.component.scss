@@ -1,0 +1,140 @@
+.bindings-page {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.add-binding {
+  padding: 20px;
+
+  h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .add-help {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: #64748b;
+  }
+
+  .add-row {
+    display: grid;
+    grid-template-columns: 200px 1fr auto;
+    gap: 12px;
+    align-items: start;
+
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr;
+    }
+
+    button {
+      align-self: center;
+      min-height: 40px;
+      min-width: 96px;
+    }
+  }
+
+  .student-picker { width: 100%; }
+}
+
+.student-option {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+
+  .name { font-weight: 500; }
+  .meta { font-size: 12px; color: #64748b; }
+}
+
+.bindings-card {
+  padding: 0;
+
+  .loading {
+    padding: 48px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .empty {
+    padding: 56px 24px;
+    text-align: center;
+    color: #64748b;
+
+    mat-icon {
+      font-size: 48px;
+      width: 48px;
+      height: 48px;
+      color: #cbd5e1;
+    }
+
+    .empty-title {
+      margin-top: 12px;
+      font-weight: 500;
+      color: #334155;
+    }
+
+    .empty-subtitle { font-size: 13px; }
+  }
+
+  .bindings-table {
+    width: 100%;
+
+    code {
+      font-size: 12px;
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .roll {
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .actions {
+      text-align: right;
+      white-space: nowrap;
+    }
+  }
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+
+  .dialog {
+    max-width: 480px;
+    width: 100%;
+    padding: 24px;
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .dialog-note {
+      font-size: 12px;
+      color: #64748b;
+      background: #f1f5f9;
+      padding: 8px 12px;
+      border-radius: 6px;
+    }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+    }
+  }
+}

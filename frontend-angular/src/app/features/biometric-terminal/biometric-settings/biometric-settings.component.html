@@ -1,0 +1,59 @@
+<div class="settings-page">
+  <app-page-header
+    title="Biometric Settings"
+    subtitle="Cutoffs and notifications for hardware attendance terminals.">
+  </app-page-header>
+
+  <div class="loading" *ngIf="isLoading">
+    <mat-spinner diameter="32"></mat-spinner>
+  </div>
+
+  <ng-container *ngIf="!isLoading">
+    <mat-card class="section-card">
+      <h3>Cutoffs</h3>
+      <p class="section-help">A scan at or before the cutoff counts as PRESENT; after it → LATE. Exit works the mirror way: at or after the earliest-exit time counts as PRESENT; before it → EARLY_LEAVE.</p>
+
+      <div class="row-two">
+        <mat-form-field appearance="outline">
+          <mat-label>Late arrival cutoff</mat-label>
+          <input matInput type="time" [(ngModel)]="settings.lateCutoff">
+          <mat-hint>HH:mm, 24-hour</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Earliest allowed exit</mat-label>
+          <input matInput type="time" [(ngModel)]="settings.earliestExitTime">
+          <mat-hint>HH:mm, 24-hour</mat-hint>
+        </mat-form-field>
+      </div>
+    </mat-card>
+
+    <mat-card class="section-card">
+      <h3>Parent notifications</h3>
+      <p class="section-help">Choose which scan events fire a push to the child's parent accounts.</p>
+
+      <div class="toggle-row">
+        <mat-slide-toggle [(ngModel)]="settings.notifyOnEntry">
+          Notify on entry (child enters campus)
+        </mat-slide-toggle>
+      </div>
+      <div class="toggle-row">
+        <mat-slide-toggle [(ngModel)]="settings.notifyOnExit">
+          Notify on exit (child leaves at normal time)
+        </mat-slide-toggle>
+      </div>
+      <div class="toggle-row">
+        <mat-slide-toggle [(ngModel)]="settings.notifyOnEarlyLeave">
+          Notify on early leave (before earliest allowed exit)
+        </mat-slide-toggle>
+      </div>
+    </mat-card>
+
+    <div class="footer-actions">
+      <button mat-raised-button color="primary" [disabled]="isSaving" (click)="save()">
+        <mat-spinner *ngIf="isSaving" diameter="18"></mat-spinner>
+        <span *ngIf="!isSaving">Save Settings</span>
+      </button>
+    </div>
+  </ng-container>
+</div>

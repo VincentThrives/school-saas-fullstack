@@ -690,6 +690,35 @@ export const routes: Routes = [
         data: { roles: [UserRole.TEACHER], feature: 'timetable' },
       },
 
+      // ── Biometric Terminals (feature-gated, SCHOOL_ADMIN) ─────────
+      // Hardware devices at the school gate that push scans via ADMS.
+      // Unrelated to the browser kiosk on the biometric-attendance-v2
+      // branch — that stack was orphaned before this module landed.
+      {
+        path: 'biometric/terminals',
+        loadComponent: () =>
+          import('./features/biometric-terminal/terminals-list/terminals-list.component')
+              .then(m => m.TerminalsListComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN], feature: 'biometric_terminal', title: 'Attendance Terminals' },
+      },
+      {
+        path: 'biometric/terminals/:serial/bindings',
+        loadComponent: () =>
+          import('./features/biometric-terminal/terminal-bindings/terminal-bindings.component')
+              .then(m => m.TerminalBindingsComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN], feature: 'biometric_terminal', title: 'Terminal Bindings' },
+      },
+      {
+        path: 'biometric/settings',
+        loadComponent: () =>
+          import('./features/biometric-terminal/biometric-settings/biometric-settings.component')
+              .then(m => m.BiometricSettingsComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN], feature: 'biometric_terminal', title: 'Biometric Settings' },
+      },
+
       // Settings (SCHOOL_ADMIN only)
       {
         path: 'settings',
