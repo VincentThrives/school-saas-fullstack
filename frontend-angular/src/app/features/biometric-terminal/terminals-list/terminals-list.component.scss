@@ -62,61 +62,174 @@
   }
 }
 
-.terminals-card {
-  padding: 0;
+.loading {
+  padding: 48px;
+  display: flex;
+  justify-content: center;
+}
 
-  .loading {
-    padding: 48px;
-    display: flex;
-    justify-content: center;
+.empty-card { padding: 0; }
+.empty {
+  padding: 56px 24px;
+  text-align: center;
+  color: #64748b;
+  mat-icon { font-size: 48px; width: 48px; height: 48px; color: #cbd5e1; }
+  .empty-title { margin-top: 12px; font-weight: 500; color: #334155; }
+  .empty-subtitle { font-size: 13px; }
+}
+
+// ── Card grid ─────────────────────────────────────────────────────
+.terminals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.terminal-card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-left: 4px solid #cbd5e1;
+
+  &[data-status="online"] { border-left-color: #16a34a; }
+  &[data-status="recent"] { border-left-color: #eab308; }
+  &[data-status="idle"]   { border-left-color: #f97316; }
+  &[data-status="offline"]{ border-left-color: #94a3b8; }
+}
+
+.tc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.tc-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tc-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: #94a3b8;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.03);
+
+  &[data-status="online"] {
+    background: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.25);
   }
+  &[data-status="recent"] { background: #eab308; }
+  &[data-status="idle"]   { background: #f97316; }
+  &[data-status="offline"]{ background: #94a3b8; }
+}
 
-  .empty {
-    padding: 56px 24px;
+.tc-label {
+  font-weight: 600;
+  font-size: 15px;
+  color: #1f2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tc-serial {
+  font-size: 11px;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.tc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: #475569;
+  font-size: 12.5px;
+}
+
+.tc-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  mat-icon { font-size: 15px; width: 15px; height: 15px; color: #94a3b8; }
+}
+
+.tc-lastpunch {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+
+  &--empty {
+    color: #94a3b8;
+    font-size: 12px;
+    font-style: italic;
     text-align: center;
-    color: #64748b;
-
-    mat-icon {
-      font-size: 48px;
-      width: 48px;
-      height: 48px;
-      color: #cbd5e1;
-    }
-
-    .empty-title {
-      margin-top: 12px;
-      font-weight: 500;
-      color: #334155;
-    }
-
-    .empty-subtitle {
-      font-size: 13px;
-    }
   }
+}
 
-  .terminals-table {
-    width: 100%;
+.tc-lastpunch-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  margin-bottom: 3px;
+}
 
-    code {
-      font-size: 12px;
-      background: #f1f5f9;
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
+.tc-lastpunch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
 
-    .last-seen {
-      font-size: 13px;
-      color: #16a34a;
+.tc-lastpunch-name {
+  font-weight: 600;
+  color: #1f2937;
+}
 
-      &.stale {
-        color: #94a3b8;
-      }
-    }
+.tc-lastpunch-dir {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  color: #475569;
 
-    .actions {
-      white-space: nowrap;
-      text-align: right;
-    }
+  &.in  { background: rgba(22, 163, 74, 0.15); color: #15803d; }
+  &.out { background: rgba(220, 38, 38, 0.15); color: #b91c1c; }
+}
+
+.tc-lastpunch-time {
+  color: #64748b;
+  font-size: 12.5px;
+  margin-left: auto;
+  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+}
+
+.tc-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+  margin-top: auto;
+
+  a[mat-stroked-button] {
+    flex: 1;
+    line-height: 34px;
+    mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
   }
 }
 

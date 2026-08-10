@@ -150,15 +150,27 @@ export class MarkAttendanceComponent implements OnInit {
    *  assignments yet (in which case they see no sections). */
   private myClassTeacherSections = new Set<string>();
 
-  // LATE and HALF_DAY are hidden in the UI per the school's request —
-  // commented (not deleted) so they're easy to restore. Backend still
-  // accepts those statuses; this is purely a frontend trim.
-  readonly statusOptions = [
+  /** Full status vocabulary the backend supports. The visible-in-UI
+   *  subset is derived at render time from {@link statusOptions} so
+   *  tenants without biometric terminals stay on the simpler
+   *  Present / Absent view they're used to. */
+  private readonly ALL_STATUS_OPTIONS = [
     { value: 'PRESENT', label: 'Present', icon: 'check_circle', color: '#4caf50' },
     { value: 'ABSENT', label: 'Absent', icon: 'cancel', color: '#f44336' },
-    // { value: 'LATE', label: 'Late', icon: 'schedule', color: '#ff9800' },
+    { value: 'LATE', label: 'Late', icon: 'schedule', color: '#ff9800' },
     // { value: 'HALF_DAY', label: 'Half Day', icon: 'hourglass_bottom', color: '#2196f3' },
+    // Half Day hidden — no live source (terminal doesn't produce it, teachers
+    // don't need it for the current flow). Backend still accepts it.
   ];
+
+  /** Options rendered as radios per student. Adds LATE only when the
+   *  tenant runs biometric terminals — that's the source of the LATE
+   *  signal. Non-biometric schools stay on Present / Absent. */
+  get statusOptions() {
+    return this.biometricTerminalOn
+      ? this.ALL_STATUS_OPTIONS
+      : this.ALL_STATUS_OPTIONS.slice(0, 2);
+  }
 
   /**
    * Prefill values lifted from the route query string when the admin
@@ -783,6 +795,15 @@ export class MarkAttendanceComponent implements OnInit {
         fullName: ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.studentId,
       }))
       .sort((a, b) => (a.rollNumber || '').localeCompare(b.rollNumber || '', undefined, { numeric: true }));
+  }
+
+  /** LATE column is only meaningful when the school has a biometric
+   *  terminal — the terminal's IN scan against the tenant's cutoff time
+   *  is what produces LATE status. Manual teacher marking wouldn't
+   *  otherwise use it, so we hide the chip / radio button for tenants
+   *  without the flag on. */
+  get biometricTerminalOn(): boolean {
+    return this.auth.isFeatureEnabled('biometric_terminal');
   }
 
   get summary(): { present: number; absent: number; late: number; halfDay: number } {

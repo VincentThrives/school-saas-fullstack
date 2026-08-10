@@ -1,16 +1,15 @@
 package com.saas.school.modules.biometricterminal.service;
 
-import com.saas.school.config.mongodb.TenantContext;
 import com.saas.school.modules.attendance.model.StudentsAttendance;
 import com.saas.school.modules.attendance.repository.StudentsAttendanceRepository;
 import com.saas.school.modules.biometricterminal.model.AttendanceScan;
+import com.saas.school.modules.biometricterminal.model.BiometricSettings;
 import com.saas.school.modules.biometricterminal.repository.AttendanceScanRepository;
+import com.saas.school.modules.biometricterminal.repository.BiometricSettingsRepository;
 import com.saas.school.modules.notification.model.Notification;
 import com.saas.school.modules.notification.service.NotificationService;
 import com.saas.school.modules.student.model.Student;
 import com.saas.school.modules.student.repository.StudentRepository;
-import com.saas.school.modules.tenant.model.Tenant;
-import com.saas.school.modules.tenant.repository.TenantRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +56,7 @@ public class AttendanceScanService {
     @Autowired private AttendanceScanRepository scanRepository;
     @Autowired private StudentRepository studentRepository;
     @Autowired private StudentsAttendanceRepository studentsAttendanceRepository;
-    @Autowired private TenantRepository tenantRepository;
+    @Autowired private BiometricSettingsRepository settingsRepository;
     @Autowired private NotificationService notificationService;
 
     /**
@@ -83,14 +82,15 @@ public class AttendanceScanService {
         // ── Dedup ─────────────────────────────────────────────────────
         Optional<AttendanceScan> existing = findRecentScan(studentId, dateKey, direction, scannedAt);
         if (existing.isPresent()) {
-            log.debug("Dedup hit — reusing scan {} for student {} within {}s",
+            log.info("Dedup hit — reusing scan {} for student {} (within {}s window)",
                 existing.get().getScanId(), studentId, DEDUP_WINDOW.getSeconds());
             return existing.get();
         }
 
-        Tenant tenant = tenantRepository.findById(tenantId).orElse(null);
-        Tenant.BiometricSettings settings = settingsOrDefault(tenant);
+        BiometricSettings settings = getSettings();
         AttendanceScan.ScanStatus status = classify(direction, scannedAt, settings);
+        log.info("Scan received: tenant={} student={} direction={} status={} SN={} scannedAt={}",
+            tenantId, studentId, direction, status, terminalSerial, scannedAt);
 
         AttendanceScan scan = new AttendanceScan();
         scan.setScanId(UUID.randomUUID().toString());
@@ -112,16 +112,18 @@ public class AttendanceScanService {
             rollupToStudentsAttendance(studentId, localDay, status);
             saved.setRolledUpAt(Instant.now());
             scanRepository.save(saved);
+            log.info("Roll-up done: scan={} student={} day={} status={}",
+                saved.getScanId(), studentId, localDay, status);
         } catch (Exception e) {
             log.warn("Roll-up into StudentsAttendance failed for scan {} — ledger row kept: {}",
-                saved.getScanId(), e.getMessage());
+                saved.getScanId(), e.getMessage(), e);
         }
 
         // ── Notify parents ───────────────────────────────────────────
         try {
             maybeNotifyParents(saved, settings);
         } catch (Exception e) {
-            log.warn("Parent notification failed for scan {}: {}", saved.getScanId(), e.getMessage());
+            log.warn("Parent notification failed for scan {}: {}", saved.getScanId(), e.getMessage(), e);
         }
 
         return saved;
@@ -143,7 +145,7 @@ public class AttendanceScanService {
     /** Compare scan time against the tenant's cutoff to bucket the scan. */
     private AttendanceScan.ScanStatus classify(AttendanceScan.Direction direction,
                                                 Instant scannedAt,
-                                                Tenant.BiometricSettings settings) {
+                                                BiometricSettings settings) {
         LocalTime scanTime = scannedAt.atZone(ZONE).toLocalTime();
         if (direction == AttendanceScan.Direction.IN) {
             LocalTime cutoff = parseTime(settings.getLateCutoff(), DEFAULT_LATE_CUTOFF);
@@ -167,12 +169,8 @@ public class AttendanceScanService {
         }
     }
 
-    private Tenant.BiometricSettings settingsOrDefault(Tenant tenant) {
-        if (tenant != null && tenant.getBiometricSettings() != null) {
-            return tenant.getBiometricSettings();
-        }
-        return new Tenant.BiometricSettings();
-    }
+    // (settingsOrDefault removed — replaced by getSettings() which reads
+    //  the singleton doc directly out of the current tenant DB.)
 
     /**
      * Upsert the student's status onto today's day-wise StudentsAttendance
@@ -189,9 +187,13 @@ public class AttendanceScanService {
                                              AttendanceScan.ScanStatus status) {
         Student student = studentRepository.findByStudentIdAndDeletedAtIsNull(studentId).orElse(null);
         if (student == null || student.getClassId() == null || student.getSectionId() == null) {
-            log.debug("Cannot roll up scan for student {} — missing class/section", studentId);
+            log.warn("Cannot roll up scan for student {} — student={} class={} section={}",
+                studentId, student, student == null ? null : student.getClassId(),
+                student == null ? null : student.getSectionId());
             return;
         }
+        log.info("Roll-up target: class={} section={} date={} student={}",
+            student.getClassId(), student.getSectionId(), day, studentId);
 
         StudentsAttendance row = studentsAttendanceRepository
             .findByClassIdAndSectionIdAndDateAndPeriodNumberAndSubjectIdAndComponentKeyAndSubPartKey(
@@ -237,18 +239,50 @@ public class AttendanceScanService {
      *  NotificationService directly (no rule engine template needed for
      *  the first cut). Fails silently — the calling try/catch is the
      *  safety net. */
-    private void maybeNotifyParents(AttendanceScan scan, Tenant.BiometricSettings settings) {
+    private void maybeNotifyParents(AttendanceScan scan, BiometricSettings settings) {
         boolean shouldNotify = switch (scan.getStatus()) {
             case EARLY_LEAVE -> settings.isNotifyOnEarlyLeave();
             default -> scan.getDirection() == AttendanceScan.Direction.IN
                 ? settings.isNotifyOnEntry()
                 : settings.isNotifyOnExit();
         };
-        if (!shouldNotify) return;
+        if (!shouldNotify) {
+            log.info("Notify skipped: status={} direction={} — tenant toggles say no.",
+                scan.getStatus(), scan.getDirection());
+            return;
+        }
 
         Student student = studentRepository.findByStudentIdAndDeletedAtIsNull(scan.getStudentId()).orElse(null);
-        if (student == null || student.getParentIds() == null || student.getParentIds().isEmpty()) {
+        if (student == null) {
+            log.warn("Notify skipped: student {} not found", scan.getStudentId());
             return;
+        }
+
+        // In this product, the parent logs in AS the student — Student.userId
+        // is the shared login. Prefer explicit parentIds if a school has
+        // linked them separately; otherwise fall back to the student's own
+        // userId so the app-side push lands in the right session.
+        // Mirrors SmsService.collectStudentParentUserIds so both channels
+        // reach the same audience.
+        List<String> recipientUserIds = new ArrayList<>();
+        if (student.getParentIds() != null && !student.getParentIds().isEmpty()) {
+            recipientUserIds.addAll(student.getParentIds());
+        } else if (student.getUserId() != null) {
+            recipientUserIds.add(student.getUserId());
+        }
+        if (recipientUserIds.isEmpty()) {
+            log.warn("Notify skipped: student {} has no userId and no parentIds",
+                scan.getStudentId());
+            return;
+        }
+        // Concise INFO for the operational log; verbose diagnostic
+        // (individual ids, parentIds) drops to DEBUG so a busy school
+        // doesn't drown INFO with 500+ lines a day.
+        log.info("Notify firing: student={} recipients={} status={}",
+            scan.getStudentId(), recipientUserIds.size(), scan.getStatus());
+        if (log.isDebugEnabled()) {
+            log.debug("Notify recipients detail: student.userId={} parentIds={} chosen={}",
+                student.getUserId(), student.getParentIds(), recipientUserIds);
         }
 
         String childName = displayName(student);
@@ -268,7 +302,7 @@ public class AttendanceScanService {
         n.setType(Notification.NotificationType.ATTENDANCE);
         n.setChannel(Notification.Channel.IN_APP);
         n.setRecipientType(Notification.RecipientType.INDIVIDUAL);
-        n.setRecipientIds(new ArrayList<>(student.getParentIds()));
+        n.setRecipientIds(recipientUserIds);
         // SYSTEM sender — appendSenderSignature no-ops because no matching
         // User document exists for this id, keeping the body clean.
         notificationService.send(n, "SYSTEM");
@@ -283,12 +317,11 @@ public class AttendanceScanService {
         return "Your child";
     }
 
-    // ── Access to the current tenant's biometric settings, used by the
-    //    settings controller. Kept here so the tenant lookup + default
-    //    fallback logic isn't duplicated. ────────────────────────────
-    public Tenant.BiometricSettings getSettings() {
-        String tenantId = TenantContext.getTenantId();
-        Tenant tenant = tenantId == null ? null : tenantRepository.findById(tenantId).orElse(null);
-        return settingsOrDefault(tenant);
+    // ── Access to the current tenant's biometric settings ────────────
+    //    Reads the singleton doc from the tenant DB — TenantContext is
+    //    already set by the caller (controller / filter).
+    public BiometricSettings getSettings() {
+        return settingsRepository.findById(BiometricSettings.SINGLETON_ID)
+            .orElseGet(BiometricSettings::new);
     }
 }

@@ -22,22 +22,31 @@
 
   .add-row {
     display: grid;
-    grid-template-columns: 200px 1fr auto;
+    // Class, section — narrow. Student — takes the rest of the row.
+    // Terminal user id + Bind wrap to the next line naturally.
+    grid-template-columns: 130px 160px minmax(280px, 1fr) 160px auto;
     gap: 12px;
     align-items: start;
 
-    @media (max-width: 720px) {
-      grid-template-columns: 1fr;
+    @media (max-width: 1100px) {
+      grid-template-columns: 130px 160px minmax(0, 1fr);
+      .pick-narrow:nth-of-type(4),
+      .bind-btn { grid-column: span 3; }
     }
 
-    button {
-      align-self: center;
-      min-height: 40px;
-      min-width: 96px;
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr;
+      .pick-narrow, .bind-btn { grid-column: 1; }
     }
   }
 
-  .student-picker { width: 100%; }
+  .pick-narrow, .student-picker { width: 100%; }
+
+  .bind-btn {
+    align-self: center;
+    min-height: 40px;
+    min-width: 96px;
+  }
 }
 
 .student-option {
@@ -97,6 +106,15 @@
     .actions {
       text-align: right;
       white-space: nowrap;
+    }
+
+    // Inline-edit input for the terminal user id cell — keep it tight
+    // so the row height doesn't jump when Edit is clicked.
+    .edit-tuid-field {
+      width: 120px;
+      margin: -6px 0;
+      ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
+      ::ng-deep .mat-mdc-form-field-infix { min-height: 34px; padding: 4px 0; }
     }
   }
 }

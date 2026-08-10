@@ -198,6 +198,27 @@ export class TerminalsListComponent implements OnInit {
     return new Date(iso).toLocaleDateString();
   }
 
+  /** Traffic-light status derived from lastSeenAt: online (<2 min),
+   *  recent (<1 h), idle (<24 h), offline (else / never). Powers the
+   *  colored dot on each terminal card. */
+  statusOf(iso?: string): 'online' | 'recent' | 'idle' | 'offline' {
+    if (!iso) return 'offline';
+    const then = new Date(iso).getTime();
+    if (!then) return 'offline';
+    const minutes = (Date.now() - then) / 60000;
+    if (minutes < 2) return 'online';
+    if (minutes < 60) return 'recent';
+    if (minutes < 60 * 24) return 'idle';
+    return 'offline';
+  }
+
+  /** Short HH:mm time — used inside the "last punch" chip. */
+  scanClockTime(iso?: string): string {
+    if (!iso) return '';
+    return new Date(iso).toLocaleTimeString(undefined,
+      { hour: '2-digit', minute: '2-digit' });
+  }
+
   copyAdmsUrl(): void {
     if (navigator?.clipboard) {
       navigator.clipboard.writeText(this.admsUrl).then(

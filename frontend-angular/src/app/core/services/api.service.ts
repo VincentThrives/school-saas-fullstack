@@ -2028,6 +2028,14 @@ export class ApiService {
       `${this.API}/biometric/terminals/${encodeURIComponent(serial)}/bindings/${encodeURIComponent(terminalUserId)}`);
   }
 
+  /** Change the terminal-side enrolment slot (PIN) on an existing binding. */
+  updateBiometricTerminalBinding(serial: string, currentTerminalUserId: string,
+                                  newTerminalUserId: string): Observable<ApiResponse<BiometricTerminalBinding>> {
+    return this.http.put<ApiResponse<BiometricTerminalBinding>>(
+      `${this.API}/biometric/terminals/${encodeURIComponent(serial)}/bindings/${encodeURIComponent(currentTerminalUserId)}`,
+      { terminalUserId: newTerminalUserId });
+  }
+
   getBiometricSettings(): Observable<ApiResponse<BiometricSettings>> {
     return this.http.get<ApiResponse<BiometricSettings>>(`${this.API}/biometric/settings`);
   }

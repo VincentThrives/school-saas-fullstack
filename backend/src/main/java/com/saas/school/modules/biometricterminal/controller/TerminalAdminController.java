@@ -3,6 +3,7 @@ package com.saas.school.modules.biometricterminal.controller;
 import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.biometricterminal.dto.BindUserRequest;
 import com.saas.school.modules.biometricterminal.dto.RegisterTerminalRequest;
+import com.saas.school.modules.biometricterminal.dto.UpdateBindingRequest;
 import com.saas.school.modules.biometricterminal.dto.TerminalBindingResponse;
 import com.saas.school.modules.biometricterminal.dto.TerminalResponse;
 import com.saas.school.modules.biometricterminal.dto.UpdateTerminalRequest;
@@ -72,5 +73,16 @@ public class TerminalAdminController {
             @PathVariable String serial, @PathVariable String terminalUserId) {
         registrationService.unbind(serial, terminalUserId);
         return ResponseEntity.ok(ApiResponse.success(null, "Binding removed"));
+    }
+
+    @PutMapping("/{serial}/bindings/{terminalUserId}")
+    public ResponseEntity<ApiResponse<TerminalBindingResponse>> updateBinding(
+            @PathVariable String serial,
+            @PathVariable String terminalUserId,
+            @Valid @RequestBody UpdateBindingRequest req,
+            @AuthenticationPrincipal String adminUserId) {
+        return ResponseEntity.ok(ApiResponse.success(
+            registrationService.updateTerminalUserId(serial, terminalUserId, req.getTerminalUserId(), adminUserId),
+            "Binding updated"));
     }
 }

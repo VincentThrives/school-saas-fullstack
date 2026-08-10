@@ -19,4 +19,12 @@ public interface AttendanceScanRepository extends MongoRepository<AttendanceScan
      *  timestamp is second-precision on the wire, so replays produce
      *  identical values. */
     boolean existsByStudentIdAndScannedAt(String studentId, Instant scannedAt);
+
+    /** Newest scan from a given terminal — feeds the "last punch" line on
+     *  the Attendance Terminals admin card. */
+    java.util.Optional<AttendanceScan> findFirstByTerminalSerialOrderByScannedAtDesc(String terminalSerial);
+
+    /** How many scans a terminal has processed on a given day — feeds the
+     *  "N scans today" stat on the admin card. */
+    long countByTerminalSerialAndScanDateKey(String terminalSerial, String scanDateKey);
 }

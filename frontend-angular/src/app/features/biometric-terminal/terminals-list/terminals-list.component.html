@@ -24,61 +24,75 @@
     </div>
   </mat-card>
 
-  <mat-card class="terminals-card">
-    <div class="loading" *ngIf="isLoading">
-      <mat-spinner diameter="32"></mat-spinner>
-    </div>
+  <div class="loading" *ngIf="isLoading">
+    <mat-spinner diameter="32"></mat-spinner>
+  </div>
 
-    <div class="empty" *ngIf="!isLoading && terminals.length === 0">
+  <mat-card class="empty-card" *ngIf="!isLoading && terminals.length === 0">
+    <div class="empty">
       <mat-icon>sensors_off</mat-icon>
       <div class="empty-title">No terminals registered yet</div>
       <div class="empty-subtitle">Click "Register Terminal" above to add your first device.</div>
     </div>
-
-    <table mat-table [dataSource]="terminals" *ngIf="!isLoading && terminals.length > 0" class="terminals-table">
-      <ng-container matColumnDef="label">
-        <th mat-header-cell *matHeaderCellDef>Label</th>
-        <td mat-cell *matCellDef="let t">{{ t.label }}</td>
-      </ng-container>
-
-      <ng-container matColumnDef="serial">
-        <th mat-header-cell *matHeaderCellDef>Serial</th>
-        <td mat-cell *matCellDef="let t"><code>{{ t.serial }}</code></td>
-      </ng-container>
-
-      <ng-container matColumnDef="lastSeen">
-        <th mat-header-cell *matHeaderCellDef>Last seen</th>
-        <td mat-cell *matCellDef="let t">
-          <span class="last-seen" [class.stale]="!t.lastSeenAt">{{ lastSeenRelative(t.lastSeenAt) }}</span>
-        </td>
-      </ng-container>
-
-      <ng-container matColumnDef="bindings">
-        <th mat-header-cell *matHeaderCellDef>Bindings</th>
-        <td mat-cell *matCellDef="let t">
-          <mat-chip>{{ t.bindingCount }}</mat-chip>
-        </td>
-      </ng-container>
-
-      <ng-container matColumnDef="actions">
-        <th mat-header-cell *matHeaderCellDef></th>
-        <td mat-cell *matCellDef="let t" class="actions">
-          <a mat-icon-button [routerLink]="['/biometric/terminals', t.serial, 'bindings']" matTooltip="Manage bindings">
-            <mat-icon>people</mat-icon>
-          </a>
-          <button mat-icon-button matTooltip="Edit label" (click)="openEdit(t)">
-            <mat-icon>edit</mat-icon>
-          </button>
-          <button mat-icon-button color="warn" matTooltip="Delete terminal" (click)="openDelete(t)">
-            <mat-icon>delete</mat-icon>
-          </button>
-        </td>
-      </ng-container>
-
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-    </table>
   </mat-card>
+
+  <div class="terminals-grid" *ngIf="!isLoading && terminals.length > 0">
+    <mat-card class="terminal-card" *ngFor="let t of terminals" [attr.data-status]="statusOf(t.lastSeenAt)">
+      <div class="tc-head">
+        <div class="tc-title">
+          <span class="tc-dot" [attr.data-status]="statusOf(t.lastSeenAt)"
+                [matTooltip]="'Last seen ' + lastSeenRelative(t.lastSeenAt)"></span>
+          <span class="tc-label">{{ t.label }}</span>
+        </div>
+        <code class="tc-serial">{{ t.serial }}</code>
+      </div>
+
+      <div class="tc-meta">
+        <span class="tc-meta-item">
+          <mat-icon>schedule</mat-icon>
+          {{ lastSeenRelative(t.lastSeenAt) }}
+        </span>
+        <span class="tc-meta-item">
+          <mat-icon>people</mat-icon>
+          {{ t.bindingCount }} bound
+        </span>
+        <span class="tc-meta-item">
+          <mat-icon>today</mat-icon>
+          {{ t.todaysScanCount || 0 }} today
+        </span>
+      </div>
+
+      <div class="tc-lastpunch" *ngIf="t.lastScanAt; else noPunch">
+        <div class="tc-lastpunch-label">LAST PUNCH</div>
+        <div class="tc-lastpunch-row">
+          <span class="tc-lastpunch-name">{{ t.lastScanStudentName || '(unknown)' }}</span>
+          <span class="tc-lastpunch-dir" [class.in]="t.lastScanDirection === 'IN'"
+                [class.out]="t.lastScanDirection === 'OUT'">
+            {{ t.lastScanDirection || 'IN' }}
+          </span>
+          <span class="tc-lastpunch-time">at {{ scanClockTime(t.lastScanAt) }}</span>
+        </div>
+      </div>
+      <ng-template #noPunch>
+        <div class="tc-lastpunch tc-lastpunch--empty">
+          <span class="tc-lastpunch-label">No scans yet</span>
+        </div>
+      </ng-template>
+
+      <div class="tc-actions">
+        <a mat-stroked-button [routerLink]="['/biometric/terminals', t.serial, 'bindings']">
+          <mat-icon>people</mat-icon>
+          Bindings
+        </a>
+        <button mat-icon-button matTooltip="Edit label" (click)="openEdit(t)">
+          <mat-icon>edit</mat-icon>
+        </button>
+        <button mat-icon-button color="warn" matTooltip="Delete terminal" (click)="openDelete(t)">
+          <mat-icon>delete</mat-icon>
+        </button>
+      </div>
+    </mat-card>
+  </div>
 
   <!-- Register dialog -->
   <div class="scrim" *ngIf="registerOpen" (click)="closeRegister()">

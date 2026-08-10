@@ -21,7 +21,10 @@ import java.time.Instant;
     // student go IN/OUT today?" before writing. Non-unique because a
     // student may legitimately punch multiple times per direction over a
     // day (e.g. re-entry after early leave); dedup happens in the service.
-    @CompoundIndex(name = "tenant_student_day_direction",
+    // Kept name aligned with the pre-existing index in older tenant DBs
+    // so Spring's ensureIndex doesn't hit an IndexOptionsConflict on boot
+    // (Mongo refuses a different name for identical field spec).
+    @CompoundIndex(name = "scan_by_student_day_direction",
         def = "{'tenantId':1,'studentId':1,'scanDateKey':1,'direction':1}")
 })
 public class AttendanceScan {

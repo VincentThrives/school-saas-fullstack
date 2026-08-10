@@ -1047,6 +1047,15 @@ export interface BiometricTerminal {
   lastSeenAt?: string;
   bindingCount: number;
   createdAt?: string;
+
+  /** Activity snapshot — populated by the list endpoint so the admin
+   *  card can show "N scans today · Anu B punched IN at 08:42" without
+   *  a second round-trip. Any of these may be missing when the terminal
+   *  has never pushed a scan yet. */
+  todaysScanCount?: number;
+  lastScanStudentName?: string;
+  lastScanDirection?: 'IN' | 'OUT';
+  lastScanAt?: string;
 }
 
 export interface BiometricTerminalBinding {

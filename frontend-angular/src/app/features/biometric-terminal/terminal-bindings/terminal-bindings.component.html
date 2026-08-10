@@ -7,34 +7,59 @@
 
   <mat-card class="add-binding">
     <h3>Add binding</h3>
-    <p class="add-help">The terminal-side user id is the enrolment slot ("PIN") shown on the device when a face is enrolled. Kept as a string because different firmwares serialise it differently.</p>
+    <p class="add-help">
+      Pick the student's class and section, then choose the student. The
+      <strong>Terminal user id</strong> is the enrolment slot ("PIN") the
+      device shows when a face is enrolled.
+    </p>
     <div class="add-row">
-      <mat-form-field appearance="outline">
-        <mat-label>Terminal user id</mat-label>
-        <input matInput [(ngModel)]="newTerminalUserId" placeholder="e.g. 42" autocomplete="off">
+      <mat-form-field appearance="outline" class="pick-narrow">
+        <mat-label>Class</mat-label>
+        <mat-select [(ngModel)]="selectedClassId" (selectionChange)="onClassChange()">
+          <mat-option *ngFor="let c of classes" [value]="c.classId">{{ c.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="pick-narrow">
+        <mat-label>Section (optional)</mat-label>
+        <mat-select [(ngModel)]="selectedSectionId" (selectionChange)="onSectionChange()" [disabled]="!selectedClassId">
+          <mat-option value="">All sections</mat-option>
+          <mat-option *ngFor="let s of sections" [value]="s.sectionId">{{ s.name }}</mat-option>
+        </mat-select>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="student-picker">
         <mat-label>Student</mat-label>
         <input matInput
-               [(ngModel)]="studentQuery"
-               (ngModelChange)="onStudentQueryChange($event)"
+               [(ngModel)]="studentSearch"
+               (ngModelChange)="onStudentSearchChange()"
                [matAutocomplete]="studentAuto"
-               placeholder="Search by name, admission or roll">
-        <mat-autocomplete #studentAuto="matAutocomplete"
-                          [displayWith]="displayStudent"
-                          (optionSelected)="onSelectStudent($event.option.value)">
-          <mat-option *ngFor="let s of studentResults" [value]="s">
-            <div class="student-option">
-              <span class="name">{{ (s.firstName || '') + ' ' + (s.lastName || '') }}</span>
-              <span class="meta">Adm {{ s.admissionNumber }}<span *ngIf="s.rollNumber"> · Roll {{ s.rollNumber }}</span></span>
-            </div>
+               [disabled]="!selectedClassId || isLoadingStudents"
+               placeholder="Search by name, roll or admission…"
+               autocomplete="off">
+        <button mat-icon-button matSuffix type="button"
+                *ngIf="studentSearch"
+                (click)="studentSearch = ''; selectedStudent = null"
+                aria-label="Clear">
+          <mat-icon>close</mat-icon>
+        </button>
+        <mat-autocomplete #studentAuto="matAutocomplete" (optionSelected)="onStudentPicked($event)">
+          <mat-option *ngIf="isLoadingStudents" disabled>Loading…</mat-option>
+          <mat-option *ngIf="!isLoadingStudents && selectedClassId && students.length === 0" disabled>
+            No students in this class / section
           </mat-option>
-          <mat-option *ngIf="isSearching" disabled>Searching…</mat-option>
+          <mat-option *ngFor="let s of filteredStudents" [value]="s">
+            {{ studentOptionLabel(s) }}
+          </mat-option>
         </mat-autocomplete>
       </mat-form-field>
 
-      <button mat-raised-button color="primary"
+      <mat-form-field appearance="outline" class="pick-narrow">
+        <mat-label>Terminal user id</mat-label>
+        <input matInput [(ngModel)]="newTerminalUserId" placeholder="e.g. 42" autocomplete="off">
+      </mat-form-field>
+
+      <button mat-raised-button color="primary" class="bind-btn"
               [disabled]="!newTerminalUserId.trim() || !selectedStudent || isBinding"
               (click)="submitBinding()">
         <mat-spinner *ngIf="isBinding" diameter="18"></mat-spinner>
@@ -57,7 +82,18 @@
     <table mat-table [dataSource]="bindings" *ngIf="!isLoading && bindings.length > 0" class="bindings-table">
       <ng-container matColumnDef="terminalUserId">
         <th mat-header-cell *matHeaderCellDef>Terminal user id</th>
-        <td mat-cell *matCellDef="let b"><code>{{ b.terminalUserId }}</code></td>
+        <td mat-cell *matCellDef="let b">
+          <ng-container *ngIf="editingTuid !== b.terminalUserId">
+            <code>{{ b.terminalUserId }}</code>
+          </ng-container>
+          <ng-container *ngIf="editingTuid === b.terminalUserId">
+            <mat-form-field appearance="outline" class="edit-tuid-field">
+              <input matInput [(ngModel)]="editedTuidValue" autocomplete="off"
+                     (keyup.enter)="saveEdit(b)" (keyup.escape)="cancelEdit()"
+                     [disabled]="isSavingEdit">
+            </mat-form-field>
+          </ng-container>
+        </td>
       </ng-container>
 
       <ng-container matColumnDef="student">
@@ -83,9 +119,26 @@
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef></th>
         <td mat-cell *matCellDef="let b" class="actions">
-          <button mat-icon-button color="warn" matTooltip="Unbind" (click)="askRemove(b)">
-            <mat-icon>delete</mat-icon>
-          </button>
+          <ng-container *ngIf="editingTuid !== b.terminalUserId">
+            <button mat-icon-button matTooltip="Edit terminal user id" (click)="startEdit(b)">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button color="warn" matTooltip="Unbind" (click)="askRemove(b)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </ng-container>
+          <ng-container *ngIf="editingTuid === b.terminalUserId">
+            <button mat-icon-button color="primary" matTooltip="Save"
+                    [disabled]="isSavingEdit || !editedTuidValue.trim()"
+                    (click)="saveEdit(b)">
+              <mat-icon>check</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Cancel"
+                    [disabled]="isSavingEdit"
+                    (click)="cancelEdit()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </ng-container>
         </td>
       </ng-container>
 

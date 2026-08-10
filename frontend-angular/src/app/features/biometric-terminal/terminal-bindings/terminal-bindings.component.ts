@@ -9,14 +9,13 @@ import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { BiometricTerminalBinding, Student } from '../../../core/models';
+import { BiometricTerminalBinding, SchoolClass, Student } from '../../../core/models';
 
 @Component({
   selector: 'app-terminal-bindings',
@@ -38,18 +37,33 @@ export class TerminalBindingsComponent implements OnInit {
   isLoading = false;
   displayedColumns = ['terminalUserId', 'student', 'className', 'boundAt', 'actions'];
 
-  // Add-binding form state
+  // Add-binding form state — class → section → student flow.
   newTerminalUserId = '';
-  studentQuery = '';
-  studentResults: Student[] = [];
+  classes: SchoolClass[] = [];
+  selectedClassId = '';
+  selectedSectionId = '';
+  /** Sections for the currently-picked class — cached on class change so
+   *  mat-select doesn't see a fresh array on every change-detection tick. */
+  sections: { sectionId: string; name: string }[] = [];
+  students: Student[] = [];
+  /** Free-text the admin types into the student autocomplete. Kept as
+   *  ngModel of the input; picking an option overwrites it with the
+   *  chosen student's label and stamps {@link selectedStudent}. */
+  studentSearch = '';
   selectedStudent: Student | null = null;
-  isSearching = false;
+  isLoadingStudents = false;
   isBinding = false;
-  private searchInput$ = new Subject<string>();
 
   // Delete confirm
   toRemove: BiometricTerminalBinding | null = null;
   isRemoving = false;
+
+  // Inline edit — one row at a time. The row identity is
+  // {@code terminalUserId} (unique per SN) so the current-editing key
+  // acts as both "is this row editing" and "what was the old value".
+  editingTuid: string | null = null;
+  editedTuidValue = '';
+  isSavingEdit = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -60,11 +74,8 @@ export class TerminalBindingsComponent implements OnInit {
   ngOnInit(): void {
     this.serial = this.route.snapshot.paramMap.get('serial') || '';
     this.load();
-    // Debounced student search — a fresh page can have hundreds of
-    // students; hammering the /students endpoint on every keystroke
-    // would trash the tenant's Mongo cache.
-    this.searchInput$.pipe(debounceTime(250), distinctUntilChanged()).subscribe(q => {
-      this.performSearch(q);
+    this.api.getClasses().subscribe({
+      next: (res) => { if (res?.success && res.data) this.classes = res.data; },
     });
   }
 
@@ -83,39 +94,101 @@ export class TerminalBindingsComponent implements OnInit {
     });
   }
 
-  onStudentQueryChange(value: string): void {
-    this.studentQuery = value;
-    this.searchInput$.next(value);
+  // ── Class / section / student cascade ────────────────────────────
+
+  onClassChange(): void {
+    this.selectedSectionId = '';
+    this.resetStudentPick();
+    this.students = [];
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
+    this.sections = ((cls?.sections as any[]) || []).map(s => ({
+      sectionId: s.sectionId, name: s.name,
+    }));
+    this.loadStudents();
   }
 
-  displayStudent = (s: Student | null): string => {
-    if (!s) return '';
-    const name = ((s.firstName || '') + ' ' + (s.lastName || '')).trim() || s.admissionNumber;
-    return `${name} (${s.admissionNumber})`;
-  };
-
-  onSelectStudent(s: Student): void {
-    this.selectedStudent = s;
-    this.studentQuery = this.displayStudent(s);
+  onSectionChange(): void {
+    this.resetStudentPick();
+    this.loadStudents();
   }
 
-  private performSearch(q: string): void {
-    if (!q || q.trim().length < 2) {
-      this.studentResults = [];
-      return;
-    }
-    this.isSearching = true;
-    this.api.getStudents(0, 15, { search: q.trim() }).subscribe({
+  private resetStudentPick(): void {
+    this.selectedStudent = null;
+    this.studentSearch = '';
+  }
+
+  private loadStudents(): void {
+    if (!this.selectedClassId) { this.students = []; return; }
+    this.isLoadingStudents = true;
+    const filters: any = { classId: this.selectedClassId };
+    if (this.selectedSectionId) filters.sectionId = this.selectedSectionId;
+    this.api.getStudents(0, 500, filters).subscribe({
       next: (res) => {
-        this.studentResults = res?.data?.content || [];
-        this.isSearching = false;
+        const list = (res?.data as any)?.content || res?.data || [];
+        // Sort by roll number when present, fall back to name — the
+        // teacher / admin can scan the list quickly the same way the
+        // paper class roster does.
+        this.students = [...list].sort((a: any, b: any) => {
+          const ar = parseInt(a.rollNumber || '', 10);
+          const br = parseInt(b.rollNumber || '', 10);
+          if (!isNaN(ar) && !isNaN(br)) return ar - br;
+          return this.displayStudent(a).localeCompare(this.displayStudent(b));
+        });
+        this.isLoadingStudents = false;
       },
       error: () => {
-        this.isSearching = false;
-        this.studentResults = [];
+        this.students = [];
+        this.isLoadingStudents = false;
       },
     });
   }
+
+  displayStudent(s: Student | null | undefined): string {
+    if (!s) return '';
+    const first = s.firstName || '';
+    const last = s.lastName || '';
+    const name = (first + ' ' + last).trim();
+    if (name) return name;
+    if (s.admissionNumber) return `Adm ${s.admissionNumber}`;
+    return s.studentId;
+  }
+
+  studentOptionLabel(s: Student): string {
+    const roll = s.rollNumber ? `Roll ${s.rollNumber} · ` : '';
+    const adm = s.admissionNumber ? ` (${s.admissionNumber})` : '';
+    return `${roll}${this.displayStudent(s)}${adm}`;
+  }
+
+  /** Client-side filter over the already-loaded class/section student
+   *  list. Matches on name, admission number and roll — one keystroke
+   *  narrows across all three, no debounce needed since the list is
+   *  small (~40 kids per section). */
+  get filteredStudents(): Student[] {
+    const q = (this.studentSearch || '').trim().toLowerCase();
+    if (!q) return this.students;
+    return this.students.filter(s => {
+      const name = this.displayStudent(s).toLowerCase();
+      const adm = (s.admissionNumber || '').toLowerCase();
+      const roll = (s.rollNumber || '').toString().toLowerCase();
+      return name.includes(q) || adm.includes(q) || roll.includes(q);
+    });
+  }
+
+  onStudentPicked(event: MatAutocompleteSelectedEvent): void {
+    this.selectedStudent = event.option.value as Student;
+    this.studentSearch = this.studentOptionLabel(this.selectedStudent);
+  }
+
+  /** Called when the user clears the input or edits after selecting —
+   *  drop the previously-picked student so Bind stays disabled until a
+   *  fresh pick lands. */
+  onStudentSearchChange(): void {
+    if (!this.selectedStudent) return;
+    const currentLabel = this.studentOptionLabel(this.selectedStudent);
+    if (this.studentSearch !== currentLabel) this.selectedStudent = null;
+  }
+
+  // ── Submit / remove ──────────────────────────────────────────────
 
   submitBinding(): void {
     if (!this.newTerminalUserId.trim() || !this.selectedStudent) return;
@@ -128,9 +201,7 @@ export class TerminalBindingsComponent implements OnInit {
         this.isBinding = false;
         this.snack.open('Student bound to terminal user id', 'Close', { duration: 2500 });
         this.newTerminalUserId = '';
-        this.selectedStudent = null;
-        this.studentQuery = '';
-        this.studentResults = [];
+        this.resetStudentPick();
         this.load();
       },
       error: (err) => {
@@ -169,5 +240,39 @@ export class TerminalBindingsComponent implements OnInit {
   classLabel(b: BiometricTerminalBinding): string {
     if (!b.className) return '—';
     return b.sectionName ? `${b.className} - ${b.sectionName}` : b.className;
+  }
+
+  // ── Inline edit of terminal user id ─────────────────────────────
+
+  startEdit(b: BiometricTerminalBinding): void {
+    this.editingTuid = b.terminalUserId;
+    this.editedTuidValue = b.terminalUserId;
+  }
+
+  cancelEdit(): void {
+    this.editingTuid = null;
+    this.editedTuidValue = '';
+  }
+
+  saveEdit(b: BiometricTerminalBinding): void {
+    const next = this.editedTuidValue.trim();
+    if (!next || next === b.terminalUserId) {
+      this.cancelEdit();
+      return;
+    }
+    this.isSavingEdit = true;
+    this.api.updateBiometricTerminalBinding(this.serial, b.terminalUserId, next).subscribe({
+      next: () => {
+        this.isSavingEdit = false;
+        this.cancelEdit();
+        this.snack.open('Terminal user id updated', 'Close', { duration: 2500 });
+        this.load();
+      },
+      error: (err) => {
+        this.isSavingEdit = false;
+        const msg = err?.error?.message || 'Failed to update binding';
+        this.snack.open(msg, 'Close', { duration: 3500 });
+      },
+    });
   }
 }

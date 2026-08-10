@@ -8,8 +8,10 @@ import com.saas.school.modules.biometricterminal.dto.RegisterTerminalRequest;
 import com.saas.school.modules.biometricterminal.dto.TerminalBindingResponse;
 import com.saas.school.modules.biometricterminal.dto.TerminalResponse;
 import com.saas.school.modules.biometricterminal.dto.UpdateTerminalRequest;
+import com.saas.school.modules.biometricterminal.model.AttendanceScan;
 import com.saas.school.modules.biometricterminal.model.ScannerTerminal;
 import com.saas.school.modules.biometricterminal.model.TerminalUserBinding;
+import com.saas.school.modules.biometricterminal.repository.AttendanceScanRepository;
 import com.saas.school.modules.biometricterminal.repository.ScannerTerminalRepository;
 import com.saas.school.modules.biometricterminal.repository.TerminalUserBindingRepository;
 import com.saas.school.modules.classes.model.SchoolClass;
@@ -42,6 +44,7 @@ public class TerminalRegistrationService {
 
     @Autowired private ScannerTerminalRepository terminalRepository;
     @Autowired private TerminalUserBindingRepository bindingRepository;
+    @Autowired private AttendanceScanRepository scanRepository;
     @Autowired private StudentRepository studentRepository;
     @Autowired private SchoolClassRepository schoolClassRepository;
 
@@ -64,9 +67,30 @@ public class TerminalRegistrationService {
 
     public List<TerminalResponse> list() {
         List<ScannerTerminal> terminals = terminalRepository.findAllByOrderByCreatedAtDesc();
+        if (terminals.isEmpty()) return List.of();
+        // Precompute today's scanDateKey once so per-terminal counts share it.
+        String todayKey = java.time.LocalDate.now(java.time.ZoneId.systemDefault()).toString();
         return terminals.stream()
-            .map(t -> toResponse(t, bindingRepository.countByTerminalSerial(t.getTerminalSerial())))
+            .map(t -> enrichResponse(t, todayKey))
             .toList();
+    }
+
+    /** List variant with per-terminal activity fields populated. Runs a
+     *  handful of small queries per terminal — bindings count, today's
+     *  scan count, latest scan + student lookup. Acceptable for the tens
+     *  of terminals a single tenant would ever register. */
+    private TerminalResponse enrichResponse(ScannerTerminal t, String todayKey) {
+        String serial = t.getTerminalSerial();
+        long bindings = bindingRepository.countByTerminalSerial(serial);
+        TerminalResponse dto = toResponse(t, bindings);
+        dto.setTodaysScanCount(scanRepository.countByTerminalSerialAndScanDateKey(serial, todayKey));
+        scanRepository.findFirstByTerminalSerialOrderByScannedAtDesc(serial).ifPresent(scan -> {
+            dto.setLastScanAt(scan.getScannedAt());
+            dto.setLastScanDirection(scan.getDirection() == null ? null : scan.getDirection().name());
+            studentRepository.findByStudentIdAndDeletedAtIsNull(scan.getStudentId())
+                .ifPresent(s -> dto.setLastScanStudentName(displayName(s)));
+        });
+        return dto;
     }
 
     public TerminalResponse updateLabel(String serial, UpdateTerminalRequest req) {
@@ -156,6 +180,48 @@ public class TerminalRegistrationService {
         Optional<TerminalUserBinding> found =
             bindingRepository.findByTerminalSerialAndTerminalUserId(serial, terminalUserId);
         found.ifPresent(bindingRepository::delete);
+    }
+
+    /** Change the terminal-side user id on an existing binding. Common
+     *  case: admin mistyped the enrolment PIN, or re-enrolled the student
+     *  on the device and got a new slot number. Rejects when the new id
+     *  is already taken by another binding on the same terminal. */
+    public TerminalBindingResponse updateTerminalUserId(String serial,
+                                                        String currentTerminalUserId,
+                                                        String newTerminalUserId,
+                                                        String adminUserId) {
+        requireTerminal(serial);
+        if (newTerminalUserId == null || newTerminalUserId.isBlank()) {
+            throw new BusinessException("New terminal user id is required.");
+        }
+        String trimmed = newTerminalUserId.trim();
+        TerminalUserBinding binding = bindingRepository
+            .findByTerminalSerialAndTerminalUserId(serial, currentTerminalUserId)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Binding", serial + "/" + currentTerminalUserId));
+
+        if (trimmed.equals(binding.getTerminalUserId())) {
+            // No-op — just return the current row so the UI can refresh.
+            Student student = studentRepository
+                .findByStudentIdAndDeletedAtIsNull(binding.getStudentId()).orElse(null);
+            return toBindingResponse(binding, student, classIndex(List.of(binding)));
+        }
+
+        // Guard against clashing with another binding on the same terminal.
+        Optional<TerminalUserBinding> clash =
+            bindingRepository.findByTerminalSerialAndTerminalUserId(serial, trimmed);
+        if (clash.isPresent()) {
+            throw new BusinessException("Terminal user id '" + trimmed
+                + "' is already bound to another student on this terminal.");
+        }
+
+        binding.setTerminalUserId(trimmed);
+        binding.setBoundBy(adminUserId);
+        binding.setBoundAt(Instant.now());
+        TerminalUserBinding saved = bindingRepository.save(binding);
+        Student student = studentRepository
+            .findByStudentIdAndDeletedAtIsNull(saved.getStudentId()).orElse(null);
+        return toBindingResponse(saved, student, classIndex(List.of(saved)));
     }
 
     /** Backdoor for the ADMS controller — same lookup path but no admin

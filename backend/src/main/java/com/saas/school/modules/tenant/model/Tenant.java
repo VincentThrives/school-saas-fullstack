@@ -47,15 +47,6 @@ public class Tenant {
      */
     private java.util.List<String> coordinatorEnabledModules;
 
-    /**
-     * Per-tenant knobs for the biometric-terminal receiver — cutoff times
-     * that decide whether an IN scan is PRESENT vs LATE, plus which
-     * directions fire a parent notification. Null on tenants that haven't
-     * turned on the BIOMETRIC_TERMINAL feature; the settings service
-     * hands back defaults in that case rather than failing.
-     */
-    private BiometricSettings biometricSettings;
-
     @CreatedDate
     private Instant createdAt;
 
@@ -218,13 +209,6 @@ public class Tenant {
         this.coordinatorEnabledModules = coordinatorEnabledModules;
     }
 
-    public BiometricSettings getBiometricSettings() {
-        return biometricSettings;
-    }
-
-    public void setBiometricSettings(BiometricSettings biometricSettings) {
-        this.biometricSettings = biometricSettings;
-    }
 
     public Instant getCreatedAt() {
         return createdAt;
@@ -329,36 +313,6 @@ public class Tenant {
         public void setZip(String zip) {
             this.zip = zip;
         }
-    }
-
-    /**
-     * Attendance-terminal knobs. Nested here rather than on a separate
-     * document because they're per-tenant, small, and always read on the
-     * same code path that already fetched the tenant.
-     */
-    public static class BiometricSettings {
-        private String lateCutoff = "09:15";
-        private String earliestExitTime = "14:00";
-        private boolean notifyOnEntry = true;
-        private boolean notifyOnExit = false;
-        private boolean notifyOnEarlyLeave = true;
-
-        public BiometricSettings() {}
-
-        public String getLateCutoff() { return lateCutoff; }
-        public void setLateCutoff(String lateCutoff) { this.lateCutoff = lateCutoff; }
-
-        public String getEarliestExitTime() { return earliestExitTime; }
-        public void setEarliestExitTime(String earliestExitTime) { this.earliestExitTime = earliestExitTime; }
-
-        public boolean isNotifyOnEntry() { return notifyOnEntry; }
-        public void setNotifyOnEntry(boolean notifyOnEntry) { this.notifyOnEntry = notifyOnEntry; }
-
-        public boolean isNotifyOnExit() { return notifyOnExit; }
-        public void setNotifyOnExit(boolean notifyOnExit) { this.notifyOnExit = notifyOnExit; }
-
-        public boolean isNotifyOnEarlyLeave() { return notifyOnEarlyLeave; }
-        public void setNotifyOnEarlyLeave(boolean notifyOnEarlyLeave) { this.notifyOnEarlyLeave = notifyOnEarlyLeave; }
     }
 
     public static class TenantLimits {
