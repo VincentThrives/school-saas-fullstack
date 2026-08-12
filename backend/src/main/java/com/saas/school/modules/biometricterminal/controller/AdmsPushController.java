@@ -45,13 +45,16 @@ public class AdmsPushController {
 
     private static final Logger log = LoggerFactory.getLogger(AdmsPushController.class);
 
-    /** eSSL sends "yyyy-MM-dd HH:mm:ss" (space-separated) in the terminal's
-     *  configured local timezone. We interpret it as JVM-default zone —
-     *  same convention the teacher-marked attendance flow uses. */
+    /** eSSL / eTimeTrackLite send "yyyy-MM-dd HH:mm:ss" (space-separated)
+     *  in the terminal's local wall-clock — there's no offset in the ADMS
+     *  payload. All current deployments are in India, so we pin the parse
+     *  zone to Asia/Kolkata rather than trusting the JVM default (Render
+     *  runs on UTC, which would mis-store every punch by 5.5 h). If we
+     *  ever onboard a non-IST school, promote this to a per-tenant knob. */
     private static final DateTimeFormatter ADMS_TIMESTAMP =
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    private static final ZoneId ZONE = ZoneId.systemDefault();
+    private static final ZoneId ZONE = ZoneId.of("Asia/Kolkata");
     private static final String ACK = "OK\n";
 
     @Autowired private TenantRepository tenantRepository;

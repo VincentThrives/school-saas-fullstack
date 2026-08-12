@@ -69,7 +69,9 @@ public class TerminalRegistrationService {
         List<ScannerTerminal> terminals = terminalRepository.findAllByOrderByCreatedAtDesc();
         if (terminals.isEmpty()) return List.of();
         // Precompute today's scanDateKey once so per-terminal counts share it.
-        String todayKey = java.time.LocalDate.now(java.time.ZoneId.systemDefault()).toString();
+        // Pinned to IST (matches AttendanceScanService.ZONE) so "today" means
+        // the school's local calendar day, not UTC's — Render runs on UTC.
+        String todayKey = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")).toString();
         return terminals.stream()
             .map(t -> enrichResponse(t, todayKey))
             .toList();

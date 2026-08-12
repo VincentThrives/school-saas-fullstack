@@ -46,9 +46,10 @@ public class AttendanceScanService {
 
     /** LATE / EARLY_LEAVE cutoffs are HH:mm strings interpreted in the
      *  JVM's default zone — matches how the rest of the system treats
-     *  "today" (attendance date, timetable). School-hosted deployments
-     *  and Render's IST-set Docker image both agree on this. */
-    private static final ZoneId ZONE = ZoneId.systemDefault();
+     *  "today" (attendance date, timetable). All current tenants are in
+     *  India — pin to Asia/Kolkata rather than trust the JVM default,
+     *  which on Render is UTC and would roll days over 5.5 h early. */
+    private static final ZoneId ZONE = ZoneId.of("Asia/Kolkata");
 
     private static final String DEFAULT_LATE_CUTOFF = "09:15";
     private static final String DEFAULT_EARLIEST_EXIT = "14:00";
