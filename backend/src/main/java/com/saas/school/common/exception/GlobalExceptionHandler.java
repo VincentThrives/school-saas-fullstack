@@ -99,6 +99,21 @@ public class GlobalExceptionHandler {
                         ex.getReport(), java.time.Instant.now().toString()));
     }
 
+    /**
+     * Employee bulk-import row validation failure — same shape as the
+     * student variant above so the frontend's error-list card can be
+     * reused with just a different report type.
+     */
+    @ExceptionHandler(com.saas.school.modules.teacher.service.EmployeeImportService.ImportValidationException.class)
+    public ResponseEntity<ApiResponse<com.saas.school.modules.teacher.dto.EmployeeImportErrorReport>>
+            handleEmployeeImportValidation(
+                    com.saas.school.modules.teacher.service.EmployeeImportService.ImportValidationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiResponse<>(false,
+                        "Some rows could not be imported — please fix the issues and re-upload.",
+                        ex.getReport(), java.time.Instant.now().toString()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneric(Exception ex) {
         log.error("Unhandled exception", ex);

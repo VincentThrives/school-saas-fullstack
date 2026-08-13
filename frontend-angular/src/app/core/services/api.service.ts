@@ -379,6 +379,28 @@ export interface StudentImportResult {
   studentIds: string[];
 }
 
+/** One row in the employee bulk-import error report. `row` matches
+ *  the Excel row number the admin sees on-screen (header = 1, first
+ *  data row = 2). */
+export interface EmployeeImportRowError {
+  row: number;
+  column: string;
+  message: string;
+}
+
+/** Backend's 400 body when any row fails validation. All-or-nothing —
+ *  nothing was saved. Frontend renders each row as a fix-it list. */
+export interface EmployeeImportErrorReport {
+  errors: EmployeeImportRowError[];
+}
+
+/** Backend's 200 body after a clean import — {@code skipped} covers
+ *  the rare freak-write-failure fallback path in the service. */
+export interface EmployeeImportResult {
+  created: number;
+  skipped: number;
+}
+
 /** One row on the Exam Config list page. */
 export interface ExamConfigSummary {
   academicYearId: string;
@@ -630,6 +652,24 @@ export class ApiService {
   }
 
   // ── Employees (formerly Teachers) ───────────────────────────────────
+
+  /** Download the .xlsx employee-import template. Same shape as the
+   *  student equivalent — header row + sample row + instructions tab. */
+  downloadEmployeeImportTemplate(): Observable<Blob> {
+    return this.http.get(`${this.API}/employees/import/template`, {
+      responseType: 'blob',
+    });
+  }
+
+  /** Upload a filled .xlsx — all-or-nothing bulk-create. On 400 the body
+   *  contains an {@link EmployeeImportErrorReport} under {@code err.error.data}
+   *  which the dialog surfaces as a fix-it list. */
+  bulkImportEmployees(file: File): Observable<ApiResponse<EmployeeImportResult>> {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    return this.http.post<ApiResponse<EmployeeImportResult>>(
+      `${this.API}/employees/import`, fd);
+  }
 
   getTeachers(page = 0, size = 20): Observable<ApiResponse<PaginatedResponse<Teacher>>> {
     const params = new HttpParams().set('page', page).set('size', size);

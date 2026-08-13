@@ -3,24 +3,26 @@ package com.saas.school.modules.teacher.controller;
 import com.saas.school.common.response.ApiResponse;
 import com.saas.school.common.response.PageResponse;
 import com.saas.school.common.exception.ResourceNotFoundException;
-import com.saas.school.config.mongodb.TenantContext;
+import com.saas.school.modules.teacher.dto.EmployeeImportResult;
 import com.saas.school.modules.teacher.model.Teacher;
 import com.saas.school.modules.teacher.repository.TeacherRepository;
-import com.saas.school.modules.user.model.User;
-import com.saas.school.modules.user.model.UserRole;
-import com.saas.school.modules.user.repository.UserRepository;
+import com.saas.school.modules.teacher.service.EmployeeImportService;
+import com.saas.school.modules.teacher.service.EmployeeUserProvisioningService;
 import com.saas.school.modules.user.service.UserService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -33,9 +35,9 @@ public class TeacherController {
     private static final Logger log = LoggerFactory.getLogger(TeacherController.class);
 
     @Autowired private TeacherRepository teacherRepo;
-    @Autowired private UserRepository userRepository;
-    @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private UserService userService;
+    @Autowired private EmployeeUserProvisioningService userProvisioning;
+    @Autowired private EmployeeImportService employeeImportService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL')")
@@ -118,8 +120,9 @@ public class TeacherController {
             if (req.getEmployeeRole() == null || req.getEmployeeRole().isEmpty()) req.setEmployeeRole("TEACHER");
             req.syncFromAssignments();
 
-            // Auto-create User account for login
-            String userId = autoCreateUserForEmployee(req);
+            // Auto-create User account for login — same helper the bulk-import
+            // path uses so the two entry points can't drift on password rules.
+            String userId = userProvisioning.provision(req);
             if (userId != null) {
                 req.setUserId(userId);
             }
@@ -186,52 +189,40 @@ public class TeacherController {
         return ResponseEntity.ok(ApiResponse.success(null, "Employee deleted"));
     }
 
-    // ── Auto User Creation ─────────────────────────────────────────
+    // (Auto User creation moved to EmployeeUserProvisioningService so
+    //  bulk-import shares the exact same login/password rules.)
 
-    private String autoCreateUserForEmployee(Teacher employee) {
-        try {
-            String loginId = employee.getEmployeeId();
-            String firstName = employee.getFirstName() != null ? employee.getFirstName() : "Employee";
-            int birthYear = employee.getDateOfBirth() != null ? employee.getDateOfBirth().getYear() : 2000;
-            String password = firstName + "@" + birthYear;
+    // ── Bulk import (Excel) ──────────────────────────────────────────
 
-            // Map employee role to user role
-            UserRole userRole = UserRole.TEACHER; // default
-            if ("PRINCIPAL".equals(employee.getEmployeeRole())) {
-                userRole = UserRole.PRINCIPAL;
-            } else if ("COORDINATOR".equals(employee.getEmployeeRole())) {
-                userRole = UserRole.SCHOOL_COORDINATOR;
-            }
+    /**
+     * Download the .xlsx import template — header row + sample row + an
+     * Instructions tab with column guidance and valid role values. Admin
+     * fills it and re-uploads via /import.
+     */
+    @GetMapping("/import/template")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ByteArrayResource> downloadImportTemplate() {
+        byte[] bytes = employeeImportService.buildTemplate();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"employees-import-template.xlsx\"")
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .contentLength(bytes.length)
+                .body(new ByteArrayResource(bytes));
+    }
 
-            String email = employee.getEmail() != null && !employee.getEmail().isEmpty()
-                    ? employee.getEmail() : loginId + "@employee.school";
-            if (userRepository.existsByEmailAndDeletedAtIsNull(email)) {
-                log.warn("User with email {} already exists, skipping auto-create", email);
-                return userRepository.findByEmailAndDeletedAtIsNull(email)
-                        .map(User::getUserId).orElse(null);
-            }
-
-            User user = new User();
-            user.setUserId(UUID.randomUUID().toString());
-            user.setTenantId(TenantContext.getTenantId());
-            user.setEmail(email);
-            user.setUsername(loginId);
-            user.setPasswordHash(passwordEncoder.encode(password));
-            user.setRole(userRole);
-            user.setFirstName(employee.getFirstName());
-            user.setLastName(employee.getLastName());
-            user.setPhone(employee.getPhone());
-            user.setActive(true);
-            user.setLocked(false);
-            user.setFailedLoginAttempts(0);
-            user.setCreatedAt(Instant.now());
-
-            userRepository.save(user);
-            log.info("Auto-created User for employee: loginId={}, password={}", loginId, password);
-            return user.getUserId();
-        } catch (Exception e) {
-            log.error("Failed to auto-create User for employee: {}", e.getMessage());
-            return null;
-        }
+    /**
+     * Bulk-create employees from the filled template. All-or-nothing —
+     * any row that fails validation returns 400 with a row-by-row error
+     * report (handled by GlobalExceptionHandler) and nothing is saved.
+     */
+    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<EmployeeImportResult>> importEmployees(
+            @RequestPart("file") MultipartFile file) {
+        EmployeeImportResult result = employeeImportService.importFromExcel(file);
+        return ResponseEntity.ok(ApiResponse.success(
+                result, "Imported " + result.getCreated() + " employees"));
     }
 }

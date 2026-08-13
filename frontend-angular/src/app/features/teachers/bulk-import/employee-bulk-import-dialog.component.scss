@@ -1,0 +1,273 @@
+// Palette pulled from the app's amber-on-cream identity so this dialog
+// sits at home next to the rest of the admin UI. Keep any adjustments
+// synced with the student bulk-import dialog — the two are meant to
+// read as a matched pair.
+
+.bulk-import-dialog {
+  min-width: 520px;
+  max-width: 720px;
+
+  .dialog-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 24px;
+
+    mat-icon {
+      color: #d4a843;
+      font-size: 26px;
+      width: 26px;
+      height: 26px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+  }
+}
+
+// ── Step cards ─────────────────────────────────────────────────────
+.step-card {
+  display: flex;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid #e5e2d7;
+  border-radius: 10px;
+  margin: 12px 0;
+  background: #fbfaf5;
+}
+
+.step-num {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #d4a843;
+  color: #fff;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+}
+
+.step-body {
+  flex: 1 1 auto;
+
+  h3 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+  p {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+}
+
+// ── File picker ────────────────────────────────────────────────────
+.file-picker {
+  margin-top: 4px;
+
+  .pick-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1px dashed #d4a843;
+    border-radius: 8px;
+    background: rgba(212, 168, 67, 0.06);
+    color: #78581e;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    &:hover { background: rgba(212, 168, 67, 0.12); }
+    mat-icon { color: #d4a843; }
+  }
+}
+
+.file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  border: 1px solid #e5e2d7;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+
+  .chip-icon { color: #d4a843; }
+  .chip-name { font-weight: 500; color: #1a1a1a; }
+  .chip-size { color: #94a3b8; font-size: 12px; }
+}
+
+.upload-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+// ── Error report ───────────────────────────────────────────────────
+.error-report {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+
+  .error-header {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+
+    mat-icon {
+      color: #dc2626;
+      font-size: 26px;
+      width: 26px;
+      height: 26px;
+      flex: 0 0 auto;
+    }
+    h3 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: #991b1b;
+    }
+    p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: #7f1d1d;
+    }
+  }
+}
+
+.error-table-wrap {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.error-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  thead th {
+    text-align: left;
+    padding: 8px 12px;
+    font-weight: 600;
+    background: #fef2f2;
+    color: #991b1b;
+    border-bottom: 1px solid #fecaca;
+    position: sticky;
+    top: 0;
+  }
+  tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #fee2e2;
+    color: #1a1a1a;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .row-cell {
+    font-variant-numeric: tabular-nums;
+    color: #64748b;
+    width: 56px;
+  }
+  .col-cell {
+    color: #64748b;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+}
+
+// ── Success card ───────────────────────────────────────────────────
+.success-card {
+  display: flex;
+  gap: 14px;
+  padding: 16px 18px;
+  margin-top: 16px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  background: #f0fdf4;
+
+  .success-icon {
+    color: #16a34a;
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+  }
+  h3 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #14532d;
+  }
+  p.skipped-note {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: #166534;
+  }
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+// ── Dark theme ─────────────────────────────────────────────────────
+:host-context(body.dark-theme) {
+  .step-card {
+    background: #1c1a15;
+    border-color: #302c22;
+
+    h3 { color: #f5f5f5; }
+    p  { color: #94a3b8; }
+  }
+  .file-chip {
+    background: #1c1a15;
+    border-color: #302c22;
+    .chip-name { color: #f5f5f5; }
+  }
+  .error-report {
+    background: rgba(220, 38, 38, 0.10);
+    border-color: rgba(220, 38, 38, 0.35);
+    .error-header h3 { color: #fecaca; }
+    .error-header p  { color: #fca5a5; }
+  }
+  .error-table-wrap {
+    background: #1c1a15;
+    border-color: rgba(220, 38, 38, 0.30);
+  }
+  .error-table {
+    thead th { background: rgba(220, 38, 38, 0.15); color: #fecaca; }
+    tbody td { color: #f5f5f5; border-bottom-color: rgba(220, 38, 38, 0.15); }
+  }
+  .success-card {
+    background: rgba(22, 163, 74, 0.08);
+    border-color: rgba(22, 163, 74, 0.30);
+    h3 { color: #bbf7d0; }
+    p  { color: #86efac; }
+  }
+}
+
+// ── Responsive ─────────────────────────────────────────────────────
+@media (max-width: 600px) {
+  .bulk-import-dialog { min-width: 0; }
+  .step-card { padding: 14px; }
+}

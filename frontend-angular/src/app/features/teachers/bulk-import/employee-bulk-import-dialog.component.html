@@ -1,0 +1,117 @@
+<div class="bulk-import-dialog">
+  <div class="dialog-header">
+    <mat-icon>upload_file</mat-icon>
+    <h2 mat-dialog-title>Bulk Import Employees</h2>
+  </div>
+
+  <div mat-dialog-content>
+
+    <!-- Step 1 · Download template -->
+    <section class="step-card">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Download the template</h3>
+        <p>Grab the .xlsx template, fill in one row per employee, then upload it back here.</p>
+        <button mat-stroked-button color="primary" (click)="downloadTemplate()"
+                [disabled]="state === 'downloading'">
+          <mat-spinner *ngIf="state === 'downloading'" diameter="18"></mat-spinner>
+          <mat-icon *ngIf="state !== 'downloading'">download</mat-icon>
+          {{ state === 'downloading' ? 'Preparing…' : 'Download template' }}
+        </button>
+      </div>
+    </section>
+
+    <!-- Step 2 · Pick + upload -->
+    <section class="step-card"
+             *ngIf="state !== 'success'">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Upload the filled file</h3>
+        <p>All-or-nothing — if any row has a problem the file is rejected and nothing is saved.</p>
+
+        <div class="file-picker" *ngIf="!selectedFile">
+          <label class="pick-btn">
+            <mat-icon>attach_file</mat-icon>
+            <span>Choose .xlsx file</span>
+            <input type="file" accept=".xlsx" (change)="onFilePicked($event)" hidden>
+          </label>
+        </div>
+
+        <div class="file-chip" *ngIf="selectedFile">
+          <mat-icon class="chip-icon">description</mat-icon>
+          <span class="chip-name">{{ selectedFile.name }}</span>
+          <span class="chip-size">({{ (selectedFile.size / 1024).toFixed(0) }} KB)</span>
+          <button mat-icon-button (click)="clearFile()"
+                  [disabled]="state === 'uploading'" matTooltip="Remove">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="upload-actions" *ngIf="selectedFile">
+          <button mat-flat-button color="primary" (click)="upload()"
+                  [disabled]="state === 'uploading'">
+            <mat-spinner *ngIf="state === 'uploading'" diameter="18"></mat-spinner>
+            <mat-icon *ngIf="state !== 'uploading'">cloud_upload</mat-icon>
+            {{ state === 'uploading' ? 'Uploading…' : 'Upload & import' }}
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Error report -->
+    <section class="error-report" *ngIf="state === 'errors' && errorReport">
+      <div class="error-header">
+        <mat-icon>error_outline</mat-icon>
+        <div>
+          <h3>{{ errorReport.errors.length }} row{{ errorReport.errors.length === 1 ? '' : 's' }} need fixing</h3>
+          <p>Nothing was saved. Fix the issues below in your file and upload again.</p>
+        </div>
+      </div>
+
+      <div class="error-table-wrap">
+        <table class="error-table">
+          <thead>
+            <tr>
+              <th>Row</th>
+              <th>Column</th>
+              <th>Issue</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let err of errorReport.errors">
+              <td class="row-cell">{{ err.row }}</td>
+              <td class="col-cell">{{ err.column }}</td>
+              <td>{{ err.message }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Success card -->
+    <section class="success-card" *ngIf="state === 'success' && importResult">
+      <mat-icon class="success-icon">check_circle</mat-icon>
+      <div>
+        <h3>Imported {{ importResult.created }} employee{{ importResult.created === 1 ? '' : 's' }}</h3>
+        <p *ngIf="importResult.skipped > 0" class="skipped-note">
+          {{ importResult.skipped }} row(s) were skipped due to unexpected save errors — please
+          check the employee list and re-add manually if needed.
+        </p>
+        <p *ngIf="importResult.skipped === 0" class="skipped-note">
+          Everyone was added successfully.
+        </p>
+        <button mat-stroked-button color="primary" (click)="importAnotherFile()">
+          <mat-icon>upload</mat-icon>
+          Import another file
+        </button>
+      </div>
+    </section>
+
+  </div>
+
+  <div mat-dialog-actions align="end">
+    <button mat-button (click)="cancel()">
+      {{ hadSuccessfulImport ? 'Done' : 'Close' }}
+    </button>
+  </div>
+</div>

@@ -12,9 +12,11 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { Teacher } from '../../../core/models';
+import { EmployeeBulkImportDialogComponent } from '../bulk-import/employee-bulk-import-dialog.component';
 
 @Component({
   selector: 'app-teachers-list',
@@ -33,6 +35,7 @@ import { Teacher } from '../../../core/models';
     MatTooltipModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    MatDialogModule,
     PageHeaderComponent,
   ],
   templateUrl: './teachers-list.component.html',
@@ -63,6 +66,7 @@ export class TeachersListComponent implements OnInit {
     private apiService: ApiService,
     private router: Router,
     private snackBar: MatSnackBar,
+    private dialog: MatDialog,
   ) {}
 
   ngOnInit(): void {
@@ -121,6 +125,22 @@ export class TeachersListComponent implements OnInit {
 
   navigateToAddTeacher(): void {
     this.router.navigate(['/employees/new']);
+  }
+
+  /** Open the bulk-import dialog. On close, if the dialog signals at
+   *  least one successful import (via a truthy result), refresh the
+   *  list so the newly-added employees appear without a manual reload. */
+  openBulkImport(): void {
+    const ref = this.dialog.open(EmployeeBulkImportDialogComponent, {
+      // Dialog decides its own max width — we just cap the outer shell.
+      maxWidth: '760px',
+      width: '95vw',
+      autoFocus: false,
+      disableClose: false,
+    });
+    ref.afterClosed().subscribe((hadImport) => {
+      if (hadImport) this.loadTeachers();
+    });
   }
 
   editTeacher(teacher: Teacher): void {

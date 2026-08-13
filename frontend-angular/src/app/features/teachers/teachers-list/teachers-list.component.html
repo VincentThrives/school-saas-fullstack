@@ -5,7 +5,10 @@
     [breadcrumbs]="[{ label: 'Dashboard', link: '/dashboard' }, { label: 'Employees' }]"
     actionLabel="Add Employee"
     actionIcon="add"
-    (actionClick)="navigateToAddTeacher()">
+    (actionClick)="navigateToAddTeacher()"
+    secondaryActionLabel="Bulk Import"
+    secondaryActionIcon="upload_file"
+    (secondaryActionClick)="openBulkImport()">
   </app-page-header>
 
   <!-- Filters -->
