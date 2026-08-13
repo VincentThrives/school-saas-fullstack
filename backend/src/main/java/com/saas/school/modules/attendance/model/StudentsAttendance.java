@@ -123,8 +123,29 @@ public class StudentsAttendance {
 
     public static class StudentEntry {
         private String studentId;
-        private String status;      // PRESENT, ABSENT, LATE, HALF_DAY
+        /**
+         * PRESENT | ABSENT | HALF_DAY. Biometric roll-up no longer writes
+         * "LATE" here — lateness is carried on {@link #late} + {@link
+         * #punchTime} so reports, dashboards, and mark-attendance all
+         * agree the student attended. Old docs written before this split
+         * may still hold "LATE"; the frontend renders those as
+         * present-with-late-badge for backward compatibility.
+         */
+        private String status;
         private String remarks;
+        /**
+         * First IN scan of the day for this student (biometric terminal
+         * only). Null on teacher-marked rows. Drives the "Late · HH:MM"
+         * badge on the Mark Attendance page.
+         */
+        private java.time.Instant punchTime;
+        /**
+         * True when {@link #punchTime} landed after the tenant's cutoff.
+         * Stored at scan time (not derived on read) so a cutoff edit
+         * tomorrow doesn't retroactively flip today's punches. Never set
+         * for teacher-marked rows.
+         */
+        private boolean late;
 
         public StudentEntry() {}
 
@@ -142,5 +163,11 @@ public class StudentsAttendance {
 
         public String getRemarks() { return remarks; }
         public void setRemarks(String remarks) { this.remarks = remarks; }
+
+        public java.time.Instant getPunchTime() { return punchTime; }
+        public void setPunchTime(java.time.Instant punchTime) { this.punchTime = punchTime; }
+
+        public boolean isLate() { return late; }
+        public void setLate(boolean late) { this.late = late; }
     }
 }

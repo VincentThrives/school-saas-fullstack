@@ -110,7 +110,7 @@ public class AttendanceScanService {
         // Isolated so a schema mismatch on the shared table can't cause
         // the terminal to see a 500 and start replaying scans.
         try {
-            rollupToStudentsAttendance(studentId, localDay, status);
+            rollupToStudentsAttendance(studentId, localDay, direction, status, scannedAt);
             saved.setRolledUpAt(Instant.now());
             scanRepository.save(saved);
             log.info("Roll-up done: scan={} student={} day={} status={}",
@@ -185,7 +185,9 @@ public class AttendanceScanService {
      * use.</p>
      */
     private void rollupToStudentsAttendance(String studentId, LocalDate day,
-                                             AttendanceScan.ScanStatus status) {
+                                             AttendanceScan.Direction direction,
+                                             AttendanceScan.ScanStatus status,
+                                             Instant scannedAt) {
         Student student = studentRepository.findByStudentIdAndDeletedAtIsNull(studentId).orElse(null);
         if (student == null || student.getClassId() == null || student.getSectionId() == null) {
             log.warn("Cannot roll up scan for student {} — student={} class={} section={}",
@@ -212,28 +214,33 @@ public class AttendanceScanService {
             });
 
         if (row.getEntries() == null) row.setEntries(new ArrayList<>());
-        String storedStatus = toAttendanceStatus(status);
+        // Reports, dashboards and the teacher grid all key off `status`.
+        // We keep it as PRESENT for anyone the biometric confirmed as
+        // attending — lateness rides on the sibling {punchTime, late}
+        // fields so no downstream code has to special-case a LATE bucket.
         StudentsAttendance.StudentEntry entry = row.getEntries().stream()
             .filter(e -> studentId.equals(e.getStudentId()))
             .findFirst()
             .orElse(null);
         if (entry == null) {
-            row.getEntries().add(new StudentsAttendance.StudentEntry(studentId, storedStatus, null));
+            entry = new StudentsAttendance.StudentEntry(studentId, "PRESENT", null);
+            row.getEntries().add(entry);
         } else {
-            entry.setStatus(storedStatus);
+            entry.setStatus("PRESENT");
+        }
+        if (direction == AttendanceScan.Direction.IN) {
+            // First IN of the day wins — if the child re-enters after
+            // stepping out, we don't rewrite the original arrival time.
+            if (entry.getPunchTime() == null) {
+                entry.setPunchTime(scannedAt);
+            }
+            // Late verdict is snapshotted here; a cutoff edit later today
+            // won't retroactively flip earlier punches.
+            if (status == AttendanceScan.ScanStatus.LATE) {
+                entry.setLate(true);
+            }
         }
         studentsAttendanceRepository.save(row);
-    }
-
-    /** Bridge from ScanStatus to the StudentEntry status vocabulary
-     *  (PRESENT / ABSENT / LATE / HALF_DAY) already used by the teacher
-     *  grid. EARLY_LEAVE isn't in that vocabulary so it falls back to
-     *  PRESENT — the child was here, just left early. */
-    private String toAttendanceStatus(AttendanceScan.ScanStatus status) {
-        return switch (status) {
-            case LATE -> "LATE";
-            case PRESENT, EARLY_LEAVE -> "PRESENT";
-        };
     }
 
     /** Fire a per-parent push based on the tenant's notify toggles. Uses

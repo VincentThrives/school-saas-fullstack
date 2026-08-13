@@ -30,6 +30,15 @@ interface StudentAttendance {
   lastName: string;
   status: 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY';
   remarks: string;
+  /** ISO timestamp of the biometric IN scan. Populated only on rows
+   *  rolled up from a hardware terminal; teacher-marked rows leave it
+   *  undefined. Drives the "Late · HH:MM" badge alongside the radios. */
+  punchTime?: string;
+  /** Backend flag — true when the arrival was past the tenant's cutoff.
+   *  Frozen at scan time so a cutoff change doesn't flip today's punches.
+   *  Backward compat: {@code status === 'LATE'} on older rows is also
+   *  treated as late by {@link isLate}. */
+  late?: boolean;
 }
 
 @Component({
@@ -150,27 +159,16 @@ export class MarkAttendanceComponent implements OnInit {
    *  assignments yet (in which case they see no sections). */
   private myClassTeacherSections = new Set<string>();
 
-  /** Full status vocabulary the backend supports. The visible-in-UI
-   *  subset is derived at render time from {@link statusOptions} so
-   *  tenants without biometric terminals stay on the simpler
-   *  Present / Absent view they're used to. */
-  private readonly ALL_STATUS_OPTIONS = [
+  /** Radio-visible statuses. LATE deliberately excluded — it isn't a
+   *  teacher-pickable state anymore. When the biometric terminal
+   *  detects a late arrival it stores status=PRESENT + late=true; the
+   *  UI renders that as a Present-checked radio + a "Late · HH:MM"
+   *  badge. Half-day is commented for the same "no live source" reason. */
+  readonly statusOptions = [
     { value: 'PRESENT', label: 'Present', icon: 'check_circle', color: '#4caf50' },
     { value: 'ABSENT', label: 'Absent', icon: 'cancel', color: '#f44336' },
-    { value: 'LATE', label: 'Late', icon: 'schedule', color: '#ff9800' },
     // { value: 'HALF_DAY', label: 'Half Day', icon: 'hourglass_bottom', color: '#2196f3' },
-    // Half Day hidden — no live source (terminal doesn't produce it, teachers
-    // don't need it for the current flow). Backend still accepts it.
   ];
-
-  /** Options rendered as radios per student. Adds LATE only when the
-   *  tenant runs biometric terminals — that's the source of the LATE
-   *  signal. Non-biometric schools stay on Present / Absent. */
-  get statusOptions() {
-    return this.biometricTerminalOn
-      ? this.ALL_STATUS_OPTIONS
-      : this.ALL_STATUS_OPTIONS.slice(0, 2);
-  }
 
   /**
    * Prefill values lifted from the route query string when the admin
@@ -741,6 +739,8 @@ export class MarkAttendanceComponent implements OnInit {
             ...s,
             status: (hit.status || 'PRESENT') as StudentAttendance['status'],
             remarks: hit.remarks || '',
+            punchTime: hit.punchTime || undefined,
+            late: hit.late === true,
           };
         });
 
@@ -797,26 +797,76 @@ export class MarkAttendanceComponent implements OnInit {
       .sort((a, b) => (a.rollNumber || '').localeCompare(b.rollNumber || '', undefined, { numeric: true }));
   }
 
-  /** LATE column is only meaningful when the school has a biometric
-   *  terminal — the terminal's IN scan against the tenant's cutoff time
-   *  is what produces LATE status. Manual teacher marking wouldn't
-   *  otherwise use it, so we hide the chip / radio button for tenants
-   *  without the flag on. */
+  /** The "of which N late" chip only surfaces for schools with a
+   *  biometric terminal — non-biometric tenants never see LATE arrive
+   *  from anywhere, so hiding the annotation keeps their view uncluttered. */
   get biometricTerminalOn(): boolean {
     return this.auth.isFeatureEnabled('biometric_terminal');
   }
 
+  /** LATE is now "present but arrived after cutoff" — it feeds the
+   *  Present total AND a separate `late` sub-count so admins can see
+   *  both "kids who came" and "of those, how many were tardy". Handles
+   *  both new-shape rows (status=PRESENT + late=true) and legacy rows
+   *  still holding status='LATE' from before the split. */
   get summary(): { present: number; absent: number; late: number; halfDay: number } {
     return this.students.reduce(
       (acc, s) => {
-        if (s.status === 'PRESENT') acc.present++;
-        else if (s.status === 'ABSENT') acc.absent++;
-        else if (s.status === 'LATE') acc.late++;
-        else if (s.status === 'HALF_DAY') acc.halfDay++;
+        if (s.status === 'PRESENT') {
+          acc.present++;
+          if (s.late === true) acc.late++;
+        } else if (s.status === 'LATE') {
+          // Legacy shape — still counts as attended for the Present
+          // total and contributes to the late sub-count.
+          acc.present++;
+          acc.late++;
+        } else if (s.status === 'ABSENT') {
+          acc.absent++;
+        } else if (s.status === 'HALF_DAY') {
+          acc.halfDay++;
+        }
         return acc;
       },
       { present: 0, absent: 0, late: 0, halfDay: 0 },
     );
+  }
+
+  /** Maps stored status to the radio group's selected value. Late rows
+   *  render as PRESENT (checked) — the late flag itself is preserved
+   *  on the student model until the teacher explicitly picks Absent. */
+  statusRadioValue(status: string | undefined): string {
+    return status === 'LATE' ? 'PRESENT' : (status || 'PRESENT');
+  }
+
+  /** Fires when the teacher clicks a radio. mat-radio-group only emits
+   *  change when the selection actually shifts, so a click on Present
+   *  for an already-late student is a no-op (radio was already showing
+   *  Present-checked). Picking Absent explicitly wipes the late fields
+   *  since the teacher is overriding the biometric verdict. */
+  onStatusRadioChange(student: StudentAttendance, newValue: string): void {
+    student.status = newValue as StudentAttendance['status'];
+    if (newValue === 'ABSENT') {
+      student.late = false;
+      student.punchTime = undefined;
+    }
+  }
+
+  /** True when this row should render the Late badge — covers both the
+   *  new (late=true) and legacy (status='LATE') shapes. */
+  isLate(student: StudentAttendance): boolean {
+    return student.late === true || student.status === 'LATE';
+  }
+
+  /** Label for the Late badge. Uses the biometric punch time when we
+   *  have it — "Late · 09:23" — else the plain word for older rows
+   *  where the terminal didn't record a precise time. */
+  punchTimeLabel(student: StudentAttendance): string {
+    if (student.punchTime) {
+      const t = new Date(student.punchTime);
+      const time = t.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      return `Late · ${time}`;
+    }
+    return 'Late';
   }
 
   saveAttendance(): void {

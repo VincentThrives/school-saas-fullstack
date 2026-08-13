@@ -123,13 +123,14 @@
               <mat-icon>cancel</mat-icon>
               Absent: {{ summary.absent }}
             </mat-chip>
-            <!-- Late / Half Day chips only surface for schools with the
-                 biometric terminal — the terminal's cutoff-time check is
-                 what actually produces LATE. Other tenants stay on the
-                 simpler Present/Absent view. -->
-            <mat-chip class="chip-late" *ngIf="biometricTerminalOn">
+            <!-- Late is a sub-count of Present now — student still
+                 attended, just after the cutoff. Only surfaces for
+                 biometric-enabled tenants (nobody else has a Late
+                 signal to report on) AND only when at least one kid
+                 was tardy today. -->
+            <mat-chip class="chip-late" *ngIf="biometricTerminalOn && summary.late > 0">
               <mat-icon>schedule</mat-icon>
-              Late: {{ summary.late }}
+              of which {{ summary.late }} late
             </mat-chip>
             <!-- Half Day chip hidden — no live source. Uncomment when
                  a teacher-set Half Day workflow is introduced.
@@ -161,16 +162,26 @@
           </div>
           <span class="r-card__pill">#{{ student.rollNumber }}</span>
         </div>
-        <mat-radio-group [(ngModel)]="student.status" class="status-radio-group">
-          <mat-radio-button
-            *ngFor="let opt of statusOptions"
-            [value]="opt.value"
-            class="status-radio"
-            [class]="'status-' + opt.value.toLowerCase()"
+        <div class="status-cell">
+          <mat-radio-group
+            [value]="statusRadioValue(student.status)"
+            (change)="onStatusRadioChange(student, $event.value)"
+            class="status-radio-group"
           >
-            {{ opt.label }}
-          </mat-radio-button>
-        </mat-radio-group>
+            <mat-radio-button
+              *ngFor="let opt of statusOptions"
+              [value]="opt.value"
+              class="status-radio"
+              [class]="'status-' + opt.value.toLowerCase()"
+            >
+              {{ opt.label }}
+            </mat-radio-button>
+          </mat-radio-group>
+          <span class="late-badge" *ngIf="isLate(student)">
+            <mat-icon>schedule</mat-icon>
+            {{ punchTimeLabel(student) }}
+          </span>
+        </div>
         <mat-form-field appearance="outline" class="remarks-field" style="width:100%;">
           <input matInput [(ngModel)]="student.remarks" placeholder="Add remarks...">
         </mat-form-field>
@@ -199,16 +210,26 @@
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef>Status</th>
         <td mat-cell *matCellDef="let student">
-          <mat-radio-group [(ngModel)]="student.status" class="status-radio-group">
-            <mat-radio-button
-              *ngFor="let opt of statusOptions"
-              [value]="opt.value"
-              class="status-radio"
-              [class]="'status-' + opt.value.toLowerCase()"
+          <div class="status-cell">
+            <mat-radio-group
+              [value]="statusRadioValue(student.status)"
+              (change)="onStatusRadioChange(student, $event.value)"
+              class="status-radio-group"
             >
-              {{ opt.label }}
-            </mat-radio-button>
-          </mat-radio-group>
+              <mat-radio-button
+                *ngFor="let opt of statusOptions"
+                [value]="opt.value"
+                class="status-radio"
+                [class]="'status-' + opt.value.toLowerCase()"
+              >
+                {{ opt.label }}
+              </mat-radio-button>
+            </mat-radio-group>
+            <span class="late-badge" *ngIf="isLate(student)">
+              <mat-icon>schedule</mat-icon>
+              {{ punchTimeLabel(student) }}
+            </span>
+          </div>
         </td>
       </ng-container>
 
