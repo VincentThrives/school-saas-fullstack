@@ -25,7 +25,7 @@ import java.util.Map;
  *   MSG91_TPL_RESULT_SINGLE
  *   MSG91_TPL_CUSTOM_NOTICE
  *
- * Cost per SMS is hard-coded at 0.25 INR — the MSG91 rate negotiated
+ * Cost per SMS is hard-coded at 0.30 INR — the MSG91 rate negotiated
  * for our current send volume. Update once you hit a different tier
  * (volume discounts kick in past 1 lakh/month).
  */
@@ -57,7 +57,7 @@ public class SmsConfig {
     @Value("${sms.msg91.templates.custom-notice:}")
     private String tplCustomNotice;
 
-    @Value("${sms.cost-per-sms-inr:0.25}")
+    @Value("${sms.cost-per-sms-inr:0.30}")
     private double costPerSmsInr;
 
     @Value("${sms.retry.max-attempts:3}")

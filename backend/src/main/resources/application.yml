@@ -122,7 +122,7 @@ management:
 # wide emergency stop (e.g. MSG91 outage, fraud investigation).
 sms:
   enabled: ${SMS_ENABLED:true}
-  cost-per-sms-inr: ${SMS_COST_PER_INR:0.25}
+  cost-per-sms-inr: ${SMS_COST_PER_INR:0.30}
   retry:
     max-attempts: ${SMS_RETRY_MAX:3}
     backoff-ms: ${SMS_RETRY_BACKOFF_MS:1000}

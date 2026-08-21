@@ -186,7 +186,7 @@ export class SmsViewComponent implements OnInit {
    *  Could be fetched from /sms/settings later if we want one source of
    *  truth, but for now a constant is fine and avoids an extra round-trip
    *  on every confirm click. */
-  readonly COST_PER_SMS = 0.25;
+  readonly COST_PER_SMS = 0.30;
 
   ngOnInit(): void {
     this.loadSettings();
@@ -605,7 +605,7 @@ export class SmsViewComponent implements OnInit {
       costPerSms: this.COST_PER_SMS,
       footnote:
         'Cost depends on how many phones MSG91 resolves from this audience. ' +
-        'Each delivery costs approx ₹0.25. The exact recipient count appears ' +
+        'Each delivery costs approx ₹0.30. The exact recipient count appears ' +
         'in the success message after the broadcast is queued.',
       confirmLabel: 'Send broadcast',
     };
@@ -761,7 +761,7 @@ export class SmsViewComponent implements OnInit {
       costPerSms: this.COST_PER_SMS,
       footnote:
         'Cost depends on how many phones MSG91 resolves from this audience. ' +
-        'Each delivery costs approx ₹0.25. The exact recipient count appears ' +
+        'Each delivery costs approx ₹0.30. The exact recipient count appears ' +
         'in the success message after the broadcast is queued.',
       confirmLabel: 'Send holiday notice',
     };
@@ -977,7 +977,7 @@ export class SmsViewComponent implements OnInit {
       costPerSms: this.COST_PER_SMS,
       footnote:
         'One SMS per student — students with no parent phone on record are ' +
-        'skipped and reported back. Each delivery costs approx ₹0.25.',
+        'skipped and reported back. Each delivery costs approx ₹0.30.',
       confirmLabel: 'Send result SMS',
     };
 
