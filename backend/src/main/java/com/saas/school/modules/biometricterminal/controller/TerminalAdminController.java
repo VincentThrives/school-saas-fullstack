@@ -3,9 +3,11 @@ package com.saas.school.modules.biometricterminal.controller;
 import com.saas.school.common.response.ApiResponse;
 import com.saas.school.modules.biometricterminal.dto.BindUserRequest;
 import com.saas.school.modules.biometricterminal.dto.RegisterTerminalRequest;
+import com.saas.school.modules.biometricterminal.dto.TodayPunchDto;
 import com.saas.school.modules.biometricterminal.dto.UpdateBindingRequest;
 import com.saas.school.modules.biometricterminal.dto.TerminalBindingResponse;
 import com.saas.school.modules.biometricterminal.dto.TerminalResponse;
+import com.saas.school.modules.biometricterminal.dto.UnboundStudentDto;
 import com.saas.school.modules.biometricterminal.dto.UpdateTerminalRequest;
 import com.saas.school.modules.biometricterminal.service.TerminalRegistrationService;
 import jakarta.validation.Valid;
@@ -84,5 +86,40 @@ public class TerminalAdminController {
         return ResponseEntity.ok(ApiResponse.success(
             registrationService.updateTerminalUserId(serial, terminalUserId, req.getTerminalUserId(), adminUserId),
             "Binding updated"));
+    }
+
+    /**
+     * Today's punches on one terminal — chronological (newest first),
+     * including both RECORDED scans and the DROPPED ones (accidental
+     * re-taps past the daily quota) so the admin can see exactly why
+     * a physical tap did / didn't turn into attendance.
+     */
+    @GetMapping("/{serial}/punches/today")
+    public ResponseEntity<ApiResponse<List<TodayPunchDto>>> todaysPunches(
+            @PathVariable String serial) {
+        return ResponseEntity.ok(ApiResponse.success(
+            registrationService.getTodaysPunches(serial)));
+    }
+
+    /**
+     * Students in this tenant who don't yet have a binding on ANY
+     * terminal — the "who haven't we enrolled anywhere?" list. Global
+     * because a per-terminal view false-positives when different
+     * terminals cover different classes (kid on terminal A shows as
+     * unbound on terminal B, which isn't the actual question).
+     */
+    @GetMapping("/unbound-students")
+    public ResponseEntity<ApiResponse<List<UnboundStudentDto>>> unboundStudentsGlobal() {
+        return ResponseEntity.ok(ApiResponse.success(
+            registrationService.getUnboundStudentsGlobal()));
+    }
+
+    /** Per-terminal variant of {@link #unboundStudentsGlobal} — kept
+     *  for potential future use, not currently wired in the UI. */
+    @GetMapping("/{serial}/unbound-students")
+    public ResponseEntity<ApiResponse<List<UnboundStudentDto>>> unboundStudents(
+            @PathVariable String serial) {
+        return ResponseEntity.ok(ApiResponse.success(
+            registrationService.getUnboundStudents(serial)));
     }
 }

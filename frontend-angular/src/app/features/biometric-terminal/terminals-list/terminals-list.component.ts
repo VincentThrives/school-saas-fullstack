@@ -12,10 +12,13 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { BiometricTerminal } from '../../../core/models';
 import { environment } from '../../../../environments/environment';
+import { TodayPunchesDialogComponent } from '../today-punches/today-punches-dialog.component';
+import { UnboundStudentsDialogComponent } from '../unbound-students/unbound-students-dialog.component';
 
 interface RegisterDialogState {
   serial: string;
@@ -35,6 +38,7 @@ interface EditDialogState {
     MatCardModule, MatButtonModule, MatIconModule, MatTableModule,
     MatFormFieldModule, MatInputModule,
     MatProgressSpinnerModule, MatSnackBarModule, MatTooltipModule, MatChipsModule,
+    MatDialogModule,
     PageHeaderComponent,
   ],
   templateUrl: './terminals-list.component.html',
@@ -65,6 +69,7 @@ export class TerminalsListComponent implements OnInit {
   constructor(
     private api: ApiService,
     private snack: MatSnackBar,
+    private dialog: MatDialog,
   ) {}
 
   ngOnInit(): void {
@@ -217,6 +222,31 @@ export class TerminalsListComponent implements OnInit {
     if (!iso) return '';
     return new Date(iso).toLocaleTimeString(undefined,
       { hour: '2-digit', minute: '2-digit' });
+  }
+
+  /** Open the per-terminal "Today's Punches" audit dialog. Shows both
+   *  RECORDED and DROPPED scans so admins can debug "why didn't this
+   *  tap register?" without leaving the terminals page. */
+  openTodayPunches(t: BiometricTerminal): void {
+    this.dialog.open(TodayPunchesDialogComponent, {
+      data: { serial: t.serial, label: t.label },
+      maxWidth: '900px',
+      width: '95vw',
+      autoFocus: false,
+    });
+  }
+
+  /** Open the global "Unbound Students" dialog — lists every student
+   *  in the school not enrolled on ANY terminal. Global (rather than
+   *  per-terminal) so admins with multiple devices covering different
+   *  classes don't see false positives ("kid bound on terminal A shows
+   *  as unbound on terminal B"). */
+  openUnboundStudents(): void {
+    this.dialog.open(UnboundStudentsDialogComponent, {
+      maxWidth: '900px',
+      width: '95vw',
+      autoFocus: false,
+    });
   }
 
   copyAdmsUrl(): void {

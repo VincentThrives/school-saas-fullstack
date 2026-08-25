@@ -1056,6 +1056,11 @@ export interface BiometricTerminal {
   lastScanStudentName?: string;
   lastScanDirection?: 'IN' | 'OUT';
   lastScanAt?: string;
+  /** Outcome of the most recent tap. When !== 'RECORDED' the card
+   *  renders a "DROPPED" tag so the "N min ago" heartbeat and LAST
+   *  PUNCH time agree on the actual last activity. */
+  lastScanOutcome?: 'RECORDED' | 'DROPPED_DUPLICATE'
+    | 'DROPPED_BEFORE_EXIT_WINDOW' | 'DROPPED_ALREADY_LEFT';
 }
 
 export interface BiometricTerminalBinding {
@@ -1085,7 +1090,19 @@ export interface BindTerminalUserRequest {
 
 export interface BiometricSettings {
   lateCutoff: string;
+  /** HH:mm. Scans at or after this time count as EXIT scans; earlier
+   *  scans count as ENTRY. Replaces the device's IN/OUT byte. */
   earliestExitTime: string;
+  /** 1 = entry only (parents get 1 SMS/day). 2 = entry + exit
+   *  (parents get up to 2 SMS/day). Extra scans past this quota
+   *  are silently dropped by the backend. */
+  expectedScansPerDay: number;
+  /** HH:mm. When {@link absentAutoMarkEnabled} is true, a scheduled
+   *  job at this time auto-marks students with no arrival scan as
+   *  ABSENT and fires an in-app notification to parents. */
+  absentAutoMarkTime: string;
+  /** Opt-in per tenant. Off by default. */
+  absentAutoMarkEnabled: boolean;
   notifyOnEntry: boolean;
   notifyOnExit: boolean;
   notifyOnEarlyLeave: boolean;

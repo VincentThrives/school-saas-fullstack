@@ -30,6 +30,12 @@ public class TerminalResponse {
     /** "IN" or "OUT" — matches AttendanceScan.Direction. */
     private String lastScanDirection;
     private Instant lastScanAt;
+    /** RECORDED | DROPPED_DUPLICATE | DROPPED_BEFORE_EXIT_WINDOW |
+     *  DROPPED_ALREADY_LEFT. When non-RECORDED, the card renders a
+     *  "DROPPED" tag next to the direction so the "N min ago" text
+     *  and LAST PUNCH always agree on the actual last tap — even
+     *  when that tap was silently rejected. */
+    private String lastScanOutcome;
 
     public TerminalResponse() {}
 
@@ -68,4 +74,7 @@ public class TerminalResponse {
 
     public Instant getLastScanAt() { return lastScanAt; }
     public void setLastScanAt(Instant lastScanAt) { this.lastScanAt = lastScanAt; }
+
+    public String getLastScanOutcome() { return lastScanOutcome; }
+    public void setLastScanOutcome(String lastScanOutcome) { this.lastScanOutcome = lastScanOutcome; }
 }

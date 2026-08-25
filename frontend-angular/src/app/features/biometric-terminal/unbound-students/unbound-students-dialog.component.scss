@@ -1,0 +1,232 @@
+.us-dialog {
+  min-width: 640px;
+  max-width: 900px;
+}
+
+.us-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 0 24px 8px;
+  flex-wrap: wrap;
+}
+
+.us-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  mat-icon {
+    color: #d4a843;
+    font-size: 26px;
+    width: 26px;
+    height: 26px;
+  }
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+}
+
+.us-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+
+  .us-label {
+    font-size: 13px;
+    color: #64748b;
+  }
+  .us-serial {
+    font-size: 11px;
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #64748b;
+    font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  }
+}
+
+.us-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(212, 168, 67, 0.14);
+  color: #78581e;
+  font-size: 12px;
+  font-weight: 600;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: #d4a843;
+  }
+}
+
+.us-content {
+  min-height: 220px;
+  max-height: 60vh;
+}
+
+.us-search {
+  width: 100%;
+  margin-bottom: 12px;
+
+  mat-icon[matPrefix] {
+    color: #94a3b8;
+    margin-right: 4px;
+  }
+}
+
+// ── Loading / error / empty ─────────────────────────────
+.us-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.us-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  color: #b91c1c;
+
+  mat-icon {
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
+  }
+}
+
+.us-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 24px;
+  text-align: center;
+  color: #64748b;
+
+  mat-icon {
+    font-size: 44px;
+    width: 44px;
+    height: 44px;
+    color: #16a34a;
+    margin-bottom: 6px;
+  }
+  .us-empty-title {
+    font-weight: 500;
+    color: #334155;
+    font-size: 15px;
+  }
+  .us-empty-sub {
+    font-size: 13px;
+    max-width: 44ch;
+  }
+
+  // "No matches" after filtering — muted grey icon, not the celebratory
+  // green tick used for the true zero-unbound state.
+  &.us-empty--filtered {
+    padding: 32px 24px;
+    mat-icon { color: #cbd5e1; }
+  }
+}
+
+// ── Table ─────────────────────────────────────────────────
+.us-table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e5e2d7;
+}
+
+.us-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+
+  thead th {
+    text-align: left;
+    padding: 10px 14px;
+    background: #fbfaf5;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #e5e2d7;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1a1a1a;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(212, 168, 67, 0.05); }
+
+  .col-roll {
+    width: 72px;
+    font-variant-numeric: tabular-nums;
+    color: #64748b;
+  }
+  .col-class {
+    width: 140px;
+    color: #64748b;
+  }
+  .col-adm {
+    width: 140px;
+    code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+  }
+}
+
+.us-dim {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+// ── Dark theme ────────────────────────────────────────────
+:host-context(body.dark-theme) {
+  .us-title h2 { color: #f5f5f5; }
+  .us-sub .us-label { color: #94a3b8; }
+  .us-sub .us-serial { background: #302c22; color: #94a3b8; }
+
+  .us-count {
+    background: rgba(212, 168, 67, 0.20);
+    color: #f3c675;
+  }
+  .us-empty-title { color: #f5f5f5; }
+  .us-empty-sub { color: #94a3b8; }
+
+  .us-table {
+    thead th { background: #1c1a15; color: #94a3b8; border-bottom-color: #302c22; }
+    tbody td { color: #f5f5f5; border-bottom-color: #302c22; }
+    tbody tr:hover { background: rgba(212, 168, 67, 0.10); }
+    .col-adm code { background: #302c22; color: #cbd5e1; }
+  }
+  .us-table-wrap { border-color: #302c22; }
+}
+
+@media (max-width: 680px) {
+  .us-dialog { min-width: 0; }
+  .us-header { padding: 0 16px 8px; }
+  .us-table { font-size: 12.5px; }
+  .us-table thead th { padding: 8px 10px; }
+  .us-table tbody td { padding: 8px 10px; }
+}

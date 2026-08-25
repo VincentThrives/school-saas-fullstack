@@ -209,6 +209,11 @@
 
   &.in  { background: rgba(22, 163, 74, 0.15); color: #15803d; }
   &.out { background: rgba(220, 38, 38, 0.15); color: #b91c1c; }
+  &.dropped {
+    background: rgba(148, 163, 184, 0.20);
+    color: #64748b;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+  }
 }
 
 .tc-lastpunch-time {

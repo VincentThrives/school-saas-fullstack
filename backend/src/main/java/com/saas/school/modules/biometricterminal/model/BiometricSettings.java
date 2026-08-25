@@ -26,8 +26,38 @@ public class BiometricSettings {
     /** HH:mm 24h. IN scans after this time are marked LATE. */
     private String lateCutoff = "09:15";
 
-    /** HH:mm 24h. OUT scans before this time are marked EARLY_LEAVE. */
+    /**
+     * HH:mm 24h. Scans at or after this time are treated as EXIT scans;
+     * scans before this time are treated as ENTRY scans. The device's
+     * IN/OUT byte is ignored — many eSSL setups always report status=0,
+     * so time-based inference is more reliable than trusting the device.
+     */
     private String earliestExitTime = "14:00";
+
+    /**
+     * Number of meaningful scans per student per day. 1 = entry only
+     * (schools that don't track exit — parents get 1 SMS/day). 2 =
+     * entry + exit (parents get up to 2 SMS/day). Any scans beyond
+     * this quota are silently dropped (audit-logged but no attendance
+     * update, no notification). Default 2.
+     */
+    private int expectedScansPerDay = 2;
+
+    /**
+     * HH:mm 24h. When set + {@link #absentAutoMarkEnabled} is true,
+     * a scheduled job at this time marks any student who hasn't
+     * scanned IN yet today as ABSENT and fires an in-app notification
+     * to the parent. Null / blank = disabled.
+     */
+    private String absentAutoMarkTime = "10:30";
+
+    /**
+     * Opt-in per tenant. When false, no auto-absent job runs for this
+     * school — teachers still mark attendance the old way. Default off
+     * so existing tenants don't get surprise auto-absent behavior when
+     * this ships; admins turn it on from the Biometric Settings page.
+     */
+    private boolean absentAutoMarkEnabled = false;
 
     /** Parent SMS on IN scan. */
     private boolean notifyOnEntry = true;
@@ -49,6 +79,15 @@ public class BiometricSettings {
 
     public String getEarliestExitTime() { return earliestExitTime; }
     public void setEarliestExitTime(String earliestExitTime) { this.earliestExitTime = earliestExitTime; }
+
+    public int getExpectedScansPerDay() { return expectedScansPerDay; }
+    public void setExpectedScansPerDay(int expectedScansPerDay) { this.expectedScansPerDay = expectedScansPerDay; }
+
+    public String getAbsentAutoMarkTime() { return absentAutoMarkTime; }
+    public void setAbsentAutoMarkTime(String absentAutoMarkTime) { this.absentAutoMarkTime = absentAutoMarkTime; }
+
+    public boolean isAbsentAutoMarkEnabled() { return absentAutoMarkEnabled; }
+    public void setAbsentAutoMarkEnabled(boolean absentAutoMarkEnabled) { this.absentAutoMarkEnabled = absentAutoMarkEnabled; }
 
     public boolean isNotifyOnEntry() { return notifyOnEntry; }
     public void setNotifyOnEntry(boolean notifyOnEntry) { this.notifyOnEntry = notifyOnEntry; }

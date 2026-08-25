@@ -1,0 +1,109 @@
+<div class="tp-dialog">
+  <div class="tp-header">
+    <div class="tp-title">
+      <mat-icon>schedule</mat-icon>
+      <div>
+        <h2 mat-dialog-title>Today's Punches</h2>
+        <div class="tp-sub">
+          <span class="tp-label">{{ data.label }}</span>
+          <code class="tp-serial">{{ data.serial }}</code>
+        </div>
+      </div>
+    </div>
+    <div class="tp-counts" *ngIf="!isLoading && punches.length > 0">
+      <span class="tp-count tp-count--recorded">
+        <mat-icon>check_circle</mat-icon>
+        {{ recordedCount }} recorded
+      </span>
+      <span class="tp-count tp-count--dropped" *ngIf="droppedCount > 0">
+        <mat-icon>filter_alt_off</mat-icon>
+        {{ droppedCount }} dropped
+      </span>
+    </div>
+  </div>
+
+  <div mat-dialog-content class="tp-content">
+
+    <div class="tp-loading" *ngIf="isLoading">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+
+    <div class="tp-error" *ngIf="!isLoading && loadError">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ loadError }}</span>
+      <button mat-stroked-button (click)="load()">Retry</button>
+    </div>
+
+    <div class="tp-empty" *ngIf="!isLoading && !loadError && punches.length === 0">
+      <mat-icon>sensors_off</mat-icon>
+      <div class="tp-empty-title">No punches today</div>
+      <div class="tp-empty-sub">Once someone scans on this device, their punch shows up here in real time.</div>
+    </div>
+
+    <div class="tp-table-wrap" *ngIf="!isLoading && !loadError && punches.length > 0">
+      <table class="tp-table">
+        <thead>
+          <tr>
+            <th class="col-student">Student</th>
+            <th class="col-user">User ID</th>
+            <th class="col-in">IN</th>
+            <th class="col-out">OUT</th>
+            <th class="col-extras">Extra punches</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of grouped">
+            <td class="col-student">
+              <span *ngIf="row.studentName">{{ row.studentName }}</span>
+              <span class="tp-unknown" *ngIf="!row.studentName">Unknown</span>
+            </td>
+            <td class="col-user">
+              <code>{{ row.terminalUserId || '—' }}</code>
+            </td>
+            <td class="col-in">
+              <span class="time-cell time-in" *ngIf="row.in">
+                <mat-icon>login</mat-icon>
+                {{ row.in.time }}
+              </span>
+              <span class="tp-unknown" *ngIf="!row.in">—</span>
+            </td>
+            <td class="col-out">
+              <span class="time-cell time-out" *ngIf="row.out">
+                <mat-icon>logout</mat-icon>
+                {{ row.out.time }}
+              </span>
+              <span class="tp-unknown" *ngIf="!row.out">—</span>
+            </td>
+            <td class="col-extras">
+              <div class="extras-wrap" *ngIf="row.extras.length > 0">
+                <span class="extra-chip"
+                      [class.extra-unexpected]="x.unexpected"
+                      *ngFor="let x of row.extras"
+                      [matTooltip]="x.reason">
+                  <mat-icon>{{ x.unexpected ? 'warning' : 'filter_alt_off' }}</mat-icon>
+                  {{ x.time }}
+                  <!-- Grey (real drop) shows "· DROPPED" — no need to
+                       repeat the direction, that's just noise in the
+                       audit view. Amber (leaked-through recorded)
+                       shows the direction it was recorded as so admins
+                       can spot the bug. -->
+                  <span class="extra-tag" *ngIf="!x.unexpected">· DROPPED</span>
+                  <span class="extra-dir" *ngIf="x.unexpected && x.direction">· {{ x.direction }}</span>
+                </span>
+              </div>
+              <span class="tp-unknown" *ngIf="row.extras.length === 0">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div mat-dialog-actions align="end">
+    <button mat-stroked-button (click)="load()" [disabled]="isLoading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <button mat-button (click)="close()">Close</button>
+  </div>
+</div>

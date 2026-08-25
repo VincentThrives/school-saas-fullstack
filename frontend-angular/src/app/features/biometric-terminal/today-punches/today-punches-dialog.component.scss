@@ -1,0 +1,369 @@
+.tp-dialog {
+  min-width: 640px;
+  max-width: 900px;
+}
+
+.tp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 0 24px 8px;
+  flex-wrap: wrap;
+}
+
+.tp-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  mat-icon {
+    color: #d4a843;
+    font-size: 26px;
+    width: 26px;
+    height: 26px;
+  }
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+}
+
+.tp-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+
+  .tp-label {
+    font-size: 13px;
+    color: #64748b;
+  }
+  .tp-serial {
+    font-size: 11px;
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #64748b;
+    font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  }
+}
+
+.tp-counts {
+  display: flex;
+  gap: 12px;
+}
+
+.tp-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.tp-count--recorded {
+  background: rgba(22, 163, 74, 0.14);
+  color: #15803d;
+  mat-icon { color: #16a34a; }
+}
+
+.tp-count--dropped {
+  background: rgba(148, 163, 184, 0.15);
+  color: #64748b;
+  mat-icon { color: #94a3b8; }
+}
+
+.tp-content {
+  min-height: 200px;
+  max-height: 60vh;
+}
+
+// ── Loading / empty / error states ──
+.tp-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+.tp-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  color: #b91c1c;
+
+  mat-icon {
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
+  }
+}
+
+.tp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+  color: #64748b;
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: #cbd5e1;
+    margin-bottom: 8px;
+  }
+  .tp-empty-title {
+    font-weight: 500;
+    color: #334155;
+    font-size: 15px;
+  }
+  .tp-empty-sub {
+    font-size: 13px;
+    max-width: 40ch;
+  }
+}
+
+// ── Table ──
+.tp-table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e5e2d7;
+}
+
+.tp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+
+  thead th {
+    text-align: left;
+    padding: 10px 14px;
+    background: #fbfaf5;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #e5e2d7;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1a1a1a;
+    vertical-align: top;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  tbody tr.row-dropped {
+    background: rgba(148, 163, 184, 0.04);
+    color: #64748b;
+  }
+
+  .col-user {
+    width: 84px;
+    code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+  }
+  .col-in, .col-out { width: 110px; }
+  .col-extras { min-width: 180px; }
+}
+
+// IN / OUT time cells — small monospace chip with a directional icon.
+.time-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.time-in {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+  mat-icon { color: #16a34a; }
+}
+
+.time-out {
+  background: rgba(220, 38, 38, 0.10);
+  color: #b91c1c;
+  mat-icon { color: #dc2626; }
+}
+
+// Extras column — one chip per dropped scan, tooltip shows the reason.
+.extras-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.extra-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.15);
+  color: #64748b;
+  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: default;
+
+  mat-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+    color: #94a3b8;
+  }
+  .extra-dir {
+    font-family: inherit;
+    font-weight: 500;
+    color: #94a3b8;
+  }
+  .extra-tag {
+    font-family: inherit;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    font-size: 10.5px;
+  }
+}
+
+// Amber variant for scans that were RECORDED when they should have been
+// dropped — a leak past decide() the admin should notice. Hover-tooltip
+// spells out the reason ("Unexpected duplicate — check backend logs").
+.extra-chip.extra-unexpected {
+  background: rgba(212, 168, 67, 0.16);
+  color: #78581e;
+  border: 1px solid rgba(212, 168, 67, 0.35);
+
+  mat-icon { color: #d4a843; }
+  .extra-dir { color: #a8811f; }
+}
+
+.tp-unknown {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.dir-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: #e2e8f0;
+  color: #475569;
+
+  &.dir-in {
+    background: rgba(22, 163, 74, 0.14);
+    color: #15803d;
+  }
+  &.dir-out {
+    background: rgba(220, 38, 38, 0.14);
+    color: #b91c1c;
+  }
+}
+
+.oc-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+
+  &.oc-recorded {
+    background: rgba(22, 163, 74, 0.12);
+    color: #15803d;
+  }
+  &.oc-dropped {
+    background: rgba(148, 163, 184, 0.18);
+    color: #64748b;
+  }
+}
+
+.tp-drop-reason {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.4;
+  max-width: 36ch;
+}
+
+// ── Dark theme ──
+:host-context(body.dark-theme) {
+  .tp-title h2 { color: #f5f5f5; }
+  .tp-sub .tp-label { color: #94a3b8; }
+  .tp-sub .tp-serial { background: #302c22; color: #94a3b8; }
+
+  .tp-table {
+    thead th { background: #1c1a15; color: #94a3b8; border-bottom-color: #302c22; }
+    tbody td { color: #f5f5f5; border-bottom-color: #302c22; }
+    tbody tr.row-dropped { background: rgba(148, 163, 184, 0.08); color: #94a3b8; }
+    .col-user code { background: #302c22; color: #cbd5e1; }
+  }
+  .time-in {
+    background: rgba(22, 163, 74, 0.18);
+    color: #bbf7d0;
+  }
+  .time-out {
+    background: rgba(220, 38, 38, 0.18);
+    color: #fecaca;
+  }
+  .extra-chip {
+    background: rgba(148, 163, 184, 0.14);
+    color: #cbd5e1;
+    .extra-dir { color: #94a3b8; }
+  }
+  .extra-chip.extra-unexpected {
+    background: rgba(212, 168, 67, 0.20);
+    color: #f3c675;
+    border-color: rgba(212, 168, 67, 0.50);
+    .extra-dir { color: #d4a843; }
+  }
+  .tp-table-wrap { border-color: #302c22; }
+  .tp-empty-title { color: #f5f5f5; }
+  .tp-empty-sub { color: #94a3b8; }
+}
+
+@media (max-width: 680px) {
+  .tp-dialog { min-width: 0; }
+  .tp-header { padding: 0 16px 8px; }
+  .tp-table { font-size: 12.5px; }
+  .tp-table thead th { padding: 8px 10px; }
+  .tp-table tbody td { padding: 8px 10px; }
+}

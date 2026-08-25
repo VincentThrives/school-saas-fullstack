@@ -54,6 +54,20 @@ public class AttendanceScan {
      *  path where the class/section couldn't be resolved). */
     private Instant rolledUpAt;
 
+    /**
+     * Whether this scan actually updated attendance + fired a parent
+     * notification, or was silently dropped as noise (accidental
+     * re-scan, past the tenant's configured scans/day quota).
+     * Defaults to RECORDED — matches the pre-configurable behavior so
+     * old rows (before this field existed) deserialize sensibly.
+     */
+    private ScanOutcome outcome = ScanOutcome.RECORDED;
+
+    /** Human-readable explanation of a non-RECORDED outcome. Null when
+     *  outcome=RECORDED. Surfaces in the audit UI as "why did the
+     *  parent not get an SMS for this scan?". */
+    private String dropReason;
+
     @CreatedDate
     private Instant createdAt;
 
@@ -103,4 +117,27 @@ public class AttendanceScan {
     }
 
     public enum ScanStatus { PRESENT, LATE, EARLY_LEAVE }
+
+    /**
+     * Outcome tag stamped by AttendanceScanService when the scan lands.
+     * RECORDED scans update daily attendance + notify the parent;
+     * DROPPED_* scans are kept for audit but produce no side effect.
+     */
+    public enum ScanOutcome {
+        /** Updated daily attendance and fired parent notification. */
+        RECORDED,
+        /** Second (or later) scan in a school configured for 1 scan/day. */
+        DROPPED_DUPLICATE,
+        /** Extra IN-window scan after arrival was already recorded — kid
+         *  probably walked past the terminal again pre-dismissal. */
+        DROPPED_BEFORE_EXIT_WINDOW,
+        /** Extra scan after departure was already recorded. */
+        DROPPED_ALREADY_LEFT
+    }
+
+    public ScanOutcome getOutcome() { return outcome; }
+    public void setOutcome(ScanOutcome outcome) { this.outcome = outcome; }
+
+    public String getDropReason() { return dropReason; }
+    public void setDropReason(String dropReason) { this.dropReason = dropReason; }
 }

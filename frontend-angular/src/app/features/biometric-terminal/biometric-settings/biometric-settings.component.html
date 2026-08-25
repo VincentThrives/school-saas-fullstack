@@ -10,8 +10,23 @@
 
   <ng-container *ngIf="!isLoading">
     <mat-card class="section-card">
-      <h3>Cutoffs</h3>
-      <p class="section-help">A scan at or before the cutoff counts as PRESENT; after it → LATE. Exit works the mirror way: at or after the earliest-exit time counts as PRESENT; before it → EARLY_LEAVE.</p>
+      <h3>Scans per day</h3>
+      <p class="section-help">Set 1 for entry-only tracking (parents get a single "entered school" notification per child per day). Set 2 to also track exit — the 2nd scan of the day is treated as departure, but only if it lands at or after the "Exit window starts at" time below. Any extra taps beyond this quota are silently ignored.</p>
+
+      <div class="row-two">
+        <mat-form-field appearance="outline">
+          <mat-label>Meaningful scans per day</mat-label>
+          <mat-select [(ngModel)]="settings.expectedScansPerDay">
+            <mat-option [value]="1">1 — Entry only</mat-option>
+            <mat-option [value]="2">2 — Entry + Exit</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </mat-card>
+
+    <mat-card class="section-card">
+      <h3>Time windows</h3>
+      <p class="section-help">Scans before "Exit window starts" are treated as entry (arrival); scans at or after are treated as exit. A scan past the "Late arrival cutoff" is stored as PRESENT with a small "Late · HH:MM" badge on the roster — never as an ABSENT.</p>
 
       <div class="row-two">
         <mat-form-field appearance="outline">
@@ -21,10 +36,42 @@
         </mat-form-field>
 
         <mat-form-field appearance="outline">
-          <mat-label>Earliest allowed exit</mat-label>
+          <mat-label>Exit window starts at</mat-label>
           <input matInput type="time" [(ngModel)]="settings.earliestExitTime">
           <mat-hint>HH:mm, 24-hour</mat-hint>
         </mat-form-field>
+      </div>
+    </mat-card>
+
+    <mat-card class="section-card">
+      <h3>Auto-mark absent</h3>
+      <p class="section-help">When enabled, a scheduled job runs at the configured time each day and marks any student who hasn't scanned in yet as ABSENT. Parents get an in-app notification ("Your child did not come to school today"). SMS is not fired yet — that plugs in once the DLT template is registered on the super-admin SMS panel.</p>
+
+      <div class="toggle-row">
+        <mat-slide-toggle [(ngModel)]="settings.absentAutoMarkEnabled">
+          Enable auto-absent job
+        </mat-slide-toggle>
+      </div>
+
+      <div class="row-two" *ngIf="settings.absentAutoMarkEnabled">
+        <mat-form-field appearance="outline">
+          <mat-label>Auto-mark absent at</mat-label>
+          <input matInput type="time" [(ngModel)]="settings.absentAutoMarkTime">
+          <mat-hint>HH:mm, 24-hour</mat-hint>
+        </mat-form-field>
+      </div>
+
+      <!-- Manual trigger — bypasses the schedule so admins can catch up
+           mid-day (or so we can verify the flow outside 09:00–13:00 IST
+           when the cron doesn't fire). -->
+      <div class="toggle-row" *ngIf="settings.absentAutoMarkEnabled">
+        <button mat-stroked-button color="primary"
+                [disabled]="isRunningAbsent"
+                (click)="runAbsentNow()">
+          <mat-spinner *ngIf="isRunningAbsent" diameter="18"></mat-spinner>
+          <mat-icon *ngIf="!isRunningAbsent">play_arrow</mat-icon>
+          <span>{{ isRunningAbsent ? 'Running…' : 'Run auto-absent now' }}</span>
+        </button>
       </div>
     </mat-card>
 
@@ -34,19 +81,18 @@
 
       <div class="toggle-row">
         <mat-slide-toggle [(ngModel)]="settings.notifyOnEntry">
-          Notify on entry (child enters campus)
+          Notify on entry (first scan of the day)
         </mat-slide-toggle>
       </div>
       <div class="toggle-row">
         <mat-slide-toggle [(ngModel)]="settings.notifyOnExit">
-          Notify on exit (child leaves at normal time)
+          Notify on exit (scan in the exit window)
         </mat-slide-toggle>
       </div>
-      <div class="toggle-row">
-        <mat-slide-toggle [(ngModel)]="settings.notifyOnEarlyLeave">
-          Notify on early leave (before earliest allowed exit)
-        </mat-slide-toggle>
-      </div>
+      <!-- notifyOnEarlyLeave toggle removed with the time-window model —
+           any scan past "Exit window starts at" now counts as a regular
+           exit, no separate EARLY_LEAVE category. Backend field kept
+           for backward compat but hidden from the UI. -->
     </mat-card>
 
     <div class="footer-actions">

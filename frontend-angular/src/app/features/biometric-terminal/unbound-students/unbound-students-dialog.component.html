@@ -1,0 +1,89 @@
+<div class="us-dialog">
+  <div class="us-header">
+    <div class="us-title">
+      <mat-icon>person_off</mat-icon>
+      <div>
+        <h2 mat-dialog-title>Unbound Students</h2>
+        <div class="us-sub">
+          <span class="us-label">Not enrolled on any terminal in the school</span>
+        </div>
+      </div>
+    </div>
+    <div class="us-count" *ngIf="!isLoading && students.length > 0">
+      <mat-icon>group</mat-icon>
+      {{ students.length }} not bound
+    </div>
+  </div>
+
+  <div mat-dialog-content class="us-content">
+
+    <div class="us-loading" *ngIf="isLoading">
+      <mat-spinner diameter="32"></mat-spinner>
+    </div>
+
+    <div class="us-error" *ngIf="!isLoading && loadError">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ loadError }}</span>
+      <button mat-stroked-button (click)="load()">Retry</button>
+    </div>
+
+    <div class="us-empty" *ngIf="!isLoading && !loadError && students.length === 0">
+      <mat-icon>check_circle</mat-icon>
+      <div class="us-empty-title">All students bound</div>
+      <div class="us-empty-sub">Every student in the school has a terminal user id assigned on this device.</div>
+    </div>
+
+    <ng-container *ngIf="!isLoading && !loadError && students.length > 0">
+      <mat-form-field appearance="outline" class="us-search">
+        <mat-label>Search — name, class, roll, admission #</mat-label>
+        <input matInput [(ngModel)]="searchQuery" placeholder="Type to filter">
+        <mat-icon matPrefix>search</mat-icon>
+        <button mat-icon-button matSuffix *ngIf="searchQuery" (click)="searchQuery = ''">
+          <mat-icon>close</mat-icon>
+        </button>
+      </mat-form-field>
+
+      <div class="us-empty us-empty--filtered" *ngIf="filtered.length === 0">
+        <mat-icon>search_off</mat-icon>
+        <div class="us-empty-title">No matches</div>
+        <div class="us-empty-sub">Try a different search — clear the box to see everyone.</div>
+      </div>
+
+      <div class="us-table-wrap" *ngIf="filtered.length > 0">
+        <table class="us-table">
+          <thead>
+            <tr>
+              <th class="col-roll">Roll #</th>
+              <th class="col-name">Student</th>
+              <th class="col-class">Class · Section</th>
+              <th class="col-adm">Admission #</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of filtered">
+              <td class="col-roll">
+                <span *ngIf="s.rollNumber">{{ s.rollNumber }}</span>
+                <span class="us-dim" *ngIf="!s.rollNumber">—</span>
+              </td>
+              <td class="col-name">{{ s.name }}</td>
+              <td class="col-class">{{ classSection(s) }}</td>
+              <td class="col-adm">
+                <code *ngIf="s.admissionNumber">{{ s.admissionNumber }}</code>
+                <span class="us-dim" *ngIf="!s.admissionNumber">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ng-container>
+
+  </div>
+
+  <div mat-dialog-actions align="end">
+    <button mat-stroked-button (click)="load()" [disabled]="isLoading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <button mat-button (click)="close()">Close</button>
+  </div>
+</div>

@@ -146,6 +146,14 @@ public class StudentsAttendance {
          * for teacher-marked rows.
          */
         private boolean late;
+        /**
+         * First OUT scan of the day (biometric terminal only). Populated
+         * for tenants configured with {@code expectedScansPerDay >= 2}.
+         * Any subsequent scans past this are dropped as noise — first
+         * exit wins so a kid walking past the terminal on the way home
+         * doesn't overwrite the actual departure timestamp.
+         */
+        private java.time.Instant departureTime;
 
         public StudentEntry() {}
 
@@ -169,5 +177,8 @@ public class StudentsAttendance {
 
         public boolean isLate() { return late; }
         public void setLate(boolean late) { this.late = late; }
+
+        public java.time.Instant getDepartureTime() { return departureTime; }
+        public void setDepartureTime(java.time.Instant departureTime) { this.departureTime = departureTime; }
     }
 }

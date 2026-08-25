@@ -74,14 +74,19 @@ public class AttendanceScanService {
                                      String studentId,
                                      String terminalSerial,
                                      String terminalUserId,
-                                     AttendanceScan.Direction direction,
+                                     AttendanceScan.Direction deviceDirection,
                                      Instant scannedAt) {
 
         LocalDate localDay = scannedAt.atZone(ZONE).toLocalDate();
         String dateKey = localDay.toString();
 
-        // ── Dedup ─────────────────────────────────────────────────────
-        Optional<AttendanceScan> existing = findRecentScan(studentId, dateKey, direction, scannedAt);
+        // ── Retry dedup (short window) ────────────────────────────────
+        // Terminals sometimes fire the same scan twice within a couple
+        // of seconds (network retry, or the person hesitating in front
+        // of the camera). Collapse anything inside DEDUP_WINDOW to one
+        // ledger row regardless of direction so we don't create noise
+        // in the audit table for network hiccups.
+        Optional<AttendanceScan> existing = findRecentScan(studentId, dateKey, scannedAt);
         if (existing.isPresent()) {
             log.info("Dedup hit — reusing scan {} for student {} (within {}s window)",
                 existing.get().getScanId(), studentId, DEDUP_WINDOW.getSeconds());
@@ -89,9 +94,19 @@ public class AttendanceScanService {
         }
 
         BiometricSettings settings = getSettings();
-        AttendanceScan.ScanStatus status = classify(direction, scannedAt, settings);
-        log.info("Scan received: tenant={} student={} direction={} status={} SN={} scannedAt={}",
-            tenantId, studentId, direction, status, terminalSerial, scannedAt);
+
+        // ── Decide whether this scan counts and, if so, what for ─────
+        // The device's IN/OUT byte is advisory only — many eSSL setups
+        // always report status=0. We make the call based on the
+        // tenant's expected scans/day + arrival/exit windows, so an
+        // extra tap in the middle of the school day gets silently
+        // dropped instead of bumping the arrival time or mis-firing
+        // a "left early" SMS.
+        StudentsAttendance.StudentEntry existingEntry =
+            findExistingEntry(studentId, localDay);
+        ScanDecision decision = decide(existingEntry, scannedAt, settings);
+        log.info("Scan decision: tenant={} student={} outcome={} direction={} reason={}",
+            tenantId, studentId, decision.outcome, decision.direction, decision.reason);
 
         AttendanceScan scan = new AttendanceScan();
         scan.setScanId(UUID.randomUUID().toString());
@@ -100,21 +115,32 @@ public class AttendanceScanService {
         scan.setTerminalSerial(terminalSerial);
         scan.setTerminalUserId(terminalUserId);
         scan.setMethod(AttendanceScan.ScanMethod.EXTERNAL_TERMINAL);
-        scan.setDirection(direction);
-        scan.setStatus(status);
+        // Direction on the record reflects OUR verdict on RECORDED scans,
+        // else the device's byte on DROPPED (useful in the audit UI to
+        // spot devices that always report the same direction).
+        scan.setDirection(decision.direction != null ? decision.direction : deviceDirection);
+        scan.setStatus(decision.status);
         scan.setScannedAt(scannedAt);
         scan.setScanDateKey(dateKey);
+        scan.setOutcome(decision.outcome);
+        scan.setDropReason(decision.reason);
         AttendanceScan saved = scanRepository.save(scan);
+
+        // ── Dropped scans are audit-only from here ───────────────────
+        if (decision.outcome != AttendanceScan.ScanOutcome.RECORDED) {
+            return saved;
+        }
 
         // ── Roll-up into StudentsAttendance ──────────────────────────
         // Isolated so a schema mismatch on the shared table can't cause
         // the terminal to see a 500 and start replaying scans.
         try {
-            rollupToStudentsAttendance(studentId, localDay, direction, status, scannedAt);
+            rollupToStudentsAttendance(studentId, localDay,
+                decision.direction, decision.status, scannedAt);
             saved.setRolledUpAt(Instant.now());
             scanRepository.save(saved);
             log.info("Roll-up done: scan={} student={} day={} status={}",
-                saved.getScanId(), studentId, localDay, status);
+                saved.getScanId(), studentId, localDay, decision.status);
         } catch (Exception e) {
             log.warn("Roll-up into StudentsAttendance failed for scan {} — ledger row kept: {}",
                 saved.getScanId(), e.getMessage(), e);
@@ -130,34 +156,127 @@ public class AttendanceScanService {
         return saved;
     }
 
-    /** Newest scan for (student, day, direction) inside the dedup window,
-     *  or empty if none. */
+    /**
+     * Ground-truth for how a scan is treated. See the tenant's
+     * BiometricSettings — {@code expectedScansPerDay} caps the number
+     * of meaningful scans per student per day, {@code earliestExitTime}
+     * splits the day into an arrival window (before) and an exit
+     * window (at/after).
+     */
+    private ScanDecision decide(StudentsAttendance.StudentEntry entry,
+                                 Instant scannedAt,
+                                 BiometricSettings settings) {
+        // hasArrival: EITHER a fresh punchTime set by the new rollup OR
+        // a status of PRESENT / LATE from a prior biometric roll-up that
+        // ran BEFORE punchTime was added to the model (backward compat
+        // for tenants that had the older code running when their first
+        // scans landed). Also covers teacher-marked entries so a
+        // teacher's manual PRESENT stops the next biometric tap from
+        // being treated as arrival.
+        boolean hasArrival = entry != null && (
+            entry.getPunchTime() != null
+                || "PRESENT".equalsIgnoreCase(entry.getStatus())
+                || "LATE".equalsIgnoreCase(entry.getStatus())
+        );
+        boolean hasDeparture = entry != null && entry.getDepartureTime() != null;
+        LocalTime scanTime = scannedAt.atZone(ZONE).toLocalTime();
+        LocalTime lateCutoff = parseTime(settings.getLateCutoff(), DEFAULT_LATE_CUTOFF);
+        LocalTime exitStart = parseTime(settings.getEarliestExitTime(), DEFAULT_EARLIEST_EXIT);
+        int expected = Math.max(1, settings.getExpectedScansPerDay());
+
+        if (!hasArrival) {
+            // First scan of the day is always the arrival, even if it
+            // lands after the exit window (kid arrived very late — we
+            // still want to mark them present, just tagged LATE).
+            AttendanceScan.ScanStatus status = scanTime.isAfter(lateCutoff)
+                ? AttendanceScan.ScanStatus.LATE
+                : AttendanceScan.ScanStatus.PRESENT;
+            return ScanDecision.record(AttendanceScan.Direction.IN, status);
+        }
+        if (expected <= 1) {
+            return ScanDecision.drop(
+                AttendanceScan.ScanOutcome.DROPPED_DUPLICATE,
+                "Arrival already recorded; school configured for 1 scan/day.");
+        }
+        if (hasDeparture) {
+            return ScanDecision.drop(
+                AttendanceScan.ScanOutcome.DROPPED_ALREADY_LEFT,
+                "Both arrival and departure already recorded today.");
+        }
+        if (scanTime.isBefore(exitStart)) {
+            return ScanDecision.drop(
+                AttendanceScan.ScanOutcome.DROPPED_BEFORE_EXIT_WINDOW,
+                "Scan before exit window (" + exitStart + ") — treated as accidental re-scan.");
+        }
+        return ScanDecision.record(
+            AttendanceScan.Direction.OUT, AttendanceScan.ScanStatus.PRESENT);
+    }
+
+    /** Lookup helper — returns the student's day-wise entry for the
+     *  given date, or null if the student has no class/section or the
+     *  row doesn't exist yet. Used by {@link #decide} to answer the
+     *  "already arrived / already departed?" questions. */
+    private StudentsAttendance.StudentEntry findExistingEntry(String studentId, LocalDate day) {
+        Student student = studentRepository
+            .findByStudentIdAndDeletedAtIsNull(studentId).orElse(null);
+        if (student == null || student.getClassId() == null || student.getSectionId() == null) {
+            return null;
+        }
+        return studentsAttendanceRepository
+            .findByClassIdAndSectionIdAndDateAndPeriodNumberAndSubjectIdAndComponentKeyAndSubPartKey(
+                student.getClassId(), student.getSectionId(), day, 0, null, null, null)
+            .map(row -> row.getEntries() == null ? null :
+                row.getEntries().stream()
+                    .filter(e -> studentId.equals(e.getStudentId()))
+                    .findFirst()
+                    .orElse(null))
+            .orElse(null);
+    }
+
+    /** Verdict returned by {@link #decide}. Fields mirror what the
+     *  scan row needs: outcome + a direction/status (RECORD only) +
+     *  a reason (DROP only). Kept as a plain final-fields class rather
+     *  than a record to stay compatible with the project's Java baseline. */
+    private static final class ScanDecision {
+        final AttendanceScan.ScanOutcome outcome;
+        final AttendanceScan.Direction direction;
+        final AttendanceScan.ScanStatus status;
+        final String reason;
+
+        private ScanDecision(AttendanceScan.ScanOutcome outcome,
+                              AttendanceScan.Direction direction,
+                              AttendanceScan.ScanStatus status,
+                              String reason) {
+            this.outcome = outcome;
+            this.direction = direction;
+            this.status = status;
+            this.reason = reason;
+        }
+        static ScanDecision record(AttendanceScan.Direction dir, AttendanceScan.ScanStatus status) {
+            return new ScanDecision(AttendanceScan.ScanOutcome.RECORDED, dir, status, null);
+        }
+        static ScanDecision drop(AttendanceScan.ScanOutcome outcome, String reason) {
+            return new ScanDecision(outcome, null, null, reason);
+        }
+    }
+
+    /** Newest scan for (student, day) inside the dedup window regardless
+     *  of direction — we suppress network retries at the raw-scan level
+     *  before the decide() step runs. Direction is no longer part of the
+     *  lookup because we now derive direction from time, so two consecutive
+     *  device pushes with different byte values but the same timestamp
+     *  should still collapse to one row. */
     private Optional<AttendanceScan> findRecentScan(String studentId, String dateKey,
-                                                     AttendanceScan.Direction direction,
                                                      Instant scannedAt) {
-        List<AttendanceScan> sameDay =
-            scanRepository.findByStudentIdAndScanDateKeyAndDirection(studentId, dateKey, direction);
+        List<AttendanceScan> sameDay = new ArrayList<>();
+        sameDay.addAll(scanRepository.findByStudentIdAndScanDateKeyAndDirection(
+            studentId, dateKey, AttendanceScan.Direction.IN));
+        sameDay.addAll(scanRepository.findByStudentIdAndScanDateKeyAndDirection(
+            studentId, dateKey, AttendanceScan.Direction.OUT));
         return sameDay.stream()
             .filter(s -> s.getScannedAt() != null)
             .filter(s -> Duration.between(s.getScannedAt(), scannedAt).abs().compareTo(DEDUP_WINDOW) <= 0)
             .max(Comparator.comparing(AttendanceScan::getScannedAt));
-    }
-
-    /** Compare scan time against the tenant's cutoff to bucket the scan. */
-    private AttendanceScan.ScanStatus classify(AttendanceScan.Direction direction,
-                                                Instant scannedAt,
-                                                BiometricSettings settings) {
-        LocalTime scanTime = scannedAt.atZone(ZONE).toLocalTime();
-        if (direction == AttendanceScan.Direction.IN) {
-            LocalTime cutoff = parseTime(settings.getLateCutoff(), DEFAULT_LATE_CUTOFF);
-            return scanTime.isAfter(cutoff)
-                ? AttendanceScan.ScanStatus.LATE
-                : AttendanceScan.ScanStatus.PRESENT;
-        }
-        LocalTime earliestExit = parseTime(settings.getEarliestExitTime(), DEFAULT_EARLIEST_EXIT);
-        return scanTime.isBefore(earliestExit)
-            ? AttendanceScan.ScanStatus.EARLY_LEAVE
-            : AttendanceScan.ScanStatus.PRESENT;
     }
 
     private LocalTime parseTime(String hhmm, String fallback) {
@@ -228,17 +347,15 @@ public class AttendanceScanService {
         } else {
             entry.setStatus("PRESENT");
         }
+        // decide() already guaranteed this is the first-of-kind scan
+        // (first arrival for IN, first departure for OUT). No guard
+        // needed here — subsequent scans of the same kind are dropped
+        // before reaching this method.
         if (direction == AttendanceScan.Direction.IN) {
-            // First IN of the day wins — if the child re-enters after
-            // stepping out, we don't rewrite the original arrival time.
-            if (entry.getPunchTime() == null) {
-                entry.setPunchTime(scannedAt);
-            }
-            // Late verdict is snapshotted here; a cutoff edit later today
-            // won't retroactively flip earlier punches.
-            if (status == AttendanceScan.ScanStatus.LATE) {
-                entry.setLate(true);
-            }
+            entry.setPunchTime(scannedAt);
+            entry.setLate(status == AttendanceScan.ScanStatus.LATE);
+        } else if (direction == AttendanceScan.Direction.OUT) {
+            entry.setDepartureTime(scannedAt);
         }
         studentsAttendanceRepository.save(row);
     }
@@ -248,15 +365,16 @@ public class AttendanceScanService {
      *  the first cut). Fails silently — the calling try/catch is the
      *  safety net. */
     private void maybeNotifyParents(AttendanceScan scan, BiometricSettings settings) {
-        boolean shouldNotify = switch (scan.getStatus()) {
-            case EARLY_LEAVE -> settings.isNotifyOnEarlyLeave();
-            default -> scan.getDirection() == AttendanceScan.Direction.IN
-                ? settings.isNotifyOnEntry()
-                : settings.isNotifyOnExit();
-        };
+        // Notify toggles are now purely direction-based since we no
+        // longer classify OUT scans as EARLY_LEAVE (the exit-window
+        // config replaces that). isNotifyOnEarlyLeave stays on the
+        // settings model for backward compat but is unused here.
+        boolean shouldNotify = scan.getDirection() == AttendanceScan.Direction.IN
+            ? settings.isNotifyOnEntry()
+            : settings.isNotifyOnExit();
         if (!shouldNotify) {
-            log.info("Notify skipped: status={} direction={} — tenant toggles say no.",
-                scan.getStatus(), scan.getDirection());
+            log.info("Notify skipped: direction={} — tenant toggles say no.",
+                scan.getDirection());
             return;
         }
 
@@ -294,13 +412,13 @@ public class AttendanceScanService {
         }
 
         String childName = displayName(student);
-        String title = switch (scan.getStatus()) {
-            case LATE -> childName + " arrived late";
-            case EARLY_LEAVE -> childName + " left early";
-            case PRESENT -> scan.getDirection() == AttendanceScan.Direction.IN
-                ? childName + " entered school"
-                : childName + " left school";
-        };
+        // Simple wording — parents get the exact time in the body, so they
+        // can judge "on time / late" themselves without the app second-
+        // guessing them (a re-scan past cutoff previously read "arrived
+        // late" even for a kid who really came at 08:45).
+        String title = scan.getDirection() == AttendanceScan.Direction.IN
+            ? childName + " entered school"
+            : childName + " left school";
         String body = "Recorded at " + scan.getScannedAt().atZone(ZONE).toLocalTime().withNano(0)
             + " on " + scan.getScanDateKey();
 

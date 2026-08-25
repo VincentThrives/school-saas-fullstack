@@ -31,6 +31,9 @@ public class BiometricSettingsService {
         BiometricSettings s = getOrDefault();
         s.setLateCutoff(req.getLateCutoff());
         s.setEarliestExitTime(req.getEarliestExitTime());
+        s.setExpectedScansPerDay(req.getExpectedScansPerDay());
+        s.setAbsentAutoMarkTime(req.getAbsentAutoMarkTime());
+        s.setAbsentAutoMarkEnabled(req.isAbsentAutoMarkEnabled());
         s.setNotifyOnEntry(req.isNotifyOnEntry());
         s.setNotifyOnExit(req.isNotifyOnExit());
         s.setNotifyOnEarlyLeave(req.isNotifyOnEarlyLeave());
@@ -41,6 +44,9 @@ public class BiometricSettingsService {
         BiometricSettingsDto dto = new BiometricSettingsDto();
         dto.setLateCutoff(s.getLateCutoff());
         dto.setEarliestExitTime(s.getEarliestExitTime());
+        dto.setExpectedScansPerDay(s.getExpectedScansPerDay());
+        dto.setAbsentAutoMarkTime(s.getAbsentAutoMarkTime());
+        dto.setAbsentAutoMarkEnabled(s.isAbsentAutoMarkEnabled());
         dto.setNotifyOnEntry(s.isNotifyOnEntry());
         dto.setNotifyOnExit(s.isNotifyOnExit());
         dto.setNotifyOnEarlyLeave(s.isNotifyOnEarlyLeave());

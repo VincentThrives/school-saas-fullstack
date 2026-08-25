@@ -4,7 +4,10 @@
     subtitle="Hardware devices at the school gate that push scans over the network."
     actionLabel="Register Terminal"
     actionIcon="add"
-    (actionClick)="openRegister()">
+    (actionClick)="openRegister()"
+    secondaryActionLabel="Unbound Students"
+    secondaryActionIcon="person_off"
+    (secondaryActionClick)="openUnboundStudents()">
   </app-page-header>
 
   <mat-card class="setup-hint">
@@ -66,7 +69,18 @@
         <div class="tc-lastpunch-label">LAST PUNCH</div>
         <div class="tc-lastpunch-row">
           <span class="tc-lastpunch-name">{{ t.lastScanStudentName || '(unknown)' }}</span>
-          <span class="tc-lastpunch-dir" [class.in]="t.lastScanDirection === 'IN'"
+          <!-- If the last tap was DROPPED (accidental re-scan past
+               daily quota), show a grey DROPPED chip so the admin
+               knows this activity didn't feed attendance. Otherwise
+               show the direction chip in green/red. -->
+          <span class="tc-lastpunch-dir dropped"
+                *ngIf="t.lastScanOutcome && t.lastScanOutcome !== 'RECORDED'"
+                matTooltip="Silent-dropped — didn't update attendance or fire a notification">
+            DROPPED
+          </span>
+          <span class="tc-lastpunch-dir"
+                *ngIf="!t.lastScanOutcome || t.lastScanOutcome === 'RECORDED'"
+                [class.in]="t.lastScanDirection === 'IN'"
                 [class.out]="t.lastScanDirection === 'OUT'">
             {{ t.lastScanDirection || 'IN' }}
           </span>
@@ -84,6 +98,9 @@
           <mat-icon>people</mat-icon>
           Bindings
         </a>
+        <button mat-icon-button matTooltip="Today's punches" (click)="openTodayPunches(t)">
+          <mat-icon>schedule</mat-icon>
+        </button>
         <button mat-icon-button matTooltip="Edit label" (click)="openEdit(t)">
           <mat-icon>edit</mat-icon>
         </button>

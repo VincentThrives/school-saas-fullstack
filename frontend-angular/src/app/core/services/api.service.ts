@@ -401,6 +401,32 @@ export interface EmployeeImportResult {
   skipped: number;
 }
 
+/** One row in the "Today's Punches" per-terminal audit dialog. Both
+ *  RECORDED and DROPPED scans arrive here — the outcome tag + optional
+ *  dropReason explain why any given tap didn't turn into attendance. */
+export interface TodayPunch {
+  scanId: string;
+  scannedAt: string;           // ISO Instant
+  terminalUserId: string;
+  studentId: string;
+  studentName?: string;
+  direction?: 'IN' | 'OUT';
+  outcome: 'RECORDED' | 'DROPPED_DUPLICATE' | 'DROPPED_BEFORE_EXIT_WINDOW' | 'DROPPED_ALREADY_LEFT';
+  dropReason?: string;
+}
+
+/** One row in the "Unbound Students" per-terminal audit dialog —
+ *  a student in this tenant who doesn't yet have a binding on the
+ *  terminal. Feeds the admin's "who haven't we enrolled yet?" list. */
+export interface UnboundStudent {
+  studentId: string;
+  name: string;
+  className?: string;
+  sectionName?: string;
+  rollNumber?: string;
+  admissionNumber?: string;
+}
+
 /** One row on the Exam Config list page. */
 export interface ExamConfigSummary {
   academicYearId: string;
@@ -669,6 +695,33 @@ export class ApiService {
     fd.append('file', file, file.name);
     return this.http.post<ApiResponse<EmployeeImportResult>>(
       `${this.API}/employees/import`, fd);
+  }
+
+  /** Trigger the auto-absent pass for the current tenant right now,
+   *  bypassing the scheduled window + configured cutoff. Response.data
+   *  is the count of students newly flipped to ABSENT. */
+  runAbsentNow(resetLog = true): Observable<ApiResponse<number>> {
+    const params = new HttpParams().set('resetLog', String(resetLog));
+    return this.http.post<ApiResponse<number>>(
+      `${this.API}/biometric/settings/run-absent-now`, {}, { params });
+  }
+
+  /** Fetch today's punches for one terminal — includes RECORDED and
+   *  DROPPED scans so the audit dialog can explain why an accidental
+   *  tap didn't produce attendance. Newest first. */
+  getTodaysPunches(serial: string): Observable<ApiResponse<TodayPunch[]>> {
+    return this.http.get<ApiResponse<TodayPunch[]>>(
+      `${this.API}/biometric/terminals/${encodeURIComponent(serial)}/punches/today`);
+  }
+
+  /** Students in this tenant who don't yet have a binding on ANY
+   *  terminal — the "who haven't we enrolled anywhere?" list. Global
+   *  because a per-terminal view false-positives when different
+   *  terminals cover different classes. Sorted by class → section →
+   *  roll number on the backend so the dialog can render as-is. */
+  getUnboundStudentsGlobal(): Observable<ApiResponse<UnboundStudent[]>> {
+    return this.http.get<ApiResponse<UnboundStudent[]>>(
+      `${this.API}/biometric/terminals/unbound-students`);
   }
 
   getTeachers(page = 0, size = 20): Observable<ApiResponse<PaginatedResponse<Teacher>>> {

@@ -21,10 +21,32 @@ public interface AttendanceScanRepository extends MongoRepository<AttendanceScan
     boolean existsByStudentIdAndScannedAt(String studentId, Instant scannedAt);
 
     /** Newest scan from a given terminal — feeds the "last punch" line on
-     *  the Attendance Terminals admin card. */
+     *  the Attendance Terminals admin card. Includes DROPPED scans; use
+     *  {@link #findFirstByTerminalSerialAndOutcomeOrderByScannedAtDesc}
+     *  when you want only actionable ones. */
     java.util.Optional<AttendanceScan> findFirstByTerminalSerialOrderByScannedAtDesc(String terminalSerial);
+
+    /** Newest RECORDED scan from a terminal — filters out silent drops
+     *  (accidental re-scans past the daily quota) so the admin card's
+     *  "Last punch" matches what actually got processed. */
+    java.util.Optional<AttendanceScan> findFirstByTerminalSerialAndOutcomeOrderByScannedAtDesc(
+        String terminalSerial, AttendanceScan.ScanOutcome outcome);
 
     /** How many scans a terminal has processed on a given day — feeds the
      *  "N scans today" stat on the admin card. */
     long countByTerminalSerialAndScanDateKey(String terminalSerial, String scanDateKey);
+
+    /** How many actionable (non-dropped) scans a terminal has processed
+     *  on a given day — feeds the "N scans today" stat in a way that
+     *  ignores accidental re-scans that got silent-dropped. */
+    long countByTerminalSerialAndScanDateKeyAndOutcome(
+        String terminalSerial, String scanDateKey, AttendanceScan.ScanOutcome outcome);
+
+    /** All scans (RECORDED + DROPPED) for one terminal on one day,
+     *  newest first — feeds the "Today's Punches" audit dialog on the
+     *  Attendance Terminals card. Deliberately unfiltered by outcome
+     *  because the whole point of that view is to help the admin
+     *  understand why a physical tap didn't turn into attendance. */
+    java.util.List<AttendanceScan> findByTerminalSerialAndScanDateKeyOrderByScannedAtDesc(
+        String terminalSerial, String scanDateKey);
 }

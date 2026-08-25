@@ -7,6 +7,8 @@ import com.saas.school.modules.biometricterminal.dto.BindUserRequest;
 import com.saas.school.modules.biometricterminal.dto.RegisterTerminalRequest;
 import com.saas.school.modules.biometricterminal.dto.TerminalBindingResponse;
 import com.saas.school.modules.biometricterminal.dto.TerminalResponse;
+import com.saas.school.modules.biometricterminal.dto.TodayPunchDto;
+import com.saas.school.modules.biometricterminal.dto.UnboundStudentDto;
 import com.saas.school.modules.biometricterminal.dto.UpdateTerminalRequest;
 import com.saas.school.modules.biometricterminal.model.AttendanceScan;
 import com.saas.school.modules.biometricterminal.model.ScannerTerminal;
@@ -85,13 +87,25 @@ public class TerminalRegistrationService {
         String serial = t.getTerminalSerial();
         long bindings = bindingRepository.countByTerminalSerial(serial);
         TerminalResponse dto = toResponse(t, bindings);
-        dto.setTodaysScanCount(scanRepository.countByTerminalSerialAndScanDateKey(serial, todayKey));
-        scanRepository.findFirstByTerminalSerialOrderByScannedAtDesc(serial).ifPresent(scan -> {
-            dto.setLastScanAt(scan.getScannedAt());
-            dto.setLastScanDirection(scan.getDirection() == null ? null : scan.getDirection().name());
-            studentRepository.findByStudentIdAndDeletedAtIsNull(scan.getStudentId())
-                .ifPresent(s -> dto.setLastScanStudentName(displayName(s)));
-        });
+        // "N today" stays as RECORDED-only — that's the attendance-worthy
+        // number, not raw device chatter.
+        dto.setTodaysScanCount(scanRepository.countByTerminalSerialAndScanDateKeyAndOutcome(
+            serial, todayKey, com.saas.school.modules.biometricterminal.model.AttendanceScan.ScanOutcome.RECORDED));
+        // "Last punch" shows the most recent tap regardless of outcome —
+        // otherwise a stream of dropped taps 30s ago and a real RECORDED
+        // punch 2h ago made the "2m ago" heartbeat and the LAST PUNCH
+        // time visibly disagree. The outcome is exposed so the card
+        // can tag dropped taps with a "DROPPED" chip.
+        scanRepository.findFirstByTerminalSerialOrderByScannedAtDesc(serial)
+            .ifPresent(scan -> {
+                dto.setLastScanAt(scan.getScannedAt());
+                dto.setLastScanDirection(scan.getDirection() == null ? null : scan.getDirection().name());
+                dto.setLastScanOutcome(scan.getOutcome() == null
+                    ? com.saas.school.modules.biometricterminal.model.AttendanceScan.ScanOutcome.RECORDED.name()
+                    : scan.getOutcome().name());
+                studentRepository.findByStudentIdAndDeletedAtIsNull(scan.getStudentId())
+                    .ifPresent(s -> dto.setLastScanStudentName(displayName(s)));
+            });
         return dto;
     }
 
@@ -130,16 +144,33 @@ public class TerminalRegistrationService {
         Student student = studentRepository.findByStudentIdAndDeletedAtIsNull(req.getStudentId())
             .orElseThrow(() -> new ResourceNotFoundException("Student", req.getStudentId()));
 
-        TerminalUserBinding binding = bindingRepository
-            .findByTerminalSerialAndTerminalUserId(serial, req.getTerminalUserId())
-            .orElseGet(() -> {
-                TerminalUserBinding fresh = new TerminalUserBinding();
-                fresh.setId(UUID.randomUUID().toString());
-                fresh.setTenantId(TenantContext.getTenantId());
-                fresh.setTerminalSerial(serial);
-                fresh.setTerminalUserId(req.getTerminalUserId());
-                return fresh;
-            });
+        // Guard against silently overwriting an existing binding on the
+        // same terminal user id. Earlier behavior did `orElseGet + set`
+        // which meant re-binding "6" to a different student wiped the
+        // previous one without warning — admin didn't know they'd just
+        // detached the old kid from the device.
+        Optional<TerminalUserBinding> existing = bindingRepository
+            .findByTerminalSerialAndTerminalUserId(serial, req.getTerminalUserId());
+        if (existing.isPresent()
+                && !existing.get().getStudentId().equals(student.getStudentId())) {
+            Student conflictStudent = studentRepository
+                .findByStudentIdAndDeletedAtIsNull(existing.get().getStudentId())
+                .orElse(null);
+            String conflictName = conflictStudent == null
+                ? "another student" : displayName(conflictStudent);
+            throw new BusinessException("Terminal user id '" + req.getTerminalUserId()
+                + "' is already bound to " + conflictName
+                + ". Remove that binding first, or bind this student to a different user id.");
+        }
+
+        TerminalUserBinding binding = existing.orElseGet(() -> {
+            TerminalUserBinding fresh = new TerminalUserBinding();
+            fresh.setId(UUID.randomUUID().toString());
+            fresh.setTenantId(TenantContext.getTenantId());
+            fresh.setTerminalSerial(serial);
+            fresh.setTerminalUserId(req.getTerminalUserId());
+            return fresh;
+        });
         binding.setStudentId(student.getStudentId());
         binding.setBoundBy(adminUserId);
         binding.setBoundAt(Instant.now());
@@ -231,6 +262,133 @@ public class TerminalRegistrationService {
      *  controller against a different code path). */
     public Optional<TerminalUserBinding> resolveBinding(String serial, String terminalUserId) {
         return bindingRepository.findByTerminalSerialAndTerminalUserId(serial, terminalUserId);
+    }
+
+    /**
+     * Today's punches for one terminal — includes both RECORDED and
+     * DROPPED scans, newest first. Enriched with student names in one
+     * batch fetch so the audit table doesn't do N + 1 lookups.
+     */
+    public List<TodayPunchDto> getTodaysPunches(String serial) {
+        // Verify the terminal exists so the endpoint 404s cleanly for
+        // typo'd serials instead of returning an empty list silently.
+        requireTerminal(serial);
+        String todayKey = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")).toString();
+        List<AttendanceScan> scans = scanRepository
+            .findByTerminalSerialAndScanDateKeyOrderByScannedAtDesc(serial, todayKey);
+        if (scans.isEmpty()) return List.of();
+
+        // Batch student lookup — one query for all distinct studentIds
+        // in the scan list, then dictionary-lookup while building rows.
+        List<String> studentIds = scans.stream()
+            .map(AttendanceScan::getStudentId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        Map<String, Student> studentIndex = studentRepository
+            .findAllById(studentIds).stream()
+            .filter(s -> s.getDeletedAt() == null)
+            .collect(Collectors.toMap(Student::getStudentId, s -> s));
+
+        return scans.stream().map(scan -> {
+            TodayPunchDto dto = new TodayPunchDto();
+            dto.setScanId(scan.getScanId());
+            dto.setScannedAt(scan.getScannedAt());
+            dto.setTerminalUserId(scan.getTerminalUserId());
+            dto.setStudentId(scan.getStudentId());
+            Student student = scan.getStudentId() == null ? null : studentIndex.get(scan.getStudentId());
+            if (student != null) dto.setStudentName(displayName(student));
+            dto.setDirection(scan.getDirection() == null ? null : scan.getDirection().name());
+            dto.setOutcome(scan.getOutcome() == null
+                ? AttendanceScan.ScanOutcome.RECORDED.name()
+                : scan.getOutcome().name());
+            dto.setDropReason(scan.getDropReason());
+            return dto;
+        }).toList();
+    }
+
+    /**
+     * Students in this tenant who don't have a binding on ANY terminal.
+     * Global view — used by the page-header "Unbound Students" button
+     * so admins can see who's truly missing across the whole school.
+     * (A per-terminal view would false-positive when different terminals
+     * cover different classes — kid bound to terminal A shows as
+     * "unbound" on terminal B, which isn't the admin's question.)
+     */
+    public List<UnboundStudentDto> getUnboundStudentsGlobal() {
+        java.util.Set<String> boundStudentIds = bindingRepository.findAll().stream()
+            .map(TerminalUserBinding::getStudentId)
+            .collect(Collectors.toSet());
+        return buildUnboundList(boundStudentIds);
+    }
+
+    /**
+     * Students in this tenant who don't have a binding on the given
+     * terminal — kept for potential future per-terminal audit views.
+     * Currently unused by the frontend (see {@link #getUnboundStudentsGlobal}).
+     */
+    public List<UnboundStudentDto> getUnboundStudents(String serial) {
+        requireTerminal(serial);
+        java.util.Set<String> boundStudentIds = bindingRepository.findByTerminalSerial(serial).stream()
+            .map(TerminalUserBinding::getStudentId)
+            .collect(Collectors.toSet());
+        return buildUnboundList(boundStudentIds);
+    }
+
+    /** Shared body — takes the "already bound" studentId set (however it
+     *  was computed) and returns the sorted UnboundStudentDto list. */
+    private List<UnboundStudentDto> buildUnboundList(java.util.Set<String> boundStudentIds) {
+        List<Student> allStudents = studentRepository.findByDeletedAtIsNull();
+        List<Student> unbound = allStudents.stream()
+            .filter(s -> !boundStudentIds.contains(s.getStudentId()))
+            .toList();
+        if (unbound.isEmpty()) return List.of();
+
+        // Batch-load classes so the dto can carry class + section names
+        // instead of raw ids — mirrors what listBindings does.
+        List<String> classIds = unbound.stream()
+            .map(Student::getClassId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        Map<String, SchoolClass> classById = schoolClassRepository.findAllById(classIds).stream()
+            .collect(Collectors.toMap(SchoolClass::getClassId, c -> c, (a, b) -> a));
+
+        return unbound.stream()
+            .map(s -> {
+                UnboundStudentDto dto = new UnboundStudentDto();
+                dto.setStudentId(s.getStudentId());
+                dto.setName(displayName(s));
+                dto.setRollNumber(s.getRollNumber());
+                dto.setAdmissionNumber(s.getAdmissionNumber());
+                SchoolClass cls = s.getClassId() == null ? null : classById.get(s.getClassId());
+                if (cls != null) {
+                    dto.setClassName(cls.getName());
+                    if (cls.getSections() != null && s.getSectionId() != null) {
+                        cls.getSections().stream()
+                            .filter(sec -> s.getSectionId().equals(sec.getSectionId()))
+                            .findFirst()
+                            .ifPresent(sec -> dto.setSectionName(sec.getName()));
+                    }
+                }
+                return dto;
+            })
+            // Sort so the dialog reads naturally: 1st-A rolls in order,
+            // then 1st-B, etc. Nulls sink to the bottom.
+            .sorted(java.util.Comparator
+                .comparing(UnboundStudentDto::getClassName,
+                    java.util.Comparator.nullsLast(String::compareTo))
+                .thenComparing(UnboundStudentDto::getSectionName,
+                    java.util.Comparator.nullsLast(String::compareTo))
+                .thenComparing(UnboundStudentDto::getRollNumber,
+                    java.util.Comparator.nullsLast((a, b) ->
+                        a.compareTo(b) == 0 ? 0 :
+                        a.matches("\\d+") && b.matches("\\d+")
+                            ? Integer.compare(Integer.parseInt(a), Integer.parseInt(b))
+                            : a.compareTo(b)))
+                .thenComparing(UnboundStudentDto::getName,
+                    java.util.Comparator.nullsLast(String::compareTo)))
+            .toList();
     }
 
     // ── Helpers ──────────────────────────────────────────────────
