@@ -6,6 +6,7 @@ import com.saas.school.modules.academicyear.model.AcademicYear;
 import com.saas.school.modules.academicyear.repository.AcademicYearRepository;
 import com.saas.school.modules.classes.model.SchoolClass;
 import com.saas.school.modules.classes.repository.SchoolClassRepository;
+import com.saas.school.modules.fee.dto.AdjustFeeRequest;
 import com.saas.school.modules.fee.dto.AppendPaymentRequest;
 import com.saas.school.modules.fee.dto.UpdatePaymentRequest;
 import com.saas.school.modules.fee.dto.VoidPaymentRequest;
@@ -168,6 +169,41 @@ public class StudentFeeLedgerService {
         auditService.log("FEE_LEDGER_DELETE", "StudentFeeLedger", ledgerId, "Deleted ledger");
     }
 
+    /**
+     * Set the per-student surcharge + concession (with reasons) and
+     * recompute totalDue + balance + status. Records an ADJUST entry in
+     * corrections[] so the audit trail shows who edited what + why.
+     * Zero on both fields is valid — used to clear a previous adjustment.
+     */
+    public StudentFeeLedger adjust(String ledgerId, AdjustFeeRequest req, String userId) {
+        return retryOnConflict(() -> {
+            StudentFeeLedger ledger = getById(ledgerId);
+            double newSurcharge = Math.max(0, req.getSurcharge());
+            double newConcession = Math.max(0, req.getConcession());
+            // Track the delta for the audit note. Cheap for the admin
+            // reading the history later — "changed from ₹0 → ₹2000
+            // (Late admission)".
+            double oldSurcharge = ledger.getSurcharge();
+            double oldConcession = ledger.getConcession();
+
+            ledger.setSurcharge(newSurcharge);
+            ledger.setSurchargeReason(newSurcharge > 0 ? req.getSurchargeReason() : null);
+            ledger.setConcession(newConcession);
+            ledger.setConcessionReason(newConcession > 0 ? req.getConcessionReason() : null);
+            String auditReason = String.format(
+                "Surcharge %.2f → %.2f (%s); Concession %.2f → %.2f (%s)",
+                oldSurcharge, newSurcharge,
+                newSurcharge > 0 ? req.getSurchargeReason() : "cleared",
+                oldConcession, newConcession,
+                newConcession > 0 ? req.getConcessionReason() : "cleared");
+            ledger.getCorrections().add(audit(null, "ADJUST", auditReason, userId));
+            recompute(ledger);
+            StudentFeeLedger saved = ledgerRepo.save(ledger);
+            auditService.log("FEE_LEDGER_ADJUST", "StudentFeeLedger", saved.getLedgerId(), auditReason);
+            return saved;
+        });
+    }
+
     // ── Internals ────────────────────────────────────────────────────
 
     /** Seeds a fresh ledger with class / section / AY / fee structure snapshots. */
@@ -271,13 +307,18 @@ public class StudentFeeLedgerService {
                         "Active payment not found: " + paymentId + " on ledger " + ledger.getLedgerId()));
     }
 
-    /** Recomputes totalPaid / balance / status from the payments array. */
+    /** Recomputes totalPaid / balance / status from the payments array.
+     *  Formula: totalDue = totalFee + surcharge − concession. Surcharge
+     *  covers mid-year admission / late-payment penalty / custom extras;
+     *  concession covers scholarship / sibling / hardship waivers. Both
+     *  default to 0 so pre-adjustment ledgers deserialize cleanly and
+     *  give the same totalDue as before this field was added. */
     public void recompute(StudentFeeLedger ledger) {
         double totalPaid = 0;
         for (Payment p : ledger.getPayments()) {
             if (!p.isVoided()) totalPaid += p.getAmount();
         }
-        double totalDue = ledger.getTotalFee() - ledger.getConcession();
+        double totalDue = ledger.getTotalFee() + ledger.getSurcharge() - ledger.getConcession();
         ledger.setTotalDue(totalDue);
         ledger.setTotalPaid(totalPaid);
         ledger.setBalance(totalDue - totalPaid);

@@ -1,0 +1,95 @@
+<div class="af-dialog">
+  <div class="af-header">
+    <mat-icon>tune</mat-icon>
+    <div>
+      <h2 mat-dialog-title>Adjust Fee</h2>
+      <div class="af-sub">
+        <span class="af-name">{{ data.ledger.studentName || 'Student' }}</span>
+        <span class="af-scope">
+          {{ data.ledger.className || '?' }}
+          <span *ngIf="data.ledger.sectionName">· {{ data.ledger.sectionName }}</span>
+          · {{ data.ledger.academicYearLabel || data.ledger.academicYearId }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Compact one-line total pill — sits between the header and the
+       inputs so the running total is always visible. -->
+  <div class="af-top-pill">
+    <span class="af-top-pill-label">New total payable</span>
+    <span class="af-top-pill-val">₹ {{ previewTotalPayable | number:'1.0-0' }}</span>
+    <span class="af-top-pill-base">of ₹ {{ data.ledger.totalFee | number:'1.0-0' }}</span>
+  </div>
+
+  <div mat-dialog-content class="af-content">
+
+
+    <div class="af-section">
+      <div class="af-section-title">
+        <mat-icon class="af-section-icon af-section-icon--plus">add_circle</mat-icon>
+        Surcharge (add extra)
+      </div>
+      <div class="af-fields">
+        <mat-form-field appearance="outline" class="af-amount-field">
+          <mat-label>Amount (₹)</mat-label>
+          <input matInput type="number" min="0" step="1"
+                 [(ngModel)]="form.surcharge"
+                 placeholder="0">
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="af-reason-field"
+                        *ngIf="form.surcharge && form.surcharge > 0">
+          <mat-label>Reason</mat-label>
+          <mat-select [(ngModel)]="form.surchargeReason">
+            <mat-option *ngFor="let r of surchargeReasons" [value]="r">{{ r }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </div>
+
+    <div class="af-section">
+      <div class="af-section-title">
+        <mat-icon class="af-section-icon af-section-icon--minus">remove_circle</mat-icon>
+        Concession (discount / waiver)
+      </div>
+      <div class="af-fields">
+        <mat-form-field appearance="outline" class="af-amount-field">
+          <mat-label>Amount (₹)</mat-label>
+          <input matInput type="number" min="0" step="1"
+                 [(ngModel)]="form.concession"
+                 placeholder="0">
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="af-reason-field"
+                        *ngIf="form.concession && form.concession > 0">
+          <mat-label>Reason</mat-label>
+          <mat-select [(ngModel)]="form.concessionReason">
+            <mat-option *ngFor="let r of concessionReasons" [value]="r">{{ r }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </div>
+
+    <!-- Small itemised breakdown — only shows the deltas so admin can
+         double-check what changed. Total lives in the top pill. -->
+    <div class="af-mini-breakdown"
+         *ngIf="((form.surcharge || 0) > 0) || ((form.concession || 0) > 0)">
+      <span class="af-mini-line af-mini-line--plus" *ngIf="(form.surcharge || 0) > 0">
+        + ₹ {{ form.surcharge | number:'1.0-0' }} surcharge
+      </span>
+      <span class="af-mini-line af-mini-line--minus" *ngIf="(form.concession || 0) > 0">
+        − ₹ {{ form.concession | number:'1.0-0' }} concession
+      </span>
+    </div>
+
+  </div>
+
+  <div mat-dialog-actions align="end">
+    <button mat-button (click)="cancel()" [disabled]="isSaving">Cancel</button>
+    <button mat-flat-button color="primary" (click)="save()"
+            [disabled]="!canSave || isSaving">
+      <mat-spinner *ngIf="isSaving" diameter="18"></mat-spinner>
+      <mat-icon *ngIf="!isSaving">save</mat-icon>
+      {{ isSaving ? 'Saving…' : 'Save' }}
+    </button>
+  </div>
+</div>

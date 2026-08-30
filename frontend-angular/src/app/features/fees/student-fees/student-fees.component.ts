@@ -13,8 +13,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
+import { AdjustFeeDialogComponent } from '../adjust-fee/adjust-fee-dialog.component';
 import {
   SchoolClass,
   AcademicYear,
@@ -32,7 +34,7 @@ import {
   imports: [
     CommonModule, FormsModule, MatCardModule, MatTableModule, MatFormFieldModule,
     MatSelectModule, MatInputModule, MatButtonModule, MatIconModule, MatChipsModule,
-    MatProgressSpinnerModule, MatProgressBarModule, MatTooltipModule, MatSnackBarModule, PageHeaderComponent,
+    MatProgressSpinnerModule, MatProgressBarModule, MatTooltipModule, MatSnackBarModule, MatDialogModule, PageHeaderComponent,
   ],
   templateUrl: './student-fees.component.html',
   styleUrl: './student-fees.component.scss',
@@ -101,7 +103,7 @@ export class StudentFeesComponent implements OnInit {
 
   paymentModes: LedgerPaymentMode[] = ['CASH', 'ONLINE', 'UPI', 'CHEQUE', 'DD', 'CARD', 'OTHER'];
 
-  constructor(private api: ApiService, private snackBar: MatSnackBar) {}
+  constructor(private api: ApiService, private snackBar: MatSnackBar, private dialog: MatDialog) {}
 
   ngOnInit(): void {
     this.api.getAcademicYears().subscribe((res) => {
@@ -315,6 +317,70 @@ export class StudentFeesComponent implements OnInit {
           err?.error?.message || 'Failed to send reminder.',
           'Close', { duration: 3500 });
       },
+    });
+  }
+
+  /**
+   * Opens the "Adjust Fee" dialog for a student — sets a per-student
+   * surcharge (extra on top of class default) and/or a concession
+   * (discount). Requires the roster's ledger snapshot to be loaded so
+   * we know the current totalFee / adjustments. If the ledger hasn't
+   * been created yet (student never had a payment attempt), we hit
+   * getFeeLedgerForStudent first — the backend materialises one on read.
+   *
+   * Row click is stop-propagated so this doesn't also open the ledger
+   * detail view underneath the dialog.
+   */
+  openAdjustFee(student: Student, event?: Event): void {
+    if (event) event.stopPropagation();
+    if (!student?.studentId || !this.selectedAcademicYearId) return;
+
+    const cached = this.rosterLedgersByStudentId[student.studentId];
+    if (cached) {
+      this.launchAdjustDialog(cached);
+      return;
+    }
+    // Materialise on demand — same call the "open ledger" flow uses.
+    this.api.getFeeLedgerForStudent(student.studentId, this.selectedAcademicYearId).subscribe({
+      next: (res) => {
+        if (!res?.data) {
+          this.snackBar.open('No fee ledger found for this student.', 'Close', { duration: 3000 });
+          return;
+        }
+        this.rosterLedgersByStudentId = {
+          ...this.rosterLedgersByStudentId,
+          [student.studentId]: res.data,
+        };
+        this.launchAdjustDialog(res.data);
+      },
+      error: (e) => this.snackBar.open(e?.error?.message || 'Failed to load ledger', 'Close', { duration: 3000 }),
+    });
+  }
+
+  /** Shared launcher — used by roster-row button and by the ledger
+   *  view's own "Adjust" button. On save, refresh both the ledger
+   *  detail (if we're viewing it) and the roster balance map. */
+  private launchAdjustDialog(ledger: StudentFeeLedger): void {
+    const ref = this.dialog.open(AdjustFeeDialogComponent, {
+      data: { ledger },
+      width: '520px',
+      autoFocus: false,
+      restoreFocus: true,
+      disableClose: false,
+    });
+    ref.afterClosed().subscribe((updated: StudentFeeLedger | null) => {
+      if (!updated) return;
+      // Sync the roster map — balance/status chip refreshes instantly.
+      if (updated.studentId) {
+        this.rosterLedgersByStudentId = {
+          ...this.rosterLedgersByStudentId,
+          [updated.studentId]: updated,
+        };
+      }
+      // Sync the open ledger view if it's the same one.
+      if (this.ledger && this.ledger.ledgerId === updated.ledgerId) {
+        this.ledger = updated;
+      }
     });
   }
 

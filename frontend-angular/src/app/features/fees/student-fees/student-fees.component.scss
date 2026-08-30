@@ -224,6 +224,59 @@ code { background: #f5f5f5; padding: 2px 8px; border-radius: 4px; font-size: 13p
   }
 }
 
+/* Adjust-fee button — muted "tune" pill in the roster row + header. */
+.adjust-fee-btn {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eef2f7 0%, #dde3ec 100%);
+  color: #475569 !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+
+  mat-icon { color: #475569; font-size: 20px; width: 20px; height: 20px; }
+
+  &:hover {
+    transform: translateY(-1px) scale(1.05);
+    background: linear-gradient(135deg, #fde68a 0%, #f0c96a 100%);
+    box-shadow: 0 4px 10px rgba(199, 150, 47, 0.30);
+    mat-icon { color: #7a5a14; }
+  }
+  &:active { transform: scale(0.96); }
+}
+
+/* Ledger header — align the two right-side buttons. */
+.table-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Adjustment banner — surcharge + concession chips shown above payments
+   table so admin can see at a glance why the totalDue differs. */
+.adjustment-strip {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 20px 14px;
+}
+
+.adj-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  em { font-weight: 500; opacity: 0.85; font-style: normal; }
+
+  &--plus  { background: rgba(180, 83, 9, 0.10); color: #b45309; border-color: rgba(180, 83, 9, 0.25); }
+  &--minus { background: rgba(21, 128, 61, 0.10); color: #15803d; border-color: rgba(21, 128, 61, 0.25); }
+}
+
 /* Right-align the column cleanly */
 .students-roster .actions-col {
   text-align: right;

@@ -494,7 +494,14 @@ export interface StudentFeeLedger {
   academicYearLabel?: string;
   feeStructureId?: string;
   totalFee: number;
+  /** Extra charge on top of the class default — mid-year admission,
+   *  late-payment penalty, etc. Zero by default. */
+  surcharge?: number;
+  /** Frozen dropdown label from the Adjust Fee dialog. */
+  surchargeReason?: string;
   concession: number;
+  /** Frozen dropdown label from the Adjust Fee dialog. */
+  concessionReason?: string;
   totalDue: number;
   totalPaid: number;
   balance: number;
@@ -506,6 +513,39 @@ export interface StudentFeeLedger {
   createdAt?: string;
   updatedAt?: string;
 }
+
+/** Payload for the per-student "Adjust Fee" dialog. Both fields default
+ *  to 0; the corresponding reason is a frozen label from a fixed
+ *  dropdown (see ADJUST_FEE_REASONS below) and is only meaningful when
+ *  the numeric value is > 0. */
+export interface AdjustFeeRequest {
+  surcharge: number;
+  surchargeReason?: string;
+  concession: number;
+  concessionReason?: string;
+}
+
+/** Dropdown options for the Adjust Fee dialog — surfaced as-is so admin
+ *  picks from a fixed list (audit-friendly). "Other" always at the
+ *  bottom for the freeform escape hatch. */
+export const SURCHARGE_REASONS: readonly string[] = [
+  'Late admission',
+  'Mid-year joining',
+  'Late payment penalty',
+  'Special program',
+  'Uniform / books extra',
+  'Other',
+];
+
+export const CONCESSION_REASONS: readonly string[] = [
+  'Scholarship',
+  'Sibling discount',
+  'Staff ward',
+  'Financial hardship',
+  'Merit',
+  'Sports',
+  'Other',
+];
 
 export interface AppendPaymentRequest {
   amount: number;

@@ -47,8 +47,27 @@ public class StudentFeeLedger {
 
     // Totals (stored, NOT computed on read)
     private double totalFee;          // snapshot of the fee structure amount
-    private double concession;        // any waiver
-    private double totalDue;          // totalFee - concession
+    /**
+     * Extra charge added on top of the class default — mid-year admission,
+     * late-payment penalty, custom uniform, etc. Zero for most students.
+     * totalDue = totalFee + surcharge - concession.
+     */
+    private double surcharge;
+    /**
+     * Human-readable label for {@link #surcharge}, sourced from the fixed
+     * dropdown on the "Adjust Fee" dialog (Late admission / Mid-year joining
+     * / Late payment penalty / ...). Frozen at edit time so a dropdown
+     * rename later doesn't break historic rows.
+     */
+    private String surchargeReason;
+    private double concession;        // any waiver — negative delta on the total
+    /**
+     * Human-readable label for {@link #concession}, sourced from the fixed
+     * dropdown (Scholarship / Sibling / Staff ward / Financial hardship /
+     * Merit / Sports / Other).
+     */
+    private String concessionReason;
+    private double totalDue;          // totalFee + surcharge - concession
     private double totalPaid;         // sum(payments[!voided].amount)
     private double balance;           // totalDue - totalPaid
     private Status status = Status.UNPAID;
@@ -113,8 +132,17 @@ public class StudentFeeLedger {
     public double getTotalFee() { return totalFee; }
     public void setTotalFee(double totalFee) { this.totalFee = totalFee; }
 
+    public double getSurcharge() { return surcharge; }
+    public void setSurcharge(double surcharge) { this.surcharge = surcharge; }
+
+    public String getSurchargeReason() { return surchargeReason; }
+    public void setSurchargeReason(String surchargeReason) { this.surchargeReason = surchargeReason; }
+
     public double getConcession() { return concession; }
     public void setConcession(double concession) { this.concession = concession; }
+
+    public String getConcessionReason() { return concessionReason; }
+    public void setConcessionReason(String concessionReason) { this.concessionReason = concessionReason; }
 
     public double getTotalDue() { return totalDue; }
     public void setTotalDue(double totalDue) { this.totalDue = totalDue; }

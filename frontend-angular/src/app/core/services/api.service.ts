@@ -35,6 +35,7 @@ import {
   MyClassStudentsResponse,
   StudentProfileSummary,
   StudentFeeLedger,
+  AdjustFeeRequest,
   AppendPaymentRequest,
   UpdateLedgerPaymentRequest,
   VoidPaymentRequest,
@@ -1761,6 +1762,15 @@ export class ApiService {
 
   deleteFeeLedger(ledgerId: string): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.API}/fee-ledgers/${ledgerId}`);
+  }
+
+  /** Set surcharge + concession on one student's ledger (with fixed
+   *  dropdown reasons). Backend recomputes totalDue + balance + status
+   *  and appends an ADJUST correction so the audit trail records the
+   *  edit. */
+  adjustFeeLedger(ledgerId: string, req: AdjustFeeRequest): Observable<ApiResponse<StudentFeeLedger>> {
+    return this.http.put<ApiResponse<StudentFeeLedger>>(
+      `${this.API}/fee-ledgers/${ledgerId}/adjust`, req);
   }
 
   migrateLegacyFeePayments(): Observable<ApiResponse<{ legacyCount: number; migratedLedgers: number; migratedPayments: number; skipped: number }>> {

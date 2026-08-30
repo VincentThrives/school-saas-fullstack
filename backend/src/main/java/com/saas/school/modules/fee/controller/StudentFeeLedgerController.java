@@ -1,9 +1,11 @@
 package com.saas.school.modules.fee.controller;
 
 import com.saas.school.common.response.ApiResponse;
+import com.saas.school.modules.fee.dto.AdjustFeeRequest;
 import com.saas.school.modules.fee.dto.AppendPaymentRequest;
 import com.saas.school.modules.fee.dto.UpdatePaymentRequest;
 import com.saas.school.modules.fee.dto.VoidPaymentRequest;
+import jakarta.validation.Valid;
 import com.saas.school.modules.fee.model.StudentFeeLedger;
 import com.saas.school.modules.fee.service.FeePaymentMigrationService;
 import com.saas.school.modules.fee.service.StudentFeeLedgerService;
@@ -96,6 +98,23 @@ public class StudentFeeLedgerController {
     public ResponseEntity<ApiResponse<Void>> deleteLedger(@PathVariable String ledgerId) {
         service.deleteLedger(ledgerId);
         return ResponseEntity.ok(ApiResponse.success(null, "Ledger deleted"));
+    }
+
+    /**
+     * Adjust a single student's fee — set surcharge (extra) + concession
+     * (discount) with dropdown-sourced reasons. Recomputes totalDue and
+     * logs an ADJUST correction on the ledger so the audit trail records
+     * who changed what and why.
+     */
+    @PutMapping("/{ledgerId}/adjust")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<StudentFeeLedger>> adjust(
+            @PathVariable String ledgerId,
+            @Valid @RequestBody AdjustFeeRequest req,
+            @AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                service.adjust(ledgerId, req, userId),
+                "Fee adjusted"));
     }
 
     /** One-shot (idempotent) migration from the legacy fee_payments collection. */

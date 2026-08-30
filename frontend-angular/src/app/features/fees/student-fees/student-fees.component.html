@@ -135,6 +135,21 @@
         </td>
       </ng-container>
 
+      <!-- Adjust Fee — sets per-student surcharge (extra) / concession
+           (discount) with a dropdown-picked reason. Stop-propagates so
+           the row's open-ledger handler doesn't also fire. -->
+      <ng-container matColumnDef="adjust">
+        <th mat-header-cell *matHeaderCellDef class="actions-col">Adjust</th>
+        <td mat-cell *matCellDef="let s" class="actions-col">
+          <button mat-icon-button class="adjust-fee-btn"
+                  matTooltip="Adjust fee (surcharge / concession)"
+                  aria-label="Adjust fee"
+                  (click)="openAdjustFee(s, $event)">
+            <mat-icon>tune</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
       <ng-container matColumnDef="open">
         <th mat-header-cell *matHeaderCellDef class="actions-col">View</th>
         <td mat-cell *matCellDef="let s" class="actions-col">
@@ -144,14 +159,14 @@
         </td>
       </ng-container>
 
-      <tr mat-header-row *matHeaderRowDef="['rollNumber','name','admission','balance','status','notify','open']"></tr>
+      <tr mat-header-row *matHeaderRowDef="['rollNumber','name','admission','balance','status','notify','adjust','open']"></tr>
       <tr mat-row
-          *matRowDef="let row; columns: ['rollNumber','name','admission','balance','status','notify','open'];"
+          *matRowDef="let row; columns: ['rollNumber','name','admission','balance','status','notify','adjust','open'];"
           class="roster-row"
           (click)="selectStudentRow(row)"></tr>
 
       <tr class="mat-row" *matNoDataRow>
-        <td class="mat-cell no-data-cell" [attr.colspan]="6">
+        <td class="mat-cell no-data-cell" [attr.colspan]="8">
           <ng-container *ngIf="studentSearch">
             No students matching "<strong>{{ studentSearch }}</strong>"
           </ng-container>
@@ -224,9 +239,34 @@
   <mat-card class="table-card" *ngIf="ledger && !isLoading">
     <div class="table-header">
       <h3>Payment History</h3>
-      <button mat-raised-button color="primary" (click)="openPaymentForm()">
-        <mat-icon>add</mat-icon> Record Payment
-      </button>
+      <div class="table-header-actions">
+        <button mat-stroked-button
+                *ngIf="selectedStudent"
+                (click)="openAdjustFee(selectedStudent)"
+                matTooltip="Set surcharge or concession for this student">
+          <mat-icon>tune</mat-icon> Adjust Fee
+        </button>
+        <button mat-raised-button color="primary" (click)="openPaymentForm()">
+          <mat-icon>add</mat-icon> Record Payment
+        </button>
+      </div>
+    </div>
+
+    <!-- Adjustment banner — shows when a surcharge or concession is set
+         so admins can see at a glance why the totalDue differs from the
+         class fee structure. -->
+    <div class="adjustment-strip"
+         *ngIf="ledger && ((ledger.surcharge || 0) > 0 || (ledger.concession || 0) > 0)">
+      <span class="adj-chip adj-chip--plus" *ngIf="(ledger.surcharge || 0) > 0">
+        <mat-icon>add_circle</mat-icon>
+        Surcharge Rs. {{ ledger.surcharge | number:'1.0-0' }}
+        <em *ngIf="ledger.surchargeReason"> · {{ ledger.surchargeReason }}</em>
+      </span>
+      <span class="adj-chip adj-chip--minus" *ngIf="(ledger.concession || 0) > 0">
+        <mat-icon>remove_circle</mat-icon>
+        Concession Rs. {{ ledger.concession | number:'1.0-0' }}
+        <em *ngIf="ledger.concessionReason"> · {{ ledger.concessionReason }}</em>
+      </span>
     </div>
 
     <table mat-table [dataSource]="visiblePayments" class="payments-table">
