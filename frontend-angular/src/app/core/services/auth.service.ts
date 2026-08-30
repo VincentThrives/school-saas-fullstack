@@ -268,11 +268,18 @@ export class AuthService {
   }
 
   private setCredentials(auth: AuthResponse): void {
+    // ORDER MATTERS. Subscribers of currentUser$ (e.g. SidebarComponent)
+    // read authService.currentRole synchronously inside their callback.
+    // If we emit currentUser$ BEFORE updating role$, that sync read
+    // returns the STALE previous role — the sidebar rebuilds with the
+    // wrong menu (bug: role-switch chip shows HR but sidebar still
+    // shows the admin items, and vice-versa on switching back).
+    // Update role$ first so the observer sees a coherent snapshot.
     this.accessToken$.next(auth.accessToken);
     this.refreshToken$.next(auth.refreshToken);
-    this.currentUser$.next(auth.user);
     this.role$.next(auth.role);
     this.featureFlags$.next(auth.featureFlags);
+    this.currentUser$.next(auth.user);
     localStorage.setItem('accessToken', auth.accessToken);
     localStorage.setItem('refreshToken', auth.refreshToken);
     localStorage.setItem('user', JSON.stringify(auth.user));

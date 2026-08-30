@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -13,11 +13,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { scrollToFirstInvalid } from '../../../shared/utils/form-scroll';
 import { ApiService } from '../../../core/services/api.service';
-import { SchoolClass, EmployeeRole } from '../../../core/models';
+import { SchoolClass, EmployeeRole, UserRole } from '../../../core/models';
 
 @Component({
   selector: 'app-teacher-form',
@@ -25,6 +26,7 @@ import { SchoolClass, EmployeeRole } from '../../../core/models';
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
     RouterModule,
     MatCardModule,
     MatFormFieldModule,
@@ -37,6 +39,7 @@ import { SchoolClass, EmployeeRole } from '../../../core/models';
     MatIconModule,
     MatDividerModule,
     MatProgressSpinnerModule,
+    MatTooltipModule,
     MatSnackBarModule,
     PageHeaderComponent,
   ],
@@ -67,6 +70,57 @@ export class TeacherFormComponent implements OnInit {
     // Coordinator Access page.
     { value: 'COORDINATOR', label: 'School Coordinator' },
   ];
+
+  /**
+   * Additional login roles the admin can grant to the auto-created User
+   * account beyond the one mapped from {@code employeeRole}. Typical
+   * case: a Principal who also runs HR — tick HR here and the linked
+   * User ends up with {@code roles: [PRINCIPAL, HR]}, top-bar role
+   * switcher chip appears, admin flips hats without re-login.
+   *
+   * <p>SCHOOL_ADMIN and HR are the two that make sense to grant
+   * additively. TEACHER / PRINCIPAL / SCHOOL_COORDINATOR are already
+   * handled by the employeeRole (designation) dropdown above.</p>
+   */
+  /**
+   * Every login role the admin can grant to an employee's linked User
+   * account on top of the designation-mapped primary role. Kept broad
+   * so a single Principal-Employee record can carry a full stack of
+   * hats (Principal + HR + Admin + Teacher) with the top-bar switcher
+   * doing the day-to-day toggling.
+   *
+   * <p>Deliberately excluded: {@code SUPER_ADMIN} (cross-tenant, unsafe
+   * to grant from a tenant admin), {@code STUDENT} / {@code PARENT}
+   * (semantic mismatch — an employee record isn't a student).</p>
+   *
+   * <p>The primary role auto-mapped from the designation dropdown is
+   * still shown here — picking it is a harmless no-op (backend dedupes
+   * the merged role set), so the admin doesn't have to remember which
+   * role is "already covered by the designation".</p>
+   */
+  additionalLoginRoles: { value: UserRole; label: string; hint: string }[] = [
+    { value: UserRole.SCHOOL_ADMIN,       label: 'School Admin',       hint: 'Full admin powers (Manage Users, Configuration, etc).' },
+    { value: UserRole.PRINCIPAL,          label: 'Principal',          hint: 'Principal-level access (reports, dashboards).' },
+    { value: UserRole.TEACHER,            label: 'Teacher',            hint: 'Class marking, timetable, subject reports.' },
+    { value: UserRole.SCHOOL_COORDINATOR, label: 'School Coordinator', hint: 'Delegated coordinator role gated by the Coordinator Access page.' },
+    { value: UserRole.HR,                 label: 'HR / Payroll',       hint: 'Sees the HR module (attendance, leaves, payslips).' },
+  ];
+
+  /** Extra login roles the admin has picked in the multi-select dropdown.
+   *  Persisted on Teacher.additionalRoles and pushed onto the linked
+   *  User.roles by the backend. Array (not Set) so mat-select's
+   *  [multiple] binding works out of the box. */
+  selectedAdditionalRoles: UserRole[] = [];
+
+  /** Comma-joined friendly labels for the currently-picked additional
+   *  roles — used in the mat-select-trigger so admins see "HR / Payroll,
+   *  Principal" instead of the raw enum keys "HR, PRINCIPAL". */
+  get selectedAdditionalRolesLabel(): string {
+    if (!this.selectedAdditionalRoles.length) return '';
+    return this.selectedAdditionalRoles
+      .map(v => this.additionalLoginRoles.find(r => r.value === v)?.label ?? String(v))
+      .join(', ');
+  }
 
   constructor(
     private fb: FormBuilder,
@@ -167,6 +221,15 @@ export class TeacherFormComponent implements OnInit {
           });
 
           // Class-subject assignments are now managed on the Teacher Assignments page (per-year).
+          // Seed the multi-role picker from the persisted list; legacy
+          // employees (before the field existed) come back with null / []
+          // and the picker starts empty. Guard against unknown values
+          // so a stale enum entry can't crash the mat-select binding.
+          const validValues = new Set(this.additionalLoginRoles.map(r => r.value));
+          const extras: string[] = (t as any).additionalRoles || [];
+          this.selectedAdditionalRoles = extras.filter(
+            r => validValues.has(r as UserRole),
+          ) as UserRole[];
         }
         this.isLoading = false;
       },
@@ -199,6 +262,11 @@ export class TeacherFormComponent implements OnInit {
       phone: formData.phone || null,
       employeeId: formData.employeeId,
       employeeRole: formData.employeeRole,
+      // Multi-role: extra login roles admin picked in the "Additional
+      // login roles" multi-select. Backend merges these with the
+      // designation-mapped primary role onto User.roles so the
+      // employee sees a top-bar switcher chip when set.
+      additionalRoles: [...this.selectedAdditionalRoles],
       qualification: formData.qualification || null,
       specialization: formData.specialization || null,
       classTeacher: formData.isClassTeacher || false,

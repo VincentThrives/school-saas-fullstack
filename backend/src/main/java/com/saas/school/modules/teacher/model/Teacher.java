@@ -26,6 +26,19 @@ public class Teacher {
     private String qualification;
     private String specialization;
     private String employeeRole;
+
+    /**
+     * Extra login roles granted to the auto-provisioned {@link
+     * com.saas.school.modules.user.model.User} account beyond the
+     * one mapped from {@link #employeeRole}. Typical case: a
+     * Principal who also runs HR — designation stays PRINCIPAL,
+     * additionalRoles contains {@code [HR]}, User.roles ends up
+     * {@code [PRINCIPAL, HR]} with a role-switcher chip in the top
+     * bar. Null / empty on legacy docs and on single-role
+     * employees — the provisioning + resync paths treat both the
+     * same as an empty list.
+     */
+    private List<String> additionalRoles;
     private List<ClassSubjectAssignment> classSubjectAssignments;
     private List<String> subjectIds;
     private List<String> classIds;
@@ -203,6 +216,9 @@ public class Teacher {
 
     public String getEmployeeRole() { return employeeRole; }
     public void setEmployeeRole(String employeeRole) { this.employeeRole = employeeRole; }
+
+    public List<String> getAdditionalRoles() { return additionalRoles; }
+    public void setAdditionalRoles(List<String> additionalRoles) { this.additionalRoles = additionalRoles; }
 
     public List<ClassSubjectAssignment> getClassSubjectAssignments() { return classSubjectAssignments; }
     public void setClassSubjectAssignments(List<ClassSubjectAssignment> classSubjectAssignments) {

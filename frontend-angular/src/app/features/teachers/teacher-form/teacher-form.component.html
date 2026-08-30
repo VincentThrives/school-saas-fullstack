@@ -88,6 +88,38 @@
             <mat-label>Specialization</mat-label>
             <input matInput formControlName="specialization">
           </mat-form-field>
+
+          <!-- Multi-role: extra login roles for the auto-created User account.
+               The employee's designation above drives their PRIMARY login role
+               (Principal designation → PRINCIPAL role, etc). Picking a role
+               here adds ANOTHER role on top so the same login can switch
+               between hats via the top-bar chip. Typical case: a Principal
+               who also handles HR — pick "HR / Payroll" here. -->
+          <mat-form-field appearance="outline" class="span-2">
+            <mat-label>Additional login roles (optional)</mat-label>
+            <mat-select [(ngModel)]="selectedAdditionalRoles"
+                        [ngModelOptions]="{standalone: true}"
+                        multiple
+                        panelClass="additional-roles-panel">
+              <mat-select-trigger>
+                <span *ngIf="selectedAdditionalRoles.length === 0" class="ar-placeholder">
+                  None — single-role login
+                </span>
+                <span *ngIf="selectedAdditionalRoles.length > 0">
+                  {{ selectedAdditionalRolesLabel }}
+                </span>
+              </mat-select-trigger>
+              <mat-option *ngFor="let r of additionalLoginRoles"
+                          [value]="r.value"
+                          [matTooltip]="r.hint">
+                {{ r.label }}
+              </mat-option>
+            </mat-select>
+            <mat-hint>
+              Extra roles on top of the designation. Employee sees a
+              top-bar "Viewing as" chip and can switch on the fly.
+            </mat-hint>
+          </mat-form-field>
         </div>
 
         <!-- Class-Subject Assignments moved to a dedicated page (per-academic-year). -->

@@ -12,6 +12,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -50,6 +54,7 @@ public class EmployeeUserProvisioningService {
             String password = firstName + "@" + birthYear;
 
             UserRole userRole = mapEmployeeRoleToUserRole(employee.getEmployeeRole());
+            List<UserRole> mergedRoles = mergeRoles(userRole, employee.getAdditionalRoles());
 
             String email = employee.getEmail() != null && !employee.getEmail().isEmpty()
                     ? employee.getEmail() : loginId + "@employee.school";
@@ -66,6 +71,9 @@ public class EmployeeUserProvisioningService {
             user.setUsername(loginId);
             user.setPasswordHash(passwordEncoder.encode(password));
             user.setRole(userRole);
+            user.setRoles(new ArrayList<>(mergedRoles));
+            user.setActiveRole(userRole);   // primary = designation-mapped role
+            user.normalizeRoles();
             user.setFirstName(employee.getFirstName());
             user.setLastName(employee.getLastName());
             user.setPhone(employee.getPhone());
@@ -75,7 +83,8 @@ public class EmployeeUserProvisioningService {
             user.setCreatedAt(Instant.now());
 
             userRepository.save(user);
-            log.info("Auto-created User for employee: loginId={}, defaultPassword={}", loginId, password);
+            log.info("Auto-created User for employee: loginId={}, defaultPassword={}, roles={}",
+                    loginId, password, mergedRoles);
             return user.getUserId();
         } catch (Exception e) {
             log.error("Failed to auto-create User for employee {}: {}",
@@ -90,5 +99,68 @@ public class EmployeeUserProvisioningService {
         if ("PRINCIPAL".equals(employeeRole)) return UserRole.PRINCIPAL;
         if ("COORDINATOR".equals(employeeRole)) return UserRole.SCHOOL_COORDINATOR;
         return UserRole.TEACHER;
+    }
+
+    /**
+     * Public so {@code TeacherController.update} can re-sync a linked
+     * User's roles when the admin edits an employee's designation OR
+     * additionalRoles list. Idempotent — passing the same inputs
+     * produces the same output roles array.
+     *
+     * <p>Merges {@code primary} with each valid entry in
+     * {@code additionalRoleNames}, dedupes, and returns the ordered
+     * list. Primary always appears first (drives the initial
+     * activeRole on new users; on existing users the activeRole is
+     * clamped separately if it drops out of the new list).</p>
+     */
+    public List<UserRole> mergeRoles(UserRole primary, List<String> additionalRoleNames) {
+        Set<UserRole> merged = new LinkedHashSet<>();
+        if (primary != null) merged.add(primary);
+        if (additionalRoleNames != null) {
+            for (String name : additionalRoleNames) {
+                if (name == null || name.isBlank()) continue;
+                try {
+                    merged.add(UserRole.valueOf(name.trim().toUpperCase()));
+                } catch (IllegalArgumentException e) {
+                    log.warn("Skipping unknown additional role '{}'", name);
+                }
+            }
+        }
+        return new ArrayList<>(merged);
+    }
+
+    /**
+     * Re-sync the roles + activeRole on the linked User doc for an
+     * employee whose designation or additionalRoles list just changed.
+     * Called from TeacherController.update after the Teacher save.
+     * Silent no-op when the User doesn't exist (deleted / not
+     * provisioned) — Teacher save must not fail because of a User
+     * hiccup.
+     */
+    public void resyncLinkedUserRoles(Teacher employee) {
+        try {
+            if (employee.getUserId() == null || employee.getUserId().isBlank()) return;
+            User user = userRepository.findByUserIdAndDeletedAtIsNull(employee.getUserId()).orElse(null);
+            if (user == null) {
+                log.warn("resyncLinkedUserRoles: user {} not found for employee {}",
+                        employee.getUserId(), employee.getEmployeeId());
+                return;
+            }
+            UserRole primary = mapEmployeeRoleToUserRole(employee.getEmployeeRole());
+            List<UserRole> merged = mergeRoles(primary, employee.getAdditionalRoles());
+            user.setRoles(new ArrayList<>(merged));
+            // Clamp activeRole if the current hat isn't in the new list —
+            // e.g. admin was viewing as HR but just had HR revoked.
+            if (user.getActiveRole() == null || !merged.contains(user.getActiveRole())) {
+                user.setActiveRole(primary);
+            }
+            user.normalizeRoles();
+            userRepository.save(user);
+            log.info("Resynced roles for employee {} → user {} roles={}",
+                    employee.getEmployeeId(), user.getUserId(), merged);
+        } catch (Exception e) {
+            log.error("resyncLinkedUserRoles failed for employee {}: {}",
+                    employee.getEmployeeId(), e.getMessage());
+        }
     }
 }
