@@ -49,6 +49,13 @@ public class TenantSmsSettings {
     private boolean customNoticeEnabled;
     private boolean holidayNoticeEnabled;
     private boolean eventNoticeEnabled;
+    /** Biometric IN scan (child arrived) SMS. Only meaningful for
+     *  tenants with a physical terminal pushing scans — non-biometric
+     *  schools can leave it off (no scans → no calls to send). */
+    private boolean biometricEntryEnabled;
+    /** Biometric OUT scan (child left) SMS. Independent of Entry so
+     *  cost-conscious schools can enable Entry only if they want. */
+    private boolean biometricExitEnabled;
 
     /** Hard cap (₹) per calendar month. SMS stops sending once
      *  costUsedThisMonth >= monthlyBudgetInr. Resets on the 1st of
@@ -103,6 +110,8 @@ public class TenantSmsSettings {
             case CUSTOM_NOTICE     -> customNoticeEnabled;
             case HOLIDAY_NOTICE    -> holidayNoticeEnabled;
             case EVENT_NOTICE      -> eventNoticeEnabled;
+            case BIOMETRIC_ENTRY   -> biometricEntryEnabled;
+            case BIOMETRIC_EXIT    -> biometricExitEnabled;
         };
     }
 
@@ -139,6 +148,12 @@ public class TenantSmsSettings {
 
     public boolean isEventNoticeEnabled() { return eventNoticeEnabled; }
     public void setEventNoticeEnabled(boolean v) { this.eventNoticeEnabled = v; }
+
+    public boolean isBiometricEntryEnabled() { return biometricEntryEnabled; }
+    public void setBiometricEntryEnabled(boolean v) { this.biometricEntryEnabled = v; }
+
+    public boolean isBiometricExitEnabled() { return biometricExitEnabled; }
+    public void setBiometricExitEnabled(boolean v) { this.biometricExitEnabled = v; }
 
     public double getMonthlyBudgetInr() { return monthlyBudgetInr; }
     public void setMonthlyBudgetInr(double v) { this.monthlyBudgetInr = v; }

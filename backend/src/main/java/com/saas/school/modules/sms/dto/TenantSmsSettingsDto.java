@@ -18,6 +18,8 @@ public class TenantSmsSettingsDto {
     private boolean customNoticeEnabled;
     private boolean holidayNoticeEnabled;
     private boolean eventNoticeEnabled;
+    private boolean biometricEntryEnabled;
+    private boolean biometricExitEnabled;
     private double monthlyBudgetInr;
     private double costUsedThisMonth;
     private String costMonth;
@@ -36,6 +38,8 @@ public class TenantSmsSettingsDto {
         dto.customNoticeEnabled = s.isCustomNoticeEnabled();
         dto.holidayNoticeEnabled = s.isHolidayNoticeEnabled();
         dto.eventNoticeEnabled = s.isEventNoticeEnabled();
+        dto.biometricEntryEnabled = s.isBiometricEntryEnabled();
+        dto.biometricExitEnabled = s.isBiometricExitEnabled();
         dto.monthlyBudgetInr = s.getMonthlyBudgetInr();
         dto.costUsedThisMonth = s.getCostUsedThisMonth();
         dto.costMonth = s.getCostMonth();
@@ -77,6 +81,12 @@ public class TenantSmsSettingsDto {
 
     public boolean isEventNoticeEnabled() { return eventNoticeEnabled; }
     public void setEventNoticeEnabled(boolean v) { this.eventNoticeEnabled = v; }
+
+    public boolean isBiometricEntryEnabled() { return biometricEntryEnabled; }
+    public void setBiometricEntryEnabled(boolean v) { this.biometricEntryEnabled = v; }
+
+    public boolean isBiometricExitEnabled() { return biometricExitEnabled; }
+    public void setBiometricExitEnabled(boolean v) { this.biometricExitEnabled = v; }
 
     public double getMonthlyBudgetInr() { return monthlyBudgetInr; }
     public void setMonthlyBudgetInr(double v) { this.monthlyBudgetInr = v; }

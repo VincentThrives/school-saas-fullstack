@@ -34,5 +34,31 @@ public enum SmsTrigger {
      *  event-name, event-date, venue (or description). Tenant-only
      *  template — Super Admin pastes the school's DLT entry on the SMS
      *  Control page's expanded row. */
-    EVENT_NOTICE
+    EVENT_NOTICE,
+
+    /**
+     * Sent to parents when a student's biometric terminal records an IN
+     * scan (child arrived at school). Fired from
+     * {@code AttendanceScanService.maybeNotifyParents} alongside the
+     * in-app push. Three vars: student-name, class + section, time.
+     *
+     * <p>Reference template body:<br>
+     * {@code Dear Parent, your ward ##var1## of Class ##var2## entered
+     * the school at ##var3##. -Manjushree English School}</p>
+     *
+     * <p>Tenant-only template — Super Admin pastes the school's own
+     * DLT entry on the SMS Control page.</p>
+     */
+    BIOMETRIC_ENTRY,
+
+    /**
+     * Sent to parents when a student's biometric terminal records an
+     * OUT scan (child left school). Same three vars as
+     * {@link #BIOMETRIC_ENTRY}: student-name, class + section, time.
+     *
+     * <p>Reference template body:<br>
+     * {@code Dear Parent, your ward ##var1## of Class ##var2## left
+     * the school at ##var3##, Thank you. -Manjushree English School}</p>
+     */
+    BIOMETRIC_EXIT
 }

@@ -86,11 +86,13 @@ export class SmsAuditLogComponent implements OnInit {
   /** Trigger options shown in the dropdown. Keys match the SmsTriggerKey
    *  enum on the backend; the friendly label is admin-facing. */
   readonly triggers: ReadonlyArray<TriggerOption> = [
-    { key: 'ABSENCE_ALERT',  label: 'Absence Alert' },
+    { key: 'ABSENCE_ALERT',   label: 'Absence Alert' },
     { key: 'RESULT_COMBINED', label: 'Result (combined)' },
     { key: 'RESULT_SINGLE',   label: 'Result (subject)' },
     { key: 'HOLIDAY_NOTICE',  label: 'Holiday Notice' },
     { key: 'EVENT_NOTICE',    label: 'Event Notice' },
+    { key: 'BIOMETRIC_ENTRY', label: 'Biometric Entry (Arrival)' },
+    { key: 'BIOMETRIC_EXIT',  label: 'Biometric Exit (Departure)' },
   ];
 
   /** Status buckets — admin picks "Sent" / "Not Sent" / "Pending"; we

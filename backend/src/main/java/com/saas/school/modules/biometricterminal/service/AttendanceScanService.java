@@ -59,6 +59,7 @@ public class AttendanceScanService {
     @Autowired private StudentsAttendanceRepository studentsAttendanceRepository;
     @Autowired private BiometricSettingsRepository settingsRepository;
     @Autowired private NotificationService notificationService;
+    @Autowired private com.saas.school.modules.sms.service.SmsService smsService;
 
     /**
      * Persist a scan and everything downstream of it.
@@ -432,6 +433,25 @@ public class AttendanceScanService {
         // SYSTEM sender — appendSenderSignature no-ops because no matching
         // User document exists for this id, keeping the body clean.
         notificationService.send(n, "SYSTEM");
+
+        // ── SMS to parents (BIOMETRIC_ENTRY / BIOMETRIC_EXIT trigger) ──
+        // Fires in addition to the in-app push. The SMS service itself
+        // gates on: SMS globally on → tenant SMS on → this trigger on
+        // → DLT template pasted → parent phone or user id present.
+        // Any of those missing → silent skip, no throw. Wrapped anyway
+        // so any bug in the SMS pipeline can't corrupt the scan write
+        // path (parent notify has always been best-effort).
+        try {
+            com.saas.school.modules.sms.model.SmsTrigger smsTrigger =
+                    scan.getDirection() == AttendanceScan.Direction.IN
+                        ? com.saas.school.modules.sms.model.SmsTrigger.BIOMETRIC_ENTRY
+                        : com.saas.school.modules.sms.model.SmsTrigger.BIOMETRIC_EXIT;
+            smsService.sendBiometricScanNotice(
+                    scan.getTenantId(), scan.getStudentId(), smsTrigger, scan.getScannedAt());
+        } catch (Exception e) {
+            log.warn("Biometric SMS dispatch failed for scan {} (student {}): {}",
+                    scan.getScanId(), scan.getStudentId(), e.getMessage(), e);
+        }
     }
 
     private String displayName(Student s) {

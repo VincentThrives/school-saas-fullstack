@@ -566,6 +566,109 @@ public class SmsService {
     }
 
     /**
+     * Send a biometric IN / OUT scan SMS to the parents of one student.
+     * Fired from {@code AttendanceScanService.maybeNotifyParents} right
+     * after the in-app notification. Silent no-op (no throw) when the
+     * tenant is off / trigger is off / no template configured / no
+     * parent phone — this runs inside the scan write path and must
+     * never break the terminal push.
+     *
+     * <p>Three DLT vars, positional AND semantic aliases:</p>
+     * <ul>
+     *   <li>{@code var1} / {@code studentName} — child's full name</li>
+     *   <li>{@code var2} / {@code className}   — class + section label
+     *       (e.g. "1st-A"). Falls back to "your school" when the class
+     *       can't be resolved, so the message never has an obvious hole.</li>
+     *   <li>{@code var3} / {@code time}        — arrival / departure
+     *       time in the tenant's timezone ("08:42 AM").</li>
+     * </ul>
+     *
+     * <p>Reference bodies (each tenant registers their own DLT text on
+     * the SMS Control page):</p>
+     * <pre>
+     * ENTRY: Dear Parent, your ward ##var1## of Class ##var2## entered
+     *        the school at ##var3##. -Manjushree English School
+     * EXIT:  Dear Parent, your ward ##var1## of Class ##var2## left
+     *        the school at ##var3##, Thank you. -Manjushree English School
+     * </pre>
+     *
+     * <p>Idempotency isn't needed here — the biometric scan pipeline
+     * already dedupes by (student, day, direction) before calling us,
+     * so a re-scan can't spam parents.</p>
+     *
+     * @param tenantId    caller's tenant (biometric scan carries it
+     *                    explicitly since this runs off the request thread)
+     * @param studentId   student whose parents should be notified
+     * @param direction   IN → BIOMETRIC_ENTRY, OUT → BIOMETRIC_EXIT
+     * @param scannedAt   punch instant, formatted to "hh:mm a" in Asia/Kolkata
+     * @return true when the send was queued; false on any skip reason
+     */
+    public boolean sendBiometricScanNotice(String tenantId, String studentId,
+                                           SmsTrigger direction, java.time.Instant scannedAt) {
+        if (tenantId == null || tenantId.isBlank() || studentId == null || studentId.isBlank()) {
+            return false;
+        }
+        if (direction != SmsTrigger.BIOMETRIC_ENTRY && direction != SmsTrigger.BIOMETRIC_EXIT) {
+            log.warn("sendBiometricScanNotice called with non-biometric trigger {}", direction);
+            return false;
+        }
+        if (!smsConfig.isEnabled()) return false;
+
+        TenantSmsSettings settings = settingsRepo.findByTenantId(tenantId).orElse(null);
+        if (settings == null || !settings.isEnabled()) return false;
+        if (!settings.isTriggerEnabled(direction)) return false;
+        TenantSmsSettings.SmsTemplate tpl = settings.templateFor(direction);
+        if (tpl == null || !tpl.isResolvable()) return false;
+
+        Student stu = studentRepository.findByStudentIdAndDeletedAtIsNull(studentId).orElse(null);
+        if (stu == null) {
+            log.warn("Biometric SMS skipped: student {} not found (tenant {})", studentId, tenantId);
+            return false;
+        }
+
+        // Collect parent recipients — same shape as absence alert (parent
+        // userIds if linked, plus the raw parent phone). Phone-level dedupe
+        // inside dispatchAsync collapses duplicates.
+        List<String> extraPhones = new ArrayList<>();
+        if (stu.getParentPhone() != null && !stu.getParentPhone().isBlank()) {
+            extraPhones.add(stu.getParentPhone());
+        }
+        List<String> userIds = new ArrayList<>();
+        if (stu.getParentIds() != null) userIds.addAll(stu.getParentIds());
+        if (extraPhones.isEmpty() && userIds.isEmpty()) {
+            log.info("Biometric SMS skipped: student {} has no parent phone / userIds", studentId);
+            return false;
+        }
+
+        String studentName = com.saas.school.modules.sms.util.SmsTextSanitizer.gsm7Safe(
+                buildStudentName(stu));
+        String classLabel  = resolveClassLabelFromStudent(stu);
+        String classText   = com.saas.school.modules.sms.util.SmsTextSanitizer.gsm7Safe(
+                classLabel != null ? classLabel : "your school");
+        // 12-hour format with AM/PM reads friendliest to Indian school
+        // parents; Asia/Kolkata pinned so a UTC scan renders in local time.
+        String timeText    = scannedAt == null
+                ? ""
+                : scannedAt.atZone(java.time.ZoneId.of("Asia/Kolkata"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("hh:mm a"));
+
+        Map<String, String> vars = new LinkedHashMap<>();
+        vars.put("var1", studentName);
+        vars.put("var2", classText);
+        vars.put("var3", timeText);
+        vars.put("studentName", studentName);
+        vars.put("className",   classText);
+        vars.put("time",        timeText);
+
+        String entityType = direction == SmsTrigger.BIOMETRIC_ENTRY ? "BiometricEntry" : "BiometricExit";
+        dispatchAsync(direction, userIds, extraPhones, vars,
+                "SYSTEM", entityType, studentId);
+        log.info("Biometric SMS queued: student={} direction={} tenant={}",
+                studentId, direction, tenantId);
+        return true;
+    }
+
+    /**
      * Audiences → unioned, deduped recipient bundle: userIds + raw
      * extraPhones.
      *
@@ -974,6 +1077,8 @@ public class SmsService {
         if (req.getCustomNoticeEnabled() != null)  s.setCustomNoticeEnabled(req.getCustomNoticeEnabled());
         if (req.getHolidayNoticeEnabled() != null) s.setHolidayNoticeEnabled(req.getHolidayNoticeEnabled());
         if (req.getEventNoticeEnabled() != null)   s.setEventNoticeEnabled(req.getEventNoticeEnabled());
+        if (req.getBiometricEntryEnabled() != null) s.setBiometricEntryEnabled(req.getBiometricEntryEnabled());
+        if (req.getBiometricExitEnabled()  != null) s.setBiometricExitEnabled(req.getBiometricExitEnabled());
         if (req.getMonthlyBudgetInr() != null)     s.setMonthlyBudgetInr(req.getMonthlyBudgetInr());
         if (req.getNotifyAdminOnFailure() != null) s.setNotifyAdminOnFailure(req.getNotifyAdminOnFailure());
 

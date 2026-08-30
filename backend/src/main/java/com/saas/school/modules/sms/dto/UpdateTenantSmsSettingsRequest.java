@@ -15,6 +15,8 @@ public class UpdateTenantSmsSettingsRequest {
     private Boolean customNoticeEnabled;
     private Boolean holidayNoticeEnabled;
     private Boolean eventNoticeEnabled;
+    private Boolean biometricEntryEnabled;
+    private Boolean biometricExitEnabled;
     private Double  monthlyBudgetInr;
     private Boolean notifyAdminOnFailure;
 
@@ -37,6 +39,12 @@ public class UpdateTenantSmsSettingsRequest {
 
     public Boolean getEventNoticeEnabled() { return eventNoticeEnabled; }
     public void setEventNoticeEnabled(Boolean v) { this.eventNoticeEnabled = v; }
+
+    public Boolean getBiometricEntryEnabled() { return biometricEntryEnabled; }
+    public void setBiometricEntryEnabled(Boolean v) { this.biometricEntryEnabled = v; }
+
+    public Boolean getBiometricExitEnabled() { return biometricExitEnabled; }
+    public void setBiometricExitEnabled(Boolean v) { this.biometricExitEnabled = v; }
 
     public Double getMonthlyBudgetInr() { return monthlyBudgetInr; }
     public void setMonthlyBudgetInr(Double v) { this.monthlyBudgetInr = v; }

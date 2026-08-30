@@ -205,6 +205,43 @@
         </td>
       </ng-container>
 
+      <!-- Biometric IN scan — SMS sent to parents when the terminal
+           records their child arriving at school. Only meaningful for
+           schools with a physical biometric terminal pushing scans. -->
+      <ng-container matColumnDef="biometricEntry">
+        <th mat-header-cell *matHeaderCellDef>Bio-IN</th>
+        <td mat-cell *matCellDef="let t">
+          <span class="sc-trigger-cell">
+            <mat-checkbox
+              [checked]="t.biometricEntryEnabled"
+              [disabled]="!t.enabled || saving.has(t.tenantId)"
+              (change)="patch(t, { biometricEntryEnabled: $event.checked })">
+            </mat-checkbox>
+            <span class="sc-trigger-dot"
+                  [class.sc-trigger-dot--ready]="hasTemplate(t.tenantId, 'BIOMETRIC_ENTRY')"
+                  [class.sc-trigger-dot--missing]="!hasTemplate(t.tenantId, 'BIOMETRIC_ENTRY')"></span>
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Biometric OUT scan — SMS sent to parents when their child
+           leaves school (first OUT punch of the day). -->
+      <ng-container matColumnDef="biometricExit">
+        <th mat-header-cell *matHeaderCellDef>Bio-OUT</th>
+        <td mat-cell *matCellDef="let t">
+          <span class="sc-trigger-cell">
+            <mat-checkbox
+              [checked]="t.biometricExitEnabled"
+              [disabled]="!t.enabled || saving.has(t.tenantId)"
+              (change)="patch(t, { biometricExitEnabled: $event.checked })">
+            </mat-checkbox>
+            <span class="sc-trigger-dot"
+                  [class.sc-trigger-dot--ready]="hasTemplate(t.tenantId, 'BIOMETRIC_EXIT')"
+                  [class.sc-trigger-dot--missing]="!hasTemplate(t.tenantId, 'BIOMETRIC_EXIT')"></span>
+          </span>
+        </td>
+      </ng-container>
+
       <!-- Budget -->
       <ng-container matColumnDef="budget">
         <th mat-header-cell *matHeaderCellDef>Budget / month (₹)</th>

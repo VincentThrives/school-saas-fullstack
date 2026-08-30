@@ -105,6 +105,11 @@ export interface TenantSmsSettingsDto {
   customNoticeEnabled: boolean;
   holidayNoticeEnabled: boolean;
   eventNoticeEnabled: boolean;
+  /** Parent SMS on biometric IN scan (arrival). Only fires for tenants
+   *  with a physical biometric terminal actually pushing scans. */
+  biometricEntryEnabled: boolean;
+  /** Parent SMS on biometric OUT scan (departure). */
+  biometricExitEnabled: boolean;
   monthlyBudgetInr: number;
   costUsedThisMonth: number;
   costMonth?: string;
@@ -122,6 +127,8 @@ export interface UpdateTenantSmsSettingsRequest {
   customNoticeEnabled?: boolean;
   holidayNoticeEnabled?: boolean;
   eventNoticeEnabled?: boolean;
+  biometricEntryEnabled?: boolean;
+  biometricExitEnabled?: boolean;
   monthlyBudgetInr?: number;
   notifyAdminOnFailure?: boolean;
 }
@@ -133,7 +140,9 @@ export type SmsTriggerKey =
   | 'RESULT_SINGLE'
   | 'CUSTOM_NOTICE'
   | 'HOLIDAY_NOTICE'
-  | 'EVENT_NOTICE';
+  | 'EVENT_NOTICE'
+  | 'BIOMETRIC_ENTRY'
+  | 'BIOMETRIC_EXIT';
 
 /** One DLT-registered template the Super Admin pasted for a tenant.
  *  {@code body} is for audit-log preview only — MSG91 sends from

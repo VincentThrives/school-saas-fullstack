@@ -71,6 +71,22 @@ const TRIGGERS: TriggerMeta[] = [
     sampleBody: 'Dear Parent, {#var#} is scheduled on {#var#} at {#var#}. Kindly mark your calendar and plan to attend. - {#var#}',
     varLabels: ['Event name + description', 'Event date', 'Event time', 'School short name'],
   },
+  {
+    key: 'BIOMETRIC_ENTRY',
+    title: 'Biometric Entry (Arrival)',
+    icon: 'login',
+    description: "Sent when a student's biometric terminal records an IN scan (child arrived at school).",
+    sampleBody: 'Dear Parent, your ward {#var#} of Class {#var#} entered the school at {#var#}. - {#var#}',
+    varLabels: ['Student name', 'Class + section', 'Arrival time', 'School short name'],
+  },
+  {
+    key: 'BIOMETRIC_EXIT',
+    title: 'Biometric Exit (Departure)',
+    icon: 'logout',
+    description: "Sent when a student's biometric terminal records an OUT scan (child left school).",
+    sampleBody: 'Dear Parent, your ward {#var#} of Class {#var#} left the school at {#var#}, Thank you. - {#var#}',
+    varLabels: ['Student name', 'Class + section', 'Departure time', 'School short name'],
+  },
 ];
 
 /**
@@ -125,6 +141,8 @@ export class TenantTemplatesPanelComponent implements OnInit, OnChanges {
     RESULT_SINGLE: false,
     CUSTOM_NOTICE: false,
     EVENT_NOTICE: false,
+    BIOMETRIC_ENTRY: false,
+    BIOMETRIC_EXIT: false,
   };
 
   isLoading = false;
