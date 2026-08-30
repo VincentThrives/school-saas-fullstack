@@ -135,12 +135,20 @@ public class AttendanceService {
             throw new IllegalArgumentException("Cannot mark attendance for a future date");
         }
 
-        // Block holidays
-        List<SchoolEvent> holidays = eventRepository.findByIsHolidayTrue();
-        for (SchoolEvent h : holidays) {
-            if (req.getDate() != null && h.getStartDate() != null && h.getEndDate() != null
-                    && !req.getDate().isBefore(h.getStartDate()) && !req.getDate().isAfter(h.getEndDate())) {
-                throw new IllegalArgumentException("Cannot mark attendance on holiday: " + h.getTitle());
+        // Block holidays — UNLESS the request carries an override reason
+        // (the frontend "Mark attendance anyway" flow requires the admin to
+        // pick a reason from a dropdown, e.g. "Makeup class", "Exam").
+        // A blank/whitespace override is treated as no override so a
+        // stray empty string can't accidentally lift the guard.
+        String reqOverrideReason = req.getOverrideReason();
+        boolean hasOverride = reqOverrideReason != null && !reqOverrideReason.trim().isEmpty();
+        if (!hasOverride) {
+            List<SchoolEvent> holidays = eventRepository.findByIsHolidayTrue();
+            for (SchoolEvent h : holidays) {
+                if (req.getDate() != null && h.getStartDate() != null && h.getEndDate() != null
+                        && !req.getDate().isBefore(h.getStartDate()) && !req.getDate().isAfter(h.getEndDate())) {
+                    throw new IllegalArgumentException("Cannot mark attendance on holiday: " + h.getTitle());
+                }
             }
         }
 
@@ -223,6 +231,15 @@ public class AttendanceService {
         }
         record.setEntries(entries);
         record.setMarkedBy(markedBy);
+        // Persist the "why did school open on this day?" audit fields.
+        // Only stamp when an override was actually declared — a normal
+        // weekday save must leave the fields null so re-saves don't turn
+        // ordinary rows into "override" rows in the audit trail.
+        if (hasOverride) {
+            record.setOverrideReason(reqOverrideReason.trim());
+            String dayType = req.getOverrideDayType();
+            record.setOverrideDayType((dayType != null && !dayType.isBlank()) ? dayType.trim() : null);
+        }
 
         batchRepository.save(record);
         auditService.log("MARK_ATTENDANCE", "StudentsAttendance", record.getId(),

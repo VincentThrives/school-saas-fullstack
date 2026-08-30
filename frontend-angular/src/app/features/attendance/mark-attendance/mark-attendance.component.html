@@ -67,19 +67,28 @@
     </mat-card-content>
   </mat-card>
 
-  <!-- Holiday Banner -->
-  <div class="holiday-banner" *ngIf="isHoliday">
+  <!-- Holiday Banner — "Mark attendance anyway" escape hatch covers
+       Sunday makeup classes, exam days on gazetted holidays, and
+       lets testers mark on a day that's normally off. Hidden once
+       the admin overrides so the roster + summary take over. -->
+  <div class="holiday-banner" *ngIf="isHoliday && !overrideDayBlock">
     <mat-icon class="holiday-banner-icon">beach_access</mat-icon>
     <div class="holiday-banner-text">
       <h3>Holiday - {{ holidayTitle }}</h3>
-      <p>Attendance cannot be marked on this day</p>
+      <p>Attendance is normally not marked on this day. If school was open (makeup class, exam, event), you can still record it.</p>
+      <button mat-stroked-button class="mark-anyway-btn" (click)="markAnyway()">
+        <mat-icon>edit_calendar</mat-icon>
+        Mark attendance anyway
+      </button>
     </div>
   </div>
 
   <!-- "Timetable not configured" Banner — fires when no timetable doc
        exists for the chosen (class, section, year). Attendance can't be
        gated until the school sets one up; pointer to the Timetables
-       page nudges the admin to the right place. -->
+       page nudges the admin to the right place. No "Mark anyway" here
+       intentionally — a missing timetable is a setup problem, not a
+       "we're open on Sunday" case. -->
   <div class="holiday-banner" *ngIf="noTimetableConfigured && !isHoliday">
     <mat-icon class="holiday-banner-icon">schedule</mat-icon>
     <div class="holiday-banner-text">
@@ -91,18 +100,51 @@
   <!-- "No periods scheduled" Banner — fires when the section's
        timetable has zero periods for the picked day-of-week. Typically
        a Sunday on a Mon-Sat timetable, but also covers half-day grades
-       skipping a weekday. Same card shape as the holiday banner so the
-       admin reads it as a sibling "school closed" message. -->
-  <div class="holiday-banner" *ngIf="noPeriodsToday && !isHoliday && !noTimetableConfigured">
+       skipping a weekday. Same "Mark anyway" escape hatch as the
+       holiday banner. -->
+  <div class="holiday-banner"
+       *ngIf="noPeriodsToday && !isHoliday && !noTimetableConfigured && !overrideDayBlock">
     <mat-icon class="holiday-banner-icon">event_busy</mat-icon>
     <div class="holiday-banner-text">
       <h3>No class scheduled on {{ noPeriodsDayLabel }}</h3>
-      <p>The timetable has no periods for this day — attendance is not required.</p>
+      <p>The timetable has no periods for this day. If school was open (makeup class, exam, event), you can still record attendance.</p>
+      <button mat-stroked-button class="mark-anyway-btn" (click)="markAnyway()">
+        <mat-icon>edit_calendar</mat-icon>
+        Mark attendance anyway
+      </button>
     </div>
   </div>
 
-  <!-- Quick Actions & Summary -->
-  <mat-card class="actions-card" *ngIf="studentsLoaded && students.length > 0 && !isHoliday && !attendanceSaved">
+  <!-- Optional "override on" hint chip — reminds the admin that they
+       chose to mark on a non-working day, and lets them back out with
+       one click if they clicked "Mark anyway" by mistake. Hidden once
+       attendance has been saved for the day (nothing to back out of at
+       that point — the post-save summary card takes over). -->
+  <div class="override-strip"
+       *ngIf="overrideDayBlock && (isHoliday || noPeriodsToday) && !attendanceSaved">
+    <mat-icon>info</mat-icon>
+    <span>
+      <ng-container *ngIf="isHoliday">
+        Marking on a holiday ({{ holidayTitle }}).
+      </ng-container>
+      <ng-container *ngIf="!isHoliday && noPeriodsToday">
+        Marking on {{ noPeriodsDayLabel }} — no timetable for this day.
+      </ng-container>
+      <em *ngIf="overrideReason" class="override-strip-reason">
+        Reason: <strong>{{ overrideReason }}</strong>
+      </em>
+    </span>
+    <button mat-button class="override-strip-cancel" (click)="cancelOverride()">
+      <mat-icon>close</mat-icon>
+      Back
+    </button>
+  </div>
+
+  <!-- Quick Actions & Summary — visible when a roster is loaded and the
+       admin is in an editable state (not on a blocked day unless they
+       explicitly overrode, and no post-save summary showing). -->
+  <mat-card class="actions-card"
+            *ngIf="studentsLoaded && students.length > 0 && !isDayBlockedAndNotOverridden && !attendanceSaved">
     <mat-card-content>
       <div class="actions-row">
         <div class="quick-actions">
@@ -150,8 +192,11 @@
     <mat-spinner diameter="40"></mat-spinner>
   </div>
 
-  <!-- Students Table -->
-  <mat-card class="table-card" *ngIf="studentsLoaded && !isLoading && !attendanceSaved">
+  <!-- Students Table — hidden when the day is blocked and the admin
+       hasn't overridden (or has clicked Back), so cancelling the
+       "Mark anyway" flow returns to the banner cleanly. -->
+  <mat-card class="table-card"
+            *ngIf="studentsLoaded && !isLoading && !isDayBlockedAndNotOverridden && !attendanceSaved">
     <!-- Mobile cards (< 600px): each student is a self-contained card with status radios. -->
     <div class="responsive-cards">
       <div class="r-card" *ngFor="let student of students">
@@ -263,7 +308,8 @@
   <!-- Save Button — copy flips to "Update Attendance" after the
        teacher clicks Edit on the post-save Summary Card, so they know
        the record already exists and is being amended. -->
-  <div class="save-section" *ngIf="studentsLoaded && students.length > 0 && !attendanceSaved">
+  <div class="save-section"
+       *ngIf="studentsLoaded && students.length > 0 && !isDayBlockedAndNotOverridden && !attendanceSaved">
     <button
       mat-flat-button
       class="save-btn"
@@ -284,6 +330,24 @@
        roster with the same data and "Update Attendance" copy. -->
   <mat-card class="saved-summary-card" *ngIf="attendanceSaved">
     <mat-card-content>
+      <!-- Non-working-day chip — surfaces the fact that this row
+           was recorded on a Sunday / holiday, plus the reason chosen
+           in the "Mark anyway" dialog. Only rendered when the record
+           carries an overrideReason (normal weekday saves stay clean). -->
+      <div class="saved-override-chip" *ngIf="overrideReason">
+        <mat-icon>edit_calendar</mat-icon>
+        <span>
+          <ng-container *ngIf="overrideDayType === 'HOLIDAY'">
+            Marked on holiday
+            <ng-container *ngIf="holidayTitle"> ({{ holidayTitle }})</ng-container>
+          </ng-container>
+          <ng-container *ngIf="overrideDayType !== 'HOLIDAY'">
+            Marked on {{ noPeriodsDayLabel || 'a non-working day' }}
+          </ng-container>
+          — <strong>{{ overrideReason }}</strong>
+        </span>
+      </div>
+
       <div class="saved-summary-row">
         <mat-icon class="saved-summary-tick">check_circle</mat-icon>
         <div class="saved-summary-text">

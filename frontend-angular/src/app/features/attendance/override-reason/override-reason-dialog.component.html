@@ -1,0 +1,40 @@
+<div class="or-dialog">
+  <div class="or-header">
+    <mat-icon>edit_calendar</mat-icon>
+    <h2 mat-dialog-title>{{ headline }}</h2>
+  </div>
+
+  <div mat-dialog-content class="or-content">
+    <p class="or-help">
+      Attendance isn't normally recorded on this day. Pick a reason so
+      the record shows why school was open — this is stored with the
+      attendance and shown when anyone re-opens the day.
+    </p>
+
+    <mat-form-field appearance="outline" class="or-full">
+      <mat-label>Reason</mat-label>
+      <mat-select [(ngModel)]="selectedReason" panelClass="or-reason-panel">
+        <mat-option *ngFor="let r of reasons" [value]="r">{{ r }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="or-full"
+                    *ngIf="selectedReason === OTHER">
+      <mat-label>Specify reason</mat-label>
+      <input matInput
+             [(ngModel)]="otherText"
+             maxlength="80"
+             placeholder="e.g. Board exam · Class 10 Physics practical">
+    </mat-form-field>
+  </div>
+
+  <div mat-dialog-actions align="end">
+    <button mat-button (click)="cancel()">Cancel</button>
+    <button mat-flat-button color="primary"
+            (click)="save()"
+            [disabled]="!canSave">
+      <mat-icon>check_circle</mat-icon>
+      Continue
+    </button>
+  </div>
+</div>

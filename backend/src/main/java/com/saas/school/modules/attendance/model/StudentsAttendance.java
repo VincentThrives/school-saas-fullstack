@@ -63,6 +63,28 @@ public class StudentsAttendance {
     private List<StudentEntry> entries;
     private String markedBy;
 
+    /**
+     * Reason picked in the frontend when attendance was marked on a
+     * "non-working day" (Sunday / gazetted holiday / no-periods day)
+     * via the "Mark attendance anyway" escape hatch. Free-form label
+     * chosen from a dropdown (Makeup class / Exam / Sports event /
+     * Cultural event / Parent-teacher meeting / Other). Null for
+     * normal weekday marking. Persisted for the audit trail and for
+     * the post-save summary card to render "Marked on Sunday —
+     * Makeup class" instead of a bare "attendance marked" message.
+     */
+    private String overrideReason;
+
+    /**
+     * What kind of day-block was overridden — {@code HOLIDAY} (matched
+     * the holidays/events list) or {@code NO_PERIODS} (the timetable
+     * had zero periods for this day-of-week). Useful for reports that
+     * want to distinguish "opened on a gazetted holiday" from "opened
+     * on a Sunday that just isn't on the timetable". Null for normal
+     * weekday marking. Values: "HOLIDAY", "NO_PERIODS".
+     */
+    private String overrideDayType;
+
     @CreatedDate
     private Instant createdAt;
     @LastModifiedDate
@@ -112,6 +134,12 @@ public class StudentsAttendance {
 
     public String getMarkedBy() { return markedBy; }
     public void setMarkedBy(String markedBy) { this.markedBy = markedBy; }
+
+    public String getOverrideReason() { return overrideReason; }
+    public void setOverrideReason(String overrideReason) { this.overrideReason = overrideReason; }
+
+    public String getOverrideDayType() { return overrideDayType; }
+    public void setOverrideDayType(String overrideDayType) { this.overrideDayType = overrideDayType; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

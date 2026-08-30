@@ -1,0 +1,50 @@
+.or-dialog {
+  min-width: 440px;
+  max-width: 520px;
+}
+
+.or-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 24px 6px;
+
+  mat-icon {
+    color: #d4a843;
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+  }
+  h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: #1a1a1a;
+    line-height: 1.25;
+  }
+}
+
+.or-content {
+  padding-top: 8px !important;
+}
+
+.or-help {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.or-full {
+  width: 100%;
+}
+
+// Dark theme
+:host-context(body.dark-theme) {
+  .or-header h2 { color: #f5f5f5; }
+  .or-help { color: #94a3b8; }
+}
+
+@media (max-width: 520px) {
+  .or-dialog { min-width: 0; }
+}

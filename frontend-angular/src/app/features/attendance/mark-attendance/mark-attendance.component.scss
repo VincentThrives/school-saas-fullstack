@@ -228,6 +228,130 @@ $gold-light: rgba(212, 168, 67, 0.08);
   }
 }
 
+// "Mark attendance anyway" escape-hatch button — sits inside the
+// holiday / no-periods banners. Slightly muted so it doesn't compete
+// with the banner headline but obvious enough to be clickable.
+.mark-anyway-btn {
+  margin-top: 10px !important;
+  background: rgba(230, 81, 0, 0.08) !important;
+  color: #BF360C !important;
+  border: 1px solid rgba(230, 81, 0, 0.35) !important;
+  font-weight: 600 !important;
+
+  mat-icon {
+    margin-right: 4px;
+    color: #BF360C !important;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+  }
+
+  &:hover {
+    background: rgba(230, 81, 0, 0.16) !important;
+  }
+}
+
+:host-context(body.dark-theme) .mark-anyway-btn {
+  background: rgba(230, 81, 0, 0.14) !important;
+  border-color: rgba(230, 81, 0, 0.50) !important;
+}
+
+// Reminder chip shown at the top of the roster when the admin has
+// overridden the day-block. Small, muted amber — this is a "you did
+// this on purpose, right?" nudge, not an alert.
+.override-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 8px 14px;
+  background: rgba(230, 81, 0, 0.08);
+  border: 1px solid rgba(230, 81, 0, 0.30);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #BF360C;
+
+  mat-icon {
+    color: #E65100;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  span { flex: 1; }
+
+  .override-strip-cancel {
+    color: #BF360C !important;
+    font-weight: 600;
+    line-height: 1;
+    min-width: 0 !important;
+    padding: 0 8px !important;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      margin-right: 2px;
+    }
+  }
+}
+
+:host-context(body.dark-theme) .override-strip {
+  background: rgba(230, 81, 0, 0.14);
+  border-color: rgba(230, 81, 0, 0.45);
+  color: #F4B183;
+
+  mat-icon { color: #F4B183; }
+  .override-strip-cancel { color: #F4B183 !important; }
+}
+
+// Inline "Reason: Makeup class" hint tucked into the override strip
+// so the admin sees WHY they overrode without opening the summary.
+.override-strip-reason {
+  margin-left: 8px;
+  font-style: normal;
+  font-size: 12.5px;
+  opacity: 0.85;
+
+  strong { font-weight: 600; }
+}
+
+// Chip on the post-save summary card that surfaces the "non-working
+// day" fact plus the chosen reason. Muted amber background so it
+// reads as informational (not an alert) — it lives above the green
+// success tick, giving the row two clear pieces of info: WHAT was
+// saved (tick + counters) and WHY it landed on this day (chip).
+.saved-override-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: rgba(230, 81, 0, 0.10);
+  border: 1px solid rgba(230, 81, 0, 0.30);
+  color: #BF360C;
+  font-size: 12.5px;
+  line-height: 1.4;
+
+  mat-icon {
+    color: #E65100;
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+  strong { font-weight: 700; }
+}
+
+:host-context(body.dark-theme) .saved-override-chip {
+  background: rgba(230, 81, 0, 0.16);
+  border-color: rgba(230, 81, 0, 0.45);
+  color: #F4B183;
+
+  mat-icon { color: #F4B183; }
+}
+
 .filters-card {
   margin-bottom: 20px;
   border-radius: 12px !important;

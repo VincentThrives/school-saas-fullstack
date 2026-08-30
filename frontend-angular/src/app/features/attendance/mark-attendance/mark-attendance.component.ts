@@ -15,11 +15,16 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { TenantFeatureService } from '../../../core/services/tenant-feature.service';
 import { SchoolClass, AcademicYear, UserRole } from '../../../core/models';
+import {
+  OverrideReasonDialogComponent,
+  OverrideReasonResult,
+} from '../override-reason/override-reason-dialog.component';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -61,6 +66,7 @@ interface StudentAttendance {
     MatChipsModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    MatDialogModule,
     PageHeaderComponent,
   ],
   templateUrl: './mark-attendance.component.html',
@@ -106,6 +112,47 @@ export class MarkAttendanceComponent implements OnInit {
   noPeriodsToday = false;
   noPeriodsDayLabel = '';
   noTimetableConfigured = false;
+
+  /**
+   * Escape hatch for the holiday / no-periods banners. Schools DO open on
+   * Sundays for makeup classes, exams, or events, and testers also need to
+   * mark attendance on a non-working day. When the admin clicks the
+   * "Mark attendance anyway" button in a banner, this flag flips true for
+   * the currently-selected (scope, date) — the roster loads and the save
+   * flow behaves normally.
+   *
+   * <p>Reset on any scope or date change so the escape is scoped to what
+   * the admin is actively looking at; navigating away always re-enters
+   * the guarded state.</p>
+   *
+   * <p>Auto-set true by {@link autoLiftBlockIfAlreadyMarked} when a prior
+   * save is detected on a blocked date — so re-visiting a marked Sunday
+   * shows the post-save summary instead of the banner.</p>
+   */
+  overrideDayBlock = false;
+
+  /** Reason label picked in the {@link OverrideReasonDialogComponent}
+   *  when the admin chose "Mark attendance anyway" — sent with the save
+   *  and stored on the attendance record for the audit trail. Also read
+   *  BACK from a previously-saved batch via the auto-lift probe so the
+   *  post-save summary card can render "Marked on Sunday — Makeup class".
+   *  Null until the dialog resolves. */
+  overrideReason: string | null = null;
+
+  /** Which block was overridden — {@code HOLIDAY} for a matched holiday
+   *  entry, {@code NO_PERIODS} for a day-of-week with no timetable
+   *  periods. Sent with the save AND populated from the read-back so
+   *  the summary card's icon/copy match the original decision. */
+  overrideDayType: 'HOLIDAY' | 'NO_PERIODS' | null = null;
+
+  /** Compound guard used by the template and by {@link maybeAutoLoadStudents}
+   *  so the "banner is shown AND admin hasn't overridden" check reads the
+   *  same way everywhere. {@code noTimetableConfigured} is intentionally
+   *  NOT overridable — a missing timetable is a config problem, not a
+   *  "we're open on Sunday" case; admin must go configure it. */
+  get isDayBlockedAndNotOverridden(): boolean {
+    return !this.overrideDayBlock && (this.isHoliday || this.noPeriodsToday);
+  }
 
   /**
    * Post-save flow. After a successful {@link saveAttendance}, the
@@ -188,6 +235,7 @@ export class MarkAttendanceComponent implements OnInit {
     private location: Location,
     private route: ActivatedRoute,
     private router: Router,
+    private dialog: MatDialog,
   ) {}
 
   /**
@@ -297,6 +345,9 @@ export class MarkAttendanceComponent implements OnInit {
       // Re-evaluate the banner the moment the cache lands — handles the case
       // where the user arrived on the page already pointing at a holiday date.
       this.refreshHolidayBanner();
+      // If they landed on a Sunday that already has saved attendance,
+      // lift the block automatically so the summary card shows instead.
+      this.autoLiftBlockIfAlreadyMarked();
     });
   }
 
@@ -320,8 +371,14 @@ export class MarkAttendanceComponent implements OnInit {
   /** Date picker (matDatepicker) change handler. */
   onDateChange(): void {
     this.resetSavedSummary();
+    // "Mark anyway" is scoped to one date — moving to a different date
+    // must re-engage the guarded state (and forget the previous reason).
+    this.overrideDayBlock = false;
+    this.overrideReason = null;
+    this.overrideDayType = null;
     this.refreshHolidayBanner();
     this.refreshNoPeriodsBanner();
+    this.autoLiftBlockIfAlreadyMarked();
     this.maybeAutoLoadStudents();
   }
 
@@ -390,6 +447,11 @@ export class MarkAttendanceComponent implements OnInit {
   }
 
   onClassChange(): void {
+    // Any scope change re-engages the guarded state — the previous
+    // "Mark anyway" click doesn't leak into a different class.
+    this.overrideDayBlock = false;
+    this.overrideReason = null;
+    this.overrideDayType = null;
     const selectedClass = this.classes.find((c) => c.classId === this.selectedClassId);
     let sections = (selectedClass?.sections || []) as any[];
     // Already pre-filtered in loadClasses() for teachers; keep this guard
@@ -415,6 +477,11 @@ export class MarkAttendanceComponent implements OnInit {
   /** Section dropdown handler — triggers the timetable cache load so
    *  the "no periods today" banner can be evaluated before students load. */
   onSectionChange(): void {
+    // Section change is a scope change — reset the override so a
+    // previous "Mark anyway" on a different section doesn't carry over.
+    this.overrideDayBlock = false;
+    this.overrideReason = null;
+    this.overrideDayType = null;
     this.students = [];
     this.studentsLoaded = false;
     this.resetSavedSummary();
@@ -459,13 +526,123 @@ export class MarkAttendanceComponent implements OnInit {
   private lastAutoLoadKey = '';
   private maybeAutoLoadStudents(): void {
     if (!this.selectedClassId || !this.selectedSectionId || !this.selectedAcademicYearId) return;
-    if (this.isHoliday || this.noPeriodsToday || this.noTimetableConfigured) return;
+    // Hard gate — no timetable at all is a config problem, not something
+    // the "Mark anyway" escape hatch can paper over.
+    if (this.noTimetableConfigured) return;
+    // Soft gates (holiday / no-periods) yield when the admin has clicked
+    // "Mark attendance anyway" for this scope+date.
+    if (!this.overrideDayBlock && (this.isHoliday || this.noPeriodsToday)) return;
     if (this.isLoading) return;
     const dateStr = this.formatDate(this.selectedDate);
     const key = `${this.selectedClassId}::${this.selectedSectionId}::${this.selectedAcademicYearId}::${dateStr}`;
     if (key === this.lastAutoLoadKey && this.studentsLoaded) return;
     this.lastAutoLoadKey = key;
     this.loadStudents();
+  }
+
+  /**
+   * Handler for the "Mark attendance anyway" button that lives on the
+   * holiday and no-periods banners. Lifts the block for the currently
+   * selected date and kicks the auto-load pipeline so the roster
+   * appears immediately.
+   *
+   * <p>The lift is scoped to the current (scope, date) — any date /
+   * class / section / year change resets {@link overrideDayBlock} to
+   * false so the guarded state re-engages when the admin moves on.</p>
+   */
+  /**
+   * "Mark attendance anyway" button handler — opens the reason dialog
+   * so the admin has to declare WHY they're marking on a non-working
+   * day (Makeup class / Exam / Cultural event / …). Only on Save in
+   * the dialog do we lift the block and load the roster. Cancelling
+   * the dialog leaves the banner in place; nothing happens.
+   *
+   * <p>The dialog is also what populates {@link overrideReason} and
+   * {@link overrideDayType} so the eventual save request carries them
+   * and the post-save summary card can render them back.</p>
+   */
+  markAnyway(): void {
+    // Pick a friendly label + type based on which banner surfaced. If
+    // both are somehow true, HOLIDAY wins — it's the more specific
+    // signal ("Diwali" beats a generic "Sunday").
+    const dayType: 'HOLIDAY' | 'NO_PERIODS' = this.isHoliday ? 'HOLIDAY' : 'NO_PERIODS';
+    const dayLabel = this.isHoliday
+      ? (this.holidayTitle || 'Holiday')
+      : (this.noPeriodsDayLabel || 'this day');
+
+    const ref = this.dialog.open(OverrideReasonDialogComponent, {
+      data: { dayType, dayLabel },
+      width: '480px',
+      autoFocus: true,
+      restoreFocus: true,
+      disableClose: false,
+    });
+    ref.afterClosed().subscribe((result: OverrideReasonResult | null) => {
+      if (!result) return;   // Cancel / backdrop click — banner stays put.
+      this.overrideReason = result.reason;
+      this.overrideDayType = result.dayType;
+      this.overrideDayBlock = true;
+      this.maybeAutoLoadStudents();
+    });
+  }
+
+  /**
+   * Handler for the "× Back" button in the override strip. Reverses the
+   * "Mark anyway" click — banner re-engages and the roster / save section
+   * hide via {@link isDayBlockedAndNotOverridden}. Also wipes the roster
+   * state so re-clicking Mark Anyway triggers a fresh load instead of the
+   * auto-load pipeline skipping on cache-hit.
+   */
+  cancelOverride(): void {
+    this.overrideDayBlock = false;
+    this.overrideReason = null;
+    this.overrideDayType = null;
+    this.students = [];
+    this.studentsLoaded = false;
+    this.lastAutoLoadKey = '';
+  }
+
+  /**
+   * When the date lands on a blocked day (holiday or no-periods) BUT the
+   * admin has already saved attendance for it earlier (e.g. a Sunday
+   * makeup class marked last week), quietly lift the block so the saved
+   * data surfaces via the post-save summary card instead of the banner.
+   *
+   * <p>No-op when: the block is already lifted, no scope is picked, the
+   * date isn't blocked in the first place, or the probe returns no
+   * entries. Silent on network errors — a probe failure just leaves the
+   * banner + "Mark anyway" button in place, which is safe.</p>
+   *
+   * <p>Only checks the day-wise batch (periodNumber 0/null); period-wise
+   * saves belong to the subject-attendance flow, not this page.</p>
+   */
+  private autoLiftBlockIfAlreadyMarked(): void {
+    if (this.overrideDayBlock) return;
+    if (this.noTimetableConfigured) return;
+    if (!this.isHoliday && !this.noPeriodsToday) return;
+    if (!this.selectedClassId || !this.selectedSectionId) return;
+    const dateStr = this.formatDate(this.selectedDate);
+    this.api.getBatchAttendance(this.selectedClassId, this.selectedSectionId, dateStr).subscribe({
+      next: (res) => {
+        const batches: any[] = res?.data || [];
+        const dayBatch = batches.find(b => !b?.periodNumber || b.periodNumber === 0);
+        const entries: any[] = dayBatch?.entries || [];
+        if (entries.length === 0) return;
+        // Prefill the reason from the saved doc BEFORE we lift the
+        // block — the eventual fetchStudents → checkExistingAttendance
+        // chain also reads these, but seeding them here keeps the
+        // override strip / summary card copy consistent even if the
+        // roster fetch is slower than the render pass.
+        if (dayBatch?.overrideReason) {
+          this.overrideReason = dayBatch.overrideReason;
+          const t = dayBatch.overrideDayType;
+          this.overrideDayType = (t === 'HOLIDAY' || t === 'NO_PERIODS') ? t : null;
+        }
+        this.overrideDayBlock = true;
+        this.maybeAutoLoadStudents();
+      },
+      error: () => { /* silent — banner + Mark Anyway remain */ },
+    });
   }
 
   /**
@@ -534,6 +711,11 @@ export class MarkAttendanceComponent implements OnInit {
           );
         }
         this.refreshNoPeriodsBanner();
+        // Sunday / no-periods day that was previously marked? Auto-lift
+        // the block so the saved data shows without the admin re-clicking
+        // "Mark anyway". Runs before maybeAutoLoadStudents so the same
+        // pipeline picks up the roster in either branch.
+        this.autoLiftBlockIfAlreadyMarked();
         this.maybeAutoLoadStudents();
       },
       error: () => {
@@ -751,6 +933,15 @@ export class MarkAttendanceComponent implements OnInit {
           total: this.students.length,
         };
         this.savedScopeLabel = this.computeSavedScopeLabel();
+        // Read back the override metadata so the summary card can
+        // render "Marked on Sunday — Makeup class" instead of a bare
+        // "attendance marked" message. Only set from the saved doc —
+        // a fresh weekday save leaves these null on the record.
+        if (dayBatch?.overrideReason) {
+          this.overrideReason = dayBatch.overrideReason;
+          const t = dayBatch.overrideDayType;
+          this.overrideDayType = (t === 'HOLIDAY' || t === 'NO_PERIODS') ? t : null;
+        }
         this.attendanceSaved = true;
         this.editMode = false;
       },
@@ -881,6 +1072,12 @@ export class MarkAttendanceComponent implements OnInit {
         sectionId: this.selectedSectionId,
         academicYearId: this.selectedAcademicYearId,
         date: dateStr,
+        // Reason + type only travel when the admin overrode a blocked
+        // day. Backend uses their presence to skip the holiday hard-
+        // block AND stamps them on the record for the audit trail.
+        // Absent on normal weekday saves so those rows stay clean.
+        overrideReason: this.overrideReason || undefined,
+        overrideDayType: this.overrideDayType || undefined,
         entries: this.students.map((s) => ({
           studentId: s.studentId,
           status: s.status,

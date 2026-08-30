@@ -55,6 +55,20 @@ public class MarkAttendanceRequest {
      */
     private String activityLabel;
 
+    /**
+     * Reason picked in the "Mark attendance anyway" dialog when the
+     * teacher chose to mark on a Sunday / holiday / no-periods day.
+     * Free-form label chosen from the frontend dropdown. Null for
+     * normal weekday marking. Persisted to the audit trail.
+     */
+    private String overrideReason;
+
+    /**
+     * What kind of block was overridden: {@code "HOLIDAY"} or
+     * {@code "NO_PERIODS"}. Null for normal weekday marking.
+     */
+    private String overrideDayType;
+
     public MarkAttendanceRequest() {
     }
 
@@ -148,6 +162,12 @@ public class MarkAttendanceRequest {
     public void setActivityLabel(String activityLabel) {
         this.activityLabel = activityLabel;
     }
+
+    public String getOverrideReason() { return overrideReason; }
+    public void setOverrideReason(String overrideReason) { this.overrideReason = overrideReason; }
+
+    public String getOverrideDayType() { return overrideDayType; }
+    public void setOverrideDayType(String overrideDayType) { this.overrideDayType = overrideDayType; }
 
     public static class AttendanceEntry {
 
