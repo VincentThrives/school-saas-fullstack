@@ -99,6 +99,23 @@ public class AuthController {
                 "Switched student"));
     }
 
+    // ── Role switch (multi-role users) ───────────────────────────
+
+    @Operation(summary = "Switch the active role (multi-role users only). "
+            + "Validates that the requested role is one the user was granted "
+            + "and mints a fresh access + refresh token pair with the new "
+            + "activeRole claim. Sidebar re-renders on the frontend from the "
+            + "new token — no re-login required.")
+    @PostMapping("/api/v1/auth/switch-role")
+    public ResponseEntity<ApiResponse<AuthResponse>> switchRole(
+            @AuthenticationPrincipal String userId,
+            @RequestParam("to") String targetRole,
+            @RequestHeader(value = "X-Tenant-Id", required = false) String tenantId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                authService.switchRole(userId, targetRole, tenantId),
+                "Role switched"));
+    }
+
     // ── Super Admin Auth ───────────────────────────────────────────
 
     @Operation(summary = "Super Admin login (separate endpoint — no School ID)")

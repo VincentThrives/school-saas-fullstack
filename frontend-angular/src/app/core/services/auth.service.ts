@@ -193,6 +193,53 @@ export class AuthService {
     this.router.navigate(['/login']);
   }
 
+  /**
+   * Switch the active role for a multi-role user. Sends the pick to
+   * the backend which validates against the user's granted role set
+   * and mints a fresh access + refresh token pair with the new
+   * {@code activeRole} claim. On success we swap the tokens in
+   * localStorage AND update the reactive {@link currentUser$} +
+   * {@link role$} streams so every subscriber (sidebar, route guard,
+   * top-bar chip) re-renders without a page reload.
+   *
+   * @throws error observable when the user isn't authorised for the
+   *   requested role (backend returns a BusinessException) or the
+   *   network request fails
+   */
+  switchRole(targetRole: UserRole): Observable<AuthResponse> {
+    const params = new URLSearchParams({ to: targetRole });
+    return this.http
+      .post<ApiResponse<AuthResponse>>(`${this.API}/auth/switch-role?${params}`, {})
+      .pipe(
+        map((res) => res.data),
+        tap((auth) => this.setCredentials(auth)),
+      );
+  }
+
+  /** True when the current user was granted more than one role — used
+   *  by the top-bar to decide whether to render the role-switcher chip.
+   *  Single-role users see nothing new. */
+  get hasMultipleRoles(): boolean {
+    const roles = this.currentUser$.value?.roles;
+    return Array.isArray(roles) && roles.length > 1;
+  }
+
+  /** The role the user is currently working AS. Falls back to the
+   *  legacy {@code role} field on old sessions (before multi-role
+   *  support landed) so nothing breaks during the rollout. */
+  get activeRole(): UserRole | null {
+    const u = this.currentUser$.value;
+    return (u?.activeRole ?? u?.role ?? this.currentRole) as UserRole | null;
+  }
+
+  /** Every role the user could switch to. Empty list for legacy
+   *  sessions until they re-login (harmless — the switcher chip
+   *  won't render either way). */
+  get availableRoles(): UserRole[] {
+    const roles = this.currentUser$.value?.roles;
+    return Array.isArray(roles) ? roles : [];
+  }
+
   isFeatureEnabled(key: string): boolean {
     return this.currentFeatureFlags[key] === true || this.isSuperAdmin;
   }

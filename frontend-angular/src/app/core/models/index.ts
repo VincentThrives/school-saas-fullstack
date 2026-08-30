@@ -11,6 +11,13 @@ export enum UserRole {
    *  per-tenant by the Coordinator Access page the school admin
    *  manages. */
   SCHOOL_COORDINATOR = 'SCHOOL_COORDINATOR',
+  /** HR / Payroll operator. Distinct from SCHOOL_ADMIN so payroll
+   *  data isn't accidentally visible to Principals unless explicitly
+   *  granted. Small schools where the Principal also runs HR should
+   *  assign BOTH roles via the multi-role checkbox on the Create /
+   *  Edit User form; a top-bar switcher lets the user pick which
+   *  hat they're wearing. */
+  HR = 'HR',
 }
 
 /** Catalog of sidenav modules that can be toggled on / off for the
@@ -87,6 +94,8 @@ export interface ResolveTenantRequest {
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
+  /** The active role at login time. Kept for backward compatibility —
+   *  new callers should read {@code user.activeRole} instead. */
   role: UserRole;
   featureFlags: Record<string, boolean>;
   user: User;
@@ -116,7 +125,17 @@ export interface User {
   firstName: string;
   lastName: string;
   phone?: string;
+  /** Legacy single-role field — always equals {@link activeRole}.
+   *  Kept so old code paths (route guards, sidebar filters, DOM
+   *  bindings) that read {@code user.role} keep working. */
   role: UserRole;
+  /** All roles this user was granted by the admin. Single-role users
+   *  get a one-item list; multi-role users (e.g. Principal + HR) see
+   *  multiple. Drives the top-bar role-switcher visibility. */
+  roles?: UserRole[];
+  /** Which role the user is currently working AS. Drives the sidebar,
+   *  route guards, and the "Viewing as: [role]" chip in the top bar. */
+  activeRole?: UserRole;
   profilePhotoUrl?: string;
   isActive: boolean;
   isLocked: boolean;

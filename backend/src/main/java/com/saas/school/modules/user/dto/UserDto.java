@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.saas.school.modules.user.model.UserRole;
 
 import java.time.Instant;
+import java.util.List;
 
 public class UserDto {
 
@@ -14,7 +15,12 @@ public class UserDto {
     private String lastName;
     private String phone;
     private String profilePhotoUrl;
+    /** Kept for backward compatibility — always equal to {@link #activeRole}. */
     private UserRole role;
+    /** Every role the user is authorised to switch to. */
+    private List<UserRole> roles;
+    /** Which role the user is currently working AS. */
+    private UserRole activeRole;
 
     /**
      * Per-tenant feature flags — drives the frontend's UI gating.
@@ -119,6 +125,12 @@ public class UserDto {
     public void setRole(UserRole role) {
         this.role = role;
     }
+
+    public List<UserRole> getRoles() { return roles; }
+    public void setRoles(List<UserRole> roles) { this.roles = roles; }
+
+    public UserRole getActiveRole() { return activeRole; }
+    public void setActiveRole(UserRole activeRole) { this.activeRole = activeRole; }
 
     @JsonProperty("isActive")
     public boolean isActive() {

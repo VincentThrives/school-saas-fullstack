@@ -5,6 +5,8 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
+
 public class CreateUserRequest {
 
     @NotBlank
@@ -22,8 +24,23 @@ public class CreateUserRequest {
 
     private String phone;
 
+    /**
+     * Legacy single-role field — still required for backward
+     * compatibility. When the admin picks multiple roles the frontend
+     * sends BOTH: {@code role} = the first role in {@code roles}
+     * (used as the initial {@code activeRole}) AND {@code roles} = the
+     * full list. Old clients that only send {@code role} continue to
+     * work — the server treats them as single-role users.
+     */
     @NotNull
     private UserRole role;
+
+    /**
+     * Full role set for a multi-role user (Principal + HR, Teacher +
+     * Class Teacher, etc.). Optional — if null / empty, the server
+     * uses {@code [role]}. Must contain {@code role} if both are set.
+     */
+    private List<UserRole> roles;
 
     public CreateUserRequest() {
     }
@@ -75,4 +92,7 @@ public class CreateUserRequest {
     public void setRole(UserRole role) {
         this.role = role;
     }
+
+    public List<UserRole> getRoles() { return roles; }
+    public void setRoles(List<UserRole> roles) { this.roles = roles; }
 }

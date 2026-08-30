@@ -21,6 +21,38 @@
       <mat-icon>{{ isDarkMode ? 'light_mode' : 'dark_mode' }}</mat-icon>
     </button>
 
+    <!-- Role switcher chip — only renders when the user was granted
+         more than one role (e.g. Principal + HR). Shows the currently-
+         active role and opens a dropdown with the other roles they can
+         switch to. Hidden for single-role users so the top bar stays
+         uncluttered. -->
+    <button
+      *ngIf="hasMultipleRoles"
+      mat-stroked-button
+      class="role-switcher-chip"
+      [matMenuTriggerFor]="roleMenu"
+      [disabled]="isSwitchingRole"
+      matTooltip="Switch which role you're working as">
+      <mat-icon class="role-switcher-icon">badge</mat-icon>
+      <span class="role-switcher-label">{{ activeRoleLabel }}</span>
+      <mat-icon class="role-switcher-caret">arrow_drop_down</mat-icon>
+    </button>
+    <mat-menu #roleMenu="matMenu" xPosition="before" class="role-switcher-menu">
+      <div class="role-switcher-header" (click)="$event.stopPropagation()">
+        <span class="role-switcher-header-label">Viewing as</span>
+        <strong>{{ activeRoleLabel }}</strong>
+      </div>
+      <mat-divider></mat-divider>
+      <button
+        mat-menu-item
+        *ngFor="let r of availableRoles"
+        [disabled]="r === authService.activeRole || isSwitchingRole"
+        (click)="switchRole(r)">
+        <mat-icon>{{ r === authService.activeRole ? 'check' : 'swap_horiz' }}</mat-icon>
+        <span>{{ roleLabel(r) }}</span>
+      </button>
+    </mat-menu>
+
     <!-- Sibling switcher — only renders when a student session has
          siblings under the same parentPhone. Hidden completely for
          staff / admin / principals (their `getSiblings` returns []). -->

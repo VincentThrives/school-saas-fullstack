@@ -2,6 +2,8 @@ package com.saas.school.modules.auth.dto;
 
 import com.saas.school.modules.user.model.UserRole;
 
+import java.util.List;
+
 public class UserDto {
 
     private String userId;
@@ -9,7 +11,15 @@ public class UserDto {
     private String firstName;
     private String lastName;
     private String profilePhotoUrl;
+    /** Kept for backward compatibility with older clients — always
+     *  equals {@link #activeRole}. New callers should read {@code activeRole}
+     *  for the current hat and {@code roles} for the full set. */
     private UserRole role;
+    /** Every role the user is authorised to switch to. Single-role
+     *  users get a one-item list; multi-role users see multiple. */
+    private List<UserRole> roles;
+    /** The role the user is currently working AS. */
+    private UserRole activeRole;
 
     public UserDto() {
     }
@@ -70,4 +80,10 @@ public class UserDto {
     public void setRole(UserRole role) {
         this.role = role;
     }
+
+    public List<UserRole> getRoles() { return roles; }
+    public void setRoles(List<UserRole> roles) { this.roles = roles; }
+
+    public UserRole getActiveRole() { return activeRole; }
+    public void setActiveRole(UserRole activeRole) { this.activeRole = activeRole; }
 }

@@ -70,17 +70,44 @@
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="form-field">
-        <mat-label>Role</mat-label>
+        <mat-label>Primary role (login lands here)</mat-label>
         <mat-select formControlName="role">
-          <mat-option *ngFor="let role of roles" [value]="role.value">
+          <mat-option *ngFor="let role of roles"
+                      [value]="role.value"
+                      [disabled]="!isRoleSelected(role.value)">
             {{ role.label }}
           </mat-option>
         </mat-select>
         <mat-error *ngIf="userForm.get('role')?.invalid">
           {{ getErrorMessage('role') }}
         </mat-error>
-        <mat-hint *ngIf="isEditing">Role cannot be changed</mat-hint>
+        <mat-hint>
+          Pick which role the user sees first on login. Only roles
+          you've ticked below are selectable here.
+        </mat-hint>
       </mat-form-field>
+
+      <!-- Multi-role picker — admin ticks every role this user is
+           authorised to work as. Single-role users leave it at one
+           box. When >1 is ticked, the user sees a role-switcher chip
+           in the top bar and can flip between them without re-login. -->
+      <div class="form-field roles-picker">
+        <label class="roles-picker-label">Grant additional roles (optional)</label>
+        <div class="roles-picker-chips">
+          <label *ngFor="let role of roles" class="role-chip"
+                 [class.role-chip--selected]="isRoleSelected(role.value)">
+            <input type="checkbox"
+                   [checked]="isRoleSelected(role.value)"
+                   (change)="toggleRole(role.value, $any($event.target).checked)">
+            <span>{{ role.label }}</span>
+          </label>
+        </div>
+        <p class="roles-picker-hint">
+          Tick multiple roles for a user who wears more than one hat
+          (e.g. a Principal who also runs HR). A "Viewing as" chip
+          appears in their top bar so they can switch on the fly.
+        </p>
+      </div>
 
       <mat-form-field appearance="outline" class="form-field" *ngIf="!isEditing">
         <mat-label>Password</mat-label>

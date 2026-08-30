@@ -9,6 +9,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Subscription, filter } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ApiService } from '../../core/services/api.service';
@@ -31,6 +32,7 @@ import { SiblingSwitcherComponent } from '../../shared/components/sibling-switch
     MatDividerModule,
     MatTooltipModule,
     MatDialogModule,
+    MatSnackBarModule,
     SiblingSwitcherComponent,
   ],
   templateUrl: './header.component.html',
@@ -61,7 +63,57 @@ export class HeaderComponent implements OnInit, OnDestroy {
     private api: ApiService,
     private notificationBus: NotificationBusService,
     private dialog: MatDialog,
+    private snackBar: MatSnackBar,
   ) {}
+
+  // ── Role switcher (multi-role users only) ─────────────────
+  // Hidden entirely when the user was granted a single role;
+  // renders a chip inside the top bar showing the active hat
+  // with a dropdown listing every role they can switch to.
+  isSwitchingRole = false;
+
+  get hasMultipleRoles(): boolean {
+    return this.authService.hasMultipleRoles;
+  }
+
+  get activeRoleLabel(): string {
+    const r = this.authService.activeRole;
+    return r ? String(r).replace(/_/g, ' ') : '';
+  }
+
+  get availableRoles(): UserRole[] {
+    return this.authService.availableRoles;
+  }
+
+  /** Friendly label for a role in the switcher dropdown (title case). */
+  roleLabel(role: UserRole): string {
+    return String(role).replace(/_/g, ' ');
+  }
+
+  /** Called from each dropdown menu item — hits the switch endpoint
+   *  and lets the reactive currentUser$ stream re-render everything
+   *  downstream (sidebar, guards, this chip). No page reload. */
+  switchRole(role: UserRole): void {
+    if (this.isSwitchingRole) return;
+    if (role === this.authService.activeRole) return;
+    this.isSwitchingRole = true;
+    this.authService.switchRole(role).subscribe({
+      next: () => {
+        this.isSwitchingRole = false;
+        this.snackBar.open(`Now viewing as ${this.roleLabel(role)}`, 'Close', { duration: 2500 });
+        // Send the user to the dashboard root so the newly-visible
+        // sidebar's landing page shows first (avoids a route that the
+        // previous role could see but the new one can't).
+        this.router.navigate(['/dashboard']);
+      },
+      error: (err) => {
+        this.isSwitchingRole = false;
+        this.snackBar.open(
+          err?.error?.message || 'Failed to switch role',
+          'Close', { duration: 3500 });
+      },
+    });
+  }
 
   ngOnInit(): void {
     this.isDarkMode = localStorage.getItem('darkMode') === 'true';

@@ -8,6 +8,8 @@ import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Document(collection = "users")
 @CompoundIndexes({
@@ -20,7 +22,34 @@ public class User {
     private String email;
     private String username;
     private String passwordHash;
+
+    /**
+     * Legacy single-role field — kept for backward compatibility with
+     * every existing read path (reports, exports, admin views) that
+     * still calls {@link #getRole()}. Always mirrors {@link #activeRole}
+     * on write via {@link #normalizeRoles()}. Old docs without
+     * {@link #roles} still read fine — {@link #normalizeRoles()} back-
+     * fills the array from this field on load.
+     */
     private UserRole role;
+
+    /**
+     * All roles this user is authorised to work as. Added when we
+     * introduced multi-role support (e.g. Principal who also runs HR).
+     * Null / empty on legacy docs — {@link #normalizeRoles()} seeds
+     * this from the single {@link #role} field so old data behaves
+     * identically to a single-role user.
+     */
+    private List<UserRole> roles;
+
+    /**
+     * The role the user is currently working AS. Drives sidebar,
+     * authorization checks, and JWT authorities. Defaults to
+     * {@link #role} on old docs (single-role users always end up here).
+     * Persisted so re-login keeps the same hat the user was wearing.
+     */
+    private UserRole activeRole;
+
     private String firstName;
     private String lastName;
     private String phone;
@@ -122,6 +151,63 @@ public class User {
 
     public void setRole(UserRole role) {
         this.role = role;
+    }
+
+    public List<UserRole> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(List<UserRole> roles) {
+        this.roles = roles;
+    }
+
+    public UserRole getActiveRole() {
+        return activeRole;
+    }
+
+    public void setActiveRole(UserRole activeRole) {
+        this.activeRole = activeRole;
+    }
+
+    /**
+     * Idempotent sync between the singular {@link #role} field and the
+     * multi-role {@link #roles} + {@link #activeRole} fields. Called
+     * from {@code UserService.save()} before every persist so:
+     *
+     * <ul>
+     *   <li>Old code paths reading {@code getRole()} always see a
+     *       non-null value.</li>
+     *   <li>Old MongoDB docs without {@code roles} get the array back-
+     *       filled from {@code role} on first save.</li>
+     *   <li>{@code activeRole} defaults to the first entry in
+     *       {@code roles} when the caller didn't pick one.</li>
+     *   <li>{@code role} tracks {@code activeRole} so single-role
+     *       queries continue to work.</li>
+     * </ul>
+     *
+     * <p>Never throws — a User that arrives with neither {@code role}
+     * nor {@code roles} set is left as-is (caller validation catches
+     * that upstream).</p>
+     */
+    public void normalizeRoles() {
+        // Backfill the array from the singular field (legacy docs, or
+        // callers that only set setRole).
+        if ((roles == null || roles.isEmpty()) && role != null) {
+            roles = new ArrayList<>();
+            roles.add(role);
+        }
+        // Default active role → first in the array. Picking the first
+        // matches the "primary role" intent: whichever the admin listed
+        // first is what the user sees on next login.
+        if (activeRole == null && roles != null && !roles.isEmpty()) {
+            activeRole = roles.get(0);
+        }
+        // Keep the singular field pointed at activeRole so
+        // getRole()-based code paths (reports, dropdowns, filters)
+        // reflect the current hat.
+        if (activeRole != null) {
+            role = activeRole;
+        }
     }
 
     public String getFirstName() {

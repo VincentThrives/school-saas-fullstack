@@ -67,7 +67,18 @@ export class UserFormComponent implements OnInit {
     // coordinator without giving user-management or structural-setup
     // access.
     { value: UserRole.SCHOOL_COORDINATOR, label: 'School Coordinator' },
+    // Distinct HR role for the payroll / employee-attendance operator.
+    // A Principal who also runs HR gets BOTH roles assigned via the
+    // multi-role checkboxes below.
+    { value: UserRole.HR, label: 'HR / Payroll' },
   ];
+
+  /** Roles the admin has ticked in the multi-role picker. Kept in sync
+   *  with the primary "role" dropdown — that one always represents the
+   *  INITIAL active role the user will be logged in as. Toggling any
+   *  role here adds/removes it from the granted set; the primary
+   *  dropdown adjusts to stay a valid member. */
+  selectedRoles = new Set<UserRole>();
 
   constructor(
     private fb: FormBuilder,
@@ -91,10 +102,36 @@ export class UserFormComponent implements OnInit {
       phone: [''],
       role: [UserRole.TEACHER, Validators.required],
     });
+    // Seed the multi-role picker with the primary role on the new-user
+    // form so the checkbox for the default (TEACHER) is ticked; edit
+    // mode replaces this in loadUserData() with the persisted list.
+    this.selectedRoles.add(UserRole.TEACHER);
 
     if (this.isEditing) {
       this.loadUserData();
     }
+  }
+
+  /** Toggles a role in the granted set. Enforces at least one role
+   *  (unticking the last one is a no-op) and keeps the primary "role"
+   *  dropdown pointing at a still-valid entry. */
+  toggleRole(role: UserRole, checked: boolean): void {
+    if (checked) {
+      this.selectedRoles.add(role);
+    } else {
+      if (this.selectedRoles.size <= 1) return;   // must always keep one
+      this.selectedRoles.delete(role);
+      // If we just unticked the current primary role, promote the first
+      // remaining one so the dropdown stays consistent.
+      if (this.userForm.get('role')?.value === role) {
+        const first = this.selectedRoles.values().next().value;
+        if (first) this.userForm.get('role')?.setValue(first);
+      }
+    }
+  }
+
+  isRoleSelected(role: UserRole): boolean {
+    return this.selectedRoles.has(role);
   }
 
   get pageTitle(): string {
@@ -113,8 +150,15 @@ export class UserFormComponent implements OnInit {
             firstName: res.data.firstName,
             lastName: res.data.lastName,
             phone: res.data.phone || '',
-            role: res.data.role,
+            role: res.data.activeRole || res.data.role,
           });
+          // Seed the multi-role picker from the persisted list; legacy
+          // users without a roles array fall back to a singleton of the
+          // legacy single-role field so their checkbox is ticked.
+          this.selectedRoles.clear();
+          const roles: UserRole[] = res.data.roles && res.data.roles.length
+              ? res.data.roles : [res.data.role];
+          roles.forEach(r => this.selectedRoles.add(r));
         }
         this.isLoading = false;
       },
@@ -195,6 +239,12 @@ export class UserFormComponent implements OnInit {
     if (this.isEditing && !formData.password) {
       delete formData.password;
     }
+
+    // Multi-role payload — always send the granted set alongside the
+    // primary role field. Backend uses `role` as the initial active
+    // hat and `roles` as the full authorised list. Single-role users
+    // just have a one-item array (identical to the legacy behaviour).
+    formData.roles = Array.from(this.selectedRoles);
 
     const request$ = this.isEditing && this.userId
       ? this.apiService.updateUser(this.userId, formData)
