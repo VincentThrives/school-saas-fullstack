@@ -719,6 +719,48 @@ export const routes: Routes = [
         data: { roles: [UserRole.SCHOOL_ADMIN], feature: 'biometric_terminal', title: 'Biometric Settings' },
       },
 
+      // ── HR module — Employee Attendance ─────────────────────
+      // Employee-facing: anyone with a linked employee record.
+      // No role guard — backend /my endpoint returns [] for
+      // users not linked to a Teacher, so the empty state
+      // handles the "who?" case.
+      {
+        path: 'hr/attendance/my',
+        loadComponent: () =>
+          import('./features/hr/attendance/my-attendance/my-attendance.component')
+              .then(m => m.MyAttendanceComponent),
+        data: { title: 'My Attendance' },
+      },
+      // HR-only: settings + daily view. Backend also gates on
+      // hasRole('HR') so a route-guard bypass can't leak data.
+      {
+        path: 'hr/attendance/settings',
+        loadComponent: () =>
+          import('./features/hr/attendance/settings/hr-attendance-settings.component')
+              .then(m => m.HrAttendanceSettingsComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.HR], title: 'Attendance Settings' },
+      },
+      {
+        path: 'hr/attendance/daily',
+        loadComponent: () =>
+          import('./features/hr/attendance/daily/hr-daily-attendance.component')
+              .then(m => m.HrDailyAttendanceComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.HR], title: 'Daily Attendance' },
+      },
+      // Placeholder route so the "Set up bindings" button on the
+      // Attendance Settings page navigates cleanly. Backend +
+      // real bindings UI in the next iteration.
+      {
+        path: 'hr/attendance/terminal-bindings',
+        loadComponent: () =>
+          import('./features/hr/attendance/terminal-bindings/hr-terminal-bindings.component')
+              .then(m => m.HrTerminalBindingsComponent),
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.HR], title: 'Terminal Bindings' },
+      },
+
       // Settings (SCHOOL_ADMIN only)
       {
         path: 'settings',

@@ -58,6 +58,13 @@ import {
   UpdateTerminalRequest,
   BindTerminalUserRequest,
   BiometricSettings,
+  EmployeeAttendance,
+  EmployeeAttendanceSettings,
+  PublicAttendanceSettings,
+  UpdateAttendanceSettingsRequest,
+  MarkSelfAttendanceRequest,
+  MarkSelfResponse,
+  ManualMarkRequest,
 } from '../models';
 
 /** Scope an admin picks on the Publish Result tab. {@code subjectId} is
@@ -2154,5 +2161,69 @@ export class ApiService {
 
   saveBiometricSettings(req: BiometricSettings): Observable<ApiResponse<BiometricSettings>> {
     return this.http.put<ApiResponse<BiometricSettings>>(`${this.API}/biometric/settings`, req);
+  }
+
+  // ── HR — Employee Attendance ─────────────────────────────
+
+  /** Any authenticated employee — marks self via location. */
+  hrMarkSelf(req: MarkSelfAttendanceRequest): Observable<ApiResponse<MarkSelfResponse>> {
+    return this.http.post<ApiResponse<MarkSelfResponse>>(
+      `${this.API}/hr/attendance/mark-self`, req);
+  }
+
+  /** Any authenticated employee — my attendance for a date range.
+   *  Backend resolves the current user → employeeId and returns their rows. */
+  hrMyAttendance(from?: string, to?: string): Observable<ApiResponse<EmployeeAttendance[]>> {
+    let params = new HttpParams();
+    if (from) params = params.set('from', from);
+    if (to)   params = params.set('to', to);
+    return this.http.get<ApiResponse<EmployeeAttendance[]>>(
+      `${this.API}/hr/attendance/my`, { params });
+  }
+
+  /** Public settings — what any employee needs to render the Mark
+   *  Attendance page (radius, mode toggles, thresholds). */
+  hrPublicSettings(): Observable<ApiResponse<PublicAttendanceSettings>> {
+    return this.http.get<ApiResponse<PublicAttendanceSettings>>(
+      `${this.API}/hr/attendance/settings/public`);
+  }
+
+  // ── HR-only endpoints (backend gates by hasRole('HR')) ────
+
+  /** HR daily view — all employees for a given date. */
+  hrDailyAttendance(date?: string): Observable<ApiResponse<EmployeeAttendance[]>> {
+    let params = new HttpParams();
+    if (date) params = params.set('date', date);
+    return this.http.get<ApiResponse<EmployeeAttendance[]>>(
+      `${this.API}/hr/attendance/daily`, { params });
+  }
+
+  /** HR — one employee's month for the report / drill-in view. */
+  hrMonthlyAttendance(employeeId: string, from?: string, to?: string):
+      Observable<ApiResponse<EmployeeAttendance[]>> {
+    let params = new HttpParams();
+    if (from) params = params.set('from', from);
+    if (to)   params = params.set('to', to);
+    return this.http.get<ApiResponse<EmployeeAttendance[]>>(
+      `${this.API}/hr/attendance/monthly/${encodeURIComponent(employeeId)}`, { params });
+  }
+
+  /** HR — manual entry (edit / create a row on behalf of an employee). */
+  hrManualMark(req: ManualMarkRequest): Observable<ApiResponse<EmployeeAttendance>> {
+    return this.http.post<ApiResponse<EmployeeAttendance>>(
+      `${this.API}/hr/attendance/mark-manual`, req);
+  }
+
+  /** HR settings page — read full config. */
+  hrGetAttendanceSettings(): Observable<ApiResponse<EmployeeAttendanceSettings>> {
+    return this.http.get<ApiResponse<EmployeeAttendanceSettings>>(
+      `${this.API}/hr/attendance/settings`);
+  }
+
+  /** HR settings page — patch config (only non-null fields written). */
+  hrUpdateAttendanceSettings(req: UpdateAttendanceSettingsRequest):
+      Observable<ApiResponse<EmployeeAttendanceSettings>> {
+    return this.http.put<ApiResponse<EmployeeAttendanceSettings>>(
+      `${this.API}/hr/attendance/settings`, req);
   }
 }

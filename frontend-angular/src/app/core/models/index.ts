@@ -57,7 +57,8 @@ export type FeatureKey =
   | 'syllabus'
   | 'ptm'
   | 'id_cards'
-  | 'biometric_terminal';
+  | 'biometric_terminal'
+  | 'hr_module';
 
 // API Response
 export interface ApiResponse<T> {
@@ -1166,3 +1167,133 @@ export interface BiometricSettings {
   notifyOnExit: boolean;
   notifyOnEarlyLeave: boolean;
 }
+
+// ─── HR module — Employee Attendance ─────────────────────────────
+
+/** One attendance row per employee per date. Written by any of three
+ *  sources (LOCATION self-mark / BIOMETRIC scan / MANUAL by HR /
+ *  REGULARIZATION after approval) and read on the "My Attendance" +
+ *  HR daily / monthly views. */
+export interface EmployeeAttendance {
+  attendanceId: string;
+  employeeId: string;
+  /** ISO date "YYYY-MM-DD". */
+  date: string;
+  /** PRESENT / ABSENT / LATE / HALF_DAY. */
+  status: string;
+  /** ISO instant. Null on ABSENT rows. */
+  inTime?: string;
+  outTime?: string;
+  source: 'LOCATION' | 'BIOMETRIC' | 'MANUAL' | 'REGULARIZATION';
+  markLatitude?: number;
+  markLongitude?: number;
+  markAccuracyMeters?: number;
+  distanceFromCampusMeters?: number;
+  mockLocation?: boolean;
+  markedByUserId?: string;
+  late: boolean;
+  remarks?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Full per-tenant HR attendance settings — HR-only endpoint returns
+ *  this. Employees fetch the {@link PublicAttendanceSettings} subset. */
+export interface EmployeeAttendanceSettings {
+  id?: string;
+  tenantId?: string;
+
+  locationBasedEnabled: boolean;
+  biometricBasedEnabled: boolean;
+
+  campusLatitude?: number;
+  campusLongitude?: number;
+  allowedRadiusMeters: number;
+  rejectMockLocations: boolean;
+  maxAccuracyMeters: number;
+
+  expectedPunchesPerDay: number;
+  /** "HH:mm" thresholds — all in the school's local timezone. */
+  lateThreshold: string;
+  halfDayThreshold: string;
+  autoAbsentTime: string;
+  autoAbsentEnabled: boolean;
+
+  regularizationEnabled: boolean;
+  regularizationMaxBackdateDays: number;
+  regularizationMonthlyCapPerEmployee: number;
+  regularizationAutoApproveWindowMinutes: number;
+
+  updatedAt?: string;
+  updatedByUserId?: string;
+}
+
+/** Public projection any authenticated employee can fetch — drives
+ *  the My Attendance page (do we show the Mark button? do we prompt
+ *  for OUT? what's the radius so we can preview distance?). */
+export interface PublicAttendanceSettings {
+  locationBasedEnabled: boolean;
+  biometricBasedEnabled: boolean;
+  campusLatitude?: number;
+  campusLongitude?: number;
+  allowedRadiusMeters: number;
+  maxAccuracyMeters: number;
+  rejectMockLocations: boolean;
+  expectedPunchesPerDay: number;
+  lateThreshold: string;
+  halfDayThreshold: string;
+  regularizationEnabled: boolean;
+  regularizationMaxBackdateDays: number;
+}
+
+/** PATCH body for the HR settings page — only fields the admin
+ *  actually changed. */
+export interface UpdateAttendanceSettingsRequest {
+  locationBasedEnabled?: boolean;
+  biometricBasedEnabled?: boolean;
+  campusLatitude?: number;
+  campusLongitude?: number;
+  allowedRadiusMeters?: number;
+  rejectMockLocations?: boolean;
+  maxAccuracyMeters?: number;
+  expectedPunchesPerDay?: number;
+  lateThreshold?: string;
+  halfDayThreshold?: string;
+  autoAbsentTime?: string;
+  autoAbsentEnabled?: boolean;
+  regularizationEnabled?: boolean;
+  regularizationMaxBackdateDays?: number;
+  regularizationMonthlyCapPerEmployee?: number;
+  regularizationAutoApproveWindowMinutes?: number;
+}
+
+/** POST body — the browser's Geolocation reading. */
+export interface MarkSelfAttendanceRequest {
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number;
+  mocked?: boolean;
+}
+
+/** Response from POST /mark-self — the frontend uses `punchDirection`
+ *  to render the right snackbar ("Marked IN" vs "Marked OUT"). */
+export interface MarkSelfResponse {
+  attendanceId: string;
+  status: string;
+  inTime?: string;
+  outTime?: string;
+  late: boolean;
+  distanceFromCampusMeters?: number;
+  punchDirection: 'IN' | 'OUT';
+}
+
+/** HR-only manual entry payload. */
+export interface ManualMarkRequest {
+  employeeId: string;
+  date: string;
+  status: string;
+  inTime?: string;
+  outTime?: string;
+  remarks?: string;
+}
+

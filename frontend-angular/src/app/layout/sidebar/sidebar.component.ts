@@ -450,6 +450,52 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // "My Profile" sits at the bottom of every tenant-side sidebar — common
     // anchor across roles since it's about the logged-in user, not features.
     // The /profile route renders a role-aware shell (student/employee/admin).
+    // ── HR-only sidebar ─────────────────────────────────
+    // Standalone branch so a user on the HR hat sees ONLY the HR
+    // admin surface. We deliberately do NOT reuse the SCHOOL_ADMIN
+    // block above — that would leak Attendance / Timetable / Exams
+    // / Notifications / SMS etc into the HR view even though those
+    // items were meant for admins.
+    //
+    // Layout: HR's DAILY WORK items sit flat at the top level of
+    // the sidebar (Daily Attendance, Attendance Settings, and — as
+    // Phases 2/3 land — Leave Approvals, Payroll Runs, Reports).
+    // The HR user's PERSONAL items (their own attendance history,
+    // their profile) tuck under a "My Details" group so the work
+    // surface stays the visual centre of gravity.
+    if (role === UserRole.HR) {
+      items.push(
+        { title: 'Daily Attendance',    path: '/hr/attendance/daily',    icon: 'event_available' },
+        { title: 'Attendance Settings', path: '/hr/attendance/settings', icon: 'tune' },
+        // Personal items grouped so they don't compete visually
+        // with the work items above.
+        {
+          title: 'My Details', path: '', icon: 'account_circle',
+          children: [
+            { title: 'My Attendance', path: '/hr/attendance/my', icon: 'how_to_reg' },
+            { title: 'My Profile',    path: '/profile',           icon: 'person' },
+          ],
+        },
+      );
+      // HR gets its own personal-items group; skip the universal
+      // My Attendance / My Profile pushes below so we don't render
+      // the same items twice.
+      this.menuItems = items.filter((item) => this.isItemVisible(item));
+      return;
+    }
+
+    // ── My Attendance — every employee-linked user (teacher,
+    // principal, coordinator, admin). Deliberately NOT shown
+    // to STUDENT / PARENT (they use the regular student attendance
+    // views). Backend /my endpoint returns [] for callers not
+    // linked to a Teacher record, which surfaces a friendly empty
+    // state on the page.
+    items.push({
+      title: 'My Attendance', path: '/hr/attendance/my', icon: 'how_to_reg',
+      roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER,
+              UserRole.SCHOOL_COORDINATOR],
+    });
+
     items.push({ title: 'My Profile', path: '/profile', icon: 'person' });
 
     this.menuItems = items.filter((item) => this.isItemVisible(item));

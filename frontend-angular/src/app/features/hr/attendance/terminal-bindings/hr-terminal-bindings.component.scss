@@ -1,0 +1,78 @@
+.tb-container { padding: 0; }
+
+.soon-card {
+  padding: 40px 32px;
+  text-align: center;
+  border-radius: 12px !important;
+
+  .soon-icon {
+    font-size: 52px;
+    width: 52px;
+    height: 52px;
+    color: #D4A843;
+  }
+
+  h3 {
+    margin: 16px 0 8px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+
+  p {
+    margin: 0 auto 24px;
+    max-width: 520px;
+    color: #64748b;
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+}
+
+.soon-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 460px;
+  margin: 24px auto;
+  text-align: left;
+}
+
+.soon-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 16px;
+  background: rgba(212, 168, 67, 0.06);
+  border: 1px solid rgba(212, 168, 67, 0.20);
+  border-radius: 10px;
+
+  mat-icon {
+    color: #B8860B;
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+    margin-top: 2px;
+  }
+
+  strong {
+    display: block;
+    font-size: 13px;
+    color: #1a1a1a;
+    margin-bottom: 2px;
+  }
+  p {
+    margin: 0;
+    font-size: 12px;
+    color: #64748b;
+    max-width: none;
+  }
+}
+
+:host-context(body.dark-theme) {
+  .soon-card h3 { color: #f5f5f5; }
+  .soon-step {
+    background: rgba(212, 168, 67, 0.10);
+    border-color: rgba(212, 168, 67, 0.30);
+    strong { color: #f5f5f5; }
+  }
+}
