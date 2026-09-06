@@ -6,6 +6,7 @@ import { AppUpdate, AppUpdateAvailability, FlexibleUpdateInstallStatus } from '@
 import { AuthService } from './core/services/auth.service';
 import { PushService } from './core/services/push.service';
 import { TenantFeatureService } from './core/services/tenant-feature.service';
+import { UserRole } from './core/models';
 import { distinctUntilChanged, filter } from 'rxjs/operators';
 
 @Component({
@@ -172,21 +173,31 @@ export class AppComponent implements OnInit {
       .finally(() => { this.router.onSameUrlNavigation = savedStrategy; });
   }
 
-  /** Wire the Android hardware back button so it exits from root
-   *  screens (dashboard, login) and navigates back on inner pages.
-   *  Capacitor delivers a canGoBack flag with each event — when it's
-   *  true we let the WebView history handle it (native back); when
-   *  it's false AND we're on a root URL, we call CapApp.exitApp(). */
+  /** Wire the Android hardware back button.
+   *
+   *  Product behaviour (the original app shipped this way and users
+   *  still expect it): a single back tap from anywhere lands the user
+   *  on THEIR role's dashboard in one hop — no walking the nav stack
+   *  through attendance → events → notifications → timetable → …
+   *  → dashboard. A second back tap on the dashboard exits the app.
+   *
+   *  An earlier iteration switched to window.history.back() so the
+   *  hardware key mirrored the browser back arrow. That felt wrong on
+   *  mobile: customers had to tap back 5-6 times to get out of a deep
+   *  cross-module drill-in. Reverting to the single-hop-home behavior
+   *  here (which is also friendlier for exiting after a task). */
   private registerBackButtonHandler(): void {
     if (!Capacitor.isNativePlatform()) return;
-    CapApp.addListener('backButton', ({ canGoBack }) => {
+    CapApp.addListener('backButton', () => {
       const url = (this.router.url || '').split('?')[0];
-      const isRoot = url === '/' || url === '/dashboard' || url === '/login';
-      if (isRoot || !canGoBack) {
+      // HR lands on /hr/dashboard, every other role on /dashboard.
+      // Login screen has no dashboard to jump to, so treat it as root.
+      const landing = this.auth.activeRole === UserRole.HR ? '/hr/dashboard' : '/dashboard';
+      const isRoot = url === landing || url === '/' || url === '/login';
+      if (isRoot) {
         CapApp.exitApp();
       } else {
-        // Inner page — mimic the browser back arrow.
-        window.history.back();
+        this.router.navigateByUrl(landing);
       }
     }).catch(() => { /* plugin missing on very old shells — ignore */ });
   }
