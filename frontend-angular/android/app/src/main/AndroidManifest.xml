@@ -33,6 +33,16 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- HR self-attendance geofence: the Mark IN / OUT page reads the
+         user's coordinates to check they're inside the school's allowed
+         radius. FINE is the "precise" option that Android surfaces
+         separately at runtime — required for the 20-60 m accuracy our
+         geofence enforces. COARSE lets the OS fall back to cell/wifi
+         when GPS is unavailable indoors. Both permissions are prompted
+         for lazily by the Capacitor Geolocation plugin on first call. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- Push notifications: Android 13+ requires explicit user permission to
          show notifications. The Capacitor plugin prompts for this on first
          registration. Older versions ignore the declaration but it's

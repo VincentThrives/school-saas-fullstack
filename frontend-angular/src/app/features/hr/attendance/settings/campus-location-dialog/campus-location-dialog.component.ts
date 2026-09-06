@@ -13,6 +13,7 @@ import {
 } from '@angular/material/dialog';
 import * as L from 'leaflet';
 import { fixLeafletDefaultIcon } from '../../../../../shared/util/leaflet-icon-fix';
+import { getCurrentPositionAsync, isGeolocationAvailable } from '../../../../../shared/util/geolocation';
 
 /**
  * Modal that lets HR pick / confirm the campus point on an
@@ -157,14 +158,14 @@ export class CampusLocationDialogComponent implements AfterViewInit, OnDestroy {
   /** ── Locate button ─────────────────────────────── */
   locateMe(silent = false): void {
     if (this.isLocating) return;
-    if (!navigator.geolocation) {
+    if (!isGeolocationAvailable()) {
       if (!silent) this.snack.open(
-        'Your browser doesn\'t support location.', 'Close', { duration: 3500 });
+        'Location is not available on this device.', 'Close', { duration: 3500 });
       return;
     }
     this.isLocating = true;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
+    getCurrentPositionAsync({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 })
+      .then((pos) => {
         this.isLocating = false;
         this.gpsLat = pos.coords.latitude;
         this.gpsLng = pos.coords.longitude;
@@ -180,17 +181,15 @@ export class CampusLocationDialogComponent implements AfterViewInit, OnDestroy {
           this.updatePicked(pos.coords.latitude, pos.coords.longitude);
         }
         this.map?.setView([pos.coords.latitude, pos.coords.longitude], 18);
-      },
-      (err) => {
+      })
+      .catch((err: any) => {
         this.isLocating = false;
         if (silent) return;
-        const msg = err.code === err.PERMISSION_DENIED
-          ? 'Location permission denied. Enable it in your browser.'
+        const msg = err?.code === 1
+          ? 'Location permission denied. Enable it in your device settings.'
           : 'Couldn\'t get your location. Try again in an open area.';
         this.snack.open(msg, 'Close', { duration: 4500 });
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+      });
   }
 
   /** Draw / refresh the red "you are here" pin + accuracy ring. */

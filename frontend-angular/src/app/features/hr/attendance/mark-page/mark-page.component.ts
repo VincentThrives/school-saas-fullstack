@@ -18,6 +18,7 @@ import {
   EmployeeAttendance, PublicAttendanceSettings, User,
 } from '../../../../core/models';
 import { fixLeafletDefaultIcon } from '../../../../shared/util/leaflet-icon-fix';
+import { getCurrentPositionAsync, isGeolocationAvailable } from '../../../../shared/util/geolocation';
 
 /**
  * Full-page Mark IN / OUT flow.
@@ -176,31 +177,29 @@ export class MarkPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   refreshLocation(silent = false): void {
     if (this.isLocating) return;
-    if (!navigator.geolocation) {
+    if (!isGeolocationAvailable()) {
       if (!silent) this.snack.open(
-        'Your browser doesn\'t support location.', 'Close', { duration: 3500 });
+        'Location is not available on this device.', 'Close', { duration: 3500 });
       return;
     }
     this.isLocating = true;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
+    getCurrentPositionAsync({ enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 })
+      .then((pos) => {
         this.isLocating = false;
         this.liveLat = pos.coords.latitude;
         this.liveLng = pos.coords.longitude;
         this.liveAccuracyMeters = pos.coords.accuracy;
         this.updateLiveMarker();
         this.fitBothOnMap();
-      },
-      (err) => {
+      })
+      .catch((err: any) => {
         this.isLocating = false;
         if (silent) return;
-        const msg = err.code === err.PERMISSION_DENIED
-          ? 'Location permission denied. Enable it in your browser.'
+        const msg = err?.code === 1
+          ? 'Location permission denied. Enable it in your device settings.'
           : 'Couldn\'t get your location. Try again in an open area.';
         this.snack.open(msg, 'Close', { duration: 4500 });
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 },
-    );
+      });
   }
 
   private updateLiveMarker(): void {
@@ -297,31 +296,29 @@ export class MarkPageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.liveLat == null || this.liveLng == null) {
       // Fetch a fresh fix then recurse — avoids a second permission
       // prompt vs. calling getCurrentPosition twice.
-      if (!navigator.geolocation) {
+      if (!isGeolocationAvailable()) {
         this.snack.open(
-          'Your browser doesn\'t support location. Contact IT.',
+          'Location is not available on this device. Contact IT.',
           'Close', { duration: 4000 });
         return;
       }
       this.isSubmitting = true;
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
+      getCurrentPositionAsync({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 })
+        .then((pos) => {
           this.liveLat = pos.coords.latitude;
           this.liveLng = pos.coords.longitude;
           this.liveAccuracyMeters = pos.coords.accuracy;
           this.updateLiveMarker();
           this.fitBothOnMap();
           this.doSubmit();
-        },
-        (err) => {
+        })
+        .catch((err: any) => {
           this.isSubmitting = false;
-          const msg = err.code === err.PERMISSION_DENIED
-            ? 'Location permission denied. Enable it in your browser settings.'
+          const msg = err?.code === 1
+            ? 'Location permission denied. Enable it in your device settings.'
             : 'Couldn\'t get your location. Move to an open area and try again.';
           this.snack.open(msg, 'Close', { duration: 5000 });
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-      );
+        });
       return;
     }
     this.isSubmitting = true;
