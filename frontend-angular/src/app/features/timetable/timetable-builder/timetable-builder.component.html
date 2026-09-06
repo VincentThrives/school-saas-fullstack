@@ -143,8 +143,30 @@
                  it's derived from config.lunchStart / config.lunchEnd. -->
             <tr *ngIf="isLunchBreak(i)" class="lunch-break-row">
               <td [attr.colspan]="days.length + 2" class="lunch-cell">
-                <mat-icon class="lunch-icon">restaurant</mat-icon>
-                Lunch Break ({{ formatTime(config.lunchStart) }} – {{ formatTime(config.lunchEnd) }})
+                <div class="lunch-cell-inner">
+                  <mat-icon class="lunch-icon">restaurant</mat-icon>
+                  <span class="lunch-label">Lunch Break</span>
+                  <!-- Inline start / end time editors — the admin can
+                       shift lunch without hopping into the Schedule
+                       settings panel. Bound directly to config.lunchStart
+                       / config.lunchEnd so a change here saves alongside
+                       the rest of the timetable on the next Save. -->
+                  <span class="lunch-time-group">
+                    <input type="time"
+                           class="lunch-time-input"
+                           [(ngModel)]="config.lunchStart"
+                           aria-label="Lunch break start time">
+                    <span class="lunch-dash">–</span>
+                    <input type="time"
+                           class="lunch-time-input"
+                           [(ngModel)]="config.lunchEnd"
+                           aria-label="Lunch break end time">
+                  </span>
+                  <span class="lunch-format-hint"
+                        *ngIf="config.displayTimeFormat === 'h12'">
+                    ({{ formatTime(config.lunchStart) }} – {{ formatTime(config.lunchEnd) }})
+                  </span>
+                </div>
               </td>
             </tr>
 

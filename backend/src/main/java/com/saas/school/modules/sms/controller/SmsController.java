@@ -72,7 +72,22 @@ public class SmsController {
     public ResponseEntity<ApiResponse<TenantSmsSettingsDto>> mySettings() {
         String tenantId = TenantContext.getTenantId();
         var settings = smsService.getSettingsOrDefault(tenantId);
-        return ResponseEntity.ok(ApiResponse.success(TenantSmsSettingsDto.from(settings)));
+        TenantSmsSettingsDto dto = TenantSmsSettingsDto.from(settings);
+        // Enrich with lifetime cost — server-side sum of every
+        // SENT/DELIVERED audit row's costInr. Reuses the existing
+        // findCostsSinceForTenant query with Instant.EPOCH so we
+        // don't need a second query method. Silent-fail (cost stays
+        // 0) if the audit collection is empty or the query trips.
+        try {
+            double lifetime = auditRepo.findCostsSinceForTenant(tenantId, java.time.Instant.EPOCH)
+                .stream()
+                .mapToDouble(row -> row.getCostInr())
+                .sum();
+            dto.setCostLifetime(Math.round(lifetime * 100.0) / 100.0);
+        } catch (Exception ex) {
+            // Non-fatal — the page still renders with the month's cost + budget.
+        }
+        return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
     /** Paginated audit log for THIS tenant. Phone numbers are partially

@@ -114,6 +114,16 @@
               <mat-icon>schedule</mat-icon>
               {{ row.otherCount }}
             </span>
+            <!-- Unmarked = students in the roster who have no saved
+                 attendance entry (biometric didn't scan, teacher didn't
+                 pick). Only surfaces when > 0 so a fully-marked card
+                 doesn't carry a distracting "0 unmarked" chip. -->
+            <span class="meta-item meta-item--unmarked"
+                  *ngIf="unmarkedCount(row) > 0"
+                  matTooltip="Students still without an attendance record">
+              <mat-icon>help_outline</mat-icon>
+              {{ unmarkedCount(row) }}
+            </span>
           </div>
           <!-- Absentee list — surfaces who's missing without needing to
                drill into the per-class detail. Sorted by roll number on

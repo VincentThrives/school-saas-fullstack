@@ -87,6 +87,29 @@ $gold-light: rgba(212, 168, 67, 0.08);
 
   &.present mat-icon { color: #2e7d32; }
   &.absent mat-icon { color: #c62828; }
+  &.unmarked {
+    mat-icon { color: #b45309; }
+    strong { color: #b45309; }
+  }
+}
+
+// Partial state — biometric marked some but not everyone yet. Amber
+// tick + hint reads as "in progress" so a teacher knows to review
+// the remaining rows instead of assuming the card is complete.
+.saved-summary-row--partial {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.06) 0%, rgba(245, 158, 11, 0.02) 100%);
+  border-left: 4px solid #f59e0b;
+  padding-left: 12px;
+  border-radius: 6px;
+}
+.saved-summary-tick--partial {
+  color: #f59e0b !important;
+}
+.saved-partial-hint {
+  font-weight: 500;
+  font-size: 0.85em;
+  color: #b45309;
+  margin-left: 4px;
 }
 
 // Absent-student names block on the post-save summary card. Mirrors the
@@ -447,6 +470,11 @@ $gold-light: rgba(212, 168, 67, 0.08);
 .chip-halfday {
   background-color: rgba(33, 150, 243, 0.12) !important;
   color: #1565c0 !important;
+}
+
+.chip-unmarked {
+  background-color: rgba(245, 158, 11, 0.14) !important;
+  color: #b45309 !important;
 }
 
 .loading-container {

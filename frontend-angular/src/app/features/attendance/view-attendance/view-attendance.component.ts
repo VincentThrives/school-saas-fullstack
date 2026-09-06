@@ -180,6 +180,17 @@ export class ViewAttendanceComponent implements OnInit {
     return a.fullName;
   }
 
+  /** Students in the roster who have NO saved attendance record —
+   *  computed as roster size minus everyone the backend counted.
+   *  Surfaces cases where biometric marked a handful of kids but
+   *  the teacher hasn't finished the roll-call yet. */
+  unmarkedCount(row: DayStatusRow): number {
+    const accountedFor = (row.presentCount || 0)
+                       + (row.absentCount || 0)
+                       + (row.otherCount || 0);
+    return Math.max(0, (row.studentCount || 0) - accountedFor);
+  }
+
   /** True when this card has enough absentees that the list folds
    *  behind a toggle. Below the threshold the chips render inline. */
   shouldCollapseAbsentees(row: DayStatusRow): boolean {

@@ -27,6 +27,26 @@
 
     <!-- Budget bar -->
     <div class="sv-budget" *ngIf="features.smsEnabled() && settings">
+      <!-- Lifetime cost line — total of every SENT/DELIVERED SMS
+           since day one, with the 18% GST breakdown a school would
+           see on an invoice. Only surfaces when there IS a lifetime
+           cost so a fresh school doesn't see a "₹0" line. -->
+      <div class="sv-lifetime-line" *ngIf="settings.costLifetime && settings.costLifetime > 0">
+        <mat-icon>receipt_long</mat-icon>
+        <span>
+          Lifetime cost:
+          <strong>₹{{ (settings.costLifetime * 1.18) | number:'1.2-2' }}</strong>
+          <!-- Base + GST breakdown intentionally commented out — user
+               feedback was "just show the total". Restore this block
+               if the split is ever needed for reconciliation.
+          <span class="sv-lifetime-gst">
+            ₹{{ settings.costLifetime | number:'1.2-2' }}
+            + 18% GST (₹{{ (settings.costLifetime * 0.18) | number:'1.2-2' }})
+          </span>
+          -->
+        </span>
+      </div>
+
       <div class="sv-budget-line">
         <span>This month: <strong>₹{{ settings.costUsedThisMonth | number:'1.0-2' }}</strong> used</span>
         <span>Budget: ₹{{ settings.monthlyBudgetInr | number:'1.0-0' }}</span>

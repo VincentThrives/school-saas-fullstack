@@ -131,6 +131,10 @@ export interface TenantSmsSettingsDto {
   monthlyBudgetInr: number;
   costUsedThisMonth: number;
   costMonth?: string;
+  /** Lifetime cost of all SENT/DELIVERED SMS in INR, pre-tax.
+   *  Server-computed from the audit log; frontend renders it with
+   *  an 18% GST breakdown on the SMS Notifications page. */
+  costLifetime?: number;
   notifyAdminOnFailure: boolean;
   updatedAt?: string;
   updatedBy?: string;
