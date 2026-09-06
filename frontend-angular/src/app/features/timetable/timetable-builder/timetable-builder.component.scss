@@ -328,11 +328,47 @@ $gold-light: rgba(212, 168, 67, 0.1);
   font-weight: 600;
   font-size: 0.85rem;
   color: $gold-dark;
+  text-align: center !important;
+}
+.lunch-cell-inner {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  text-align: center !important;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.lunch-label {
+  font-weight: 700;
+}
+.lunch-time-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+// Native <input type="time"> — keep the OS clock so the picker matches
+// what the admin uses in the period rows above. Sized to hug the
+// content rather than the full column, and coloured to sit inside the
+// gold lunch-row background.
+.lunch-time-input {
+  padding: 3px 6px;
+  border: 1px solid rgba(184, 134, 11, 0.35);
+  border-radius: 6px;
+  background: #ffffff;
+  color: $gold-dark;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  &:focus {
+    outline: none;
+    border-color: $gold;
+    box-shadow: 0 0 0 2px rgba(212, 168, 67, 0.20);
+  }
+}
+.lunch-dash { color: $gold-dark; font-weight: 700; }
+.lunch-format-hint {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: rgba(184, 134, 11, 0.75);
 }
 
 .lunch-icon {

@@ -23,6 +23,14 @@ public class TenantSmsSettingsDto {
     private double monthlyBudgetInr;
     private double costUsedThisMonth;
     private String costMonth;
+    /** Lifetime cost of all SENT / DELIVERED SMS since day one, in
+     *  INR (pre-tax). Rendered on the school-admin SMS page as
+     *  "Total: ₹{base} + 18% GST = ₹{total}" so the school sees the
+     *  bill they'd receive if invoiced. Server-computed by summing
+     *  {@code costInr} on the audit log — expensive for a hot loop
+     *  but the /settings endpoint is hit at most a few times per
+     *  session so we compute on the fly rather than cache. */
+    private double costLifetime;
     private boolean notifyAdminOnFailure;
     private Instant updatedAt;
     private String updatedBy;
@@ -96,6 +104,9 @@ public class TenantSmsSettingsDto {
 
     public String getCostMonth() { return costMonth; }
     public void setCostMonth(String v) { this.costMonth = v; }
+
+    public double getCostLifetime() { return costLifetime; }
+    public void setCostLifetime(double v) { this.costLifetime = v; }
 
     public boolean isNotifyAdminOnFailure() { return notifyAdminOnFailure; }
     public void setNotifyAdminOnFailure(boolean v) { this.notifyAdminOnFailure = v; }

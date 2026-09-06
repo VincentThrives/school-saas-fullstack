@@ -1,0 +1,63 @@
+<div class="clg-container">
+
+  <!-- Accuracy banner (top strip — Workmate-style) -->
+  <div class="clg-accuracy-banner clg-accuracy-banner--{{ accuracyBand }}">
+    <mat-icon>
+      {{ accuracyBand === 'good' ? 'gps_fixed'
+        : accuracyBand === 'fair' ? 'gps_not_fixed'
+        : accuracyBand === 'poor' ? 'gps_off'
+        : 'my_location' }}
+    </mat-icon>
+    <span>
+      <ng-container *ngIf="accuracyBand === 'none'">Getting your location…</ng-container>
+      <ng-container *ngIf="accuracyBand !== 'none'">
+        Current location accuracy: <strong>{{ accuracyLabel }}</strong>
+        <span class="clg-accuracy-hint" *ngIf="gpsAccuracyMeters != null">
+          · ±{{ gpsAccuracyMeters | number:'1.0-0' }} m
+        </span>
+      </ng-container>
+    </span>
+    <button mat-icon-button (click)="close()" class="clg-close" matTooltip="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Map surface -->
+  <div class="clg-map-wrap">
+    <div #mapContainer class="clg-map"></div>
+    <button mat-mini-fab class="clg-recenter"
+            (click)="locateMe(false)"
+            [disabled]="isLocating"
+            matTooltip="Re-center on my location">
+      <mat-spinner *ngIf="isLocating" diameter="20"></mat-spinner>
+      <mat-icon *ngIf="!isLocating">my_location</mat-icon>
+    </button>
+  </div>
+
+  <!-- Coordinate + action strip -->
+  <div class="clg-info">
+    <div class="clg-coord-block">
+      <div class="clg-coord-row">
+        <mat-icon class="clg-coord-icon">location_on</mat-icon>
+        <div>
+          <div class="clg-coord-label">Campus point</div>
+          <div class="clg-coord-value">
+            {{ pickedLat | number:'1.5-6' }}, {{ pickedLng | number:'1.5-6' }}
+          </div>
+        </div>
+      </div>
+      <div class="clg-hint">
+        Drag the pin or tap anywhere on the map to fine-tune the exact spot.
+      </div>
+    </div>
+
+    <div class="clg-actions">
+      <button mat-stroked-button (click)="close()">Cancel</button>
+      <button mat-flat-button color="primary" class="clg-save"
+              (click)="save()">
+        <mat-icon>check</mat-icon>
+        Save location
+      </button>
+    </div>
+  </div>
+</div>

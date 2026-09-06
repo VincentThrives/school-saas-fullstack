@@ -1,0 +1,114 @@
+<div class="edr-container">
+
+  <div class="edr-header">
+    <div class="edr-title">
+      <div class="edr-avatar">{{ (data.employeeName || '?').charAt(0).toUpperCase() }}</div>
+      <div>
+        <h2>{{ data.employeeName }}</h2>
+        <p class="edr-subtitle">
+          <span *ngIf="data.designation">{{ designationLabel(data.designation) }} · </span>
+          {{ formatDateLong(data.dateColumns[0]) }} — {{ formatDateLong(data.dateColumns[data.dateColumns.length - 1]) }}
+        </p>
+      </div>
+    </div>
+    <button mat-icon-button (click)="close()" aria-label="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Summary strip -->
+  <div class="edr-stats">
+    <div class="edr-stat edr-stat--present">
+      <div class="edr-stat-value">{{ totals.present }}</div>
+      <div class="edr-stat-label">Present</div>
+    </div>
+    <div class="edr-stat edr-stat--late">
+      <div class="edr-stat-value">{{ totals.late }}</div>
+      <div class="edr-stat-label">Late</div>
+    </div>
+    <div class="edr-stat edr-stat--halfday">
+      <div class="edr-stat-value">{{ totals.halfDay }}</div>
+      <div class="edr-stat-label">Half-day</div>
+    </div>
+    <div class="edr-stat edr-stat--absent">
+      <div class="edr-stat-value">{{ totals.absent }}</div>
+      <div class="edr-stat-label">Absent</div>
+    </div>
+    <div class="edr-stat edr-stat--unmarked">
+      <div class="edr-stat-value">{{ totals.unmarked }}</div>
+      <div class="edr-stat-label">Unmarked</div>
+    </div>
+    <div class="edr-stat edr-stat--weekoff">
+      <div class="edr-stat-value">{{ totals.weekOff }}</div>
+      <div class="edr-stat-label">Week-off</div>
+    </div>
+    <div class="edr-stat edr-stat--holiday" *ngIf="totals.holiday > 0">
+      <div class="edr-stat-value">{{ totals.holiday }}</div>
+      <div class="edr-stat-label">Holiday</div>
+    </div>
+    <div class="edr-stat edr-stat--percent">
+      <div class="edr-stat-value">{{ totals.percent }}%</div>
+      <div class="edr-stat-label">Attendance</div>
+    </div>
+  </div>
+  <div class="edr-working-note" *ngIf="totals.workingDays !== totals.totalDays">
+    <mat-icon>info</mat-icon>
+    <span>
+      Attendance % based on <b>{{ totals.workingDays }} working days</b>
+      (of {{ totals.totalDays }} calendar days —
+      {{ totals.weekOff }} week-off<span *ngIf="totals.holiday">
+      + {{ totals.holiday }} holiday<span *ngIf="totals.holiday !== 1">s</span></span> excluded).
+    </span>
+  </div>
+
+  <!-- Day-by-day table -->
+  <div class="edr-body">
+    <table class="edr-table">
+      <thead>
+        <tr>
+          <th class="edr-col-date">Date</th>
+          <th>Status</th>
+          <th>IN</th>
+          <th>OUT</th>
+          <th>Duration</th>
+          <th class="edr-col-remarks">Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of rows"
+            [class.edr-row--weekend]="r.isWeekend"
+            [class.edr-row--unmarked]="r.status === 'UNMARKED'">
+          <td class="edr-col-date">
+            <div class="edr-date-cell">
+              <span class="edr-date-day">{{ r.dateIso.slice(-2) }}</span>
+              <span class="edr-date-wk">{{ r.weekday }}</span>
+            </div>
+          </td>
+          <td>
+            <span [class]="statusChipClass(r.status)">{{ statusLabel(r.status) }}</span>
+          </td>
+          <td class="mono">{{ formatTime(r.inTime) }}</td>
+          <td class="mono">{{ formatTime(r.outTime) }}</td>
+          <td class="mono">{{ r.durationLabel }}</td>
+          <td class="edr-col-remarks">{{ r.remarks || '—' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer actions -->
+  <div class="edr-footer">
+    <button mat-stroked-button (click)="close()">Close</button>
+    <div class="edr-footer-spacer"></div>
+    <button mat-flat-button class="edr-export-btn edr-export-btn--pdf"
+            (click)="exportPdf()" matTooltip="Print or save as PDF">
+      <mat-icon>picture_as_pdf</mat-icon>
+      PDF
+    </button>
+    <button mat-flat-button class="edr-export-btn edr-export-btn--excel"
+            (click)="exportCsv()" matTooltip="Download as Excel / CSV">
+      <mat-icon>description</mat-icon>
+      Excel
+    </button>
+  </div>
+</div>

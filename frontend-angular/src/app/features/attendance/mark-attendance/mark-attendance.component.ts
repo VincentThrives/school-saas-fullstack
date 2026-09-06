@@ -35,6 +35,13 @@ interface StudentAttendance {
   lastName: string;
   status: 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY';
   remarks: string;
+  /** True while the student has NO saved attendance entry AND the
+   *  teacher hasn't touched a radio for them yet. Flips to false as
+   *  soon as biometric marks them or the teacher picks a status. The
+   *  summary counters skip unmarked students so a partial biometric
+   *  save (say 1 of 59) doesn't misleadingly count the remaining 58
+   *  as "Present" just because that's their default radio value. */
+  unmarked?: boolean;
   /** ISO timestamp of the biometric IN scan. Populated only on rows
    *  rolled up from a hardware terminal; teacher-marked rows leave it
    *  undefined. Drives the "Late · HH:MM" badge alongside the radios. */
@@ -176,7 +183,7 @@ export class MarkAttendanceComponent implements OnInit {
    *  live {@link summary} after save would still work for a single
    *  request, but freezing keeps the card stable if the teacher fiddles
    *  with the roster before clicking Edit. */
-  savedSummary = { present: 0, absent: 0, total: 0 };
+  savedSummary = { present: 0, absent: 0, unmarked: 0, total: 0 };
   /** Human-readable scope shown on the Summary Card — e.g.
    *  "Class 1 — Section A · 15 Jun 2026". Cached at save time so a
    *  later date change doesn't rewrite the card. */
@@ -498,7 +505,7 @@ export class MarkAttendanceComponent implements OnInit {
   private resetSavedSummary(): void {
     this.attendanceSaved = false;
     this.editMode = false;
-    this.savedSummary = { present: 0, absent: 0, total: 0 };
+    this.savedSummary = { present: 0, absent: 0, unmarked: 0, total: 0 };
     this.savedScopeLabel = '';
     // Collapse the absentee accordion on scope change so 1st-A's
     // open state doesn't carry over to 2nd-A's summary card.
@@ -861,7 +868,12 @@ export class MarkAttendanceComponent implements OnInit {
               rollNumber: s.rollNumber || '',
               firstName: s.firstName || `Student ${s.admissionNumber || ''}`,
               lastName: s.lastName || '',
+              // Default radio is PRESENT for a friendly starting state
+              // BUT unmarked=true so the summary doesn't count them
+              // toward Present until biometric marks them or the
+              // teacher touches the radio.
               status: 'PRESENT' as const,
+              unmarked: true,
               remarks: '',
             }))
             .sort((a, b) => {
@@ -916,13 +928,14 @@ export class MarkAttendanceComponent implements OnInit {
         // teacher's previous picks instead of resetting to all PRESENT.
         this.students = this.students.map(s => {
           const hit = byStudentId[s.studentId];
-          if (!hit) return s;
+          if (!hit) return s;   // keep unmarked=true
           return {
             ...s,
             status: (hit.status || 'PRESENT') as StudentAttendance['status'],
             remarks: hit.remarks || '',
             punchTime: hit.punchTime || undefined,
             late: hit.late === true,
+            unmarked: false,     // this student HAS a saved entry
           };
         });
 
@@ -930,6 +943,7 @@ export class MarkAttendanceComponent implements OnInit {
         this.savedSummary = {
           present: live.present,
           absent: live.absent,
+          unmarked: live.unmarked,
           total: this.students.length,
         };
         this.savedScopeLabel = this.computeSavedScopeLabel();
@@ -1000,9 +1014,17 @@ export class MarkAttendanceComponent implements OnInit {
    *  both "kids who came" and "of those, how many were tardy". Handles
    *  both new-shape rows (status=PRESENT + late=true) and legacy rows
    *  still holding status='LATE' from before the split. */
-  get summary(): { present: number; absent: number; late: number; halfDay: number } {
+  get summary(): { present: number; absent: number; late: number; halfDay: number; unmarked: number } {
     return this.students.reduce(
       (acc, s) => {
+        // Students with unmarked=true haven't been touched by biometric
+        // or the teacher — they belong in their own bucket and MUST NOT
+        // inflate the Present count (their status is a friendly-default
+        // radio value, not a real decision).
+        if (s.unmarked) {
+          acc.unmarked++;
+          return acc;
+        }
         if (s.status === 'PRESENT') {
           acc.present++;
           if (s.late === true) acc.late++;
@@ -1018,7 +1040,7 @@ export class MarkAttendanceComponent implements OnInit {
         }
         return acc;
       },
-      { present: 0, absent: 0, late: 0, halfDay: 0 },
+      { present: 0, absent: 0, late: 0, halfDay: 0, unmarked: 0 },
     );
   }
 
@@ -1036,6 +1058,9 @@ export class MarkAttendanceComponent implements OnInit {
    *  since the teacher is overriding the biometric verdict. */
   onStatusRadioChange(student: StudentAttendance, newValue: string): void {
     student.status = newValue as StudentAttendance['status'];
+    // Teacher touched the radio — this student is no longer "unmarked".
+    // Their pick now counts toward the Present / Absent totals.
+    student.unmarked = false;
     if (newValue === 'ABSENT') {
       student.late = false;
       student.punchTime = undefined;
@@ -1092,11 +1117,17 @@ export class MarkAttendanceComponent implements OnInit {
           // Mentioning it here would mislead the teacher into thinking
           // parents were already notified when they actually weren't.
           this.snackBar.open('Attendance saved successfully', 'Close', { duration: 3000 });
-          // Freeze the summary and flip into the post-save card view.
+          // Teacher hit Save — they've reviewed every row. Every
+          // student is now considered marked; the friendly-default
+          // PRESENT value they didn't override becomes the persisted
+          // decision. Flip unmarked=false BEFORE recomputing summary
+          // so the saved card shows 0 unmarked.
+          this.students = this.students.map(s => ({ ...s, unmarked: false }));
           const live = this.summary;
           this.savedSummary = {
             present: live.present,
             absent: live.absent,
+            unmarked: 0,
             total: this.students.length,
           };
           this.savedScopeLabel = this.computeSavedScopeLabel();

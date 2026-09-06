@@ -11,6 +11,13 @@ export enum UserRole {
    *  per-tenant by the Coordinator Access page the school admin
    *  manages. */
   SCHOOL_COORDINATOR = 'SCHOOL_COORDINATOR',
+  /** HR / Payroll operator. Distinct from SCHOOL_ADMIN so payroll
+   *  data isn't accidentally visible to Principals unless explicitly
+   *  granted. Small schools where the Principal also runs HR should
+   *  assign BOTH roles via the multi-role checkbox on the Create /
+   *  Edit User form; a top-bar switcher lets the user pick which
+   *  hat they're wearing. */
+  HR = 'HR',
 }
 
 /** Catalog of sidenav modules that can be toggled on / off for the
@@ -50,7 +57,9 @@ export type FeatureKey =
   | 'syllabus'
   | 'ptm'
   | 'id_cards'
-  | 'biometric_terminal';
+  | 'biometric_terminal'
+  | 'hr_module'
+  | 'hr_attendance';
 
 // API Response
 export interface ApiResponse<T> {
@@ -87,6 +96,8 @@ export interface ResolveTenantRequest {
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
+  /** The active role at login time. Kept for backward compatibility —
+   *  new callers should read {@code user.activeRole} instead. */
   role: UserRole;
   featureFlags: Record<string, boolean>;
   user: User;
@@ -116,7 +127,17 @@ export interface User {
   firstName: string;
   lastName: string;
   phone?: string;
+  /** Legacy single-role field — always equals {@link activeRole}.
+   *  Kept so old code paths (route guards, sidebar filters, DOM
+   *  bindings) that read {@code user.role} keep working. */
   role: UserRole;
+  /** All roles this user was granted by the admin. Single-role users
+   *  get a one-item list; multi-role users (e.g. Principal + HR) see
+   *  multiple. Drives the top-bar role-switcher visibility. */
+  roles?: UserRole[];
+  /** Which role the user is currently working AS. Drives the sidebar,
+   *  route guards, and the "Viewing as: [role]" chip in the top bar. */
+  activeRole?: UserRole;
   profilePhotoUrl?: string;
   isActive: boolean;
   isLocked: boolean;
@@ -163,7 +184,7 @@ export interface Student {
 }
 
 // Employee / Teacher
-export type EmployeeRole = 'TEACHER' | 'ACCOUNTANT' | 'CLERK' | 'PRINCIPAL' | 'HEAD_MISTRESS' | 'LAB_ASSISTANT' | 'NON_TEACHING' | 'COORDINATOR';
+export type EmployeeRole = 'TEACHER' | 'ACCOUNTANT' | 'CLERK' | 'PRINCIPAL' | 'HEAD_MISTRESS' | 'LAB_ASSISTANT' | 'NON_TEACHING' | 'COORDINATOR' | 'HR';
 
 export interface ClassSubjectAssignment {
   classId: string;
@@ -1147,3 +1168,321 @@ export interface BiometricSettings {
   notifyOnExit: boolean;
   notifyOnEarlyLeave: boolean;
 }
+
+// ─── HR module — Employee Attendance ─────────────────────────────
+
+/** One attendance row per employee per date. Written by any of three
+ *  sources (LOCATION self-mark / BIOMETRIC scan / MANUAL by HR /
+ *  REGULARIZATION after approval) and read on the "My Attendance" +
+ *  HR daily / monthly views. */
+export interface EmployeeAttendance {
+  attendanceId: string;
+  employeeId: string;
+  /** ISO date "YYYY-MM-DD". */
+  date: string;
+  /** PRESENT / ABSENT / LATE / HALF_DAY. */
+  status: string;
+  /** ISO instant. Null on ABSENT rows. */
+  inTime?: string;
+  outTime?: string;
+  source: 'LOCATION' | 'BIOMETRIC' | 'MANUAL' | 'REGULARIZATION';
+  markLatitude?: number;
+  markLongitude?: number;
+  markAccuracyMeters?: number;
+  distanceFromCampusMeters?: number;
+  mockLocation?: boolean;
+  markedByUserId?: string;
+  late: boolean;
+  remarks?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Full per-tenant HR attendance settings — HR-only endpoint returns
+ *  this. Employees fetch the {@link PublicAttendanceSettings} subset. */
+export interface EmployeeAttendanceSettings {
+  id?: string;
+  tenantId?: string;
+
+  locationBasedEnabled: boolean;
+  biometricBasedEnabled: boolean;
+
+  campusLatitude?: number;
+  campusLongitude?: number;
+  allowedRadiusMeters: number;
+  rejectMockLocations: boolean;
+  maxAccuracyMeters: number;
+
+  expectedPunchesPerDay: number;
+  /** "HH:mm" thresholds — all in the school's local timezone. */
+  lateThreshold: string;
+  /** Legacy IN-time threshold — kept for backward-compat reads; the
+   *  compute path uses the two fields below. */
+  halfDayThreshold: string;
+  /** When true, HALF_DAY is stamped on OUT if the total hours
+   *  worked (OUT − IN) is less than {@link halfDayMaxHours}. When
+   *  false, employees only get PRESENT / LATE. */
+  halfDayCalculationEnabled: boolean;
+  halfDayMaxHours: number;
+  autoAbsentTime: string;
+  autoAbsentEnabled: boolean;
+  /** Auto-OUT — stamps OUT at this time on rows still missing an
+   *  OUT punch. Lets the half-day rule fire without a
+   *  regularization request. Off by default. */
+  autoOutEnabled: boolean;
+  autoOutTime: string;
+
+  regularizationEnabled: boolean;
+  regularizationMaxBackdateDays: number;
+  regularizationMonthlyCapPerEmployee: number;
+  regularizationAutoApproveWindowMinutes: number;
+
+  updatedAt?: string;
+  updatedByUserId?: string;
+}
+
+/** Public projection any authenticated employee can fetch — drives
+ *  the My Attendance page (do we show the Mark button? do we prompt
+ *  for OUT? what's the radius so we can preview distance?). */
+export interface PublicAttendanceSettings {
+  locationBasedEnabled: boolean;
+  biometricBasedEnabled: boolean;
+  campusLatitude?: number;
+  campusLongitude?: number;
+  allowedRadiusMeters: number;
+  maxAccuracyMeters: number;
+  rejectMockLocations: boolean;
+  expectedPunchesPerDay: number;
+  lateThreshold: string;
+  halfDayThreshold: string;
+  regularizationEnabled: boolean;
+  regularizationMaxBackdateDays: number;
+}
+
+/** PATCH body for the HR settings page — only fields the admin
+ *  actually changed. */
+export interface UpdateAttendanceSettingsRequest {
+  locationBasedEnabled?: boolean;
+  biometricBasedEnabled?: boolean;
+  campusLatitude?: number;
+  campusLongitude?: number;
+  allowedRadiusMeters?: number;
+  rejectMockLocations?: boolean;
+  maxAccuracyMeters?: number;
+  expectedPunchesPerDay?: number;
+  lateThreshold?: string;
+  halfDayThreshold?: string;
+  halfDayCalculationEnabled?: boolean;
+  halfDayMaxHours?: number;
+  autoAbsentTime?: string;
+  autoAbsentEnabled?: boolean;
+  autoOutEnabled?: boolean;
+  autoOutTime?: string;
+  regularizationEnabled?: boolean;
+  regularizationMaxBackdateDays?: number;
+  regularizationMonthlyCapPerEmployee?: number;
+  regularizationAutoApproveWindowMinutes?: number;
+}
+
+/** POST body — the browser's Geolocation reading. */
+export interface MarkSelfAttendanceRequest {
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number;
+  mocked?: boolean;
+}
+
+/** Response from POST /mark-self — the frontend uses `punchDirection`
+ *  to render the right snackbar ("Marked IN" vs "Marked OUT"). */
+export interface MarkSelfResponse {
+  attendanceId: string;
+  status: string;
+  inTime?: string;
+  outTime?: string;
+  late: boolean;
+  distanceFromCampusMeters?: number;
+  punchDirection: 'IN' | 'OUT';
+}
+
+/**
+ * Enriched row returned by GET /hr/attendance/daily — the plain
+ * EmployeeAttendance model plus the employee's display name +
+ * designation resolved server-side. Used so the HR Daily page can
+ * render "kalika k · TEACHER" without a second call to the admin-
+ * gated /employees endpoint.
+ */
+export interface HrDailyAttendance {
+  attendanceId: string;
+  employeeId: string;
+  employeeName: string;
+  designation?: string;
+
+  date: string;
+  status: string;
+  late?: boolean;
+
+  inTime?: string;
+  outTime?: string;
+
+  source?: 'LOCATION' | 'BIOMETRIC' | 'MANUAL' | 'REGULARIZATION';
+  distanceFromCampusMeters?: number;
+  markAccuracyMeters?: number;
+  remarks?: string;
+}
+
+/**
+ * Wrapper shape for GET /hr/attendance/report — bundles the daily
+ * rows with the declared holiday dates that fall inside the range.
+ * The frontend uses `holidayDates` to compute working-days
+ * (workingDays = totalDays − Sundays − holidays) and to render
+ * holiday cells distinctly in the detailed grid.
+ */
+export interface HrAttendanceReport {
+  rows: HrDailyAttendance[];
+  /** yyyy-MM-dd dates in the range that fall on a declared holiday.
+   *  Multi-day holidays are already expanded — one entry per day. */
+  holidayDates: string[];
+  /** Human-readable holiday title, indexed alongside holidayDates. */
+  holidayNames: string[];
+}
+
+/** HR-only manual entry payload. */
+export interface ManualMarkRequest {
+  employeeId: string;
+  date: string;
+  status: string;
+  inTime?: string;
+  outTime?: string;
+  remarks?: string;
+}
+
+// ── HR Terminal Bindings (Phase 1b) ─────────────────────────
+
+/**
+ * Slim terminal shape shown in the HR bindings page's terminal
+ * dropdown. Fewer fields than the admin-side TerminalResponse — HR
+ * doesn't need scan counts or last-punch summaries.
+ */
+export interface HrTerminalDto {
+  terminalSerial: string;
+  label?: string;
+  /** Last time this terminal pinged our ADMS endpoint. Absent for a
+   *  freshly-registered device that hasn't dialled home yet. */
+  lastSeenAt?: string;
+  /** How many employees are already bound to this terminal. Drives
+   *  the "N bindings" chip on the dropdown option. */
+  employeeBindingCount: number;
+}
+
+/**
+ * One row on the HR bindings table — the terminal user id plus the
+ * mapped employee's identity. bindingId is only set after the row is
+ * persisted; blank rows in the UI (before Add) don't carry it.
+ */
+export interface HrEmployeeTerminalBinding {
+  bindingId?: string;
+  terminalSerial: string;
+  terminalUserId: string;
+
+  employeeId: string;
+  employeeName: string;
+  /** Teacher.employeeRole — e.g. "TEACHER", "PRINCIPAL", "ACCOUNTANT".
+   *  Shown as a subtitle so HR can disambiguate two people with the
+   *  same first name. */
+  designation?: string;
+
+  /** userId of the HR admin who created / last updated the binding. */
+  boundBy?: string;
+  boundAt?: string;
+}
+
+/**
+ * Employee shown in the "Add binding" dropdown — an employee who
+ * isn't currently bound to any terminal. Filtering client-side would
+ * require loading every teacher AND every binding, so the backend
+ * does the subtraction.
+ */
+export interface HrUnboundEmployee {
+  employeeId: string;
+  name: string;
+  designation?: string;
+}
+
+/** Payload for create + update — employeeId is required on create;
+ *  update uses the URL path for the current terminalUserId and only
+ *  needs the new one in the body. */
+export interface HrBindingUpsertRequest {
+  terminalUserId: string;
+  employeeId?: string;
+}
+
+// ── Regularization workflow (Phase 2) ──────────────────────
+
+/**
+ * One regularization request in whatever state it's in. Same shape
+ * on employee's "My Requests" list and HR's Approvals queue — status
+ * discriminates.
+ */
+export interface RegularizationRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  designation?: string;
+
+  date: string;
+  claimedInTime?: string;
+  claimedOutTime?: string;
+  reason: string;
+
+  status: 'PENDING' | 'AUTO_APPROVED' | 'APPROVED' | 'REJECTED';
+
+  reviewedByUserId?: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
+
+  requestedAt?: string;
+}
+
+/** Employee submit payload. At least one of the two times must be set. */
+export interface SubmitRegularizationRequest {
+  date: string;
+  claimedInTime?: string;
+  claimedOutTime?: string;
+  reason: string;
+}
+
+/** HR approve / reject body — notes optional on approve, encouraged on reject. */
+export interface RegularizationReviewRequest {
+  notes?: string;
+}
+
+/**
+ * Slim employee option for the HR-only manual-mark dialog picker.
+ * Served by GET /hr/attendance/employees since HR can't call the
+ * admin-gated /employees endpoint.
+ */
+export interface HrEmployeeOption {
+  employeeId: string;
+  name: string;
+  designation?: string;
+}
+
+/**
+ * One row on the HR bindings page's "Punches on this terminal"
+ * panel — an employee's daily IN + OUT collapsed into what the UI
+ * needs to render. Missing OUT (single-punch tenant or IN-only day)
+ * is expressed as an absent outTime — UI shows "—".
+ */
+export interface HrTerminalPunch {
+  employeeId: string;
+  employeeName: string;
+  designation?: string;
+  terminalUserId?: string;
+  /** 'PRESENT' | 'LATE' | 'HALF_DAY' — same vocabulary as
+   *  EmployeeAttendance.status. */
+  status?: string;
+  late?: boolean;
+  inTime?: string;
+  outTime?: string;
+}
+

@@ -71,7 +71,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             Claims claims = jwtUtil.parseToken(token);
             String userId   = claims.getSubject();
             String tenantId = claims.get("tenantId", String.class);
-            String roleStr  = claims.get("role", String.class);
+            // Prefer the explicit activeRole claim added when multi-role
+            // support landed; fall back to the legacy "role" claim so
+            // tokens issued before the deploy continue to authenticate.
+            String roleStr  = claims.get("activeRole", String.class);
+            if (roleStr == null || roleStr.isBlank()) {
+                roleStr = claims.get("role", String.class);
+            }
 
             UserRole role = UserRole.valueOf(roleStr);
 

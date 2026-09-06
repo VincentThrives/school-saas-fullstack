@@ -1,0 +1,202 @@
+$gold:      #D4A843;
+$gold-dark: #B8860B;
+$ink:       #1a1a1a;
+$muted:     #64748b;
+
+.clg-container {
+  // 3-row grid: header banner | map (flexible) | info + actions.
+  // minmax(200px, 1fr) on the map row lets it grow when there's
+  // space and shrink when there isn't, so the info + actions row
+  // stays visible even on short viewports (the old flex layout
+  // with overflow:hidden pushed the Save button below the fold).
+  display: grid;
+  grid-template-rows: auto minmax(200px, 1fr) auto;
+  width: 100%;
+  height: min(720px, 92vh);
+  max-height: 92vh;
+  overflow: hidden;
+}
+
+// ── Accuracy banner ────────────────────────────
+.clg-accuracy-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 500;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  strong { font-weight: 700; }
+
+  .clg-accuracy-hint {
+    color: rgba(255, 255, 255, 0.85);
+    margin-left: 4px;
+    font-weight: 500;
+  }
+
+  .clg-close {
+    margin-left: auto;
+    color: inherit;
+  }
+
+  &--good { background: #dcfce7; color: #15803d; .clg-accuracy-hint { color: #16a34a; } }
+  &--fair { background: #fef3c7; color: #b45309; .clg-accuracy-hint { color: #d97706; } }
+  &--poor { background: #fee2e2; color: #b91c1c; .clg-accuracy-hint { color: #dc2626; } }
+  &--none { background: #f1f5f9; color: #64748b; }
+}
+
+// ── Map surface ────────────────────────────────
+.clg-map-wrap {
+  position: relative;
+  // In the grid layout the map row is minmax(200px, 1fr) — this
+  // wrap fills it. min-height: 0 lets the grid actually shrink us
+  // on short viewports; the row's minmax already sets the floor.
+  min-height: 0;
+  overflow: hidden;
+}
+
+.clg-map {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.clg-recenter {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 500;
+  background: #ffffff !important;
+  color: $gold-dark !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+
+  &:hover:not([disabled]) {
+    background: #fbfaf5 !important;
+  }
+}
+
+// Red "you are here" pin — styled via divIcon in the TS.
+::ng-deep .clg-gps-pin {
+  .clg-gps-pin-inner {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ef4444;
+    border: 4px solid #ffffff;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.35), 0 3px 10px rgba(0, 0, 0, 0.25);
+    animation: pulse-red 2s ease-out infinite;
+  }
+}
+
+@keyframes pulse-red {
+  0%   { box-shadow: 0 0 0 0    rgba(239, 68, 68, 0.55), 0 3px 10px rgba(0, 0, 0, 0.25); }
+  70%  { box-shadow: 0 0 0 14px rgba(239, 68, 68, 0),    0 3px 10px rgba(0, 0, 0, 0.25); }
+  100% { box-shadow: 0 0 0 0    rgba(239, 68, 68, 0),    0 3px 10px rgba(0, 0, 0, 0.25); }
+}
+
+// ── Bottom info panel ─────────────────────────
+.clg-info {
+  padding: 14px 16px 16px;
+  background: #ffffff;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.clg-coord-block { margin-bottom: 12px; }
+
+.clg-coord-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.clg-coord-icon {
+  width: 36px;
+  height: 36px;
+  font-size: 22px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clg-coord-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: $muted;
+}
+
+.clg-coord-value {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: $ink;
+  margin-top: 2px;
+}
+
+.clg-hint {
+  font-size: 12.5px;
+  color: $muted;
+  margin: 10px 0 0 48px;
+  line-height: 1.45;
+}
+
+.clg-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.clg-save {
+  height: 42px !important;
+  padding: 0 22px !important;
+  border-radius: 21px !important;
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  box-shadow: 0 3px 10px rgba(199, 150, 47, 0.30) !important;
+
+  mat-icon { margin-right: 6px; vertical-align: middle; }
+}
+
+// ── Full-width edge-to-edge dialog panel ──────
+// Same pattern as the punches / manual-mark dialogs so this modal
+// centres pixel-symmetric on mobile.
+::ng-deep .campus-location-panel {
+  .mat-mdc-dialog-inner-container,
+  .mdc-dialog__container {
+    justify-content: center !important;
+    align-items: flex-start !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .mat-mdc-dialog-surface,
+  .mdc-dialog__surface {
+    width: 100%;
+    max-width: 720px;
+    margin: 24px auto !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+
+    @media (max-width: 600px) {
+      max-width: none;
+      width: calc(100vw - 24px) !important;
+      margin: 12px auto !important;
+      border-radius: 12px !important;
+    }
+  }
+}
+
+:host-context(body.dark-theme) {
+  .clg-info {
+    background: #1c1a15;
+    border-top-color: rgba(148, 163, 184, 0.20);
+  }
+  .clg-coord-value { color: #f5f5f5; }
+  .clg-hint { color: #94a3b8; }
+  .clg-accuracy-banner--none { background: #22201a; color: #94a3b8; }
+}

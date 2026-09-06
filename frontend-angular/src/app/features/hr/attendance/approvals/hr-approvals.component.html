@@ -1,0 +1,150 @@
+<div class="hr-appr-container">
+  <app-page-header
+    title="Regularization Approvals"
+    subtitle="Review missed-punch requests from employees"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'HR' },
+      { label: 'Approvals' }
+    ]">
+  </app-page-header>
+
+  <mat-tab-group class="appr-tabs">
+
+    <!-- ── Pending tab ────────────────────────── -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon>pending_actions</mat-icon>
+        Pending
+        <span class="tab-count" *ngIf="pending.length > 0">{{ pending.length }}</span>
+      </ng-template>
+
+      <div class="tab-body">
+        <div class="loading-strip" *ngIf="isLoadingPending">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading queue…</span>
+        </div>
+
+        <div class="empty-state" *ngIf="!isLoadingPending && pending.length === 0">
+          <mat-icon>inbox</mat-icon>
+          <div>
+            <strong>No pending requests</strong>
+            <p>You're all caught up. New submissions will show up here.</p>
+          </div>
+        </div>
+
+        <mat-card class="req-card"
+                  *ngFor="let r of pending">
+          <div class="req-head">
+            <div class="req-employee">
+              <div class="req-name">{{ r.employeeName }}</div>
+              <div class="req-desig" *ngIf="r.designation">{{ r.designation }}</div>
+            </div>
+            <div class="req-when">
+              <div class="req-date">{{ formatDate(r.date) }}</div>
+              <div class="req-submitted">submitted {{ formatDateTime(r.requestedAt) }}</div>
+            </div>
+          </div>
+
+          <div class="req-times">
+            <div class="req-time-block">
+              <span class="req-time-label">Claimed IN</span>
+              <span class="req-time-val">{{ formatTime(r.claimedInTime) }}</span>
+            </div>
+            <div class="req-time-block">
+              <span class="req-time-label">Claimed OUT</span>
+              <span class="req-time-val">{{ formatTime(r.claimedOutTime) }}</span>
+            </div>
+          </div>
+
+          <div class="req-reason" *ngIf="r.reason">
+            <mat-icon>notes</mat-icon>
+            <span>{{ r.reason }}</span>
+          </div>
+
+          <div class="req-actions">
+            <button mat-stroked-button color="warn" class="reject-btn"
+                    [disabled]="reviewingIds.has(r.id)"
+                    (click)="reject(r)">
+              <mat-icon>close</mat-icon> Reject
+            </button>
+            <button mat-flat-button color="primary" class="approve-btn"
+                    [disabled]="reviewingIds.has(r.id)"
+                    (click)="approve(r)">
+              <mat-spinner *ngIf="reviewingIds.has(r.id)" diameter="18"></mat-spinner>
+              <mat-icon *ngIf="!reviewingIds.has(r.id)">check</mat-icon>
+              Approve
+            </button>
+          </div>
+        </mat-card>
+      </div>
+    </mat-tab>
+
+    <!-- ── History tab ────────────────────────── -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon>history</mat-icon>
+        History
+      </ng-template>
+
+      <div class="tab-body">
+        <div class="loading-strip" *ngIf="isLoadingHistory">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading history…</span>
+        </div>
+
+        <div class="empty-state" *ngIf="!isLoadingHistory && history.length === 0">
+          <mat-icon>history_toggle_off</mat-icon>
+          <div>
+            <strong>No reviewed requests yet</strong>
+            <p>Approvals and rejections will appear here after you act on the queue.</p>
+          </div>
+        </div>
+
+        <mat-card class="req-card req-card--history"
+                  *ngFor="let r of history">
+          <div class="req-head">
+            <div class="req-employee">
+              <div class="req-name">{{ r.employeeName }}</div>
+              <div class="req-desig" *ngIf="r.designation">{{ r.designation }}</div>
+            </div>
+            <div class="req-when">
+              <span class="req-status-chip" [ngClass]="statusClass(r.status)">
+                {{ statusLabel(r.status) }}
+              </span>
+              <div class="req-date">{{ formatDate(r.date) }}</div>
+            </div>
+          </div>
+
+          <div class="req-times">
+            <div class="req-time-block">
+              <span class="req-time-label">IN</span>
+              <span class="req-time-val">{{ formatTime(r.claimedInTime) }}</span>
+            </div>
+            <div class="req-time-block">
+              <span class="req-time-label">OUT</span>
+              <span class="req-time-val">{{ formatTime(r.claimedOutTime) }}</span>
+            </div>
+          </div>
+
+          <div class="req-reason" *ngIf="r.reason">
+            <mat-icon>notes</mat-icon>
+            <span>{{ r.reason }}</span>
+          </div>
+
+          <div class="req-review" *ngIf="r.reviewNotes">
+            <mat-icon>rate_review</mat-icon>
+            <div>
+              <strong>Reviewer note</strong>
+              <span>{{ r.reviewNotes }}</span>
+              <span class="req-review-when" *ngIf="r.reviewedAt">
+                · {{ formatDateTime(r.reviewedAt) }}
+              </span>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+    </mat-tab>
+
+  </mat-tab-group>
+</div>

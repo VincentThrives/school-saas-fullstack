@@ -74,6 +74,36 @@ $gold-light: #E8C97A;
 .sv-budget {
   margin-top: 4px;
 }
+
+// Lifetime cost strip — sits above the month-vs-budget line so the
+// school sees "what have we spent overall" (invoice-style) BEFORE
+// they see "what's left in this month's budget". Gold-tinted card
+// so it reads as a summary/receipt line, not a warning.
+.sv-lifetime-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(212, 168, 67, 0.10) 0%, rgba(212, 168, 67, 0.03) 100%);
+  border: 1px solid rgba(212, 168, 67, 0.25);
+  font-size: 0.85rem;
+  color: #1a1a1a;
+
+  mat-icon {
+    color: #B8860B;
+    font-size: 18px; width: 18px; height: 18px;
+    flex-shrink: 0;
+  }
+  strong { color: #1a1a1a; font-weight: 700; }
+}
+.sv-lifetime-gst {
+  color: #6b7280;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
 .sv-budget-line {
   display: flex;
   justify-content: space-between;

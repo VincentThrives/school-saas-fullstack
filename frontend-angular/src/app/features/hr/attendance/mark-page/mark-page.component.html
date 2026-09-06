@@ -1,0 +1,104 @@
+<div class="mkp-container">
+
+  <!-- ── Slim top bar (back + title) ────────────────── -->
+  <div class="mkp-topbar">
+    <button mat-icon-button class="mkp-back" (click)="goBack()" matTooltip="Back">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <div class="mkp-topbar-title">
+      <div class="mkp-topbar-label">Attendance</div>
+      <div class="mkp-topbar-name">{{ pageTitle }}</div>
+    </div>
+    <button mat-icon-button class="mkp-refresh"
+            (click)="refreshLocation(false)"
+            [disabled]="isLocating"
+            matTooltip="Refresh my location">
+      <mat-spinner *ngIf="isLocating" diameter="20"></mat-spinner>
+      <mat-icon *ngIf="!isLocating">refresh</mat-icon>
+    </button>
+  </div>
+
+  <!-- ── Accuracy banner ────────────────────────────── -->
+  <div class="mkp-accuracy mkp-accuracy--{{ accuracyBand }}"
+       *ngIf="settings?.locationBasedEnabled">
+    <mat-icon>
+      {{ accuracyBand === 'good' ? 'gps_fixed'
+        : accuracyBand === 'fair' ? 'gps_not_fixed'
+        : accuracyBand === 'poor' ? 'gps_off'
+        : 'my_location' }}
+    </mat-icon>
+    <span>
+      <ng-container *ngIf="accuracyBand === 'none'">Getting your location…</ng-container>
+      <ng-container *ngIf="accuracyBand !== 'none'">
+        Current location accuracy: <strong>{{ accuracyLabel }}</strong>
+        <span *ngIf="liveAccuracyMeters != null"> · ±{{ liveAccuracyMeters | number:'1.0-0' }} m</span>
+      </ng-container>
+    </span>
+  </div>
+
+  <!-- ── Not-configured empty state ─────────────────── -->
+  <div class="mkp-empty" *ngIf="!isLoading && settings && !settings.locationBasedEnabled">
+    <mat-icon>info</mat-icon>
+    <div>
+      <strong>Location marking isn't enabled</strong>
+      <p>Your school hasn't turned on location-based attendance yet. Ask HR to enable it on the Attendance Settings page.</p>
+    </div>
+  </div>
+
+  <!-- ── Map ─────────────────────────────────────────── -->
+  <div class="mkp-map-wrap" *ngIf="settings?.locationBasedEnabled">
+    <div #mapContainer class="mkp-map"></div>
+    <div class="mkp-map-legend">
+      <span class="mkp-legend-item"><span class="mkp-legend-dot mkp-legend-dot--live"></span>You</span>
+      <span class="mkp-legend-item"><span class="mkp-legend-dot mkp-legend-dot--campus"></span>Campus</span>
+    </div>
+  </div>
+
+  <!-- ── Bottom sheet: distance + remarks + submit ──── -->
+  <div class="mkp-sheet" *ngIf="settings?.locationBasedEnabled">
+
+    <!-- Distance card + campus radius -->
+    <div class="mkp-info-row">
+      <div class="mkp-info-block mkp-info-block--distance"
+           [class.mkp-info-block--inside]="insideRadius"
+           [class.mkp-info-block--outside]="!insideRadius && distanceMeters != null">
+        <div class="mkp-info-label">Distance from campus</div>
+        <div class="mkp-info-value">
+          <mat-icon>
+            {{ insideRadius ? 'check_circle'
+              : distanceMeters == null ? 'radio_button_unchecked'
+              : 'error_outline' }}
+          </mat-icon>
+          {{ formatDistance(distanceMeters) }}
+        </div>
+        <div class="mkp-info-hint">
+          Allowed radius: {{ settings?.allowedRadiusMeters }} m
+        </div>
+      </div>
+    </div>
+
+    <!-- Remarks -->
+    <mat-form-field appearance="outline" class="mkp-remarks" *ngIf="canPunch">
+      <mat-label>Comments / remarks (optional)</mat-label>
+      <textarea matInput rows="2" [(ngModel)]="remarks"
+                placeholder="e.g. Late due to traffic on ring road."></textarea>
+    </mat-form-field>
+
+    <!-- Submit -->
+    <button mat-flat-button color="primary" class="mkp-submit"
+            *ngIf="canPunch"
+            [disabled]="isSubmitting"
+            (click)="submit()">
+      <mat-spinner *ngIf="isSubmitting" diameter="22"></mat-spinner>
+      <mat-icon *ngIf="!isSubmitting">
+        {{ !today ? 'login' : 'logout' }}
+      </mat-icon>
+      {{ isSubmitting ? 'Submitting…' : punchButtonLabel }}
+    </button>
+
+    <div class="mkp-done-card" *ngIf="!canPunch && today?.outTime">
+      <mat-icon>verified</mat-icon>
+      Done for today — no more punches needed.
+    </div>
+  </div>
+</div>

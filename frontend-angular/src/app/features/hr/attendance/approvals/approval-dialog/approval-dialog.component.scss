@@ -1,0 +1,280 @@
+$gold:      #D4A843;
+$gold-dark: #B8860B;
+$ink:       #1a1a1a;
+$muted:     #64748b;
+
+.ap-container {
+  width: 100%;
+  padding: 4px;
+  // Flex column so the body scrolls between the fixed header
+  // and footer — Approve / Reject buttons stay reachable even
+  // when the preview + warning + reason all stack tall.
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.ap-header, .ap-footer { flex-shrink: 0; }
+
+.ap-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.ap-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 8px 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.ap-header-body { min-width: 0; flex: 1; }
+
+.ap-title {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 17px; font-weight: 700; color: $ink;
+  letter-spacing: -0.01em;
+  mat-icon { color: $gold-dark; }
+}
+
+.ap-subtitle {
+  margin-top: 4px;
+  font-size: 13px; color: $muted;
+}
+
+.ap-body {
+  padding: 16px 8px 8px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+// ── Summary block ─────────────────────────
+.ap-summary {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(212, 168, 67, 0.08) 0%, #fbfaf5 100%);
+  border: 1px solid rgba(212, 168, 67, 0.25);
+}
+
+.ap-date {
+  font-size: 14px; font-weight: 700; color: $ink;
+  margin-bottom: 10px;
+}
+
+.ap-times {
+  display: flex; align-items: center; gap: 12px;
+
+  @media (max-width: 480px) { flex-wrap: wrap; }
+}
+
+.ap-time {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.20);
+  min-width: 0;
+}
+
+.ap-time-label {
+  display: block;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+  color: $muted; text-transform: uppercase;
+}
+
+.ap-time-value {
+  display: block;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 15px; font-weight: 700; color: $ink;
+  margin-top: 2px;
+}
+
+.ap-time-sep { color: $muted; font-size: 18px; }
+
+// ── Reason ────────────────────────────────
+.ap-reason {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.08);
+  color: #334155;
+
+  mat-icon {
+    font-size: 18px; width: 18px; height: 18px;
+    color: $muted;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  p { margin: 0; font-size: 13px; line-height: 1.5; font-style: italic; }
+}
+
+// ── Warning banner (invalid duration) ────
+.ap-warning {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.30);
+  color: #991b1b;
+
+  mat-icon {
+    color: #dc2626;
+    font-size: 22px; width: 22px; height: 22px;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  strong { display: block; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  p { margin: 0; font-size: 12.5px; line-height: 1.5; color: #7f1d1d; }
+}
+
+// ── Auto-computed preview ────────────────
+.ap-preview {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.06) 0%, rgba(37, 99, 235, 0.01) 100%);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+}
+
+.ap-preview-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  color: #1d4ed8;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+.ap-preview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+
+  @media (max-width: 480px) { grid-template-columns: 1fr; }
+}
+
+.ap-preview-stat {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(37, 99, 235, 0.15);
+}
+
+.ap-preview-label {
+  display: block;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+  color: $muted; text-transform: uppercase;
+}
+
+.ap-preview-value {
+  display: block;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 16px; font-weight: 700; color: $ink;
+  margin-top: 4px;
+}
+
+.ap-preview-status {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 5px 12px;
+  border-radius: 12px;
+  font-size: 13px; font-weight: 700;
+  background: rgba(148, 163, 184, 0.14); color: $muted;
+
+  &--present { background: rgba(34, 197, 94, 0.14); color: #15803d; }
+  &--halfday { background: rgba(168, 85, 247, 0.14); color: #7e22ce; }
+}
+
+.ap-late-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #b45309;
+  font-size: 11px;
+}
+
+.ap-preview-hint {
+  margin-top: 10px;
+  font-size: 11.5px; color: $muted; line-height: 1.5;
+  strong { color: $gold-dark; font-family: 'SFMono-Regular', Consolas, monospace; }
+}
+
+// ── Notes ─────────────────────────────────
+.ap-notes { width: 100%; }
+
+// ── Footer ────────────────────────────────
+.ap-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 10px 4px 4px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  margin-top: 8px;
+}
+
+.ap-submit-btn {
+  height: 42px !important;
+  padding: 0 22px !important;
+  border-radius: 21px !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+
+  mat-icon { margin-right: 6px; vertical-align: middle; }
+
+  &--approve {
+    background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%) !important;
+    box-shadow: 0 3px 10px rgba(76, 175, 80, 0.30) !important;
+  }
+  &--reject {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+    box-shadow: 0 3px 10px rgba(239, 68, 68, 0.30) !important;
+
+    &[disabled] { opacity: 0.5; box-shadow: none !important; }
+  }
+}
+
+// ── Panel size + mobile centering ────────
+::ng-deep .approval-dialog-panel {
+  .mat-mdc-dialog-inner-container,
+  .mdc-dialog__container {
+    justify-content: center !important;
+    align-items: flex-start !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .mat-mdc-dialog-surface,
+  .mdc-dialog__surface {
+    width: 100%;
+    max-width: 560px !important;
+    // Cap the height so the body scrolls internally — the
+    // footer with Approve / Reject stays pinned at the bottom
+    // and can't fall off the viewport.
+    max-height: 90vh;
+    margin: 24px auto !important;
+    padding: 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+
+    @media (max-width: 600px) {
+      max-width: none !important;
+      width: calc(100vw - 24px) !important;
+      margin: 12px auto !important;
+      padding: 12px !important;
+      border-radius: 12px !important;
+    }
+  }
+}
+
+:host-context(body.dark-theme) {
+  .ap-title { color: #f5f5f5; }
+  .ap-date, .ap-time-value, .ap-preview-value { color: #f5f5f5; }
+  .ap-time { background: #22201a; border-color: rgba(148, 163, 184, 0.20); }
+  .ap-preview-stat { background: #22201a; }
+  .ap-reason { background: rgba(148, 163, 184, 0.10); color: #cbd5e1; }
+}

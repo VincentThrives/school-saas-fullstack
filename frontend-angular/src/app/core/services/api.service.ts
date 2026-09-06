@@ -58,6 +58,24 @@ import {
   UpdateTerminalRequest,
   BindTerminalUserRequest,
   BiometricSettings,
+  EmployeeAttendance,
+  EmployeeAttendanceSettings,
+  PublicAttendanceSettings,
+  UpdateAttendanceSettingsRequest,
+  MarkSelfAttendanceRequest,
+  MarkSelfResponse,
+  ManualMarkRequest,
+  HrTerminalDto,
+  HrEmployeeTerminalBinding,
+  HrUnboundEmployee,
+  HrBindingUpsertRequest,
+  HrTerminalPunch,
+  HrDailyAttendance,
+  HrAttendanceReport,
+  HrEmployeeOption,
+  RegularizationRequest,
+  SubmitRegularizationRequest,
+  RegularizationReviewRequest,
 } from '../models';
 
 /** Scope an admin picks on the Publish Result tab. {@code subjectId} is
@@ -113,6 +131,10 @@ export interface TenantSmsSettingsDto {
   monthlyBudgetInr: number;
   costUsedThisMonth: number;
   costMonth?: string;
+  /** Lifetime cost of all SENT/DELIVERED SMS in INR, pre-tax.
+   *  Server-computed from the audit log; frontend renders it with
+   *  an 18% GST breakdown on the SMS Notifications page. */
+  costLifetime?: number;
   notifyAdminOnFailure: boolean;
   updatedAt?: string;
   updatedBy?: string;
@@ -2154,5 +2176,212 @@ export class ApiService {
 
   saveBiometricSettings(req: BiometricSettings): Observable<ApiResponse<BiometricSettings>> {
     return this.http.put<ApiResponse<BiometricSettings>>(`${this.API}/biometric/settings`, req);
+  }
+
+  // ── HR — Employee Attendance ─────────────────────────────
+
+  /** Any authenticated employee — marks self via location. */
+  hrMarkSelf(req: MarkSelfAttendanceRequest): Observable<ApiResponse<MarkSelfResponse>> {
+    return this.http.post<ApiResponse<MarkSelfResponse>>(
+      `${this.API}/hr/attendance/mark-self`, req);
+  }
+
+  /** Any authenticated employee — my attendance for a date range.
+   *  Backend resolves the current user → employeeId and returns their rows. */
+  hrMyAttendance(from?: string, to?: string): Observable<ApiResponse<EmployeeAttendance[]>> {
+    let params = new HttpParams();
+    if (from) params = params.set('from', from);
+    if (to)   params = params.set('to', to);
+    return this.http.get<ApiResponse<EmployeeAttendance[]>>(
+      `${this.API}/hr/attendance/my`, { params });
+  }
+
+  /** Public settings — what any employee needs to render the Mark
+   *  Attendance page (radius, mode toggles, thresholds). */
+  hrPublicSettings(): Observable<ApiResponse<PublicAttendanceSettings>> {
+    return this.http.get<ApiResponse<PublicAttendanceSettings>>(
+      `${this.API}/hr/attendance/settings/public`);
+  }
+
+  // ── HR-only endpoints (backend gates by hasRole('HR')) ────
+
+  /** HR daily view — all employees for a given date. Each row is
+   *  enriched server-side with the employee's display name +
+   *  designation so this page doesn't need to hit the admin-gated
+   *  /employees endpoint (which 403s for HR users). */
+  hrDailyAttendance(date?: string): Observable<ApiResponse<HrDailyAttendance[]>> {
+    let params = new HttpParams();
+    if (date) params = params.set('date', date);
+    return this.http.get<ApiResponse<HrDailyAttendance[]>>(
+      `${this.API}/hr/attendance/daily`, { params });
+  }
+
+  /** HR — one employee's month for the report / drill-in view. */
+  hrMonthlyAttendance(employeeId: string, from?: string, to?: string):
+      Observable<ApiResponse<EmployeeAttendance[]>> {
+    let params = new HttpParams();
+    if (from) params = params.set('from', from);
+    if (to)   params = params.set('to', to);
+    return this.http.get<ApiResponse<EmployeeAttendance[]>>(
+      `${this.API}/hr/attendance/monthly/${encodeURIComponent(employeeId)}`, { params });
+  }
+
+  /** Employee-facing — declared holidays overlapping a date range.
+   *  Used by /hr/attendance/my to tint holiday cells on the calendar
+   *  and by any HR page that needs the calendar-day set. Falls back
+   *  to an empty list on 403 (feature-flag off) so the calendar
+   *  still renders. */
+  hrHolidays(from: string, to: string):
+      Observable<ApiResponse<HrAttendanceReport>> {
+    let params = new HttpParams();
+    if (from) params = params.set('from', from);
+    if (to)   params = params.set('to', to);
+    return this.http.get<ApiResponse<HrAttendanceReport>>(
+      `${this.API}/hr/attendance/holidays`, { params });
+  }
+
+  /** HR — Attendance Report: everyone's rows between two dates,
+   *  enriched with employee name + designation, PLUS the set of
+   *  declared holidays that fall in the range so the frontend can
+   *  compute working-days = totalDays − Sundays − holidays. */
+  hrAttendanceReport(from: string, to: string):
+      Observable<ApiResponse<HrAttendanceReport>> {
+    let params = new HttpParams();
+    if (from) params = params.set('from', from);
+    if (to)   params = params.set('to', to);
+    return this.http.get<ApiResponse<HrAttendanceReport>>(
+      `${this.API}/hr/attendance/report`, { params });
+  }
+
+  /** HR — manual entry (edit / create a row on behalf of an employee). */
+  hrManualMark(req: ManualMarkRequest): Observable<ApiResponse<EmployeeAttendance>> {
+    return this.http.post<ApiResponse<EmployeeAttendance>>(
+      `${this.API}/hr/attendance/mark-manual`, req);
+  }
+
+  /** HR settings page — read full config. */
+  hrGetAttendanceSettings(): Observable<ApiResponse<EmployeeAttendanceSettings>> {
+    return this.http.get<ApiResponse<EmployeeAttendanceSettings>>(
+      `${this.API}/hr/attendance/settings`);
+  }
+
+  /** HR settings page — patch config (only non-null fields written). */
+  hrUpdateAttendanceSettings(req: UpdateAttendanceSettingsRequest):
+      Observable<ApiResponse<EmployeeAttendanceSettings>> {
+    return this.http.put<ApiResponse<EmployeeAttendanceSettings>>(
+      `${this.API}/hr/attendance/settings`, req);
+  }
+
+  // ── HR terminal bindings (Employee ↔ eSSL user id map) ────
+
+  /** Slim list of terminals for the HR bindings page — no scan-count
+   *  or last-punch summary, just enough to identify the device. */
+  hrListTerminals(): Observable<ApiResponse<HrTerminalDto[]>> {
+    return this.http.get<ApiResponse<HrTerminalDto[]>>(
+      `${this.API}/hr/attendance/bindings/terminals`);
+  }
+
+  /** All employee bindings on one terminal, enriched with names +
+   *  designation so the table can render without a second round-trip. */
+  hrListBindings(serial: string): Observable<ApiResponse<HrEmployeeTerminalBinding[]>> {
+    return this.http.get<ApiResponse<HrEmployeeTerminalBinding[]>>(
+      `${this.API}/hr/attendance/bindings/terminals/${encodeURIComponent(serial)}`);
+  }
+
+  /** Employees who aren't bound on any terminal — drives the "Add
+   *  binding" employee dropdown so HR never accidentally re-enrols
+   *  the same person twice. */
+  hrUnboundEmployees(): Observable<ApiResponse<HrUnboundEmployee[]>> {
+    return this.http.get<ApiResponse<HrUnboundEmployee[]>>(
+      `${this.API}/hr/attendance/bindings/unbound-employees`);
+  }
+
+  /** Create a new employee ↔ terminal binding. */
+  hrCreateBinding(serial: string, req: HrBindingUpsertRequest):
+      Observable<ApiResponse<HrEmployeeTerminalBinding>> {
+    return this.http.post<ApiResponse<HrEmployeeTerminalBinding>>(
+      `${this.API}/hr/attendance/bindings/terminals/${encodeURIComponent(serial)}`, req);
+  }
+
+  /** Change the terminal user id on an existing binding (e.g. after
+   *  a re-enrolment that produced a new slot number). */
+  hrUpdateBinding(serial: string, currentTerminalUserId: string,
+                  req: HrBindingUpsertRequest):
+      Observable<ApiResponse<HrEmployeeTerminalBinding>> {
+    return this.http.put<ApiResponse<HrEmployeeTerminalBinding>>(
+      `${this.API}/hr/attendance/bindings/terminals/${encodeURIComponent(serial)}` +
+      `/uid/${encodeURIComponent(currentTerminalUserId)}`, req);
+  }
+
+  /** Remove a binding. Idempotent — double-clicks in the UI don't
+   *  produce a 404 for the second call. */
+  hrDeleteBinding(serial: string, terminalUserId: string):
+      Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(
+      `${this.API}/hr/attendance/bindings/terminals/${encodeURIComponent(serial)}` +
+      `/uid/${encodeURIComponent(terminalUserId)}`);
+  }
+
+  /** Employees who punched this terminal on the given ISO date
+   *  (YYYY-MM-DD). Omit date to default to today (Asia/Kolkata). */
+  hrTerminalPunches(serial: string, date?: string):
+      Observable<ApiResponse<HrTerminalPunch[]>> {
+    let params = new HttpParams();
+    if (date) params = params.set('date', date);
+    return this.http.get<ApiResponse<HrTerminalPunch[]>>(
+      `${this.API}/hr/attendance/bindings/terminals/${encodeURIComponent(serial)}/punches`,
+      { params });
+  }
+
+  // ── HR employees list (for manual-mark dialog picker) ────
+
+  /** All employees available for HR to manually mark attendance for.
+   *  HR-only; sidesteps the admin-gated GET /employees endpoint. */
+  hrListEmployees(): Observable<ApiResponse<HrEmployeeOption[]>> {
+    return this.http.get<ApiResponse<HrEmployeeOption[]>>(
+      `${this.API}/hr/attendance/employees`);
+  }
+
+  // ── Regularization workflow ──────────────────────────────
+
+  /** Employee submits a regularization request for their own attendance. */
+  hrSubmitRegularization(req: SubmitRegularizationRequest):
+      Observable<ApiResponse<RegularizationRequest>> {
+    return this.http.post<ApiResponse<RegularizationRequest>>(
+      `${this.API}/hr/attendance/regularization/request`, req);
+  }
+
+  /** Employee's own regularization request history. */
+  hrMyRegularizations(): Observable<ApiResponse<RegularizationRequest[]>> {
+    return this.http.get<ApiResponse<RegularizationRequest[]>>(
+      `${this.API}/hr/attendance/regularization/my`);
+  }
+
+  /** HR pending queue. */
+  hrPendingRegularizations(): Observable<ApiResponse<RegularizationRequest[]>> {
+    return this.http.get<ApiResponse<RegularizationRequest[]>>(
+      `${this.API}/hr/attendance/regularization/pending`);
+  }
+
+  /** HR history — approved / auto-approved / rejected. */
+  hrRegularizationHistory(): Observable<ApiResponse<RegularizationRequest[]>> {
+    return this.http.get<ApiResponse<RegularizationRequest[]>>(
+      `${this.API}/hr/attendance/regularization/history`);
+  }
+
+  /** HR approves a pending request — writes the attendance row. */
+  hrApproveRegularization(id: string, review?: RegularizationReviewRequest):
+      Observable<ApiResponse<RegularizationRequest>> {
+    return this.http.post<ApiResponse<RegularizationRequest>>(
+      `${this.API}/hr/attendance/regularization/${encodeURIComponent(id)}/approve`,
+      review || {});
+  }
+
+  /** HR rejects a pending request with a note. */
+  hrRejectRegularization(id: string, review?: RegularizationReviewRequest):
+      Observable<ApiResponse<RegularizationRequest>> {
+    return this.http.post<ApiResponse<RegularizationRequest>>(
+      `${this.API}/hr/attendance/regularization/${encodeURIComponent(id)}/reject`,
+      review || {});
   }
 }

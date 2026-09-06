@@ -1,0 +1,355 @@
+$gold:      #D4A843;
+$gold-dark: #B8860B;
+$ink:       #1a1a1a;
+$muted:     #64748b;
+
+.dd-container {
+  width: 100%;
+  min-width: 0;
+  padding: 2px;
+  // Flex column so the body scrolls between the fixed header
+  // and footer — Close stays reachable and the middle content
+  // wraps neatly inside the compact dialog surface.
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.dd-header, .dd-footer { flex-shrink: 0; }
+
+.dd-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.dd-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 6px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.dd-header-body { min-width: 0; flex: 1; }
+
+.dd-date {
+  font-size: 15px;
+  font-weight: 700;
+  color: $ink;
+  letter-spacing: -0.01em;
+}
+
+.dd-status-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.dd-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: rgba(148, 163, 184, 0.14);
+  color: $muted;
+
+  &--present { background: rgba(34, 197, 94, 0.14);  color: #15803d; }
+  &--late    { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+  &--halfday { background: rgba(168, 85, 247, 0.16); color: #7e22ce; }
+  &--absent  { background: rgba(239, 68, 68, 0.14);  color: #b91c1c; }
+}
+
+.dd-body {
+  padding: 12px 6px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dd-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+
+  @media (max-width: 480px) { grid-template-columns: 1fr; }
+}
+
+// Every info card (IN / OUT / Duration / Source / Remarks) shares
+// the same compact chrome — small tinted icon, tight padding,
+// modest border. Keeps the whole dialog readable at a glance
+// instead of the earlier design that made every field feel like
+// a headline.
+.dd-cell {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fbfaf5;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+
+  > mat-icon {
+    width: 26px;
+    height: 26px;
+    font-size: 16px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, $gold 0%, $gold-dark 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &--wide { grid-column: 1 / -1; }
+
+  &--invalid {
+    background: rgba(239, 68, 68, 0.06);
+    border-color: rgba(239, 68, 68, 0.30);
+
+    > mat-icon {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+    .dd-cell-value { color: #b91c1c; }
+    .dd-cell-hint  { color: #7f1d1d; font-weight: 500; margin-top: 2px; }
+  }
+}
+
+.dd-cell-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: $muted;
+  text-transform: uppercase;
+}
+
+.dd-cell-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: $ink;
+  margin-top: 1px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  letter-spacing: -0.01em;
+}
+
+.dd-cell-hint {
+  font-size: 10.5px;
+  color: $muted;
+  font-weight: 500;
+  font-family: inherit;
+  margin-left: 3px;
+}
+
+.dd-source, .dd-remarks {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fbfaf5;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+
+  > mat-icon {
+    width: 26px; height: 26px; font-size: 16px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, $gold 0%, $gold-dark 100%);
+    color: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+}
+
+.dd-remarks .dd-cell-value {
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #334155;
+  letter-spacing: 0;
+}
+
+// ── Regularization block ─────────────────
+.dd-reg {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.06) 0%, rgba(37, 99, 235, 0.01) 100%);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dd-reg-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+
+  > mat-icon {
+    width: 26px; height: 26px; font-size: 16px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+}
+
+.dd-reg-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: $ink;
+  margin-bottom: 2px;
+}
+
+.dd-reg-status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+
+  &.req-status--pending  { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+  &.req-status--approved { background: rgba(34, 197, 94, 0.16);  color: #15803d; }
+  &.req-status--rejected { background: rgba(239, 68, 68, 0.14);  color: #b91c1c; }
+}
+
+.dd-reg-times {
+  display: flex;
+  gap: 20px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.06);
+
+  span { display: block; }
+  .dd-cell-value {
+    font-size: 12.5px;
+    color: #1d4ed8;
+    margin-top: 1px;
+  }
+}
+
+.dd-reg-reason p {
+  margin: 2px 0 0;
+  font-style: italic;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dd-reg-review {
+  display: flex;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.06);
+  border: 1px solid rgba(34, 197, 94, 0.20);
+
+  > mat-icon {
+    color: #15803d;
+    font-size: 16px; width: 16px; height: 16px;
+    margin-top: 1px;
+  }
+}
+
+.dd-review-note {
+  margin-top: 2px;
+  font-style: italic;
+  color: #334155;
+  font-size: 12px;
+}
+
+.dd-reg-submitted {
+  font-size: 10.5px;
+  color: $muted;
+}
+
+// ── Empty state ─────────────────────────
+.dd-empty {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 22px 20px;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+
+  > mat-icon {
+    color: $muted;
+    font-size: 28px; width: 28px; height: 28px;
+    margin-top: 2px;
+  }
+
+  strong {
+    display: block;
+    font-size: 14.5px;
+    color: #334155;
+    margin-bottom: 4px;
+  }
+  p {
+    margin: 0;
+    color: $muted;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+}
+
+.dd-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 4px 4px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  margin-top: 8px;
+}
+
+// ── Panel size + mobile centering ───────
+::ng-deep .day-details-panel {
+  .mat-mdc-dialog-inner-container,
+  .mdc-dialog__container {
+    justify-content: center !important;
+    align-items: flex-start !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .mat-mdc-dialog-surface,
+  .mdc-dialog__surface {
+    width: 100%;
+    // 440px keeps the compact cards from stretching wide on
+    // desktop — the whole day summary fits without scrolling on
+    // a typical laptop viewport.
+    max-width: 440px !important;
+    max-height: 88vh;
+    margin: 24px auto !important;
+    padding: 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+
+    @media (max-width: 600px) {
+      max-width: none !important;
+      width: calc(100vw - 24px) !important;
+      margin: 12px auto !important;
+      padding: 12px !important;
+      border-radius: 12px !important;
+    }
+  }
+}
+
+:host-context(body.dark-theme) {
+  .dd-date { color: #f5f5f5; }
+  .dd-cell-value, .dd-reg-title { color: #f5f5f5; }
+  .dd-cell, .dd-source, .dd-remarks {
+    background: #22201a;
+    border-color: rgba(148, 163, 184, 0.20);
+  }
+  .dd-remarks .dd-cell-value { color: #cbd5e1; }
+  .dd-empty {
+    background: rgba(148, 163, 184, 0.10);
+    strong { color: #cbd5e1; }
+    p { color: #94a3b8; }
+  }
+}

@@ -11,6 +11,37 @@
     <mat-spinner diameter="36"></mat-spinner>
   </div>
 
+  <!-- ── Workday strip ────────────────────────────
+       Personal IN / OUT punch surfaced right on the dashboard so
+       staff don't have to drill into My Details → My Attendance
+       to start their day. Hidden entirely when the tenant hasn't
+       enabled location-based attendance for employees. -->
+  <div class="teacher-dashboard__workday" *ngIf="workdayStripVisible">
+    <div class="teacher-dashboard__workday-body">
+      <mat-icon class="teacher-dashboard__workday-icon"
+                [class.teacher-dashboard__workday-icon--done]="todayPunch?.outTime"
+                [class.teacher-dashboard__workday-icon--started]="todayPunch && !todayPunch.outTime">
+        {{ workdayButtonIcon }}
+      </mat-icon>
+      <div class="teacher-dashboard__workday-text">
+        <div class="teacher-dashboard__workday-label">Your workday</div>
+        <div class="teacher-dashboard__workday-status">{{ workdayStatusLine }}</div>
+      </div>
+    </div>
+    <button mat-flat-button class="teacher-dashboard__workday-btn"
+            *ngIf="workdayCanPunch"
+            (click)="goToWorkdayMark()"
+            type="button">
+      <mat-icon>{{ workdayButtonIcon }}</mat-icon>
+      {{ workdayButtonLabel }}
+    </button>
+    <span class="teacher-dashboard__workday-done"
+          *ngIf="!workdayCanPunch">
+      <mat-icon>verified</mat-icon>
+      Done for today
+    </span>
+  </div>
+
   <!-- Attendance Alert -->
   <div class="teacher-dashboard__alert" *ngIf="!isLoading && stats.pendingAttendance">
     <mat-icon>warning</mat-icon>
@@ -44,6 +75,29 @@
       icon="warning"
       color="warning"
     ></app-stat-card>
+  </div>
+
+  <!-- My Details launcher — deliberately sits OUTSIDE the stats
+       grid on its own row. Keeping it in the grid forced the row
+       to 5 cells (or a lopsided 3+2 wrap at mid widths) which
+       broke the clean 4-in-a-row rhythm of the original layout.
+       Rendered here as a single compact strip that spans the row
+       and hugs its own content on the right, so the header still
+       feels like a tight header block. -->
+  <div class="teacher-dashboard__details-row" *ngIf="!isLoading">
+    <button class="teacher-dashboard__details-card"
+            (click)="openMyDetails()"
+            type="button"
+            aria-label="Open My Details">
+      <div class="teacher-dashboard__details-icon">
+        <mat-icon>account_circle</mat-icon>
+      </div>
+      <div class="teacher-dashboard__details-body">
+        <div class="teacher-dashboard__details-title">My Details</div>
+        <div class="teacher-dashboard__details-hint">Attendance · Profile</div>
+      </div>
+      <mat-icon class="teacher-dashboard__details-chev">chevron_right</mat-icon>
+    </button>
   </div>
 
   <!-- Main Content -->

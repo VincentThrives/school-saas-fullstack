@@ -258,8 +258,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // HR role gets its own home page under /hr/dashboard (welcome
+    // + mark IN/OUT + enabled sub-modules). Every other role uses
+    // the universal /dashboard. Same "Dashboard" label so the
+    // sidebar reads identically across roles.
+    const dashboardPath = role === UserRole.HR ? '/hr/dashboard' : '/dashboard';
     const items: MenuItem[] = [
-      { title: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
+      { title: 'Dashboard', path: dashboardPath, icon: 'dashboard' },
     ];
 
     if (role === UserRole.SCHOOL_ADMIN || role === UserRole.PRINCIPAL || role === UserRole.SCHOOL_COORDINATOR) {
@@ -450,7 +455,91 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // "My Profile" sits at the bottom of every tenant-side sidebar — common
     // anchor across roles since it's about the logged-in user, not features.
     // The /profile route renders a role-aware shell (student/employee/admin).
-    items.push({ title: 'My Profile', path: '/profile', icon: 'person' });
+    // ── HR-only sidebar ─────────────────────────────────
+    // Standalone branch so a user on the HR hat sees ONLY the HR
+    // admin surface. We deliberately do NOT reuse the SCHOOL_ADMIN
+    // block above — that would leak Attendance / Timetable / Exams
+    // / Notifications / SMS etc into the HR view even though those
+    // items were meant for admins.
+    //
+    // Layout: HR's DAILY WORK items sit flat at the top level of
+    // the sidebar (Daily Attendance, Attendance Settings, and — as
+    // Phases 2/3 land — Leave Approvals, Payroll Runs, Reports).
+    // The HR user's PERSONAL items (their own attendance history,
+    // their profile) tuck under a "My Details" group so the work
+    // surface stays the visual centre of gravity.
+    if (role === UserRole.HR) {
+      // Single Dashboard entry — routes HR to their landing page
+      // which shows welcome + status + mark button + enabled
+      // sub-modules. Kept as just "Dashboard" (not "HR Dashboard")
+      // so the sidebar has one home entry, matching the rest of
+      // the app's naming convention.
+      //
+      // Attendance is a collapsible group that bundles Daily /
+      // Approvals / Settings / My Attendance. Terminal Bindings
+      // isn't in the group — it's a sub-page of Settings and is
+      // reached from the "Open Terminal Bindings" button on the
+      // Settings → Biometric pane. Future sub-modules (Leave,
+      // Payroll) get their own groups the same way.
+      items.push(
+        // Dashboard already pushed at top of items[] with HR-aware
+        // route (/hr/dashboard). No second Dashboard entry needed
+        // here — just start with the sub-module groups.
+        {
+          title: 'Attendance', path: '', icon: 'event_available', feature: 'hr_attendance',
+          children: [
+            { title: 'Daily Attendance',    path: '/hr/attendance/daily',     icon: 'event_available',  feature: 'hr_attendance' },
+            { title: 'Approvals',           path: '/hr/attendance/approvals', icon: 'pending_actions',  feature: 'hr_attendance' },
+            { title: 'Report',              path: '/hr/attendance/report',    icon: 'insights',         feature: 'hr_attendance' },
+            { title: 'Attendance Settings', path: '/hr/attendance/settings',  icon: 'tune',             feature: 'hr_attendance' },
+          ],
+        },
+        {
+          // Personal items — the HR user's own attendance history +
+          // their profile. Kept out of the Attendance group above
+          // (that's admin-side work items) so the mental split of
+          // "what I manage vs what's mine" is obvious in the
+          // sidebar.
+          title: 'My Details', path: '', icon: 'account_circle',
+          children: [
+            { title: 'My Attendance', path: '/hr/attendance/my', icon: 'how_to_reg', feature: 'hr_module' },
+            { title: 'My Profile',    path: '/profile',           icon: 'person' },
+          ],
+        },
+      );
+      // HR gets its own personal-items group; skip the universal
+      // My Attendance / My Profile pushes below so we don't render
+      // the same items twice.
+      this.menuItems = items.filter((item) => this.isItemVisible(item));
+      return;
+    }
+
+    // ── My Details group — every employee-linked user (teacher,
+    // principal, coordinator, admin). Deliberately NOT shown
+    // to STUDENT / PARENT (they use the regular student attendance
+    // views). Backend /my endpoint returns [] for callers not
+    // linked to a Teacher record, which surfaces a friendly empty
+    // state on the page.
+    //
+    // Grouped the same way as the HR role's block so employees see
+    // the identical mental model (personal stuff tucks under one
+    // "My Details" header instead of scattering across the sidebar).
+    items.push({
+      title: 'My Details', path: '', icon: 'account_circle',
+      roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.TEACHER,
+              UserRole.SCHOOL_COORDINATOR],
+      children: [
+        { title: 'My Attendance', path: '/hr/attendance/my', icon: 'how_to_reg' },
+        { title: 'My Profile',    path: '/profile',           icon: 'person' },
+      ],
+    });
+
+    // STUDENT / PARENT still see a flat My Profile entry — no My
+    // Details group because they don't have anything else in there.
+    items.push({
+      title: 'My Profile', path: '/profile', icon: 'person',
+      roles: [UserRole.STUDENT, UserRole.PARENT],
+    });
 
     this.menuItems = items.filter((item) => this.isItemVisible(item));
   }

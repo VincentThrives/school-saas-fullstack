@@ -5,6 +5,9 @@ import com.saas.school.modules.biometricterminal.model.AttendanceScan;
 import com.saas.school.modules.biometricterminal.model.TerminalUserBinding;
 import com.saas.school.modules.biometricterminal.service.AttendanceScanService;
 import com.saas.school.modules.biometricterminal.service.TerminalRegistrationService;
+import com.saas.school.modules.hr.model.EmployeeTerminalBinding;
+import com.saas.school.modules.hr.service.EmployeeAttendanceService;
+import com.saas.school.modules.hr.service.HrTerminalBindingService;
 import com.saas.school.modules.tenant.model.Tenant;
 import com.saas.school.modules.tenant.repository.TenantRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,6 +63,8 @@ public class AdmsPushController {
     @Autowired private TenantRepository tenantRepository;
     @Autowired private TerminalRegistrationService registrationService;
     @Autowired private AttendanceScanService scanService;
+    @Autowired private HrTerminalBindingService hrBindingService;
+    @Autowired private EmployeeAttendanceService employeeAttendanceService;
 
     /**
      * The workhorse endpoint. Terminals POST here every time a new scan
@@ -158,6 +163,28 @@ public class AdmsPushController {
             return;
         }
         AttendanceScan.Direction direction = parseDirection(rawStatus);
+
+        // Employee bindings win the routing when both collections
+        // have a hit for the same (serial, uid) — the enrolment slot
+        // is a single physical finger, so the intended target is
+        // unambiguous. In practice the HR bindings collection is
+        // small (staff-only), so hitting it first costs one extra
+        // indexed lookup per scan.
+        Optional<EmployeeTerminalBinding> empBinding =
+            hrBindingService.resolveEmployeeBinding(serial, terminalUserId);
+        if (empBinding.isPresent()) {
+            try {
+                employeeAttendanceService.recordBiometricPunch(
+                    empBinding.get().getEmployeeId(), serial, terminalUserId,
+                    direction == null ? null : direction.name(), scannedAt);
+            } catch (Exception e) {
+                // Same rule as the student branch — never bubble to
+                // the terminal, or it retries the whole batch.
+                log.error("Employee biometric punch failed for SN {} employee {}: {}",
+                    serial, empBinding.get().getEmployeeId(), e.getMessage(), e);
+            }
+            return;
+        }
 
         Optional<TerminalUserBinding> binding = registrationService.resolveBinding(serial, terminalUserId);
         if (binding.isEmpty()) {

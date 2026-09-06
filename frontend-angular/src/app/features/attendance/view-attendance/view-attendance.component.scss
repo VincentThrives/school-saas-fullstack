@@ -143,6 +143,10 @@ $amber-deep: #B45309;
     .meta-item--present mat-icon { color: $green-deep; }
     .meta-item--absent mat-icon { color: #c62828; }
     .meta-item--other mat-icon { color: $amber-deep; }
+    .meta-item--unmarked {
+      color: #b45309;
+      mat-icon { color: #f59e0b; }
+    }
   }
 
   // Absentee block on Marked cards — small label + wrapping chip list.

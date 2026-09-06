@@ -1,0 +1,333 @@
+<div class="hr-settings-container">
+  <app-page-header
+    title="Attendance Settings"
+    subtitle="Configure how employees mark attendance"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'HR' },
+      { label: 'Attendance Settings' }
+    ]">
+  </app-page-header>
+
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <div class="settings-layout" *ngIf="!isLoading">
+
+    <!-- ── Horizontal tab strip ─────────────────────── -->
+    <!-- Replaces the earlier vertical side-nav so the content
+         area gets full width to work with. Each tab shows a
+         status chip so admin sees which methods are on at a
+         glance without opening every tab. -->
+    <mat-tab-group class="settings-tabs"
+                   mat-stretch-tabs="false"
+                   animationDuration="150ms">
+
+      <!-- ─── Location tab ────────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>location_on</mat-icon>
+          <span class="tab-label">Location marking</span>
+          <span class="tab-badge" [class.tab-badge--on]="settings.locationBasedEnabled">
+            {{ settings.locationBasedEnabled ? 'ON' : 'OFF' }}
+          </span>
+        </ng-template>
+
+      <div class="pane">
+        <div class="pane-hero">
+          <div class="pane-hero-icon"><mat-icon>location_on</mat-icon></div>
+          <div class="pane-hero-body">
+            <h2>Location marking</h2>
+            <p>Employees open the app on their phone and tap "Mark IN". The app reads their GPS position and checks it against the campus radius below.</p>
+          </div>
+          <mat-slide-toggle color="primary" [(ngModel)]="settings.locationBasedEnabled" class="pane-hero-toggle">
+          </mat-slide-toggle>
+        </div>
+
+        <div class="off-banner" *ngIf="!settings.locationBasedEnabled">
+          <mat-icon>power_settings_new</mat-icon>
+          <div>
+            <strong>Location marking is turned off.</strong>
+            <p>Flip the switch above to configure the campus location, radius, and other rules.</p>
+          </div>
+        </div>
+
+        <ng-container *ngIf="settings.locationBasedEnabled">
+          <div class="pane-section">
+            <h3 class="pane-section-title">Campus point</h3>
+            <p class="pane-section-hint">Sit at your school reception with a laptop and click below — the coords fill in automatically.</p>
+            <div class="location-row">
+              <button mat-stroked-button color="primary"
+                      (click)="useCurrentLocation()"
+                      [disabled]="isLocating">
+                <mat-spinner *ngIf="isLocating" diameter="18"></mat-spinner>
+                <mat-icon *ngIf="!isLocating">my_location</mat-icon>
+                {{ isLocating ? 'Getting…' : 'Use my current location' }}
+              </button>
+              <button *ngIf="locationJustCaptured"
+                      mat-flat-button class="save-location-btn"
+                      [disabled]="isSavingLocation"
+                      (click)="saveLocationOnly()">
+                <mat-spinner *ngIf="isSavingLocation" diameter="18"></mat-spinner>
+                <mat-icon *ngIf="!isSavingLocation">check_circle</mat-icon>
+                {{ isSavingLocation ? 'Saving…' : 'Save location' }}
+              </button>
+              <span class="location-captured-hint" *ngIf="locationJustCaptured && !isSavingLocation">
+                Coords captured — click Save to lock them in.
+              </span>
+            </div>
+
+            <div class="form-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Campus latitude</mat-label>
+                <input matInput type="number" step="any" [(ngModel)]="settings.campusLatitude">
+                <mat-hint>Decimal degrees (e.g. 12.9716)</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Campus longitude</mat-label>
+                <input matInput type="number" step="any" [(ngModel)]="settings.campusLongitude">
+                <mat-hint>Decimal degrees (e.g. 77.5946)</mat-hint>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <div class="pane-section">
+            <h3 class="pane-section-title">Radius &amp; accuracy</h3>
+            <p class="pane-section-hint">How close employees must be to the campus point, and how strict we are about GPS quality.</p>
+            <div class="form-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Allowed radius (metres)</mat-label>
+                <input matInput type="number" min="50" max="2000" step="50" [(ngModel)]="settings.allowedRadiusMeters">
+                <mat-hint>50–2000 m. Default 200 m covers a single school block.</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Maximum GPS accuracy (metres)</mat-label>
+                <input matInput type="number" min="20" max="500" step="10" [(ngModel)]="settings.maxAccuracyMeters">
+                <mat-hint>Reject marks with reported accuracy worse than this.</mat-hint>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <div class="pane-section">
+            <h3 class="pane-section-title">Anti-cheat</h3>
+            <div class="toggle-row">
+              <mat-slide-toggle color="primary" [(ngModel)]="settings.rejectMockLocations">
+                <span class="toggle-title">Reject fake GPS (mock provider)</span>
+              </mat-slide-toggle>
+              <p class="toggle-hint">Blocks marks from Android developer-mode fake locations. Recommended on.</p>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
+      </mat-tab>
+
+      <!-- ─── Biometric tab ──────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>fingerprint</mat-icon>
+          <span class="tab-label">Biometric terminal</span>
+          <span class="tab-badge" [class.tab-badge--on]="settings.biometricBasedEnabled">
+            {{ settings.biometricBasedEnabled ? 'ON' : 'OFF' }}
+          </span>
+        </ng-template>
+
+      <div class="pane">
+        <div class="pane-hero">
+          <div class="pane-hero-icon"><mat-icon>fingerprint</mat-icon></div>
+          <div class="pane-hero-body">
+            <h2>Biometric terminal (eSSL)</h2>
+            <p>Employees scan finger or face at your physical eSSL terminal. Scans flow into their attendance the same way as location marks.</p>
+          </div>
+          <mat-slide-toggle color="primary" [(ngModel)]="settings.biometricBasedEnabled" class="pane-hero-toggle">
+          </mat-slide-toggle>
+        </div>
+
+        <div class="off-banner" *ngIf="!settings.biometricBasedEnabled">
+          <mat-icon>power_settings_new</mat-icon>
+          <div>
+            <strong>Biometric marking is turned off.</strong>
+            <p>Flip the switch above to route terminal scans into employee attendance and manage bindings.</p>
+          </div>
+        </div>
+
+        <ng-container *ngIf="settings.biometricBasedEnabled">
+          <div class="pane-section">
+            <h3 class="pane-section-title">Employee ↔ terminal bindings</h3>
+            <p class="pane-section-hint">
+              Map each employee to the user ID they scan as on the terminal. Without a binding, the terminal ignores that user.
+            </p>
+            <div class="bindings-cta">
+              <button mat-flat-button color="primary" class="bindings-btn"
+                      (click)="openTerminalBindings()">
+                <mat-icon>link</mat-icon>
+                Open Terminal Bindings
+              </button>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
+      </mat-tab>
+
+      <!-- ─── Punch rules tab ────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>schedule</mat-icon>
+          <span class="tab-label">Punch rules</span>
+          <span class="tab-badge">{{ settings.expectedPunchesPerDay }}/day</span>
+        </ng-template>
+
+      <div class="pane">
+        <div class="pane-hero pane-hero--simple">
+          <div class="pane-hero-icon"><mat-icon>schedule</mat-icon></div>
+          <div class="pane-hero-body">
+            <h2>Punch rules &amp; timings</h2>
+            <p>How many punches per day and what times count as on-time, late, or half-day. All times in India Standard Time.</p>
+          </div>
+        </div>
+
+        <div class="pane-section">
+          <div class="form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Punches per day</mat-label>
+              <mat-select [(ngModel)]="settings.expectedPunchesPerDay">
+                <mat-option *ngFor="let p of punchOptions" [value]="p.value">{{ p.label }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Late threshold (HH:MM)</mat-label>
+              <input matInput [(ngModel)]="settings.lateThreshold" placeholder="09:15">
+              <mat-hint>Marks at/after this time are flagged Late.</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Auto-absent time (HH:MM)</mat-label>
+              <input matInput [(ngModel)]="settings.autoAbsentTime" placeholder="11:00">
+              <mat-hint>Unmarked employees stamped ABSENT after this.</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <!-- Half-day (hours-worked) rule ─────────────── -->
+          <div class="toggle-row">
+            <mat-slide-toggle color="primary"
+                              [(ngModel)]="settings.halfDayCalculationEnabled">
+              <span class="toggle-title">Mark HALF-DAY based on hours worked</span>
+            </mat-slide-toggle>
+            <p class="toggle-hint">
+              When ON, a completed day where <strong>OUT − IN &lt; threshold hours</strong> is
+              stamped HALF_DAY (works for morning AND afternoon halves alike).
+              When OFF, employees only ever get PRESENT / LATE.
+            </p>
+          </div>
+
+          <div class="form-grid" *ngIf="settings.halfDayCalculationEnabled">
+            <mat-form-field appearance="outline">
+              <mat-label>Half-day max hours</mat-label>
+              <input matInput type="number" step="0.5" min="0.5" max="24"
+                     [(ngModel)]="settings.halfDayMaxHours">
+              <mat-hint>Under this many hours = half-day. Default 4.</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <!-- Auto-OUT rule (closes "forgot to punch out" case) ── -->
+          <div class="toggle-row">
+            <mat-slide-toggle color="primary" [(ngModel)]="settings.autoOutEnabled">
+              <span class="toggle-title">Auto-stamp OUT for employees who forgot</span>
+            </mat-slide-toggle>
+            <p class="toggle-hint">
+              After the auto-OUT time below, any employee with an IN but no OUT gets
+              OUT stamped at that time. The half-day rule then applies to the total hours worked
+              (so a short day becomes HALF_DAY, otherwise PRESENT).
+            </p>
+          </div>
+
+          <div class="form-grid" *ngIf="settings.autoOutEnabled">
+            <mat-form-field appearance="outline">
+              <mat-label>Auto-OUT time (HH:MM)</mat-label>
+              <input matInput [(ngModel)]="settings.autoOutTime" placeholder="18:30">
+              <mat-hint>Runs every 15 min after this time.</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <div class="toggle-row">
+            <mat-slide-toggle color="primary" [(ngModel)]="settings.autoAbsentEnabled">
+              <span class="toggle-title">Run auto-absent job daily</span>
+            </mat-slide-toggle>
+            <p class="toggle-hint">Off by default. Turn on once every employee is marking daily.</p>
+          </div>
+        </div>
+      </div>
+
+      </mat-tab>
+
+      <!-- ─── Regularization tab ────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>assignment_turned_in</mat-icon>
+          <span class="tab-label">Regularization</span>
+          <span class="tab-badge" [class.tab-badge--on]="settings.regularizationEnabled">
+            {{ settings.regularizationEnabled ? 'ON' : 'OFF' }}
+          </span>
+        </ng-template>
+
+      <div class="pane">
+        <div class="pane-hero">
+          <div class="pane-hero-icon"><mat-icon>assignment_turned_in</mat-icon></div>
+          <div class="pane-hero-body">
+            <h2>Regularization</h2>
+            <p>When an employee forgets to punch, they submit a regularization request. You review and approve or reject.</p>
+          </div>
+          <mat-slide-toggle color="primary" [(ngModel)]="settings.regularizationEnabled" class="pane-hero-toggle">
+          </mat-slide-toggle>
+        </div>
+
+        <div class="off-banner" *ngIf="!settings.regularizationEnabled">
+          <mat-icon>power_settings_new</mat-icon>
+          <div>
+            <strong>Regularization is turned off.</strong>
+            <p>Flip the switch above to let employees submit missed-punch requests.</p>
+          </div>
+        </div>
+
+        <ng-container *ngIf="settings.regularizationEnabled">
+          <div class="pane-section">
+            <div class="form-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Maximum backdate (days)</mat-label>
+                <input matInput type="number" min="1" max="30"
+                       [(ngModel)]="settings.regularizationMaxBackdateDays">
+                <mat-hint>Can't regularize a punch older than this.</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Monthly cap per employee</mat-label>
+                <input matInput type="number" min="0" max="30"
+                       [(ngModel)]="settings.regularizationMonthlyCapPerEmployee">
+                <mat-hint>0 = unlimited. Default 3 per month.</mat-hint>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Auto-approve window (minutes)</mat-label>
+                <input matInput type="number" min="0" max="240"
+                       [(ngModel)]="settings.regularizationAutoApproveWindowMinutes">
+                <mat-hint>Requests within N mins of shift start auto-approve. 0 = every request goes to your queue.</mat-hint>
+              </mat-form-field>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
+      </mat-tab>
+    </mat-tab-group>
+  </div>
+
+  <!-- Sticky save bar (visible on every section) -->
+  <div class="save-bar" *ngIf="!isLoading">
+    <button mat-flat-button color="primary" class="save-btn"
+            (click)="save()"
+            [disabled]="isSaving">
+      <mat-spinner *ngIf="isSaving" diameter="20"></mat-spinner>
+      <mat-icon *ngIf="!isSaving">save</mat-icon>
+      {{ isSaving ? 'Saving…' : 'Save all settings' }}
+    </button>
+  </div>
+</div>

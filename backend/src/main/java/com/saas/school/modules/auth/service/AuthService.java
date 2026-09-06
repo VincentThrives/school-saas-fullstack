@@ -141,11 +141,17 @@ public class AuthService {
         // Successful login — reset failed attempts
         user.setFailedLoginAttempts(0);
         user.setLastLoginAt(Instant.now());
+        // Lazy migration: legacy docs (roles=null) get the array back-
+        // filled from the singular role field on first login, so every
+        // subsequent read is multi-role-shaped without a batch job.
+        user.normalizeRoles();
 
         String accessToken  = jwtUtil.generateAccessToken(
-                user.getUserId(), req.getTenantId(), user.getRole(), tenant.getFeatureFlags());
+                user.getUserId(), req.getTenantId(),
+                user.getRoles(), user.getActiveRole(),
+                tenant.getFeatureFlags());
         String refreshToken = jwtUtil.generateRefreshToken(
-                user.getUserId(), req.getTenantId(), user.getRole());
+                user.getUserId(), req.getTenantId(), user.getActiveRole());
 
         user.setRefreshToken(passwordEncoder.encode(refreshToken));
         user.setRefreshTokenExpiresAt(Instant.now().plusMillis(refreshTokenExpiryMs));
@@ -250,8 +256,14 @@ public class AuthService {
             throw new BusinessException("Refresh token revoked.");
         }
 
-        String newAccess  = jwtUtil.generateAccessToken(userId, tenantId, user.getRole(), tenant.getFeatureFlags());
-        String newRefresh = jwtUtil.generateRefreshToken(userId, tenantId, user.getRole());
+        // Preserve the user's role set + which one they were actively
+        // working as. Refresh isn't a role switch — if the user was
+        // wearing the HR hat when the access token expired, they get a
+        // new one still wearing the HR hat.
+        user.normalizeRoles();
+        String newAccess  = jwtUtil.generateAccessToken(userId, tenantId,
+                user.getRoles(), user.getActiveRole(), tenant.getFeatureFlags());
+        String newRefresh = jwtUtil.generateRefreshToken(userId, tenantId, user.getActiveRole());
         user.setRefreshToken(passwordEncoder.encode(newRefresh));
         // Rolling refresh window — every successful refresh resets the clock.
         // The JWT itself already carries a fresh expiry from generateRefreshToken;
@@ -442,10 +454,12 @@ public class AuthService {
         }
         Map<String, Boolean> flags = tenant != null ? tenant.getFeatureFlags() : Map.of();
 
+        targetUser.normalizeRoles();
         String accessToken  = jwtUtil.generateAccessToken(
-                targetUserId, effectiveTenantId, targetUser.getRole(), flags);
+                targetUserId, effectiveTenantId,
+                targetUser.getRoles(), targetUser.getActiveRole(), flags);
         String refreshToken = jwtUtil.generateRefreshToken(
-                targetUserId, effectiveTenantId, targetUser.getRole());
+                targetUserId, effectiveTenantId, targetUser.getActiveRole());
 
         targetUser.setRefreshToken(passwordEncoder.encode(refreshToken));
         targetUser.setRefreshTokenExpiresAt(Instant.now().plusMillis(refreshTokenExpiryMs));
@@ -463,6 +477,85 @@ public class AuthService {
         resp.setRole(targetUser.getRole());
         resp.setFeatureFlags(flags);
         resp.setUser(toUserDto(targetUser));
+        return resp;
+    }
+
+    /**
+     * Switch the active role for a multi-role user. Called from
+     * the top-bar role-switcher dropdown when the user picks a
+     * different hat. Validates the pick against the user's granted
+     * {@code roles} list, persists the new {@code activeRole} so a
+     * refresh keeps the same hat, and mints a fresh access + refresh
+     * token pair with the new {@code activeRole} claim.
+     *
+     * @throws BusinessException when the user isn't found, isn't
+     *   authorised for that role, or the request is malformed
+     */
+    public AuthResponse switchRole(String userId, String targetRoleName, String tenantId) {
+        if (targetRoleName == null || targetRoleName.isBlank()) {
+            throw new BusinessException("Target role is required.");
+        }
+        UserRole targetRole;
+        try {
+            targetRole = UserRole.valueOf(targetRoleName.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException("Unknown role: " + targetRoleName);
+        }
+
+        // Tenant context is already scoped by JwtAuthFilter for tenant
+        // users; we still need the Tenant doc for the feature-flags
+        // claim on the new access token, and that lives in the central DB.
+        String effectiveTenantId = tenantId != null && !tenantId.isBlank()
+                ? tenantId : TenantContext.getTenantId();
+
+        User user = userRepository.findByUserIdAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new BusinessException("User not found."));
+
+        user.normalizeRoles();
+        if (user.getRoles() == null || !user.getRoles().contains(targetRole)) {
+            throw new BusinessException(
+                "You are not authorised to switch to the " + targetRole.name() + " role.");
+        }
+        if (targetRole == user.getActiveRole()) {
+            // No-op switch — return a fresh token anyway so the caller
+            // gets a clean expiry window (mirrors login behaviour).
+        }
+
+        Tenant tenant = null;
+        if (effectiveTenantId != null && targetRole != UserRole.SUPER_ADMIN) {
+            String priorTenant = TenantContext.getTenantId();
+            TenantContext.clear();
+            try {
+                tenant = tenantRepository.findById(effectiveTenantId).orElse(null);
+            } finally {
+                if (priorTenant != null) TenantContext.setTenantId(priorTenant);
+            }
+        }
+        Map<String, Boolean> flags = tenant != null ? tenant.getFeatureFlags() : Map.of();
+
+        // Persist the choice so a page refresh (which mints a fresh
+        // access token via refresh) keeps the user on the same hat.
+        user.setActiveRole(targetRole);
+        user.normalizeRoles();  // syncs the legacy `role` field to the new active
+
+        String tenantForToken = targetRole == UserRole.SUPER_ADMIN ? null : effectiveTenantId;
+        String accessToken  = jwtUtil.generateAccessToken(
+                userId, tenantForToken, user.getRoles(), targetRole, flags);
+        String refreshToken = jwtUtil.generateRefreshToken(userId, tenantForToken, targetRole);
+
+        user.setRefreshToken(passwordEncoder.encode(refreshToken));
+        user.setRefreshTokenExpiresAt(Instant.now().plusMillis(refreshTokenExpiryMs));
+        userRepository.save(user);
+
+        auditService.log("USER_ROLE_SWITCH", "User", userId,
+                "Role switch userId=" + userId + " to=" + targetRole.name());
+
+        AuthResponse resp = new AuthResponse();
+        resp.setAccessToken(accessToken);
+        resp.setRefreshToken(refreshToken);
+        resp.setRole(targetRole);
+        resp.setFeatureFlags(flags);
+        resp.setUser(toUserDto(user));
         return resp;
     }
 
@@ -545,12 +638,17 @@ public class AuthService {
     }
 
     private UserDto toUserDto(User user) {
+        // Ensure the multi-role fields are populated on legacy docs so the
+        // response always carries a coherent roles + activeRole pair.
+        user.normalizeRoles();
         UserDto dto = new UserDto();
         dto.setUserId(user.getUserId());
         dto.setEmail(user.getEmail());
         dto.setFirstName(user.getFirstName());
         dto.setLastName(user.getLastName());
         dto.setRole(user.getRole());
+        dto.setRoles(user.getRoles());
+        dto.setActiveRole(user.getActiveRole());
         dto.setProfilePhotoUrl(user.getProfilePhotoUrl());
         return dto;
     }

@@ -1,0 +1,87 @@
+<div class="mm-container">
+
+  <div class="mm-header">
+    <div class="mm-title">
+      <mat-icon class="mm-title-icon">
+        {{ data.mode === 'edit' ? 'edit_note' : 'person_add' }}
+      </mat-icon>
+      <div>
+        <h2>{{ data.mode === 'edit' ? 'Edit attendance' : 'Add missing attendance' }}</h2>
+        <p class="mm-subtitle" *ngIf="data.mode === 'edit'">
+          {{ displayEmployee() }}
+        </p>
+        <p class="mm-subtitle" *ngIf="data.mode === 'add'">
+          Mark a row on behalf of an employee who missed their punch.
+        </p>
+      </div>
+    </div>
+    <button mat-icon-button (click)="close()" matTooltip="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="mm-body">
+
+    <!-- Employee picker — only in add mode -->
+    <mat-form-field appearance="outline" class="mm-field"
+                    *ngIf="data.mode === 'add'">
+      <mat-label>Employee</mat-label>
+      <mat-select [(ngModel)]="employeeId">
+        <mat-option *ngIf="isLoadingEmployees" disabled>Loading…</mat-option>
+        <mat-option *ngFor="let e of employees" [value]="e.employeeId">
+          {{ e.name }}
+          <span class="mm-option-sub" *ngIf="e.designation"> · {{ e.designation }}</span>
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <div class="mm-row">
+      <mat-form-field appearance="outline" class="mm-field">
+        <mat-label>Date</mat-label>
+        <input matInput [matDatepicker]="dp" [(ngModel)]="date"
+               [disabled]="data.mode === 'edit'">
+        <mat-datepicker-toggle matSuffix [for]="dp"
+                               [disabled]="data.mode === 'edit'"></mat-datepicker-toggle>
+        <mat-datepicker #dp></mat-datepicker>
+        <mat-hint *ngIf="data.mode === 'edit'">Date can't change on an existing row.</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="mm-field">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="status">
+          <mat-option *ngFor="let s of statuses" [value]="s.value">{{ s.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="mm-row">
+      <mat-form-field appearance="outline" class="mm-field">
+        <mat-label>IN time</mat-label>
+        <input matInput type="time" [(ngModel)]="inTime">
+        <mat-hint>Leave blank if not applicable.</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="mm-field">
+        <mat-label>OUT time</mat-label>
+        <input matInput type="time" [(ngModel)]="outTime">
+        <mat-hint>Leave blank if not applicable.</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <mat-form-field appearance="outline" class="mm-field mm-field-full">
+      <mat-label>Remarks (optional)</mat-label>
+      <textarea matInput rows="2" [(ngModel)]="remarks"
+                placeholder="e.g. Terminal was down; verified with security log."></textarea>
+    </mat-form-field>
+  </div>
+
+  <div class="mm-footer">
+    <button mat-stroked-button (click)="close()">Cancel</button>
+    <button mat-flat-button color="primary" class="mm-save-btn"
+            (click)="save()" [disabled]="isSaving">
+      <mat-spinner *ngIf="isSaving" diameter="18"></mat-spinner>
+      <mat-icon *ngIf="!isSaving">check</mat-icon>
+      Save
+    </button>
+  </div>
+</div>

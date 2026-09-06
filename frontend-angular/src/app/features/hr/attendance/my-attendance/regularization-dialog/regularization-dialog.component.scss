@@ -1,0 +1,261 @@
+$gold:      #D4A843;
+$gold-dark: #B8860B;
+$ink:       #1a1a1a;
+$muted:     #64748b;
+
+.rd-container {
+  width: 100%;
+  min-width: 0;
+  padding: 4px;
+  // Flex column so the body scrolls between the fixed header
+  // and footer — Submit button stays reachable even on short
+  // viewports where the whole dialog would otherwise overflow.
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.rd-header, .rd-footer { flex-shrink: 0; }
+
+.rd-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.rd-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 8px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.rd-title {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-width: 0;
+
+  h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 700;
+    color: $ink;
+    letter-spacing: -0.01em;
+  }
+}
+
+.rd-title-icon {
+  width: 40px;
+  height: 40px;
+  font-size: 22px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(199, 150, 47, 0.28);
+}
+
+.rd-subtitle {
+  margin: 0;
+  font-size: 12.5px;
+  color: $muted;
+  line-height: 1.4;
+}
+
+.rd-body {
+  padding: 16px 8px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rd-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+
+  @media (max-width: 500px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rd-field { width: 100%; margin: 0; }
+
+// ── 12-hour time picker ────────────────────
+// Three-part selector — Hour dropdown + Minute dropdown +
+// AM/PM toggle. Chosen over <input type="time"> because the
+// native input renders 24-hour with no visible AM/PM cue,
+// which caused users to type "02:30" meaning PM but getting
+// AM. Three explicit widgets remove the ambiguity.
+.rd-timepick {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rd-timepick-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $muted;
+  padding-left: 2px;
+}
+
+// Grid, not flex — three columns proportional to their content:
+// Hour (1fr) : Min (1fr) [AM|PM] (auto). The colon dividers get
+// their own narrow "auto" tracks. Full row width, nothing
+// truncated, and labels ("Hour" / "Minute") fit comfortably.
+.rd-timepick-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+
+  @media (max-width: 420px) {
+    grid-template-columns: 1fr auto 1fr;
+    // AM/PM wraps to its own row on very narrow screens
+    .rd-tp-ampm { grid-column: 1 / -1; justify-self: stretch; }
+  }
+
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
+}
+
+.rd-tp-hour, .rd-tp-min {
+  width: 100%;
+  margin: 0;
+  // Use Material's default outlined appearance — no custom
+  // padding / radius overrides here. Matches the Date and
+  // Reason fields above so the dialog reads as one style.
+}
+
+.rd-timepick-colon {
+  font-size: 20px;
+  font-weight: 700;
+  color: $muted;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.rd-tp-ampm {
+  ::ng-deep .mat-button-toggle {
+    background: #fbfaf5;
+  }
+  ::ng-deep .mat-button-toggle-checked {
+    background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+    color: #ffffff !important;
+  }
+  ::ng-deep .mat-button-toggle-label-content {
+    padding: 0 14px !important;
+    line-height: 36px !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+  }
+
+  // On narrow layout when we wrap, stretch AM+PM to fill the row.
+  @media (max-width: 420px) {
+    display: flex;
+    ::ng-deep .mat-button-toggle { flex: 1; }
+  }
+}
+
+.rd-timepick-hint {
+  font-size: 11.5px;
+  color: $muted;
+  padding-left: 2px;
+  margin-top: -2px;
+}
+
+// Live duration preview strip — sits below the two time inputs.
+// Green tint when the pair is sensible; red when OUT is before IN
+// (the classic AM/PM typo). Also disables the submit button in
+// that state so bad data never reaches the backend.
+.rd-duration {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: -4px;
+
+  mat-icon { font-size: 20px; width: 20px; height: 20px; }
+
+  &--ok {
+    background: rgba(34, 197, 94, 0.10);
+    border: 1px solid rgba(34, 197, 94, 0.30);
+    color: #15803d;
+  }
+  &--invalid {
+    background: rgba(239, 68, 68, 0.10);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #b91c1c;
+  }
+}
+
+.rd-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 10px 8px 4px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  margin-top: 4px;
+}
+
+.rd-save-btn {
+  height: 40px !important;
+  padding: 0 22px !important;
+  border-radius: 20px !important;
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+
+  mat-icon { margin-right: 6px; vertical-align: middle; }
+}
+
+::ng-deep .regularization-dialog-panel {
+  .mat-mdc-dialog-inner-container,
+  .mdc-dialog__container {
+    justify-content: center !important;
+    align-items: flex-start !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .mat-mdc-dialog-surface,
+  .mdc-dialog__surface {
+    // 460px is enough for a Date row + a full 12h time picker
+    // (Hour + : + Min + AM/PM) without wrapping, and reads
+    // compact on a laptop screen instead of stretching wide.
+    width: 100%;
+    max-width: 460px !important;
+    // Cap the height so the body scrolls internally — the
+    // footer with the Submit button then stays pinned at the
+    // bottom and can't fall off the viewport.
+    max-height: 90vh;
+    margin: 24px auto !important;
+    padding: 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+
+    @media (max-width: 600px) {
+      max-width: none !important;
+      width: calc(100vw - 24px) !important;
+      margin: 12px auto !important;
+      padding: 12px !important;
+      border-radius: 12px !important;
+    }
+  }
+}
+
+:host-context(body.dark-theme) {
+  .rd-title h2 { color: #f5f5f5; }
+  .rd-subtitle { color: #94a3b8; }
+  .rd-header, .rd-footer { border-color: rgba(148, 163, 184, 0.20); }
+}

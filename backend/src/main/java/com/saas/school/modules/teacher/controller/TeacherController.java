@@ -155,6 +155,13 @@ public class TeacherController {
         if (req.getQualification() != null) existing.setQualification(req.getQualification());
         if (req.getSpecialization() != null) existing.setSpecialization(req.getSpecialization());
         if (req.getEmployeeRole() != null) existing.setEmployeeRole(req.getEmployeeRole());
+        // Multi-role additions: the frontend sends the full desired
+        // list on every edit (empty array means "no additional roles").
+        // Detect that by checking != null so a submit without the field
+        // (e.g. legacy client) leaves the existing list alone.
+        boolean rolesChanged = req.getAdditionalRoles() != null
+                && !java.util.Objects.equals(existing.getAdditionalRoles(), req.getAdditionalRoles());
+        if (req.getAdditionalRoles() != null) existing.setAdditionalRoles(req.getAdditionalRoles());
         if (req.getClassSubjectAssignments() != null) existing.setClassSubjectAssignments(req.getClassSubjectAssignments());
         if (req.getClassIds() != null) existing.setClassIds(req.getClassIds());
         if (req.getSubjectIds() != null) existing.setSubjectIds(req.getSubjectIds());
@@ -174,6 +181,14 @@ public class TeacherController {
         if (saved.getUserId() != null && (firstNameChanged || dobChanged)) {
             userService.resyncDefaultPassword(saved.getUserId(), saved.getFirstName(),
                     saved.getLastName(), saved.getDateOfBirth());
+        }
+        // Push the merged (primary + additional) role list onto the
+        // linked User whenever either input changed. Silent no-op if
+        // no linked user exists.
+        if (rolesChanged || (saved.getUserId() != null
+                && req.getEmployeeRole() != null
+                && !java.util.Objects.equals(existing.getEmployeeRole(), req.getEmployeeRole()))) {
+            userProvisioning.resyncLinkedUserRoles(saved);
         }
 
         return ResponseEntity.ok(ApiResponse.success(saved, "Employee updated"));

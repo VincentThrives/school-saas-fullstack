@@ -125,6 +125,20 @@ public class UserService {
         user.setEmail(req.getEmail());
         user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         user.setRole(req.getRole());
+        // Multi-role assignment (Principal + HR, etc.). If the admin
+        // picked only one role, this arrives null / empty and
+        // normalizeRoles() below back-fills [role]. If they picked
+        // multiple, we keep the first as the initial activeRole so the
+        // legacy `role` field stays in sync with what the user sees.
+        if (req.getRoles() != null && !req.getRoles().isEmpty()) {
+            user.setRoles(new java.util.ArrayList<>(req.getRoles()));
+            // Prefer req.role as the initial active hat (if it's in
+            // the roles list); otherwise default to the first entry.
+            UserRole initialActive = req.getRoles().contains(req.getRole())
+                    ? req.getRole() : req.getRoles().get(0);
+            user.setActiveRole(initialActive);
+        }
+        user.normalizeRoles();
         user.setFirstName(req.getFirstName());
         user.setLastName(req.getLastName());
         user.setPhone(req.getPhone());
@@ -135,7 +149,7 @@ public class UserService {
 
         userRepository.save(user);
         auditService.log("CREATE_USER", "User", user.getUserId(),
-                "Created user: " + user.getEmail() + " role: " + user.getRole());
+                "Created user: " + user.getEmail() + " roles: " + user.getRoles());
         return toDto(user);
     }
 
@@ -146,6 +160,18 @@ public class UserService {
         if (req.getPhone()     != null) user.setPhone(req.getPhone());
         if (req.getEmail()     != null) user.setEmail(req.getEmail());
         if (req.getProfilePhotoUrl() != null) user.setProfilePhotoUrl(req.getProfilePhotoUrl());
+        // Multi-role edit — admin ticked / unticked role checkboxes on
+        // the Edit User form. Replaces the full set. If the current
+        // activeRole is no longer in the list (admin revoked it), fall
+        // back to the first entry so the user isn't stranded with an
+        // invalid hat next time they refresh their JWT.
+        if (req.getRoles() != null && !req.getRoles().isEmpty()) {
+            user.setRoles(new java.util.ArrayList<>(req.getRoles()));
+            if (user.getActiveRole() == null || !req.getRoles().contains(user.getActiveRole())) {
+                user.setActiveRole(req.getRoles().get(0));
+            }
+            user.normalizeRoles();
+        }
         userRepository.save(user);
         auditService.log("UPDATE_USER", "User", userId, "User profile updated");
         return toDto(user);
@@ -498,6 +524,9 @@ public class UserService {
     }
 
     public UserDto toDto(User user) {
+        // Backfill roles/activeRole on legacy docs so the response
+        // always carries a coherent multi-role shape.
+        user.normalizeRoles();
         UserDto dto = new UserDto();
         dto.setUserId(user.getUserId());
         dto.setEmail(user.getEmail());
@@ -506,6 +535,8 @@ public class UserService {
         dto.setLastName(user.getLastName());
         dto.setPhone(user.getPhone());
         dto.setRole(user.getRole());
+        dto.setRoles(user.getRoles());
+        dto.setActiveRole(user.getActiveRole());
         dto.setActive(user.isActive());
         dto.setLocked(user.isLocked());
         dto.setProfilePhotoUrl(user.getProfilePhotoUrl());

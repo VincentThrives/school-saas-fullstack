@@ -67,7 +67,18 @@ export class UserFormComponent implements OnInit {
     // coordinator without giving user-management or structural-setup
     // access.
     { value: UserRole.SCHOOL_COORDINATOR, label: 'School Coordinator' },
+    // Distinct HR role for the payroll / employee-attendance operator.
+    // A Principal who also runs HR gets BOTH roles assigned via the
+    // multi-role checkboxes below.
+    { value: UserRole.HR, label: 'HR / Payroll' },
   ];
+
+  /** Roles the admin has ticked as EXTRA hats — never contains the
+   *  primary role from the dropdown. The final granted list sent to
+   *  the backend is `[primary, ...extraRoles]` (deduped). Kept as
+   *  a set so ordering flips (e.g. changing primary) don't need
+   *  index bookkeeping. */
+  extraRoles = new Set<UserRole>();
 
   constructor(
     private fb: FormBuilder,
@@ -91,9 +102,46 @@ export class UserFormComponent implements OnInit {
       phone: [''],
       role: [UserRole.TEACHER, Validators.required],
     });
+    // No seed — extraRoles starts empty. Primary role is TEACHER by
+    // default; the checkboxes below list every role except that one,
+    // and admin ticks the extras they want to grant on top.
 
     if (this.isEditing) {
       this.loadUserData();
+    }
+  }
+
+  /** Toggles an EXTRA role. No safeguards needed — extras are
+   *  independent of the primary dropdown; unticking every extra is
+   *  fine (the user keeps their primary role). */
+  toggleRole(role: UserRole, checked: boolean): void {
+    if (checked) {
+      this.extraRoles.add(role);
+    } else {
+      this.extraRoles.delete(role);
+    }
+  }
+
+  /** Ticked in the extra-roles checkbox list. */
+  isRoleSelected(role: UserRole): boolean {
+    return this.extraRoles.has(role);
+  }
+
+  /** Roles rendered as extra-role checkboxes — every role except
+   *  the current primary. Getter recomputes on each render so the
+   *  list swaps in/out the right role when the primary changes. */
+  get extraRoleOptions(): { value: UserRole; label: string }[] {
+    const primary = this.userForm?.get('role')?.value;
+    return this.roles.filter(r => r.value !== primary);
+  }
+
+  /** Called when the admin picks a role in the "Primary role" dropdown.
+   *  If that role was ticked as an extra before the change, drop it
+   *  from the extras set — otherwise it would appear twice in the
+   *  final payload and the checkbox row would silently exclude it. */
+  onPrimaryRoleChange(role: UserRole): void {
+    if (this.extraRoles.has(role)) {
+      this.extraRoles.delete(role);
     }
   }
 
@@ -113,8 +161,18 @@ export class UserFormComponent implements OnInit {
             firstName: res.data.firstName,
             lastName: res.data.lastName,
             phone: res.data.phone || '',
-            role: res.data.role,
+            role: res.data.activeRole || res.data.role,
           });
+          // Seed the extra-roles set from the persisted list minus
+          // the primary. Legacy users without a roles array have no
+          // extras to seed.
+          this.extraRoles.clear();
+          const persistedRoles: UserRole[] = res.data.roles && res.data.roles.length
+              ? res.data.roles : [res.data.role];
+          const primary: UserRole = res.data.activeRole || res.data.role;
+          persistedRoles
+              .filter(r => r !== primary)
+              .forEach(r => this.extraRoles.add(r));
         }
         this.isLoading = false;
       },
@@ -195,6 +253,14 @@ export class UserFormComponent implements OnInit {
     if (this.isEditing && !formData.password) {
       delete formData.password;
     }
+
+    // Multi-role payload — full authorised list = [primary, ...extras].
+    // Backend uses `role` as the initial active hat and `roles` as
+    // the complete authorised list. Set semantics de-dupe defensively
+    // in case the primary somehow leaked into extras.
+    const primaryRole: UserRole = formData.role;
+    const fullRoles = new Set<UserRole>([primaryRole, ...this.extraRoles]);
+    formData.roles = Array.from(fullRoles);
 
     const request$ = this.isEditing && this.userId
       ? this.apiService.updateUser(this.userId, formData)

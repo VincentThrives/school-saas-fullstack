@@ -31,10 +31,45 @@ public class DataInitializer implements CommandLineRunner {
     @Autowired private FeatureCatalogRepository featureCatalogRepo;
     @Autowired private PasswordEncoder passwordEncoder;
 
+    /**
+     * Feature keys that were seeded in earlier builds and have since
+     * been removed / consolidated. Cleared from the catalog on every
+     * startup so a super-admin's Feature Management page doesn't keep
+     * showing ghosts. Tenant {@code featureFlags} maps that still
+     * carry these keys are harmless (no runtime check references
+     * them) so we don't touch tenant rows — that lets us safely
+     * re-add a key later without losing prior settings.
+     */
+    private static final List<String> OBSOLETE_FEATURE_KEYS = List.of(
+        // HR granular sub-features — collapsed into a single
+        // hr_attendance sub-module.
+        "hr_attendance_daily",
+        "hr_attendance_settings",
+        "hr_attendance_approvals",
+        "hr_terminal_bindings"
+    );
+
     @Override
     public void run(String... args) {
         seedSuperAdmin();
         seedFeatureCatalog();
+        pruneObsoleteFeatures();
+    }
+
+    /** Idempotent delete of removed feature keys. Logs when it
+     *  actually removes anything so a fresh DB doesn't fill the
+     *  log on every boot. */
+    private void pruneObsoleteFeatures() {
+        int removed = 0;
+        for (String key : OBSOLETE_FEATURE_KEYS) {
+            if (featureCatalogRepo.existsById(key)) {
+                featureCatalogRepo.deleteById(key);
+                removed++;
+            }
+        }
+        if (removed > 0) {
+            log.info("Feature catalog: pruned {} obsolete keys", removed);
+        }
     }
 
     private void seedSuperAdmin() {
@@ -72,7 +107,18 @@ public class DataInitializer implements CommandLineRunner {
             feature("syllabus",           "Syllabus Tracker",    "Track syllabus completion per subject per class",   false, "academics", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
             feature("assignments",        "Assignments",         "Create assignments, students submit online",        false, "academics", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
             feature("ptm",                "PTM Scheduler",       "Schedule parent-teacher meetings with time slots",  false, "communication", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-            feature("biometric_terminal", "Attendance Terminals (hardware)", "Receive scans from eSSL / ZKTeco face + card terminals at the school gate", false, "academics", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE)
+            feature("biometric_terminal", "Attendance Terminals (hardware)", "Receive scans from eSSL / ZKTeco face + card terminals at the school gate", false, "academics", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+
+            // ── HR module (umbrella + sub-modules) ─────────────
+            // Two-tier structure so we can add sub-modules like
+            // hr_leave, hr_payroll later without complicating the
+            // per-page toggling. Each sub-module bundles all the
+            // pages that belong to it — turning on hr_attendance
+            // enables Daily / Approvals / Settings / Terminal
+            // Bindings as one coherent surface (they don't make
+            // sense in isolation).
+            feature("hr_module",     "HR Module", "Employee HR surface (attendance, later leave + payroll)", false, "hr", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("hr_attendance", "HR — Attendance", "Daily view + settings + approvals + terminal bindings for employee attendance", true, "hr", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE)
         );
         // Upsert-style seed: pre-existing catalogs (already seeded on the
         // count==0 path in older builds) still receive any new entries we

@@ -2,6 +2,93 @@ $gold: #D4A843;
 $gold-light: rgba(212, 168, 67, 0.1);
 $gold-dark: #B8860B;
 
+// ── Multi-role picker (Grant additional roles) ─────────────
+// Full-width block that spans both columns of the form grid so the
+// chips can wrap naturally. Chips are stateless label-wraps around
+// a hidden native checkbox — Material's mat-checkbox is heavier
+// than we need for this quick multi-select.
+.roles-picker {
+  grid-column: 1 / -1;
+  padding: 12px 14px;
+  background: rgba(212, 168, 67, 0.05);
+  border: 1px solid rgba(212, 168, 67, 0.30);
+  border-radius: 10px;
+}
+
+.roles-picker-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.roles-picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 18px;
+  border: 1px solid #e5e2d7;
+  background: #ffffff;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+
+  input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: $gold-dark;
+    cursor: pointer;
+  }
+
+  &:hover { border-color: rgba(212, 168, 67, 0.50); }
+
+  &--selected {
+    background: linear-gradient(135deg, rgba(212, 168, 67, 0.14) 0%, rgba(212, 168, 67, 0.06) 100%);
+    border-color: rgba(212, 168, 67, 0.60);
+    color: #7a5a14;
+    font-weight: 600;
+  }
+}
+
+.roles-picker-hint {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+:host-context(body.dark-theme) {
+  .roles-picker {
+    background: rgba(212, 168, 67, 0.08);
+    border-color: rgba(212, 168, 67, 0.35);
+  }
+  .roles-picker-label { color: #cbd5e1; }
+  .roles-picker-hint  { color: #94a3b8; }
+  .role-chip {
+    background: #1c1a15;
+    border-color: #302c22;
+    color: #cbd5e1;
+    &--selected {
+      background: linear-gradient(135deg, rgba(212, 168, 67, 0.20) 0%, rgba(212, 168, 67, 0.10) 100%);
+      border-color: rgba(212, 168, 67, 0.55);
+      color: #F0C96A;
+    }
+  }
+}
+
 .user-form-container {
   padding: 24px;
 }

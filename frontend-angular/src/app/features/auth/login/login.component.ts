@@ -11,7 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { AuthService } from '../../../core/services/auth.service';
-import { TenantPublicInfo } from '../../../core/models';
+import { TenantPublicInfo, UserRole } from '../../../core/models';
 
 @Component({
   selector: 'app-login',
@@ -116,7 +116,17 @@ export class LoginComponent implements OnInit {
               localStorage.removeItem(LoginComponent.REMEMBERED_USERNAME_KEY);
               localStorage.removeItem(LoginComponent.REMEMBERED_PASSWORD_KEY);
             }
-            this.router.navigate(['/dashboard'], { replaceUrl: true });
+            // Route to the role's landing dashboard. HR has a
+            // dedicated /hr/dashboard component with its own KPIs;
+            // the generic /dashboard dispatcher's ngSwitch has no
+            // case for HR and falls through to the SCHOOL_ADMIN
+            // default, so an HR user hitting /dashboard would see
+            // the wrong page. Every other role stays on /dashboard
+            // where the switch covers them.
+            const landing = this.authService.activeRole === UserRole.HR
+              ? '/hr/dashboard'
+              : '/dashboard';
+            this.router.navigate([landing], { replaceUrl: true });
           }
         },
         error: (err) => {

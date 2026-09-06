@@ -1,0 +1,130 @@
+<div class="hr-daily-container">
+  <app-page-header
+    title="Daily Attendance"
+    subtitle="Everyone's attendance for the selected date"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'HR' },
+      { label: 'Daily Attendance' }
+    ]">
+  </app-page-header>
+
+  <!-- ── Filter row + summary chips ─────────────────── -->
+  <mat-card class="filter-card">
+    <div class="filter-row">
+      <mat-form-field appearance="outline" class="date-field">
+        <mat-label>Date</mat-label>
+        <input matInput [matDatepicker]="picker"
+               [(ngModel)]="selectedDate"
+               [max]="today"
+               (dateChange)="onDateChange()">
+        <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+        <mat-datepicker #picker></mat-datepicker>
+      </mat-form-field>
+
+      <button mat-flat-button color="primary" class="add-missing-btn"
+              (click)="openAddDialog()"
+              matTooltip="Mark attendance for an employee who missed their punch">
+        <mat-icon>person_add</mat-icon>
+        Add missing employee
+      </button>
+
+      <div class="summary-chips">
+        <div class="chip chip-total">
+          <span class="chip-label">Total</span>
+          <span class="chip-value">{{ summary.total }}</span>
+        </div>
+        <div class="chip chip-present">
+          <span class="chip-label">Present</span>
+          <span class="chip-value">{{ summary.present }}</span>
+        </div>
+        <div class="chip chip-late">
+          <span class="chip-label">Late</span>
+          <span class="chip-value">{{ summary.late }}</span>
+        </div>
+        <div class="chip chip-halfday">
+          <span class="chip-label">Half-day</span>
+          <span class="chip-value">{{ summary.halfDay }}</span>
+        </div>
+        <div class="chip chip-absent">
+          <span class="chip-label">Absent</span>
+          <span class="chip-value">{{ summary.absent }}</span>
+        </div>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- ── Table ──────────────────────────────────────── -->
+  <mat-card class="table-card">
+    <div class="loading-strip" *ngIf="isLoadingRows">
+      <mat-spinner diameter="24"></mat-spinner>
+      <span>Loading…</span>
+    </div>
+
+    <table mat-table [dataSource]="rows"
+           *ngIf="!isLoadingRows && rows.length > 0"
+           class="daily-table">
+      <ng-container matColumnDef="employee">
+        <th mat-header-cell *matHeaderCellDef>Employee</th>
+        <td mat-cell *matCellDef="let r">
+          <div class="emp-name">{{ r.employeeName || r.employeeId }}</div>
+          <div class="emp-designation" *ngIf="r.designation">{{ r.designation }}</div>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let r">
+          <span class="status-chip" [ngClass]="statusChipClass(r.status)">{{ r.status }}</span>
+          <span *ngIf="r.late" class="late-tag">Late</span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="in">
+        <th mat-header-cell *matHeaderCellDef>IN</th>
+        <td mat-cell *matCellDef="let r">{{ formatTime(r.inTime) }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="out">
+        <th mat-header-cell *matHeaderCellDef>OUT</th>
+        <td mat-cell *matCellDef="let r">{{ formatTime(r.outTime) }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="source">
+        <th mat-header-cell *matHeaderCellDef>Source</th>
+        <td mat-cell *matCellDef="let r">
+          <mat-icon class="src-icon" [matTooltip]="r.source">{{ sourceIcon(r.source) }}</mat-icon>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="distance">
+        <th mat-header-cell *matHeaderCellDef>From campus</th>
+        <td mat-cell *matCellDef="let r">
+          <span *ngIf="r.source === 'LOCATION'"
+                [matTooltip]="'Accuracy ±' + (r.markAccuracyMeters || 0) + ' m'">
+            {{ formatDistance(r.distanceFromCampusMeters) }}
+          </span>
+          <span *ngIf="r.source !== 'LOCATION'" class="dash">—</span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="col-actions">Actions</th>
+        <td mat-cell *matCellDef="let r" class="col-actions">
+          <button mat-icon-button matTooltip="Edit this row"
+                  (click)="openEditDialog(r)">
+            <mat-icon>edit</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedCols"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedCols;"></tr>
+    </table>
+
+    <div class="empty-state" *ngIf="!isLoadingRows && rows.length === 0">
+      <mat-icon>event_busy</mat-icon>
+      <p>No attendance records for this date yet.</p>
+    </div>
+  </mat-card>
+</div>

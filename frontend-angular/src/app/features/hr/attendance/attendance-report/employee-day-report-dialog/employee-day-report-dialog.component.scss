@@ -1,0 +1,242 @@
+$gold:      #D4A843;
+$gold-dark: #B8860B;
+$ink:       #1a1a1a;
+$muted:     #64748b;
+
+$c-present:  #22c55e;
+$c-late:     #f59e0b;
+$c-halfday:  #a855f7;
+$c-absent:   #ef4444;
+
+.edr-container {
+  width: 100%; min-width: 0;
+  padding: 4px;
+  display: flex; flex-direction: column;
+  min-height: 0;
+}
+
+.edr-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px;
+  padding: 4px 6px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  flex-shrink: 0;
+}
+.edr-title {
+  display: flex; align-items: center; gap: 12px;
+  min-width: 0;
+  h2 {
+    margin: 0;
+    font-size: 16px; font-weight: 700; color: $ink;
+    letter-spacing: -0.01em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+}
+.edr-avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%);
+  color: #ffffff;
+  font-size: 17px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 10px rgba(199, 150, 47, 0.28);
+  flex-shrink: 0;
+}
+.edr-subtitle {
+  margin: 4px 0 0;
+  font-size: 12px; color: $muted; line-height: 1.35;
+}
+
+// ── Summary stat strip ─────────────────────────
+.edr-stats {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  padding: 12px 4px;
+  flex-shrink: 0;
+
+  @media (max-width: 700px) { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 420px) { grid-template-columns: repeat(3, 1fr); }
+}
+.edr-stat {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fbfaf5;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-left: 3px solid transparent;
+  text-align: left;
+}
+.edr-stat-value {
+  font-size: 16px; font-weight: 800; color: $ink;
+  line-height: 1.1; letter-spacing: -0.02em;
+}
+.edr-stat-label {
+  font-size: 9.5px; color: $muted;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  font-weight: 700; margin-top: 2px;
+}
+.edr-stat--present  { border-left-color: $c-present; }
+.edr-stat--late     { border-left-color: $c-late; }
+.edr-stat--halfday  { border-left-color: $c-halfday; }
+.edr-stat--absent   { border-left-color: $c-absent; }
+.edr-stat--unmarked { border-left-color: #94a3b8; }
+.edr-stat--weekoff  { border-left-color: #cbd5e1; }
+.edr-stat--holiday  { border-left-color: #2563eb;
+                      background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, #fbfaf5 100%);
+                      .edr-stat-value { color: #1d4ed8; } }
+.edr-stat--percent  { border-left-color: $gold-dark;
+                      background: linear-gradient(135deg, rgba(212, 168, 67, 0.12) 0%, #fbfaf5 100%);
+                      .edr-stat-value { color: $gold-dark; } }
+
+// ── Day-by-day table ───────────────────────────
+.edr-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+.edr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  thead th {
+    position: sticky; top: 0;
+    background: #fbfaf5;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+    color: $muted; text-transform: uppercase;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    z-index: 1;
+  }
+  tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    color: $ink;
+  }
+  tbody tr:hover td { background: rgba(212, 168, 67, 0.05); }
+  tbody tr.edr-row--weekend td { background: rgba(148, 163, 184, 0.06); }
+  tbody tr.edr-row--unmarked td { color: $muted; }
+  .mono { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12.5px; }
+}
+.edr-col-date { min-width: 90px; }
+.edr-col-remarks {
+  max-width: 200px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; color: $muted;
+}
+.edr-date-cell {
+  display: flex; flex-direction: column; gap: 1px;
+}
+.edr-date-day {
+  font-size: 14px; font-weight: 700; color: $ink;
+}
+.edr-date-wk {
+  font-size: 10.5px; color: $muted;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+
+  &--present  { background: rgba(34, 197, 94, 0.14);  color: #15803d; }
+  &--late     { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+  &--half-day { background: rgba(168, 85, 247, 0.14); color: #7e22ce; }
+  &--absent   { background: rgba(239, 68, 68, 0.14);  color: #b91c1c; }
+  &--unmarked { background: rgba(148, 163, 184, 0.18); color: #475569; }
+  &--weekoff  { background: rgba(203, 213, 225, 0.35); color: #64748b; }
+  &--holiday  { background: rgba(37, 99, 235, 0.14);   color: #1d4ed8; }
+}
+
+// Explainer strip under the stats — visible only when the range
+// includes off-days so the % anchor is transparent to HR.
+.edr-working-note {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  margin: 0 4px 12px;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.20);
+  font-size: 12px; color: #334155; line-height: 1.4;
+
+  mat-icon { color: #1d4ed8; font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; }
+  b { color: #1d4ed8; font-weight: 700; }
+}
+
+// ── Footer actions ─────────────────────────────
+.edr-footer {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 6px 4px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+.edr-footer-spacer { flex: 1; }
+.edr-export-btn {
+  height: 36px !important;
+  padding: 0 14px !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  font-size: 12.5px !important; font-weight: 700 !important;
+  display: inline-flex !important; align-items: center !important; gap: 6px;
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  &--excel {
+    background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%) !important;
+    box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25) !important;
+  }
+  &--pdf {
+    background: linear-gradient(135deg, #f87171 0%, #dc2626 100%) !important;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25) !important;
+  }
+}
+
+// ── Panel + mobile centering ───────────────────
+::ng-deep .employee-day-report-panel {
+  .mat-mdc-dialog-inner-container,
+  .mdc-dialog__container {
+    justify-content: center !important;
+    align-items: flex-start !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .mat-mdc-dialog-surface,
+  .mdc-dialog__surface {
+    width: 100%;
+    max-width: 780px !important;
+    max-height: 90vh;
+    margin: 24px auto !important;
+    padding: 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+
+    @media (max-width: 700px) {
+      max-width: none !important;
+      width: calc(100vw - 24px) !important;
+      margin: 12px auto !important;
+      padding: 12px !important;
+      border-radius: 12px !important;
+    }
+  }
+}
+
+@media print {
+  .edr-footer { display: none !important; }
+}
+
+:host-context(body.dark-theme) {
+  .edr-title h2 { color: #f5f5f5; }
+  .edr-subtitle { color: #94a3b8; }
+  .edr-stat { background: #22201a; border-color: rgba(148, 163, 184, 0.20); }
+  .edr-stat-value { color: #f5f5f5; }
+  .edr-body { border-color: rgba(148, 163, 184, 0.20); }
+  .edr-table thead th { background: #22201a; color: #94a3b8; }
+  .edr-table tbody td { color: #cbd5e1; }
+  .edr-date-day { color: #f5f5f5; }
+}

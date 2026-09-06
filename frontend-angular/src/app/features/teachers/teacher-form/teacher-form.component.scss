@@ -162,3 +162,14 @@ mat-divider {
 @media (max-width: 640px) {
   .form-grid .span-2 { grid-column: span 1; }
 }
+
+// ── Additional login roles multi-select placeholder text ─────
+// Muted grey when the field is empty ("None — single-role login")
+// so it reads as an unset default, not a picked value.
+.ar-placeholder {
+  color: #94a3b8;
+  font-style: italic;
+}
+:host-context(body.dark-theme) .ar-placeholder {
+  color: #64748b;
+}
