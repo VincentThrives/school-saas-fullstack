@@ -1,0 +1,110 @@
+<div class="rd-container">
+  <div class="rd-header">
+    <div class="rd-title">
+      <mat-icon class="rd-title-icon">assignment_late</mat-icon>
+      <div>
+        <h2>Request regularization</h2>
+        <p class="rd-subtitle">
+          Missed a punch? Submit what you actually did — HR reviews it.
+        </p>
+      </div>
+    </div>
+    <button mat-icon-button (click)="close()" matTooltip="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="rd-body">
+    <mat-form-field appearance="outline" class="rd-field">
+      <mat-label>Date</mat-label>
+      <input matInput [matDatepicker]="dp" [(ngModel)]="date" [max]="today">
+      <mat-datepicker-toggle matSuffix [for]="dp"></mat-datepicker-toggle>
+      <mat-datepicker #dp></mat-datepicker>
+      <mat-hint>The day you're regularizing — future dates aren't allowed.</mat-hint>
+    </mat-form-field>
+
+    <!-- Claimed IN time picker (Hour / Minute / AM-PM) -->
+    <div class="rd-timepick">
+      <label class="rd-timepick-label">Claimed IN time</label>
+      <div class="rd-timepick-row">
+        <mat-form-field appearance="outline" class="rd-tp-hour">
+          <mat-label>Hour</mat-label>
+          <mat-select [(ngModel)]="inHour">
+            <mat-option *ngFor="let h of hourOptions" [value]="h">{{ h }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <span class="rd-timepick-colon">:</span>
+        <mat-form-field appearance="outline" class="rd-tp-min">
+          <mat-label>Min</mat-label>
+          <mat-select [(ngModel)]="inMinute">
+            <mat-option *ngFor="let m of minuteOptions" [value]="m">
+              {{ m.toString().padStart(2, '0') }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-button-toggle-group class="rd-tp-ampm" [(ngModel)]="inMeridiem">
+          <mat-button-toggle value="AM">AM</mat-button-toggle>
+          <mat-button-toggle value="PM">PM</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+      <div class="rd-timepick-hint">Leave blank if you're only fixing OUT.</div>
+    </div>
+
+    <!-- Claimed OUT time picker -->
+    <div class="rd-timepick">
+      <label class="rd-timepick-label">Claimed OUT time</label>
+      <div class="rd-timepick-row">
+        <mat-form-field appearance="outline" class="rd-tp-hour">
+          <mat-label>Hour</mat-label>
+          <mat-select [(ngModel)]="outHour">
+            <mat-option *ngFor="let h of hourOptions" [value]="h">{{ h }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <span class="rd-timepick-colon">:</span>
+        <mat-form-field appearance="outline" class="rd-tp-min">
+          <mat-label>Min</mat-label>
+          <mat-select [(ngModel)]="outMinute">
+            <mat-option *ngFor="let m of minuteOptions" [value]="m">
+              {{ m.toString().padStart(2, '0') }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-button-toggle-group class="rd-tp-ampm" [(ngModel)]="outMeridiem">
+          <mat-button-toggle value="AM">AM</mat-button-toggle>
+          <mat-button-toggle value="PM">PM</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+      <div class="rd-timepick-hint">Leave blank if you're only fixing IN.</div>
+    </div>
+
+    <!-- Live duration preview — red when OUT is before IN so the
+         user catches the AM/PM typo before they submit. Green tint
+         when the pair is sensible. Hidden when either side is
+         blank (single-punch fix case). -->
+    <div class="rd-duration"
+         *ngIf="durationLabel"
+         [class.rd-duration--invalid]="isDurationInvalid"
+         [class.rd-duration--ok]="!isDurationInvalid">
+      <mat-icon>{{ isDurationInvalid ? 'error_outline' : 'timer' }}</mat-icon>
+      <span>{{ durationLabel }}</span>
+    </div>
+
+    <mat-form-field appearance="outline" class="rd-field">
+      <mat-label>Reason</mat-label>
+      <textarea matInput rows="3" [(ngModel)]="reason"
+                placeholder="e.g. Terminal was down. I arrived at 09:05 and left at 17:30."></textarea>
+      <mat-hint>HR sees this — be specific.</mat-hint>
+    </mat-form-field>
+  </div>
+
+  <div class="rd-footer">
+    <button mat-stroked-button (click)="close()">Cancel</button>
+    <button mat-flat-button color="primary" class="rd-save-btn"
+            (click)="save()"
+            [disabled]="isSaving || isDurationInvalid">
+      <mat-spinner *ngIf="isSaving" diameter="18"></mat-spinner>
+      <mat-icon *ngIf="!isSaving">send</mat-icon>
+      Submit request
+    </button>
+  </div>
+</div>

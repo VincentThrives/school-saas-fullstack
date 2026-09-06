@@ -1,0 +1,125 @@
+<div class="ap-container">
+
+  <div class="ap-header">
+    <div class="ap-header-body">
+      <div class="ap-title">
+        <mat-icon>{{ mode === 'approve' ? 'check_circle' : 'cancel' }}</mat-icon>
+        {{ mode === 'approve' ? 'Approve regularization' : 'Reject regularization' }}
+      </div>
+      <div class="ap-subtitle">
+        {{ data.request.employeeName }}
+        <span *ngIf="data.request.designation"> · {{ data.request.designation }}</span>
+      </div>
+    </div>
+    <button mat-icon-button (click)="close()" matTooltip="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="ap-body">
+
+    <!-- Date + claimed times summary -->
+    <div class="ap-summary">
+      <div class="ap-date">{{ formatDate(data.request.date) }}</div>
+      <div class="ap-times">
+        <div class="ap-time">
+          <span class="ap-time-label">Claimed IN</span>
+          <span class="ap-time-value">{{ formatTime(data.request.claimedInTime) }}</span>
+        </div>
+        <div class="ap-time-sep">→</div>
+        <div class="ap-time">
+          <span class="ap-time-label">Claimed OUT</span>
+          <span class="ap-time-value">{{ formatTime(data.request.claimedOutTime) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Employee's reason -->
+    <div class="ap-reason" *ngIf="data.request.reason">
+      <mat-icon>format_quote</mat-icon>
+      <p>{{ data.request.reason }}</p>
+    </div>
+
+    <!-- Duration + auto-computed status preview (approve only) -->
+    <ng-container *ngIf="mode === 'approve'">
+
+      <!-- Invalid duration warning — OUT before IN -->
+      <div class="ap-warning" *ngIf="isDurationInvalid">
+        <mat-icon>error_outline</mat-icon>
+        <div>
+          <strong>Invalid times — OUT is before IN.</strong>
+          <p>The employee likely typed AM instead of PM for OUT. Consider rejecting
+             with a note asking them to resubmit with correct times.</p>
+        </div>
+      </div>
+
+      <!-- Auto-computed preview — shows HR what will land -->
+      <div class="ap-preview" *ngIf="!isDurationInvalid">
+        <div class="ap-preview-head">
+          <mat-icon>preview</mat-icon>
+          <span>This will land as</span>
+        </div>
+
+        <div class="ap-preview-grid">
+          <div class="ap-preview-stat">
+            <span class="ap-preview-label">Duration</span>
+            <span class="ap-preview-value">{{ durationLabel }}</span>
+          </div>
+          <div class="ap-preview-stat">
+            <span class="ap-preview-label">Status</span>
+            <span class="ap-preview-status"
+                  [class.ap-preview-status--halfday]="autoStatus === 'HALF_DAY'"
+                  [class.ap-preview-status--present]="autoStatus === 'PRESENT'">
+              <ng-container *ngIf="isLoadingSettings">Loading…</ng-container>
+              <ng-container *ngIf="!isLoadingSettings">
+                {{ autoStatus || '—' }}
+                <span class="ap-late-tag" *ngIf="willBeLate">· Late</span>
+              </ng-container>
+            </span>
+          </div>
+        </div>
+
+        <div class="ap-preview-hint" *ngIf="settings && !isLoadingSettings">
+          <ng-container *ngIf="settings.halfDayCalculationEnabled">
+            Rule: less than <strong>{{ settings.halfDayMaxHours }}h</strong> worked
+            = HALF_DAY. Late threshold <strong>{{ settings.lateThreshold }}</strong>.
+          </ng-container>
+          <ng-container *ngIf="!settings.halfDayCalculationEnabled">
+            Half-day rule is off — will land as PRESENT regardless of hours worked.
+            Late threshold <strong>{{ settings.lateThreshold }}</strong>.
+          </ng-container>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- Notes input -->
+    <mat-form-field appearance="outline" class="ap-notes">
+      <mat-label>
+        {{ mode === 'approve' ? 'Approval note (optional)' : 'Reason for rejection (required)' }}
+      </mat-label>
+      <textarea matInput rows="2" [(ngModel)]="notes"
+                [placeholder]="mode === 'approve'
+                  ? 'Visible to the employee.'
+                  : 'Employee will see this — be specific.'"></textarea>
+    </mat-form-field>
+  </div>
+
+  <div class="ap-footer">
+    <button mat-stroked-button (click)="close()">Cancel</button>
+    <button mat-flat-button
+            *ngIf="mode === 'approve'"
+            class="ap-submit-btn ap-submit-btn--approve"
+            (click)="submit()">
+      <mat-icon>check</mat-icon>
+      Approve
+    </button>
+    <button mat-flat-button
+            *ngIf="mode === 'reject'"
+            class="ap-submit-btn ap-submit-btn--reject"
+            [disabled]="!notes.trim()"
+            (click)="submit()">
+      <mat-icon>close</mat-icon>
+      Reject
+    </button>
+  </div>
+</div>

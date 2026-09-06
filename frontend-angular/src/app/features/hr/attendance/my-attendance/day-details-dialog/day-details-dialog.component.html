@@ -1,0 +1,149 @@
+<div class="dd-container">
+
+  <!-- Header -->
+  <div class="dd-header">
+    <div class="dd-header-body">
+      <div class="dd-date">{{ dateLabel }}</div>
+      <div class="dd-status-row" *ngIf="data.row?.status">
+        <span class="dd-chip"
+              [class.dd-chip--present]="data.row?.status === 'PRESENT' && !data.row?.late"
+              [class.dd-chip--late]="data.row?.late"
+              [class.dd-chip--halfday]="data.row?.status === 'HALF_DAY'"
+              [class.dd-chip--absent]="data.row?.status === 'ABSENT'">
+          {{ data.row?.status }}
+        </span>
+        <span class="dd-chip dd-chip--late" *ngIf="data.row?.late">Late</span>
+      </div>
+    </div>
+    <button mat-icon-button (click)="close()" matTooltip="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Body -->
+  <div class="dd-body">
+
+    <!-- Punch details grid — only when we have an attendance row -->
+    <div class="dd-grid" *ngIf="data.row">
+      <div class="dd-cell">
+        <mat-icon>login</mat-icon>
+        <div>
+          <div class="dd-cell-label">IN time</div>
+          <div class="dd-cell-value">{{ formatTime(data.row.inTime) }}</div>
+        </div>
+      </div>
+      <div class="dd-cell">
+        <mat-icon>logout</mat-icon>
+        <div>
+          <div class="dd-cell-label">OUT time</div>
+          <div class="dd-cell-value">{{ formatTime(data.row.outTime) }}</div>
+        </div>
+      </div>
+      <div class="dd-cell dd-cell--wide"
+           [class.dd-cell--invalid]="isDurationInvalid">
+        <mat-icon>{{ isDurationInvalid ? 'error_outline' : 'timer' }}</mat-icon>
+        <div>
+          <div class="dd-cell-label">Total duration</div>
+          <div class="dd-cell-value">{{ duration }}</div>
+          <div class="dd-cell-hint" *ngIf="isDurationInvalid">
+            Times likely have an AM/PM mix-up — submit a fresh regularization to fix.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Source row -->
+    <div class="dd-source" *ngIf="data.row">
+      <mat-icon>{{ sourceIcon }}</mat-icon>
+      <div>
+        <div class="dd-cell-label">Source</div>
+        <div class="dd-cell-value">{{ sourceLabel }}</div>
+      </div>
+    </div>
+
+    <!-- Distance (LOCATION source only) -->
+    <div class="dd-source" *ngIf="data.row?.source === 'LOCATION' && data.row?.distanceFromCampusMeters != null">
+      <mat-icon>place</mat-icon>
+      <div>
+        <div class="dd-cell-label">Distance from campus</div>
+        <div class="dd-cell-value">
+          {{ data.row?.distanceFromCampusMeters | number:'1.0-1' }} m
+          <span class="dd-cell-hint"
+                *ngIf="data.row?.markAccuracyMeters != null">
+            · GPS accuracy ±{{ data.row?.markAccuracyMeters | number:'1.0-0' }} m
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Remarks -->
+    <div class="dd-remarks" *ngIf="data.row?.remarks">
+      <mat-icon>notes</mat-icon>
+      <div>
+        <div class="dd-cell-label">Remarks</div>
+        <div class="dd-cell-value">{{ data.row?.remarks }}</div>
+      </div>
+    </div>
+
+    <!-- Regularization request block -->
+    <div class="dd-reg" *ngIf="data.request">
+      <div class="dd-reg-head">
+        <mat-icon>assignment_late</mat-icon>
+        <div>
+          <div class="dd-reg-title">Regularization request</div>
+          <span class="dd-reg-status" [ngClass]="requestStatusClass(data.request.status)">
+            {{ requestStatusLabel(data.request.status) }}
+          </span>
+        </div>
+      </div>
+
+      <div class="dd-reg-times" *ngIf="data.request.claimedInTime || data.request.claimedOutTime">
+        <div *ngIf="data.request.claimedInTime">
+          <span class="dd-cell-label">Claimed IN</span>
+          <span class="dd-cell-value">{{ formatTime(data.request.claimedInTime) }}</span>
+        </div>
+        <div *ngIf="data.request.claimedOutTime">
+          <span class="dd-cell-label">Claimed OUT</span>
+          <span class="dd-cell-value">{{ formatTime(data.request.claimedOutTime) }}</span>
+        </div>
+      </div>
+
+      <div class="dd-reg-reason" *ngIf="data.request.reason">
+        <span class="dd-cell-label">Your reason</span>
+        <p>"{{ data.request.reason }}"</p>
+      </div>
+
+      <div class="dd-reg-review" *ngIf="data.request.reviewNotes || data.request.reviewedAt">
+        <mat-icon>rate_review</mat-icon>
+        <div>
+          <div class="dd-cell-label">
+            Reviewed by HR
+            <span class="dd-cell-hint" *ngIf="data.request.reviewedAt">
+              · {{ formatDateTime(data.request.reviewedAt) }}
+            </span>
+          </div>
+          <div class="dd-review-note" *ngIf="data.request.reviewNotes">
+            "{{ data.request.reviewNotes }}"
+          </div>
+        </div>
+      </div>
+
+      <div class="dd-reg-submitted">
+        Submitted {{ formatDateTime(data.request.requestedAt) }}
+      </div>
+    </div>
+
+    <!-- Empty state — no row, no request -->
+    <div class="dd-empty" *ngIf="emptyStateCopy">
+      <mat-icon>{{ emptyStateCopy.icon }}</mat-icon>
+      <div>
+        <strong>{{ emptyStateCopy.title }}</strong>
+        <p>{{ emptyStateCopy.body }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dd-footer">
+    <button mat-button (click)="close()">Close</button>
+  </div>
+</div>

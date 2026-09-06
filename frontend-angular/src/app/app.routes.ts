@@ -724,41 +724,89 @@ export const routes: Routes = [
       // No role guard — backend /my endpoint returns [] for
       // users not linked to a Teacher, so the empty state
       // handles the "who?" case.
+      //
+      // HR umbrella (hr_module) gates every /hr/** route below.
+      // Sub-features gate the individual HR-admin pages. Mark IN
+      // + My Attendance only need the umbrella because every
+      // employee-linked user has to be able to punch in.
       {
+        path: 'hr/dashboard',
+        loadComponent: () =>
+          import('./features/hr/dashboard/hr-dashboard.component')
+              .then(m => m.HrDashboardComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'hr_module', title: 'HR Dashboard' },
+      },
+      {
+        path: 'hr/attendance/mark',
+        loadComponent: () =>
+          import('./features/hr/attendance/mark-page/mark-page.component')
+              .then(m => m.MarkPageComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'hr_module', title: 'Mark Attendance' },
+      },
+      {
+        // Personal page — deliberately NOT feature-gated. Every
+        // employee-linked user needs to be able to view their own
+        // attendance without depending on the tenant's HR module
+        // flag being on (or their JWT being freshly re-issued
+        // after the flag was toggled). The component itself
+        // renders a friendly "attendance not enabled yet" empty
+        // state when the tenant hasn't turned on any marking
+        // method — no data leakage since backend still enforces
+        // hr_module on the /my endpoint (returns 403 → empty).
         path: 'hr/attendance/my',
         loadComponent: () =>
           import('./features/hr/attendance/my-attendance/my-attendance.component')
               .then(m => m.MyAttendanceComponent),
         data: { title: 'My Attendance' },
       },
-      // HR-only: settings + daily view. Backend also gates on
-      // hasRole('HR') so a route-guard bypass can't leak data.
+      // HR-only: settings + daily view + approvals + terminal
+      // bindings all ride under the single hr_attendance sub-
+      // module. Backend also gates on hasRole('HR') so a route-
+      // guard bypass can't leak data.
       {
         path: 'hr/attendance/settings',
         loadComponent: () =>
           import('./features/hr/attendance/settings/hr-attendance-settings.component')
               .then(m => m.HrAttendanceSettingsComponent),
-        canActivate: [roleGuard],
-        data: { roles: [UserRole.HR], title: 'Attendance Settings' },
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.HR], feature: 'hr_attendance', title: 'Attendance Settings' },
       },
       {
         path: 'hr/attendance/daily',
         loadComponent: () =>
           import('./features/hr/attendance/daily/hr-daily-attendance.component')
               .then(m => m.HrDailyAttendanceComponent),
-        canActivate: [roleGuard],
-        data: { roles: [UserRole.HR], title: 'Daily Attendance' },
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.HR], feature: 'hr_attendance', title: 'Daily Attendance' },
       },
-      // Placeholder route so the "Set up bindings" button on the
-      // Attendance Settings page navigates cleanly. Backend +
-      // real bindings UI in the next iteration.
+      // Terminal Bindings — reached from inside Settings → Biometric.
+      // Not a top-level sidebar item; the /hr/attendance/settings
+      // page's "Open Terminal Bindings" button navigates here.
       {
         path: 'hr/attendance/terminal-bindings',
         loadComponent: () =>
           import('./features/hr/attendance/terminal-bindings/hr-terminal-bindings.component')
               .then(m => m.HrTerminalBindingsComponent),
-        canActivate: [roleGuard],
-        data: { roles: [UserRole.HR], title: 'Terminal Bindings' },
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.HR], feature: 'hr_attendance', title: 'Terminal Bindings' },
+      },
+      {
+        path: 'hr/attendance/approvals',
+        loadComponent: () =>
+          import('./features/hr/attendance/approvals/hr-approvals.component')
+              .then(m => m.HrApprovalsComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.HR], feature: 'hr_attendance', title: 'Regularization Approvals' },
+      },
+      {
+        path: 'hr/attendance/report',
+        loadComponent: () =>
+          import('./features/hr/attendance/attendance-report/attendance-report.component')
+              .then(m => m.AttendanceReportComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.HR], feature: 'hr_attendance', title: 'Attendance Report' },
       },
 
       // Settings (SCHOOL_ADMIN only)

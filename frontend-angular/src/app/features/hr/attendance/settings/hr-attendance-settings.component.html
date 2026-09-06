@@ -15,39 +15,26 @@
 
   <div class="settings-layout" *ngIf="!isLoading">
 
-    <!-- ── Left side-nav ────────────────────────────── -->
-    <nav class="settings-sidenav">
-      <button *ngFor="let s of sections"
-              class="sidenav-item"
-              [class.sidenav-item--active]="activeSection === s.id"
-              (click)="activeSection = s.id">
-        <mat-icon>{{ s.icon }}</mat-icon>
-        <div class="sidenav-item-body">
-          <span class="sidenav-item-label">{{ s.label }}</span>
-          <span class="sidenav-item-hint">{{ s.hint }}</span>
-        </div>
-        <span class="sidenav-status sidenav-status--on"
-              *ngIf="s.id === 'location' && settings.locationBasedEnabled">on</span>
-        <span class="sidenav-status sidenav-status--off"
-              *ngIf="s.id === 'location' && !settings.locationBasedEnabled">off</span>
-        <span class="sidenav-status sidenav-status--on"
-              *ngIf="s.id === 'biometric' && settings.biometricBasedEnabled">on</span>
-        <span class="sidenav-status sidenav-status--off"
-              *ngIf="s.id === 'biometric' && !settings.biometricBasedEnabled">off</span>
-        <span class="sidenav-status"
-              *ngIf="s.id === 'punch'">{{ settings.expectedPunchesPerDay }}/day</span>
-        <span class="sidenav-status sidenav-status--on"
-              *ngIf="s.id === 'regularization' && settings.regularizationEnabled">on</span>
-        <span class="sidenav-status sidenav-status--off"
-              *ngIf="s.id === 'regularization' && !settings.regularizationEnabled">off</span>
-      </button>
-    </nav>
+    <!-- ── Horizontal tab strip ─────────────────────── -->
+    <!-- Replaces the earlier vertical side-nav so the content
+         area gets full width to work with. Each tab shows a
+         status chip so admin sees which methods are on at a
+         glance without opening every tab. -->
+    <mat-tab-group class="settings-tabs"
+                   mat-stretch-tabs="false"
+                   animationDuration="150ms">
 
-    <!-- ── Right content pane ───────────────────────── -->
-    <div class="settings-content">
+      <!-- ─── Location tab ────────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>location_on</mat-icon>
+          <span class="tab-label">Location marking</span>
+          <span class="tab-badge" [class.tab-badge--on]="settings.locationBasedEnabled">
+            {{ settings.locationBasedEnabled ? 'ON' : 'OFF' }}
+          </span>
+        </ng-template>
 
-      <!-- ─── Location pane ───────────────────── -->
-      <div class="pane" *ngIf="activeSection === 'location'">
+      <div class="pane">
         <div class="pane-hero">
           <div class="pane-hero-icon"><mat-icon>location_on</mat-icon></div>
           <div class="pane-hero-body">
@@ -134,8 +121,19 @@
         </ng-container>
       </div>
 
-      <!-- ─── Biometric pane ──────────────────── -->
-      <div class="pane" *ngIf="activeSection === 'biometric'">
+      </mat-tab>
+
+      <!-- ─── Biometric tab ──────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>fingerprint</mat-icon>
+          <span class="tab-label">Biometric terminal</span>
+          <span class="tab-badge" [class.tab-badge--on]="settings.biometricBasedEnabled">
+            {{ settings.biometricBasedEnabled ? 'ON' : 'OFF' }}
+          </span>
+        </ng-template>
+
+      <div class="pane">
         <div class="pane-hero">
           <div class="pane-hero-icon"><mat-icon>fingerprint</mat-icon></div>
           <div class="pane-hero-body">
@@ -171,8 +169,17 @@
         </ng-container>
       </div>
 
-      <!-- ─── Punch rules pane ────────────────── -->
-      <div class="pane" *ngIf="activeSection === 'punch'">
+      </mat-tab>
+
+      <!-- ─── Punch rules tab ────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>schedule</mat-icon>
+          <span class="tab-label">Punch rules</span>
+          <span class="tab-badge">{{ settings.expectedPunchesPerDay }}/day</span>
+        </ng-template>
+
+      <div class="pane">
         <div class="pane-hero pane-hero--simple">
           <div class="pane-hero-icon"><mat-icon>schedule</mat-icon></div>
           <div class="pane-hero-body">
@@ -195,14 +202,51 @@
               <mat-hint>Marks at/after this time are flagged Late.</mat-hint>
             </mat-form-field>
             <mat-form-field appearance="outline">
-              <mat-label>Half-day threshold (HH:MM)</mat-label>
-              <input matInput [(ngModel)]="settings.halfDayThreshold" placeholder="11:00">
-              <mat-hint>Marks after this count as half-day.</mat-hint>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
               <mat-label>Auto-absent time (HH:MM)</mat-label>
               <input matInput [(ngModel)]="settings.autoAbsentTime" placeholder="11:00">
               <mat-hint>Unmarked employees stamped ABSENT after this.</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <!-- Half-day (hours-worked) rule ─────────────── -->
+          <div class="toggle-row">
+            <mat-slide-toggle color="primary"
+                              [(ngModel)]="settings.halfDayCalculationEnabled">
+              <span class="toggle-title">Mark HALF-DAY based on hours worked</span>
+            </mat-slide-toggle>
+            <p class="toggle-hint">
+              When ON, a completed day where <strong>OUT − IN &lt; threshold hours</strong> is
+              stamped HALF_DAY (works for morning AND afternoon halves alike).
+              When OFF, employees only ever get PRESENT / LATE.
+            </p>
+          </div>
+
+          <div class="form-grid" *ngIf="settings.halfDayCalculationEnabled">
+            <mat-form-field appearance="outline">
+              <mat-label>Half-day max hours</mat-label>
+              <input matInput type="number" step="0.5" min="0.5" max="24"
+                     [(ngModel)]="settings.halfDayMaxHours">
+              <mat-hint>Under this many hours = half-day. Default 4.</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <!-- Auto-OUT rule (closes "forgot to punch out" case) ── -->
+          <div class="toggle-row">
+            <mat-slide-toggle color="primary" [(ngModel)]="settings.autoOutEnabled">
+              <span class="toggle-title">Auto-stamp OUT for employees who forgot</span>
+            </mat-slide-toggle>
+            <p class="toggle-hint">
+              After the auto-OUT time below, any employee with an IN but no OUT gets
+              OUT stamped at that time. The half-day rule then applies to the total hours worked
+              (so a short day becomes HALF_DAY, otherwise PRESENT).
+            </p>
+          </div>
+
+          <div class="form-grid" *ngIf="settings.autoOutEnabled">
+            <mat-form-field appearance="outline">
+              <mat-label>Auto-OUT time (HH:MM)</mat-label>
+              <input matInput [(ngModel)]="settings.autoOutTime" placeholder="18:30">
+              <mat-hint>Runs every 15 min after this time.</mat-hint>
             </mat-form-field>
           </div>
 
@@ -215,8 +259,19 @@
         </div>
       </div>
 
-      <!-- ─── Regularization pane ─────────────── -->
-      <div class="pane" *ngIf="activeSection === 'regularization'">
+      </mat-tab>
+
+      <!-- ─── Regularization tab ────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>assignment_turned_in</mat-icon>
+          <span class="tab-label">Regularization</span>
+          <span class="tab-badge" [class.tab-badge--on]="settings.regularizationEnabled">
+            {{ settings.regularizationEnabled ? 'ON' : 'OFF' }}
+          </span>
+        </ng-template>
+
+      <div class="pane">
         <div class="pane-hero">
           <div class="pane-hero-icon"><mat-icon>assignment_turned_in</mat-icon></div>
           <div class="pane-hero-body">
@@ -261,7 +316,8 @@
         </ng-container>
       </div>
 
-    </div>
+      </mat-tab>
+    </mat-tab-group>
   </div>
 
   <!-- Sticky save bar (visible on every section) -->

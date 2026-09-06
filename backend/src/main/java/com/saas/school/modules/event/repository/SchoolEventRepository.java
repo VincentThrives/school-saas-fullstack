@@ -7,6 +7,16 @@ public interface SchoolEventRepository extends MongoRepository<SchoolEvent, Stri
     @Query("{'startDate':{$gte:?0},'endDate':{$lte:?1}}")
     List<SchoolEvent> findByDateRange(LocalDate from, LocalDate to);
 
+    /** Holidays that overlap the given range (start on or before `to`
+     *  AND end on or after `from`). Multi-day holidays that partially
+     *  intersect the range are included. Matches events flagged EITHER
+     *  by {@code isHoliday=true} OR {@code type=HOLIDAY} — the events
+     *  UI sometimes only sets the type enum without the boolean flag,
+     *  and we don't want a "marked as holiday" event to be silently
+     *  ignored by the HR Attendance Report. */
+    @Query("{'$or': [{'isHoliday': true}, {'type': 'HOLIDAY'}], 'startDate':{$lte:?1}, 'endDate':{$gte:?0}}")
+    List<SchoolEvent> findOverlappingHolidays(LocalDate from, LocalDate to);
+
     List<SchoolEvent> findByIsHolidayTrue();
     List<SchoolEvent> findByType(SchoolEvent.EventType type);
 

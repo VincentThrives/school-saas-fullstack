@@ -63,8 +63,12 @@ public class EmployeeAttendanceSettingsService {
         if (req.getExpectedPunchesPerDay() != null)  s.setExpectedPunchesPerDay(req.getExpectedPunchesPerDay());
         if (req.getLateThreshold() != null)          s.setLateThreshold(req.getLateThreshold());
         if (req.getHalfDayThreshold() != null)       s.setHalfDayThreshold(req.getHalfDayThreshold());
+        if (req.getHalfDayCalculationEnabled() != null) s.setHalfDayCalculationEnabled(req.getHalfDayCalculationEnabled());
+        if (req.getHalfDayMaxHours() != null)        s.setHalfDayMaxHours(req.getHalfDayMaxHours());
         if (req.getAutoAbsentTime() != null)         s.setAutoAbsentTime(req.getAutoAbsentTime());
         if (req.getAutoAbsentEnabled() != null)      s.setAutoAbsentEnabled(req.getAutoAbsentEnabled());
+        if (req.getAutoOutEnabled() != null)         s.setAutoOutEnabled(req.getAutoOutEnabled());
+        if (req.getAutoOutTime() != null)            s.setAutoOutTime(req.getAutoOutTime());
 
         if (req.getRegularizationEnabled() != null)              s.setRegularizationEnabled(req.getRegularizationEnabled());
         if (req.getRegularizationMaxBackdateDays() != null)      s.setRegularizationMaxBackdateDays(req.getRegularizationMaxBackdateDays());

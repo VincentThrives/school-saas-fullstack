@@ -69,6 +69,11 @@ export class TeacherFormComponent implements OnInit {
     // modules the coordinator sees are governed by the tenant-level
     // Coordinator Access page.
     { value: 'COORDINATOR', label: 'School Coordinator' },
+    // Full-time HR staff. Auto-creates a User account with the HR
+    // login role so the linked user lands on /hr/dashboard by
+    // default. Any additional hats (e.g. also a Teacher) go in the
+    // "Additional login roles" picker below.
+    { value: 'HR', label: 'HR / Payroll' },
   ];
 
   /**
@@ -118,8 +123,46 @@ export class TeacherFormComponent implements OnInit {
   get selectedAdditionalRolesLabel(): string {
     if (!this.selectedAdditionalRoles.length) return '';
     return this.selectedAdditionalRoles
-      .map(v => this.additionalLoginRoles.find(r => r.value === v)?.label ?? String(v))
+      .map(v => this.availableAdditionalRoles.find(r => r.value === v)?.label ?? String(v))
       .join(', ');
+  }
+
+  /** Login role the current designation would map to on the backend —
+   *  mirrors {@code EmployeeUserProvisioningService.mapEmployeeRoleToUserRole}.
+   *  Kept in sync manually because there's no shared enum between the
+   *  designation string and UserRole. Anything not listed falls back
+   *  to TEACHER (the backend default for staff). */
+  private designationToPrimaryLoginRole(designation: EmployeeRole | null | undefined): UserRole {
+    switch (designation) {
+      case 'PRINCIPAL':   return UserRole.PRINCIPAL;
+      case 'COORDINATOR': return UserRole.SCHOOL_COORDINATOR;
+      case 'HR':          return UserRole.HR;
+      default:            return UserRole.TEACHER;
+    }
+  }
+
+  /** Additional-login-role options minus the one already granted by
+   *  the designation dropdown. Prevents the confusing "pick HR as
+   *  Role AND as Additional role" state where the same role appeared
+   *  twice on the form. Recomputed on each render so a designation
+   *  change immediately refreshes the list. */
+  get availableAdditionalRoles(): { value: UserRole; label: string; hint: string }[] {
+    const primary = this.designationToPrimaryLoginRole(
+      this.employeeForm?.get('employeeRole')?.value as EmployeeRole,
+    );
+    return this.additionalLoginRoles.filter(r => r.value !== primary);
+  }
+
+  /** Hook wired to the designation dropdown's (selectionChange). Drops
+   *  the newly-primary role from the additional-roles multi-select if
+   *  it was ticked before — otherwise the removed <mat-option> would
+   *  leave a phantom value that the dropdown couldn't render but the
+   *  form still tried to submit. */
+  onDesignationChange(designation: EmployeeRole): void {
+    const primary = this.designationToPrimaryLoginRole(designation);
+    if (this.selectedAdditionalRoles.includes(primary)) {
+      this.selectedAdditionalRoles = this.selectedAdditionalRoles.filter(r => r !== primary);
+    }
   }
 
   constructor(
@@ -223,12 +266,18 @@ export class TeacherFormComponent implements OnInit {
           // Class-subject assignments are now managed on the Teacher Assignments page (per-year).
           // Seed the multi-role picker from the persisted list; legacy
           // employees (before the field existed) come back with null / []
-          // and the picker starts empty. Guard against unknown values
-          // so a stale enum entry can't crash the mat-select binding.
+          // and the picker starts empty. Filter out:
+          //   1. Unknown enum values (stale data can't crash mat-select).
+          //   2. The designation-mapped primary — that role is already
+          //      granted by the Role dropdown above; leaving it in
+          //      the additional-roles picker would show it ticked while
+          //      the dropdown filter hides the option (mat-select would
+          //      render an empty chip in the trigger).
           const validValues = new Set(this.additionalLoginRoles.map(r => r.value));
+          const primaryFromDesignation = this.designationToPrimaryLoginRole(t.employeeRole as EmployeeRole);
           const extras: string[] = (t as any).additionalRoles || [];
           this.selectedAdditionalRoles = extras.filter(
-            r => validValues.has(r as UserRole),
+            r => validValues.has(r as UserRole) && r !== primaryFromDesignation,
           ) as UserRole[];
         }
         this.isLoading = false;

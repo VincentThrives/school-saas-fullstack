@@ -98,6 +98,10 @@ public class EmployeeUserProvisioningService {
     private UserRole mapEmployeeRoleToUserRole(String employeeRole) {
         if ("PRINCIPAL".equals(employeeRole)) return UserRole.PRINCIPAL;
         if ("COORDINATOR".equals(employeeRole)) return UserRole.SCHOOL_COORDINATOR;
+        // HR designation gets an HR-role login so the user lands on
+        // /hr/dashboard by default. School stays free to grant extra
+        // additional roles (e.g. Teacher) via the multi-role picker.
+        if ("HR".equals(employeeRole)) return UserRole.HR;
         return UserRole.TEACHER;
     }
 

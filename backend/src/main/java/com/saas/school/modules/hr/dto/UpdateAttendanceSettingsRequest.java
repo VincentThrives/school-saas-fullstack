@@ -20,8 +20,15 @@ public class UpdateAttendanceSettingsRequest {
     private Integer expectedPunchesPerDay;
     private String  lateThreshold;
     private String  halfDayThreshold;
+    /** New half-day rule — hours-worked based. */
+    private Boolean halfDayCalculationEnabled;
+    private Double  halfDayMaxHours;
     private String  autoAbsentTime;
     private Boolean autoAbsentEnabled;
+    /** Auto-OUT rule — stamps OUT on rows with IN-but-no-OUT so the
+     *  half-day computation can fire without a regularization request. */
+    private Boolean autoOutEnabled;
+    private String  autoOutTime;
 
     private Boolean regularizationEnabled;
     private Integer regularizationMaxBackdateDays;
@@ -60,11 +67,23 @@ public class UpdateAttendanceSettingsRequest {
     public String getHalfDayThreshold() { return halfDayThreshold; }
     public void setHalfDayThreshold(String v) { this.halfDayThreshold = v; }
 
+    public Boolean getHalfDayCalculationEnabled() { return halfDayCalculationEnabled; }
+    public void setHalfDayCalculationEnabled(Boolean v) { this.halfDayCalculationEnabled = v; }
+
+    public Double getHalfDayMaxHours() { return halfDayMaxHours; }
+    public void setHalfDayMaxHours(Double v) { this.halfDayMaxHours = v; }
+
     public String getAutoAbsentTime() { return autoAbsentTime; }
     public void setAutoAbsentTime(String v) { this.autoAbsentTime = v; }
 
     public Boolean getAutoAbsentEnabled() { return autoAbsentEnabled; }
     public void setAutoAbsentEnabled(Boolean v) { this.autoAbsentEnabled = v; }
+
+    public Boolean getAutoOutEnabled() { return autoOutEnabled; }
+    public void setAutoOutEnabled(Boolean v) { this.autoOutEnabled = v; }
+
+    public String getAutoOutTime() { return autoOutTime; }
+    public void setAutoOutTime(String v) { this.autoOutTime = v; }
 
     public Boolean getRegularizationEnabled() { return regularizationEnabled; }
     public void setRegularizationEnabled(Boolean v) { this.regularizationEnabled = v; }

@@ -1,0 +1,309 @@
+<div class="rep-container">
+  <app-page-header
+    title="Attendance Report"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/hr/dashboard' },
+      { label: 'Attendance', link: '/hr/attendance/daily' },
+      { label: 'Report' }
+    ]">
+  </app-page-header>
+
+  <!-- ═══════════════════════════════════════════════════
+       Filter card
+       ═══════════════════════════════════════════════════ -->
+  <mat-card class="rep-filter-card no-print">
+    <div class="rep-filter-head">
+      <div class="rep-filter-title">
+        <mat-icon>tune</mat-icon>
+        <span>Filters</span>
+      </div>
+      <div class="rep-preset-row">
+        <button mat-stroked-button (click)="applyPreset('last7')" type="button">Last 7 days</button>
+        <button mat-stroked-button (click)="applyPreset('week')"  type="button">This week</button>
+        <button mat-stroked-button (click)="applyPreset('month')" type="button">This month</button>
+        <button mat-stroked-button (click)="applyPreset('last30')" type="button">Last 30 days</button>
+      </div>
+    </div>
+
+    <div class="rep-filter-grid">
+      <mat-form-field appearance="outline" class="rep-field">
+        <mat-label>From</mat-label>
+        <input matInput [matDatepicker]="fromDp" [(ngModel)]="fromDate" [max]="todayCap">
+        <mat-datepicker-toggle matSuffix [for]="fromDp"></mat-datepicker-toggle>
+        <mat-datepicker #fromDp></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="rep-field">
+        <mat-label>To</mat-label>
+        <input matInput [matDatepicker]="toDp" [(ngModel)]="toDate" [max]="todayCap">
+        <mat-datepicker-toggle matSuffix [for]="toDp"></mat-datepicker-toggle>
+        <mat-datepicker #toDp></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="rep-field">
+        <mat-label>Designation</mat-label>
+        <mat-select [(ngModel)]="designationFilter">
+          <mat-option value="ALL">All designations</mat-option>
+          <mat-option *ngFor="let d of availableDesignations" [value]="d">
+            {{ designationLabel(d) }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="rep-field">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="statusFilter">
+          <mat-option value="ALL">All statuses</mat-option>
+          <mat-option value="PRESENT">Present</mat-option>
+          <mat-option value="LATE">Late</mat-option>
+          <mat-option value="HALF_DAY">Half-day</mat-option>
+          <mat-option value="ABSENT">Absent</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="rep-field rep-field--search">
+        <mat-label>Search employee</mat-label>
+        <input matInput [(ngModel)]="searchQuery" placeholder="Type a name…">
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <div class="rep-actions">
+        <button mat-flat-button class="rep-apply-btn"
+                (click)="loadReport()"
+                [disabled]="isLoading">
+          <mat-icon>refresh</mat-icon>
+          Refresh
+        </button>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- ═══════════════════════════════════════════════════
+       KPI strip — overall stats across the filtered range
+       ═══════════════════════════════════════════════════ -->
+  <div class="rep-kpi-row">
+    <div class="rep-kpi rep-kpi--blue">
+      <div class="rep-kpi-icon"><mat-icon>groups</mat-icon></div>
+      <div class="rep-kpi-body">
+        <div class="rep-kpi-value">{{ kpis.totalEmployees }}</div>
+        <div class="rep-kpi-label">Employees</div>
+      </div>
+    </div>
+    <div class="rep-kpi rep-kpi--gold">
+      <div class="rep-kpi-icon"><mat-icon>calendar_month</mat-icon></div>
+      <div class="rep-kpi-body">
+        <div class="rep-kpi-value">{{ kpis.workingDays }}<span class="rep-kpi-sub">/{{ kpis.totalDays }}</span></div>
+        <div class="rep-kpi-label" matTooltip="Working days (excludes Sundays + holidays) / total calendar days">Working / Total</div>
+      </div>
+    </div>
+    <div class="rep-kpi rep-kpi--green">
+      <div class="rep-kpi-icon"><mat-icon>show_chart</mat-icon></div>
+      <div class="rep-kpi-body">
+        <div class="rep-kpi-value">{{ kpis.avgAttendance }}%</div>
+        <div class="rep-kpi-label">Avg attendance</div>
+      </div>
+    </div>
+    <div class="rep-kpi rep-kpi--amber">
+      <div class="rep-kpi-icon"><mat-icon>alarm</mat-icon></div>
+      <div class="rep-kpi-body">
+        <div class="rep-kpi-value">{{ kpis.late }}</div>
+        <div class="rep-kpi-label">Late marks</div>
+      </div>
+    </div>
+    <div class="rep-kpi rep-kpi--purple">
+      <div class="rep-kpi-icon"><mat-icon>hourglass_top</mat-icon></div>
+      <div class="rep-kpi-body">
+        <div class="rep-kpi-value">{{ kpis.halfDay }}</div>
+        <div class="rep-kpi-label">Half-days</div>
+      </div>
+    </div>
+    <div class="rep-kpi rep-kpi--red">
+      <div class="rep-kpi-icon"><mat-icon>person_off</mat-icon></div>
+      <div class="rep-kpi-body">
+        <div class="rep-kpi-value">{{ kpis.absent }}</div>
+        <div class="rep-kpi-label">Absent</div>
+      </div>
+    </div>
+    <div class="rep-kpi rep-kpi--slate">
+      <div class="rep-kpi-icon"><mat-icon>help_outline</mat-icon></div>
+      <div class="rep-kpi-body">
+        <div class="rep-kpi-value">{{ kpis.unmarked }}</div>
+        <div class="rep-kpi-label">Unmarked</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       View toolbar — tabs + export buttons
+       ═══════════════════════════════════════════════════ -->
+  <div class="rep-toolbar no-print">
+    <mat-button-toggle-group [(ngModel)]="view" class="rep-view-toggle">
+      <mat-button-toggle value="summary">
+        <mat-icon>view_list</mat-icon> Summary
+      </mat-button-toggle>
+      <mat-button-toggle value="detailed">
+        <mat-icon>grid_on</mat-icon> Detailed grid
+      </mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <div class="rep-toolbar-spacer"></div>
+
+    <button mat-flat-button class="rep-export-btn rep-export-btn--excel"
+            (click)="exportCsv()" matTooltip="Export current view as CSV / Excel">
+      <mat-icon>description</mat-icon>
+      Excel
+    </button>
+    <button mat-flat-button class="rep-export-btn rep-export-btn--pdf"
+            (click)="exportPdf()" matTooltip="Print or save as PDF">
+      <mat-icon>picture_as_pdf</mat-icon>
+      PDF
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       Loading strip
+       ═══════════════════════════════════════════════════ -->
+  <mat-card class="rep-loading-card" *ngIf="isLoading">
+    <mat-spinner diameter="28"></mat-spinner>
+    <span>Loading report…</span>
+  </mat-card>
+
+  <!-- ═══════════════════════════════════════════════════
+       Summary table view
+       ═══════════════════════════════════════════════════ -->
+  <mat-card class="rep-table-card"
+            *ngIf="!isLoading && view === 'summary'">
+    <div class="rep-table-scroll">
+      <table class="rep-table">
+        <thead>
+          <tr>
+            <th class="rep-col-emp">Employee</th>
+            <th>Designation</th>
+            <th class="num" matTooltip="Days marked present">Present</th>
+            <th class="num" matTooltip="Days marked late">Late</th>
+            <th class="num" matTooltip="Days marked half-day">Half-day</th>
+            <th class="num" matTooltip="Days marked absent">Absent</th>
+            <th class="num" matTooltip="Days in the range with no attendance record at all">Unmarked</th>
+            <th class="num" matTooltip="Working days for this employee — excludes Sundays + declared holidays, but adds any off-day they actually worked">Working</th>
+            <th class="num" matTooltip="Total calendar days in the picked range">Total</th>
+            <th class="num" matTooltip="(Present + Late + Half-day × 0.5) ÷ Working">Attendance</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of summaryRows"
+              class="rep-row-click"
+              (click)="openEmployeeDetail(r.employeeId, r.name, r.designation)">
+            <td class="rep-col-emp">
+              <div class="rep-emp-cell">
+                <span class="rep-avatar">{{ (r.name || '?').charAt(0).toUpperCase() }}</span>
+                <span class="rep-emp-name-txt">{{ r.name }}</span>
+                <button mat-icon-button class="rep-drill-btn"
+                        (click)="$event.stopPropagation(); openEmployeeDetail(r.employeeId, r.name, r.designation)"
+                        matTooltip="See day-by-day report"
+                        aria-label="See day-by-day report">
+                  <mat-icon>chevron_right</mat-icon>
+                </button>
+              </div>
+            </td>
+            <td>{{ r.designation ? designationLabel(r.designation) : '—' }}</td>
+            <td class="num"><span class="chip chip--present">{{ r.present }}</span></td>
+            <td class="num"><span class="chip chip--late">{{ r.late }}</span></td>
+            <td class="num"><span class="chip chip--half">{{ r.halfDay }}</span></td>
+            <td class="num"><span class="chip chip--absent">{{ r.absent }}</span></td>
+            <td class="num"><span class="chip chip--unmarked">{{ r.unmarked }}</span></td>
+            <td class="num rep-working"
+                [matTooltip]="r.workingDays !== (r.workingDays - (r.workingDays)) ? '' : ''">
+              {{ r.workingDays }}
+            </td>
+            <td class="num rep-total-muted">{{ r.totalDays }}</td>
+            <td class="num">
+              <div class="rep-percent">
+                <span class="rep-percent-value"
+                      [class.rep-percent-value--good]="r.percent >= 90"
+                      [class.rep-percent-value--ok]="r.percent >= 75 && r.percent < 90"
+                      [class.rep-percent-value--bad]="r.percent < 75">
+                  {{ r.percent }}%
+                </span>
+                <div class="rep-percent-bar">
+                  <div class="rep-percent-fill"
+                       [style.width.%]="r.percent"
+                       [class.rep-percent-fill--good]="r.percent >= 90"
+                       [class.rep-percent-fill--ok]="r.percent >= 75 && r.percent < 90"
+                       [class.rep-percent-fill--bad]="r.percent < 75"></div>
+                </div>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="summaryRows.length === 0">
+            <td colspan="10" class="rep-empty-row">
+              <mat-icon>inbox</mat-icon>
+              No attendance rows in the selected range.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </mat-card>
+
+  <!-- ═══════════════════════════════════════════════════
+       Detailed grid view
+       ═══════════════════════════════════════════════════ -->
+  <mat-card class="rep-table-card"
+            *ngIf="!isLoading && view === 'detailed'">
+    <div class="rep-grid-legend no-print">
+      <span class="legend-item"><span class="dot dot-present"></span>P — Present</span>
+      <span class="legend-item"><span class="dot dot-late"></span>L — Late</span>
+      <span class="legend-item"><span class="dot dot-halfday"></span>H — Half-day</span>
+      <span class="legend-item"><span class="dot dot-absent"></span>A — Absent</span>
+      <span class="legend-item"><span class="dot dot-weekoff"></span>WO — Week-off</span>
+      <span class="legend-item"><span class="dot dot-holiday"></span>HO — Holiday</span>
+      <span class="legend-item"><span class="dot dot-empty"></span>— — No punch</span>
+    </div>
+    <div class="rep-grid-scroll">
+      <table class="rep-grid">
+        <thead>
+          <tr>
+            <th class="rep-grid-emp">Employee</th>
+            <th class="rep-grid-day"
+                *ngFor="let d of dateColumns"
+                [class.rep-grid-day--weekend]="isSunday(d)"
+                [class.rep-grid-day--holiday]="isHoliday(d)"
+                [matTooltip]="isHoliday(d) ? ('Holiday — ' + (holidayNameByDate.get(d) || d)) : d">
+              {{ formatColHeader(d) }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of gridRows">
+            <td class="rep-grid-emp">
+              <div class="rep-emp-cell">
+                <span class="rep-avatar">{{ (row.name || '?').charAt(0).toUpperCase() }}</span>
+                <div>
+                  <div class="rep-emp-name">{{ row.name }}</div>
+                  <div class="rep-emp-role" *ngIf="row.designation">
+                    {{ designationLabel(row.designation) }}
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td *ngFor="let d of dateColumns"
+                class="rep-grid-td"
+                [class.rep-grid-td--weekend]="isSunday(d)"
+                [class.rep-grid-td--holiday]="isHoliday(d)"
+                [matTooltip]="cellTooltip(row.cells.get(d), d)">
+              <span [ngClass]="cellClass(row.cells.get(d), d)">
+                {{ cellLabel(row.cells.get(d), d) }}
+              </span>
+            </td>
+          </tr>
+          <tr *ngIf="gridRows.length === 0">
+            <td [attr.colspan]="dateColumns.length + 1" class="rep-empty-row">
+              <mat-icon>inbox</mat-icon>
+              No attendance rows in the selected range.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </mat-card>
+</div>

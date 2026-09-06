@@ -12,19 +12,21 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../../core/services/api.service';
-import { EmployeeAttendance, Teacher } from '../../../../core/models';
+import { HrDailyAttendance } from '../../../../core/models';
+import { HrManualMarkDialogComponent } from './manual-mark-dialog/hr-manual-mark-dialog.component';
 
 /**
  * HR-only daily view — one date at a time, every employee's row for
  * that date. Table shows: employee id + name + status chip + IN /
  * OUT times + source badge + distance (LOCATION rows only).
  *
- * <p>Employee names come from a client-side lookup against the
- * Teachers list we fetch once on init — the attendance endpoint
- * only returns employeeId, and joining server-side would balloon
- * the payload with fields we don't need in this view.</p>
+ * <p>Employee names + designations are baked into the response by the
+ * backend ({@code HrDailyAttendanceDto}) — HR can't call the admin-
+ * gated {@code GET /employees} endpoint, so a client-side lookup would
+ * silently fall back to raw UUIDs.</p>
  *
  * <p>Manual entry / edit lives on this page as a follow-up (v1 is
  * read-only). The Regularization Approvals page is a separate route
@@ -48,40 +50,54 @@ export class HrDailyAttendanceComponent implements OnInit {
 
   selectedDate: Date = new Date();
   today: Date = new Date();
-  rows: EmployeeAttendance[] = [];
-  employeesById: Record<string, Teacher> = {};
+  rows: HrDailyAttendance[] = [];
 
   isLoadingRows = false;
-  isLoadingEmployees = false;
 
-  displayedCols = ['employee', 'status', 'in', 'out', 'source', 'distance'];
+  displayedCols = ['employee', 'status', 'in', 'out', 'source', 'distance', 'actions'];
 
   constructor(
     private api: ApiService,
     private snack: MatSnackBar,
+    private dialog: MatDialog,
   ) {}
 
-  ngOnInit(): void {
-    this.loadEmployees();
-    this.loadRows();
+  /** Open the manual-mark dialog in "add missing employee" mode.
+   *  Passes the already-marked employee ids so the picker only shows
+   *  people who don't yet have a row for the selected date — matches
+   *  what HR sees on screen so the picker never offers a duplicate. */
+  openAddDialog(): void {
+    const alreadyMarkedIds = this.rows
+      .map(r => r.employeeId)
+      .filter(id => !!id);
+    const ref = this.dialog.open(HrManualMarkDialogComponent, {
+      data: {
+        mode: 'add',
+        defaultDate: this.selectedDate,
+        alreadyMarkedIds,
+      },
+      autoFocus: false,
+      panelClass: 'hr-manual-mark-panel',
+      width: '100vw',
+      maxWidth: '100vw',
+    });
+    ref.afterClosed().subscribe((saved) => { if (saved) this.loadRows(); });
   }
 
-  /** Fetch the teachers list once so we can render "Aadhya Shetty"
-   *  instead of a raw UUID in the table. Silent on error — the row
-   *  falls back to the id string. */
-  private loadEmployees(): void {
-    this.isLoadingEmployees = true;
-    this.api.getTeachers().subscribe({
-      next: (res) => {
-        const list: Teacher[] = Array.isArray(res.data) ? res.data : [];
-        this.employeesById = list.reduce((acc, t) => {
-          if (t.teacherId) acc[t.teacherId] = t;
-          return acc;
-        }, {} as Record<string, Teacher>);
-        this.isLoadingEmployees = false;
-      },
-      error: () => { this.isLoadingEmployees = false; },
+  /** Open the manual-mark dialog in "edit row" mode. */
+  openEditDialog(row: HrDailyAttendance): void {
+    const ref = this.dialog.open(HrManualMarkDialogComponent, {
+      data: { mode: 'edit', row },
+      autoFocus: false,
+      panelClass: 'hr-manual-mark-panel',
+      width: '100vw',
+      maxWidth: '100vw',
     });
+    ref.afterClosed().subscribe((saved) => { if (saved) this.loadRows(); });
+  }
+
+  ngOnInit(): void {
+    this.loadRows();
   }
 
   loadRows(): void {
@@ -104,14 +120,6 @@ export class HrDailyAttendanceComponent implements OnInit {
   }
 
   // ── Helpers ──────────────────────────────────────
-
-  employeeLabel(employeeId: string): string {
-    const t = this.employeesById[employeeId];
-    if (!t) return employeeId;
-    const name = `${t.firstName || ''} ${t.lastName || ''}`.trim();
-    const eid = t.employeeId ? ` · ${t.employeeId}` : '';
-    return name ? `${name}${eid}` : employeeId;
-  }
 
   formatTime(iso?: string): string {
     if (!iso) return '—';

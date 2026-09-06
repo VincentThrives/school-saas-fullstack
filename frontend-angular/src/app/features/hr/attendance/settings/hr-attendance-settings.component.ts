@@ -14,12 +14,15 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatDialog } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../../core/services/api.service';
 import {
   EmployeeAttendanceSettings,
   UpdateAttendanceSettingsRequest,
 } from '../../../../core/models';
+import { CampusLocationDialogComponent } from './campus-location-dialog/campus-location-dialog.component';
 
 /**
  * HR-only settings page for the Employee Attendance module.
@@ -50,7 +53,7 @@ import {
     MatCardModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatSlideToggleModule, MatSliderModule, MatButtonModule, MatIconModule,
     MatDividerModule, MatProgressSpinnerModule, MatTooltipModule,
-    MatSnackBarModule, PageHeaderComponent,
+    MatTabsModule, MatSnackBarModule, PageHeaderComponent,
   ],
   templateUrl: './hr-attendance-settings.component.html',
   styleUrl: './hr-attendance-settings.component.scss',
@@ -74,31 +77,14 @@ export class HrAttendanceSettingsComponent implements OnInit {
     { value: 2, label: '2 punches — IN + OUT' },
   ];
 
-  /** Which pane is active in the settings side-nav. Each pane
-   *  contains EVERYTHING related to that topic — the enable toggle
-   *  AND the config fields — so admin never has to hop between
-   *  sections to change one thing. */
-  activeSection: 'location' | 'biometric' | 'punch' | 'regularization' = 'location';
-
-  /** Settings side-nav — one entry per section. Order chosen so the
-   *  two marking methods are on top (that's the "what shape does
-   *  attendance take" decision), then rules, then the workflow. */
-  readonly sections: ReadonlyArray<{
-    id: 'location' | 'biometric' | 'punch' | 'regularization';
-    label: string;
-    icon: string;
-    hint: string;
-  }> = [
-    { id: 'location',       label: 'Location marking', icon: 'location_on',          hint: 'Phone GPS + campus radius' },
-    { id: 'biometric',      label: 'Biometric terminal', icon: 'fingerprint',        hint: 'eSSL scanner + bindings' },
-    { id: 'punch',          label: 'Punch rules',      icon: 'schedule',             hint: 'Timings + auto-absent' },
-    { id: 'regularization', label: 'Regularization',   icon: 'assignment_turned_in', hint: 'Missed-punch approvals' },
-  ];
+  // Section switching is now handled by MatTabGroup in the
+  // template — no component-level activeSection state needed.
 
   constructor(
     private api: ApiService,
     private router: Router,
     private snack: MatSnackBar,
+    private dialog: MatDialog,
   ) {}
 
   /** "Set up bindings" button on the Biometric pane. Navigates to
@@ -122,8 +108,12 @@ export class HrAttendanceSettingsComponent implements OnInit {
       expectedPunchesPerDay: 2,
       lateThreshold: '09:15',
       halfDayThreshold: '11:00',
+      halfDayCalculationEnabled: true,
+      halfDayMaxHours: 4,
       autoAbsentTime: '11:00',
       autoAbsentEnabled: false,
+      autoOutEnabled: false,
+      autoOutTime: '18:30',
       regularizationEnabled: true,
       regularizationMaxBackdateDays: 7,
       regularizationMonthlyCapPerEmployee: 3,
@@ -146,36 +136,38 @@ export class HrAttendanceSettingsComponent implements OnInit {
   }
 
   /**
-   * Uses the browser's Geolocation API to fill in the campus lat/lng
-   * with the admin's current position. Meant for the common flow
-   * where HR sits at the school reception with a laptop and clicks
-   * this button once at setup time.
+   * Opens the interactive map picker. HR sees a full-screen map
+   * (auto-centered on GPS), drags the pin to fine-tune the exact
+   * spot, and confirms — coords flow back into the form fields and
+   * we then persist immediately via {@link saveLocationOnly()}.
+   *
+   * <p>The old inline "just grab GPS and drop coords" flow felt
+   * imprecise — GPS inside multi-storey buildings can drift 20–50 m
+   * from the actual gate. The map view lets HR visually correct
+   * that without hunting for lat/lng values.</p>
    */
   useCurrentLocation(): void {
-    if (!navigator.geolocation) {
-      this.snack.open('Your browser doesn\'t support location.', 'Close', { duration: 3500 });
-      return;
-    }
-    this.isLocating = true;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        this.settings.campusLatitude  = +pos.coords.latitude.toFixed(6);
-        this.settings.campusLongitude = +pos.coords.longitude.toFixed(6);
-        this.isLocating = false;
-        this.locationJustCaptured = true;
-        this.snack.open(
-          `Location captured (accuracy ${Math.round(pos.coords.accuracy)}m). Click "Save location" to confirm.`,
-          'Close', { duration: 4000 });
+    const ref = this.dialog.open(CampusLocationDialogComponent, {
+      data: {
+        currentLat: this.settings.campusLatitude ?? null,
+        currentLng: this.settings.campusLongitude ?? null,
+        radiusMeters: this.settings.allowedRadiusMeters ?? 200,
       },
-      (err) => {
-        this.isLocating = false;
-        const msg = err.code === err.PERMISSION_DENIED
-          ? 'Location permission denied. Enable it in your browser.'
-          : 'Couldn\'t get your location. Try again in an open area.';
-        this.snack.open(msg, 'Close', { duration: 4500 });
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+      autoFocus: false,
+      panelClass: 'campus-location-panel',
+      width: '100vw',
+      maxWidth: '100vw',
+      disableClose: false,
+    });
+    ref.afterClosed().subscribe((res) => {
+      if (!res) return;
+      this.settings.campusLatitude  = res.lat;
+      this.settings.campusLongitude = res.lng;
+      // Persist immediately — the whole point of the map picker is
+      // a one-shot "set the campus point, done" flow. Skips the
+      // "Save location" green button that used to appear inline.
+      this.saveLocationOnly();
+    });
   }
 
   /**
@@ -224,9 +216,13 @@ export class HrAttendanceSettingsComponent implements OnInit {
       return;
     }
     if (!/^\d{2}:\d{2}$/.test(this.settings.lateThreshold || '')
-        || !/^\d{2}:\d{2}$/.test(this.settings.halfDayThreshold || '')
         || !/^\d{2}:\d{2}$/.test(this.settings.autoAbsentTime || '')) {
       this.snack.open('Thresholds must be in HH:MM format.', 'Close', { duration: 3500 });
+      return;
+    }
+    if (this.settings.halfDayCalculationEnabled
+        && (!(this.settings.halfDayMaxHours > 0) || this.settings.halfDayMaxHours > 24)) {
+      this.snack.open('Half-day max hours must be between 0 and 24.', 'Close', { duration: 3500 });
       return;
     }
 
@@ -242,7 +238,11 @@ export class HrAttendanceSettingsComponent implements OnInit {
       expectedPunchesPerDay:  this.settings.expectedPunchesPerDay,
       lateThreshold:          this.settings.lateThreshold,
       halfDayThreshold:       this.settings.halfDayThreshold,
+      halfDayCalculationEnabled: this.settings.halfDayCalculationEnabled,
+      halfDayMaxHours:        this.settings.halfDayMaxHours,
       autoAbsentTime:         this.settings.autoAbsentTime,
+      autoOutEnabled:         this.settings.autoOutEnabled,
+      autoOutTime:            this.settings.autoOutTime,
       autoAbsentEnabled:      this.settings.autoAbsentEnabled,
       regularizationEnabled:  this.settings.regularizationEnabled,
       regularizationMaxBackdateDays:           this.settings.regularizationMaxBackdateDays,

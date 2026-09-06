@@ -1,0 +1,437 @@
+$gold:      #D4A843;
+$gold-dark: #B8860B;
+$ink:       #1a1a1a;
+$muted:     #64748b;
+
+// Status palette — same hues as the calendar / dashboard so a
+// user who moves between pages doesn't have to relearn colours.
+$c-present:  #22c55e;
+$c-late:     #f59e0b;
+$c-halfday:  #a855f7;
+$c-absent:   #ef4444;
+$c-empty:    #e2e8f0;
+$c-blue:     #2563eb;
+
+.rep-container {
+  padding: 0 0 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+// ═════════════════════════════════════════════════════════════
+//  Filter card
+// ═════════════════════════════════════════════════════════════
+.rep-filter-card {
+  padding: 14px 16px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(212, 168, 67, 0.20) !important;
+  background: #ffffff !important;
+}
+.rep-filter-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.rep-filter-title {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 700; color: $ink;
+  mat-icon { font-size: 20px; width: 20px; height: 20px; color: $gold-dark; }
+}
+.rep-preset-row {
+  display: inline-flex; flex-wrap: wrap; gap: 6px;
+  button {
+    height: 30px !important;
+    padding: 0 12px !important;
+    border-radius: 15px !important;
+    font-size: 11.5px !important; font-weight: 600 !important;
+    line-height: 30px !important;
+    border-color: rgba(212, 168, 67, 0.35) !important;
+    color: $gold-dark !important;
+  }
+}
+.rep-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  align-items: start;
+
+  @media (max-width: 640px) { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 420px) { grid-template-columns: 1fr; }
+}
+.rep-field { margin: 0; }
+.rep-field--search { grid-column: span 2; @media (max-width: 640px) { grid-column: span 2; } }
+.rep-actions { display: flex; align-items: center; }
+.rep-apply-btn {
+  height: 40px !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  padding: 0 18px !important;
+  display: inline-flex !important; align-items: center !important; gap: 6px;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+// ═════════════════════════════════════════════════════════════
+//  KPI strip
+// ═════════════════════════════════════════════════════════════
+.rep-kpi-row {
+  display: grid;
+  // 7 slots now — added "Unmarked" so HR can tell at a glance how
+  // many attendance slots the daily job / employees haven't touched.
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+
+  @media (max-width: 1400px) { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 900px)  { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 640px)  { grid-template-columns: repeat(2, 1fr); }
+}
+.rep-kpi {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  border-left: 3px solid transparent;
+}
+.rep-kpi-icon {
+  width: 34px; height: 34px; border-radius: 8px;
+  color: #ffffff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+.rep-kpi-body { flex: 1; min-width: 0; }
+.rep-kpi-value {
+  font-size: 20px; font-weight: 800; color: $ink;
+  letter-spacing: -0.02em; line-height: 1.1;
+}
+.rep-kpi-sub {
+  font-size: 12px; font-weight: 600; color: $muted;
+  margin-left: 2px;
+}
+.rep-working {
+  font-weight: 700;
+  color: $ink;
+}
+.rep-total-muted {
+  color: $muted;
+}
+.rep-kpi-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+  color: $muted; text-transform: uppercase; margin-top: 1px;
+}
+.rep-kpi--blue   { border-left-color: $c-blue;    .rep-kpi-icon { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); } }
+.rep-kpi--gold   { border-left-color: $gold;      .rep-kpi-icon { background: linear-gradient(135deg, $gold 0%, $gold-dark 100%); } }
+.rep-kpi--green  { border-left-color: $c-present; .rep-kpi-icon { background: linear-gradient(135deg, #4ade80 0%, $c-present 100%); } }
+.rep-kpi--amber  { border-left-color: $c-late;    .rep-kpi-icon { background: linear-gradient(135deg, #fbbf24 0%, $c-late 100%); } }
+.rep-kpi--purple { border-left-color: $c-halfday; .rep-kpi-icon { background: linear-gradient(135deg, #c084fc 0%, $c-halfday 100%); } }
+.rep-kpi--red    { border-left-color: $c-absent;  .rep-kpi-icon { background: linear-gradient(135deg, #f87171 0%, $c-absent 100%); } }
+.rep-kpi--slate  { border-left-color: #94a3b8;    .rep-kpi-icon { background: linear-gradient(135deg, #cbd5e1 0%, #64748b 100%); } }
+
+// ═════════════════════════════════════════════════════════════
+//  Toolbar (view toggle + export buttons)
+// ═════════════════════════════════════════════════════════════
+.rep-toolbar {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap;
+}
+.rep-toolbar-spacer { flex: 1; }
+.rep-view-toggle {
+  border-radius: 10px !important;
+  overflow: hidden;
+  ::ng-deep .mat-button-toggle-label-content {
+    display: inline-flex !important; align-items: center !important; gap: 6px;
+    padding: 0 14px !important;
+    line-height: 36px !important;
+    font-size: 12.5px !important; font-weight: 600 !important;
+  }
+  ::ng-deep .mat-button-toggle-checked {
+    background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+    color: #ffffff !important;
+  }
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+}
+.rep-export-btn {
+  height: 36px !important;
+  padding: 0 14px !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  font-size: 12.5px !important; font-weight: 700 !important;
+  display: inline-flex !important; align-items: center !important; gap: 6px;
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  &--excel {
+    background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%) !important;
+    box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25) !important;
+  }
+  &--pdf {
+    background: linear-gradient(135deg, #f87171 0%, #dc2626 100%) !important;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25) !important;
+  }
+}
+
+.rep-loading-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px !important;
+  color: $muted;
+  border-radius: 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+}
+
+// ═════════════════════════════════════════════════════════════
+//  Summary table
+// ═════════════════════════════════════════════════════════════
+.rep-table-card {
+  padding: 0 !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+  background: #ffffff !important;
+  overflow: hidden;
+}
+.rep-table-scroll { overflow-x: auto; }
+.rep-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.10);
+  }
+  th {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+    color: $muted; text-transform: uppercase;
+    background: #fbfaf5;
+  }
+  td.num, th.num { text-align: right; }
+  tr:hover td { background: rgba(212, 168, 67, 0.04); }
+}
+.rep-col-emp { min-width: 220px; }
+.rep-emp-cell {
+  display: inline-flex; align-items: center; gap: 10px;
+  min-width: 0;
+}
+// Whole row is clickable — plus a dedicated icon button on the
+// right of the employee cell for users who scan by icon rather
+// than by "the whole row is a link". The button stops-propagates
+// so we don't fire the dialog twice.
+.rep-row-click {
+  cursor: pointer;
+  &:hover { background: rgba(212, 168, 67, 0.06); }
+  &:hover .rep-drill-btn { opacity: 1; }
+}
+.rep-drill-btn {
+  margin-left: auto !important;
+  width: 30px !important;
+  height: 30px !important;
+  padding: 0 !important;
+  color: $gold-dark !important;
+  background: rgba(212, 168, 67, 0.14) !important;
+  border-radius: 50% !important;
+  opacity: 0.55;
+  transition: opacity 0.12s ease, background 0.12s ease, transform 0.1s ease;
+
+  &:hover {
+    background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+    color: #ffffff !important;
+    transform: scale(1.06);
+  }
+
+  ::ng-deep .mat-mdc-button-touch-target { width: 30px !important; height: 30px !important; }
+  mat-icon { font-size: 18px !important; width: 18px !important; height: 18px !important; }
+}
+.rep-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(212, 168, 67, 0.14); color: $gold-dark;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+  flex-shrink: 0;
+}
+.rep-emp-name { font-weight: 700; color: $ink; }
+.rep-emp-role { font-size: 10.5px; color: $muted; font-weight: 500; margin-top: 1px; }
+.chip {
+  display: inline-block;
+  min-width: 26px; padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px; font-weight: 700;
+  text-align: center;
+  background: rgba(148, 163, 184, 0.12); color: $muted;
+  &--present  { background: rgba(34, 197, 94, 0.14);  color: #15803d; }
+  &--late     { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+  &--half     { background: rgba(168, 85, 247, 0.14); color: #7e22ce; }
+  &--absent   { background: rgba(239, 68, 68, 0.14);  color: #b91c1c; }
+  &--unmarked { background: rgba(148, 163, 184, 0.18); color: #475569; }
+}
+.rep-percent {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
+  min-width: 120px;
+}
+.rep-percent-value {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 13px; font-weight: 700;
+  &--good { color: #15803d; }
+  &--ok   { color: #b45309; }
+  &--bad  { color: #b91c1c; }
+}
+.rep-percent-bar {
+  width: 100px; height: 6px;
+  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.20);
+  overflow: hidden;
+}
+.rep-percent-fill {
+  height: 100%; border-radius: 3px;
+  &--good { background: linear-gradient(90deg, #4ade80, $c-present); }
+  &--ok   { background: linear-gradient(90deg, #fbbf24, $c-late); }
+  &--bad  { background: linear-gradient(90deg, #f87171, $c-absent); }
+}
+.rep-empty-row {
+  text-align: center !important;
+  padding: 36px 20px !important;
+  color: $muted;
+  mat-icon { display: block; font-size: 32px; width: 32px; height: 32px; margin: 0 auto 8px; opacity: 0.5; }
+}
+
+// ═════════════════════════════════════════════════════════════
+//  Detailed grid
+// ═════════════════════════════════════════════════════════════
+.rep-grid-legend {
+  display: flex; flex-wrap: wrap; gap: 12px 20px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  background: #fbfaf5;
+  font-size: 11.5px; color: $muted;
+}
+.legend-item { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+.dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  &.dot-present { background: $c-present; }
+  &.dot-late    { background: $c-late; }
+  &.dot-halfday { background: $c-halfday; }
+  &.dot-absent  { background: $c-absent; }
+  &.dot-empty   { background: $c-empty; border: 1px solid rgba(148, 163, 184, 0.30); }
+  &.dot-weekoff { background: rgba(148, 163, 184, 0.35); }
+  &.dot-holiday { background: #2563eb; }
+}
+.rep-grid-scroll { overflow-x: auto; }
+.rep-grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+
+  thead th {
+    position: sticky; top: 0;
+    background: #fbfaf5;
+    z-index: 2;
+    padding: 8px 6px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.03em;
+    color: $muted; text-transform: uppercase;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.20);
+    white-space: nowrap;
+    text-align: center;
+    min-width: 42px;
+  }
+  thead th.rep-grid-day--weekend { background: rgba(239, 68, 68, 0.05); color: #b91c1c; }
+  thead th.rep-grid-emp {
+    text-align: left;
+    padding-left: 14px;
+    min-width: 200px;
+    position: sticky; left: 0; z-index: 3;
+  }
+
+  tbody td {
+    padding: 6px 4px;
+    text-align: center;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  }
+  tbody td.rep-grid-emp {
+    text-align: left;
+    padding: 8px 12px;
+    position: sticky; left: 0; z-index: 1;
+    background: #ffffff;
+    border-right: 1px solid rgba(148, 163, 184, 0.14);
+  }
+  tbody tr:hover td { background: rgba(212, 168, 67, 0.05); }
+  tbody tr:hover td.rep-grid-emp { background: rgba(212, 168, 67, 0.08); }
+}
+
+.grid-cell {
+  display: inline-block;
+  width: 28px; height: 28px;
+  line-height: 28px;
+  border-radius: 6px;
+  font-weight: 700; font-size: 11px;
+  color: $muted;
+  background: transparent;
+
+  &--present { background: rgba(34, 197, 94, 0.16);  color: #15803d; }
+  &--late    { background: rgba(245, 158, 11, 0.20); color: #b45309; }
+  &--halfday { background: rgba(168, 85, 247, 0.16); color: #7e22ce; }
+  &--absent  { background: rgba(239, 68, 68, 0.14);  color: #b91c1c; }
+  &--empty   { color: rgba(100, 116, 139, 0.85); }   // darker slate so the em-dash reads clearly at 11px
+  // Off-day tints — applied to cells with no punch. A real punch
+  // on a Sunday / holiday still shows the P/L/H fill above; these
+  // only kick in for the "no data on an off day" case.
+  &--weekoff { background: rgba(148, 163, 184, 0.14); color: #64748b; font-size: 9.5px; }
+  &--holiday { background: rgba(37, 99, 235, 0.16);   color: #1d4ed8; font-size: 9.5px; }
+}
+
+// Whole-column tint on the day header — reinforces the off-day
+// visual so HR scans down a Sunday / holiday column and sees the
+// off-day nature at a glance even before reading the cell letters.
+thead th.rep-grid-day--holiday {
+  background: rgba(37, 99, 235, 0.10) !important;
+  color: #1d4ed8 !important;
+}
+
+// td-level classes — kept separate from `.grid-cell` (which is the
+// inner circle span) so table layout stays intact. Earlier the cell
+// class was applied to the <td> itself; that class carried
+// display:inline-block + fixed 28x28 which broke row layout on
+// larger ranges and caused cells to stack vertically.
+.rep-grid-td {
+  text-align: center;
+  vertical-align: middle;
+  padding: 3px 2px;
+
+  &--weekend { background: rgba(148, 163, 184, 0.06); }
+  &--holiday { background: rgba(37, 99, 235, 0.06); }
+}
+
+// ═════════════════════════════════════════════════════════════
+//  Print (PDF export via browser)
+// ═════════════════════════════════════════════════════════════
+@media print {
+  .no-print { display: none !important; }
+  .rep-container { gap: 8px; padding: 0; }
+  .rep-kpi-row { grid-template-columns: repeat(6, 1fr); }
+  .rep-kpi { box-shadow: none; }
+  .rep-table-card, .rep-loading-card { box-shadow: none; border-color: rgba(148, 163, 184, 0.30) !important; }
+  .rep-grid-scroll, .rep-table-scroll { overflow: visible; }
+  .rep-grid tbody td.rep-grid-emp,
+  .rep-grid thead th.rep-grid-emp { position: static; }
+  // Sidebar / app chrome — belongs to the layout, hidden by the
+  // .no-print class applied on those elements at the layout level.
+  // Here we just make sure our own on-page controls (filter card,
+  // toolbar, legend) collapse away for a clean printed report.
+}
+
+// ═════════════════════════════════════════════════════════════
+//  Dark theme
+// ═════════════════════════════════════════════════════════════
+:host-context(body.dark-theme) {
+  .rep-filter-card, .rep-kpi, .rep-table-card, .rep-loading-card {
+    background: #1c1a15 !important;
+    border-color: rgba(212, 168, 67, 0.30) !important;
+  }
+  .rep-filter-title, .rep-kpi-value, .rep-emp-name { color: #f5f5f5; }
+  .rep-table th, .rep-grid thead th { background: #22201a; color: #94a3b8; }
+  .rep-grid tbody td.rep-grid-emp { background: #1c1a15; border-right-color: rgba(148, 163, 184, 0.25); }
+  .rep-grid-legend { background: #22201a; color: #94a3b8; }
+  .rep-table td { color: #cbd5e1; }
+  .rep-percent-bar { background: rgba(148, 163, 184, 0.25); }
+}

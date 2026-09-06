@@ -1,0 +1,177 @@
+<div class="hr-dash-container">
+  <app-page-header
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'HR' }
+    ]">
+  </app-page-header>
+
+  <!-- ── Compact personal-punch strip ────────────────────
+       Kept as a small horizontal row so the HR user can log
+       their own IN / OUT without leaving the dashboard. -->
+  <div class="hero-strip">
+    <div class="hero-avatar">{{ (welcomeName || '?').charAt(0).toUpperCase() }}</div>
+    <div class="hero-body">
+      <div class="hero-name">{{ welcomeName }}</div>
+      <span class="hero-substatus"
+            [class.hero-substatus--done]="today?.outTime"
+            [class.hero-substatus--started]="today && !today.outTime"
+            [class.hero-substatus--pending]="!today">
+        <span class="hero-dot"></span>
+        {{ workStatusLine }}
+      </span>
+    </div>
+    <button mat-flat-button class="hero-cta"
+            *ngIf="canPunch"
+            (click)="goToMarkPage()">
+      <mat-icon>{{ bigButtonIcon }}</mat-icon>
+      {{ bigButtonLabel }}
+    </button>
+    <div class="hero-done-inline" *ngIf="!canPunch && today && today.outTime">
+      <mat-icon>verified</mat-icon>
+      <span>IN {{ formatRowTime(today.inTime) }} · OUT {{ formatRowTime(today.outTime) }}</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       Today at a glance — KPI grid
+       ═══════════════════════════════════════════════════ -->
+  <div class="kpi-section" *ngIf="isEnabled('hr_attendance')">
+    <div class="kpi-header">
+      <h3>Today at a glance</h3>
+      <span class="kpi-sub" *ngIf="isLoadingStats">
+        <mat-spinner diameter="14"></mat-spinner> Loading…
+      </span>
+      <span class="kpi-sub" *ngIf="!isLoadingStats">Live snapshot</span>
+    </div>
+    <div class="kpi-grid">
+      <ng-container *ngFor="let k of kpis">
+        <a *ngIf="k.route; else staticCard"
+           class="kpi kpi--{{ k.tone }}"
+           [routerLink]="k.route">
+          <div class="kpi-icon"><mat-icon>{{ k.icon }}</mat-icon></div>
+          <div class="kpi-body">
+            <div class="kpi-value">{{ k.value }}</div>
+            <div class="kpi-label">{{ k.label }}</div>
+            <div class="kpi-hint" *ngIf="k.hint">{{ k.hint }}</div>
+          </div>
+          <mat-icon class="kpi-chev">chevron_right</mat-icon>
+        </a>
+        <ng-template #staticCard>
+          <div class="kpi kpi--{{ k.tone }}">
+            <div class="kpi-icon"><mat-icon>{{ k.icon }}</mat-icon></div>
+            <div class="kpi-body">
+              <div class="kpi-value">{{ k.value }}</div>
+              <div class="kpi-label">{{ k.label }}</div>
+              <div class="kpi-hint" *ngIf="k.hint">{{ k.hint }}</div>
+            </div>
+          </div>
+        </ng-template>
+      </ng-container>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       Two-panel row — Live activity + Pending approvals
+       ═══════════════════════════════════════════════════ -->
+  <div class="panels-row" *ngIf="isEnabled('hr_attendance')">
+
+    <!-- Live activity ─────────────────────────── -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">
+          <mat-icon>timeline</mat-icon>
+          <span>Live activity</span>
+        </div>
+        <a class="panel-link" routerLink="/hr/attendance/daily">See all</a>
+      </div>
+
+      <div class="panel-empty" *ngIf="!isLoadingStats && recentActivity.length === 0">
+        <mat-icon>hourglass_empty</mat-icon>
+        <p>No punches yet today.</p>
+      </div>
+
+      <div class="activity-list" *ngIf="recentActivity.length > 0">
+        <div class="activity-row" *ngFor="let r of recentActivity">
+          <div class="activity-avatar">{{ initials(r.employeeName) }}</div>
+          <div class="activity-body">
+            <div class="activity-name">{{ r.employeeName }}</div>
+            <div class="activity-meta">
+              <span class="activity-tag"
+                    [class.activity-tag--out]="!!r.outTime">
+                {{ activityLabel(r) }}
+              </span>
+              {{ formatRowTime(activityTimeIso(r)) }}
+              <span class="activity-dot">·</span>
+              <span class="activity-ago">{{ activityAgo(r) }}</span>
+            </div>
+          </div>
+          <span class="activity-status"
+                [class.activity-status--late]="r.late"
+                [class.activity-status--half]="r.status === 'HALF_DAY'">
+            {{ r.late ? 'Late' : r.status }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending approvals ─────────────────────── -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">
+          <mat-icon>pending_actions</mat-icon>
+          <span>Pending approvals</span>
+          <span class="panel-count" *ngIf="pendingRequests.length > 0">
+            {{ pendingRequests.length }}
+          </span>
+        </div>
+        <a class="panel-link" routerLink="/hr/attendance/approvals">Review all</a>
+      </div>
+
+      <div class="panel-empty" *ngIf="!isLoadingStats && pendingRequests.length === 0">
+        <mat-icon>done_all</mat-icon>
+        <p>All caught up — no pending requests.</p>
+      </div>
+
+      <div class="approval-list" *ngIf="pendingPanelTop.length > 0">
+        <a class="approval-row"
+           *ngFor="let r of pendingPanelTop"
+           routerLink="/hr/attendance/approvals">
+          <div class="approval-avatar">{{ initials(r.employeeName) }}</div>
+          <div class="approval-body">
+            <div class="approval-name">
+              {{ r.employeeName || 'Employee' }}
+              <span class="approval-date">· {{ formatRequestDate(r.date) }}</span>
+            </div>
+            <div class="approval-reason">"{{ r.reason || 'Missed punch' }}"</div>
+          </div>
+          <mat-icon class="approval-chev">chevron_right</mat-icon>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Quick-nav chips (small, at the bottom) ────── -->
+  <div class="chip-nav" *ngIf="visibleChips.length > 0">
+    <a class="chip"
+       *ngFor="let c of visibleChips"
+       [routerLink]="c.route">
+      <mat-icon>{{ c.icon }}</mat-icon>
+      <span>{{ c.label }}</span>
+      <span class="chip-badge" *ngIf="c.badge && c.badge > 0">{{ c.badge }}</span>
+    </a>
+  </div>
+
+  <!-- All sub-features disabled — explain what's happening. -->
+  <div class="empty-features-card" *ngIf="visibleChips.length === 0">
+    <mat-icon>toggle_off</mat-icon>
+    <div>
+      <h4>No HR sub-features are enabled yet</h4>
+      <p>
+        The HR module is turned on, but individual features (Daily Attendance,
+        Approvals, Attendance Settings, Terminal Bindings) are all off for
+        your school. Ask your super-admin to enable the sub-features you need.
+      </p>
+    </div>
+  </div>
+</div>

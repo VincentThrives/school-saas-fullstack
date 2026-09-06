@@ -1,222 +1,736 @@
-$gold: #D4A843;
+$gold:      #D4A843;
 $gold-dark: #B8860B;
+$ink:       #1a1a1a;
+$muted:     #64748b;
 
-.my-att-container { padding: 0; }
+// Status colors — palette echoes the reference screenshots.
+// Half-day is deliberately purple (not another orange) so it doesn't
+// get confused with Late (amber) or Absent (red) at a glance —
+// three warm colors side-by-side was making the calendar hard to
+// read. Purple sits in its own hue lane and reads as "special day".
+$c-present:  #86efac;  // light green, softer than material default
+$c-present-strong: #22c55e;
+$c-late:     #f59e0b;  // amber — bright but distinct from red
+$c-halfday:  #a855f7;  // purple — separated from the warm-color stack
+$c-absent:   #ef4444;  // clear red — deeper than before for contrast
+$c-weekoff:  #e2e8f0;
+$c-today:    #0f766e;  // dark teal ring — echoes the reference "Today"
+$c-reg:      #2563eb;  // blue — regularization / manual correction marker
+
+.my-att-container {
+  padding: 0 0 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
 .loading-strip {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 24px;
-  color: #64748b;
-  font-size: 13px;
+  padding: 20px;
+  color: $muted;
 }
 
-// ── Not-configured card ──────────────────────────
 .empty-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 20px 24px;
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 22px 24px !important;
+  background: rgba(148, 163, 184, 0.06) !important;
+  border: 1px dashed rgba(148, 163, 184, 0.35) !important;
   border-radius: 12px !important;
-  background: rgba(148, 163, 184, 0.08);
-  border: 1px solid rgba(148, 163, 184, 0.30);
 
-  mat-icon {
-    color: #64748b;
-    font-size: 28px;
-    width: 28px;
-    height: 28px;
-    margin-top: 2px;
-  }
-  h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
-  p  { margin: 0; font-size: 13.5px; color: #64748b; }
+  mat-icon { color: $muted; font-size: 26px; width: 26px; height: 26px; margin-top: 2px; }
+  h3 { margin: 0 0 4px; font-size: 15px; color: #334155; }
+  p  { margin: 0; color: $muted; font-size: 13px; line-height: 1.5; }
 }
 
-// ── Today card ────────────────────────────────────
-.today-card {
-  margin-bottom: 20px;
-  border-radius: 14px !important;
-  background: linear-gradient(135deg, rgba(212, 168, 67, 0.10) 0%, rgba(212, 168, 67, 0.03) 100%) !important;
-  border: 1px solid rgba(212, 168, 67, 0.30);
-}
-
-.today-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.today-left {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-
-  .today-label {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #94a3b8;
-    font-weight: 600;
-  }
-  .today-date {
-    font-size: 18px;
-    font-weight: 700;
-    color: #1a1a1a;
-  }
-}
-
-.today-right {
+// ═════════════════════════════════════════════════════════════
+//  Hero card (welcome + mark button + live ticker)
+// ═════════════════════════════════════════════════════════════
+// Hero strip — single-row horizontal card on desktop.
+//
+// Layout: [avatar] [name + inline status] [CTA button]
+// The whole strip is ~60px tall, replacing the earlier 180px
+// stacked card that pushed the calendar below the fold. On
+// small screens the status wraps under the name and the CTA
+// stretches full-width across a second row.
+.hero-strip {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 168, 67, 0.20);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+
+  @media (max-width: 640px) {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+  }
 }
 
-.mark-btn {
-  padding: 0 22px !important;
-  height: 44px !important;
-  border-radius: 22px !important;
-  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+.hero-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%);
+  color: #ffffff; font-size: 15px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(199, 150, 47, 0.28);
+  flex-shrink: 0;
+}
+
+.hero-body {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.hero-name {
+  font-size: 14px; font-weight: 700; color: $ink;
+  letter-spacing: -0.01em; line-height: 1.15;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hero-substatus {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 500; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  &--pending { color: $muted; }
+  &--started { color: #1d4ed8; }
+  &--done    { color: #2e7d32; }
+}
+.hero-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+.hero-cta {
+  height: 36px !important;
+  padding: 0 14px !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
   color: #ffffff !important;
-  font-weight: 600 !important;
-  box-shadow: 0 4px 12px rgba(199, 150, 47, 0.30) !important;
+  font-size: 12.5px !important; font-weight: 700 !important;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25) !important;
+  display: inline-flex !important; align-items: center !important; gap: 6px;
+  flex-shrink: 0;
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+  &:hover:not([disabled]) { box-shadow: 0 4px 12px rgba(37, 99, 235, 0.32) !important; }
 
-  mat-icon {
-    margin-right: 6px;
-    vertical-align: middle;
-  }
-
-  &:hover:not([disabled]) {
-    box-shadow: 0 6px 16px rgba(199, 150, 47, 0.40) !important;
-  }
-  &[disabled] { opacity: 0.7; }
+  @media (max-width: 500px) { flex-basis: 100%; justify-content: center !important; }
 }
 
-.status-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 14px;
-  font-size: 13px;
-  font-weight: 600;
-
-  mat-icon {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
-  }
-
-  &.chip-present { background: rgba(76,175,80,0.14); color: #2e7d32; }
-  &.chip-late    { background: rgba(255,152,0,0.14); color: #e65100; }
-  &.chip-halfday { background: rgba(156,39,176,0.14); color: #6a1b9a; }
-  &.chip-absent  { background: rgba(244,67,54,0.14); color: #c62828; }
-
-  .late-inline {
-    margin-left: 6px;
-    font-weight: 500;
-    opacity: 0.85;
-  }
+.hero-done-inline {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 16px;
+  background: rgba(76, 175, 80, 0.14); color: #15803d;
+  font-size: 12px; font-weight: 600;
+  flex-shrink: 0;
+  mat-icon { font-size: 16px; width: 16px; height: 16px; color: #16a34a; }
+  span { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 11.5px; }
 }
 
-.status-inline.done { color: #2e7d32; }
+// Live ticker strip — no top-margin now that it lives as its
+// own sibling of .hero-strip (the parent container gap handles
+// spacing between them).
+.hero-ticker {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fbfaf5;
+  border: 1px solid rgba(212, 168, 67, 0.20);
 
-.today-hint {
-  margin: 14px 0 0;
-  font-size: 12.5px;
-  color: #64748b;
-
-  strong { color: #7a5a14; font-weight: 600; }
-}
-
-// ── History card ─────────────────────────────────
-.history-card {
-  border-radius: 12px !important;
-}
-
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 16px 20px 8px;
-
-  h3 { margin: 0; font-size: 16px; font-weight: 600; }
-  .history-count {
-    font-size: 12px;
-    color: #94a3b8;
-    background: rgba(148, 163, 184, 0.10);
-    padding: 3px 10px;
-    border-radius: 12px;
-  }
-}
-
-.history-table {
-  width: 100%;
-
-  th, td { font-size: 13px; }
-
-  .status-chip {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 10px;
-    font-size: 11.5px;
-    font-weight: 600;
-
-    &.chip-present { background: rgba(76,175,80,0.12); color: #2e7d32; }
-    &.chip-late    { background: rgba(255,152,0,0.12); color: #e65100; }
-    &.chip-halfday { background: rgba(156,39,176,0.12); color: #6a1b9a; }
-    &.chip-absent  { background: rgba(244,67,54,0.12); color: #c62828; }
-  }
-
-  .late-tag {
-    display: inline-block;
-    margin-left: 6px;
-    padding: 2px 6px;
+  > mat-icon {
+    width: 28px; height: 28px; font-size: 16px;
     border-radius: 8px;
-    background: rgba(255,152,0,0.14);
-    color: #e65100;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
+    background: linear-gradient(135deg, $gold 0%, $gold-dark 100%);
+    color: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  &--live {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(37, 99, 235, 0.02) 100%);
+    border-color: rgba(37, 99, 235, 0.25);
+    > mat-icon {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    }
+    .hero-ticker-value { color: #1d4ed8; }
+  }
+}
+.hero-ticker-body { flex: 1; min-width: 0; }
+.hero-ticker-label {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+  color: $muted; text-transform: uppercase;
+}
+.hero-ticker-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #ef4444;
+  animation: hero-ticker-pulse 1.4s ease-out infinite;
+}
+@keyframes hero-ticker-pulse {
+  0%   { box-shadow: 0 0 0 0    rgba(239, 68, 68, 0.5); }
+  70%  { box-shadow: 0 0 0 8px  rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0    rgba(239, 68, 68, 0); }
+}
+.hero-ticker-value {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 14px; font-weight: 700; color: $ink;
+  margin-top: 1px;
+}
+.hero-ticker-times {
+  display: flex; flex-direction: column; gap: 2px;
+  text-align: right;
+  font-size: 11px; color: $muted;
+  span { color: $gold-dark; font-weight: 700; margin-right: 4px; }
+
+  @media (max-width: 500px) { display: none; }
+}
+
+// ═════════════════════════════════════════════════════════════
+//  Segmented pill tabs
+// ═════════════════════════════════════════════════════════════
+.seg-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  background: rgba(212, 168, 67, 0.08);
+  border-radius: 12px;
+  border: 1px solid rgba(212, 168, 67, 0.20);
+  width: fit-content;
+
+  @media (max-width: 600px) { width: 100%; }
+}
+.seg-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  color: $muted;
+  font-weight: 600; font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  position: relative;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  &:hover:not(&--active) {
+    background: rgba(212, 168, 67, 0.10);
+    color: $gold-dark;
   }
 
-  .src-icon {
-    color: #94a3b8;
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
-    cursor: help;
+  &--active {
+    background: #ffffff;
+    color: $gold-dark;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  @media (max-width: 600px) { flex: 1; justify-content: center; }
+}
+.seg-tab-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 10px;
+  background: #ef4444; color: #ffffff;
+  font-size: 10.5px; font-weight: 700;
+}
+
+// ═════════════════════════════════════════════════════════════
+//  Monthly stats card
+// ═════════════════════════════════════════════════════════════
+// Stats card — compact desktop layout to match the shrunk hero.
+// The five stat pills are still colour-coded on the left border
+// but sit at ~half the height of the earlier design.
+.stats-card {
+  padding: 12px 16px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(212, 168, 67, 0.20) !important;
+  background: #ffffff !important;
+
+  @media (max-width: 640px) { padding: 10px 12px !important; }
+}
+
+.stats-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+
+  @media (max-width: 500px) { flex-direction: column; align-items: stretch; gap: 8px; }
+}
+
+.stats-total {
+  font-size: 22px; font-weight: 800; color: $ink;
+  line-height: 1; letter-spacing: -0.02em;
+}
+.stats-total-label {
+  font-size: 10.5px; color: $muted;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  font-weight: 600; margin-top: 3px;
+}
+
+// Month picker — [◀] [September 2026] [▶].
+//
+// Earlier attempts used chevron_left/right (Material's thin
+// underlined glyphs) plus a 32px mat-icon-button, so the buttons
+// rendered as almost-invisible plain text with a small circle
+// behind them. Now:
+//   1. Uses .stats-nav-btn (custom class) so we can fully own the
+//      styling instead of fighting Material's inflated
+//      .mat-mdc-icon-button padding + touch-target.
+//   2. Uses keyboard_arrow_left/right — the CHUNKIER chevrons —
+//      so the glyph itself reads as an obvious arrow at 24px.
+//   3. Solid gold-tinted circle w/ deep-gold icon so the control
+//      pops against the fbfaf5 monthbox background.
+.stats-monthbox {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 6px;
+  border: 1px solid rgba(212, 168, 67, 0.30);
+  border-radius: 12px;
+  background: #fbfaf5;
+
+  // Kill Material's default 48x48 icon-button padding + ripple
+  // touch-target that inflates the hit area past our 36px circle.
+  // Without these overrides the visible circle sits inside a
+  // much larger invisible box and adjacent controls drift apart.
+  ::ng-deep .mat-mdc-button-touch-target { width: 36px !important; height: 36px !important; }
+  ::ng-deep .mat-mdc-button-persistent-ripple { border-radius: 50% !important; }
+
+  .stats-nav-btn {
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, rgba(212, 168, 67, 0.18) 0%, rgba(184, 134, 11, 0.14) 100%) !important;
+    color: $gold-dark !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: background 0.12s ease, transform 0.1s ease, box-shadow 0.12s ease;
+    box-shadow: 0 1px 3px rgba(184, 134, 11, 0.12);
+
+    &:hover:not([disabled]) {
+      background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+      color: #ffffff !important;
+      transform: scale(1.06);
+      box-shadow: 0 3px 8px rgba(184, 134, 11, 0.30);
+    }
+    &[disabled] {
+      background: rgba(148, 163, 184, 0.10) !important;
+      color: rgba(148, 163, 184, 0.55) !important;
+      box-shadow: none;
+    }
+
+    mat-icon {
+      font-size: 24px !important;
+      width: 24px !important;
+      height: 24px !important;
+      line-height: 24px !important;
+      // The keyboard_arrow_* glyphs render with a bit of
+      // top-space, so nudge them up 1px to centre optically.
+      margin-top: -1px;
+    }
+  }
+
+  // On mobile, the header stacks vertically and the monthbox
+  // becomes a full-width row of [◀] [September 2026] [▶].
+  // `justify-content: space-between` pins the arrows to the ends
+  // and the label takes the middle via `flex: 1` (below).
+  //
+  // `box-sizing: border-box` + `max-width: 100%` prevent the box
+  // from bleeding past the stats-card content area (padding stays
+  // inside the width budget). `min-width: 0` on the flex children
+  // stops the label's ellipsis logic from pushing width.
+  @media (max-width: 500px) {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    justify-content: space-between;
+    padding: 4px 6px;
+
+    ::ng-deep .mat-mdc-button-touch-target { width: 38px !important; height: 38px !important; }
+    .stats-nav-btn {
+      width: 38px !important;
+      height: 38px !important;
+      flex-shrink: 0;   // never let the label push the arrows off-canvas
+      mat-icon {
+        font-size: 24px !important;
+        width: 24px !important;
+        height: 24px !important;
+        line-height: 24px !important;
+      }
+    }
+  }
+}
+.stats-month {
+  font-size: 13px; font-weight: 700; color: $ink;
+  padding: 0 6px;
+  min-width: 118px; text-align: center;
+
+  @media (max-width: 500px) {
+    flex: 1;                // grow to fill the space between the arrows
+    font-size: 14px;        // easier to read at arm's length on a phone
+    padding: 0 4px;
   }
 }
 
-.empty-state {
-  text-align: center;
-  padding: 40px 24px;
-  color: #94a3b8;
-
-  mat-icon {
-    font-size: 40px;
-    width: 40px;
-    height: 40px;
-    color: rgba(148, 163, 184, 0.4);
-  }
-  p { margin: 12px 0 0; font-size: 13px; }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 6px;
 }
 
-// ── Dark theme ───────────────────────────────────
+.stat {
+  display: flex; flex-direction: column;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #fbfaf5;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-left: 3px solid transparent;
+
+  &--present { border-left-color: $c-present-strong; background: rgba(34, 197, 94, 0.05); }
+  &--late    { border-left-color: $c-late;           background: rgba(245, 158, 11, 0.05); }
+  &--halfday { border-left-color: $c-halfday;        background: rgba(168, 85, 247, 0.06); }
+  &--absent  { border-left-color: $c-absent;         background: rgba(239, 68, 68, 0.05); }
+  &--weekoff { border-left-color: #94a3b8;           background: rgba(148, 163, 184, 0.05); }
+}
+.stat-value { font-size: 16px; font-weight: 800; color: $ink; letter-spacing: -0.02em; }
+.stat-label { font-size: 9.5px; color: $muted;
+              text-transform: uppercase; letter-spacing: 0.04em;
+              font-weight: 600; margin-top: 1px; }
+
+// ═════════════════════════════════════════════════════════════
+//  Calendar
+// ═════════════════════════════════════════════════════════════
+.cal-card {
+  padding: 20px 24px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(212, 168, 67, 0.20) !important;
+
+  @media (max-width: 640px) { padding: 14px 12px !important; }
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  place-items: center;
+
+  @media (max-width: 500px) { gap: 3px; }
+}
+
+.cal-dow {
+  font-size: 12px; font-weight: 700;
+  color: $muted;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 6px 0 10px;
+
+  &--weekend { color: #f87171; }
+}
+
+.cal-cell {
+  position: relative;   // so the corner dot for regularization can absolute-position
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13.5px; font-weight: 600;
+  color: $muted;
+  background: rgba(148, 163, 184, 0.08);
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+
+  &:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
+  &--other { cursor: default; &:hover { transform: none; box-shadow: none; } }
+
+  span { line-height: 1; }
+
+  // Corner-dot indicators — mutually distinguishable colors so
+  // multiple states (approved regularization, pending review,
+  // rejected) each read clearly without competing with the
+  // status fill of the circle underneath.
+  //
+  //   blue  = approved regularization / HR manual entry
+  //   amber = pending regularization
+  //   red   = rejected regularization
+  &--regularized::after,
+  &--manual::after,
+  &--reg-pending::after,
+  &--reg-rejected::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.20);
+  }
+  &--regularized::after,
+  &--manual::after       { background: $c-reg; }         // blue
+  &--reg-pending::after  { background: $c-late; }        // amber
+  &--reg-rejected::after { background: $c-absent; }      // red
+
+  // If a cell has BOTH an approved-source row AND an old rejected
+  // request (rare but possible if the employee reapplied), the
+  // approved (blue) wins because approved comes later in the class
+  // list precedence via the class ordering above.
+
+  @media (max-width: 500px) { width: 36px; height: 36px; font-size: 12px; }
+  @media (max-width: 360px) { width: 32px; height: 32px; font-size: 11px; }
+
+  &--other { background: transparent; color: rgba(148, 163, 184, 0.45); }
+
+  &--weekoff { background: $c-weekoff; color: $muted; }
+
+  // Declared holiday — solid blue fill matching the visual weight
+  // of the other status circles (Present green, Late amber, etc)
+  // so a scan of the calendar reads it as its own strong state,
+  // not a subtle tint that looks like an unselected day.
+  &--holiday {
+    background: #2563eb;
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
+  }
+
+  &--future { background: transparent; color: $ink; opacity: 0.55; }
+
+  &--present {
+    background: $c-present;
+    color: #14532d;
+    font-weight: 700;
+  }
+  &--late {
+    background: $c-late;
+    color: #ffffff;
+    font-weight: 700;
+  }
+  &--halfday {
+    background: $c-halfday;
+    color: #ffffff;
+    font-weight: 700;
+  }
+  &--absent {
+    background: $c-absent;
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  // Pending regularization on a day WITHOUT an attendance row —
+  // subtle amber tint + dashed border so the day still reads as
+  // "something happened here" without competing with real status
+  // fills. When status IS present the fill wins and only the
+  // corner dot signals the pending review.
+  &--reg-pending:not(&--present):not(&--late):not(&--halfday):not(&--absent) {
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
+    box-shadow: inset 0 0 0 1.5px rgba(245, 158, 11, 0.55);
+  }
+  // Same idea for rejected — a soft red hint so employees know
+  // they asked for that day and HR turned it down.
+  &--reg-rejected:not(&--present):not(&--late):not(&--halfday):not(&--absent) {
+    background: rgba(239, 68, 68, 0.10);
+    color: #991b1b;
+    box-shadow: inset 0 0 0 1.5px rgba(239, 68, 68, 0.40);
+  }
+
+  &--today {
+    box-shadow: 0 0 0 2px $c-today;
+    color: $c-today;
+    font-weight: 800;
+
+    &.cal-cell--present,
+    &.cal-cell--late,
+    &.cal-cell--halfday,
+    &.cal-cell--absent {
+      // Keep today's ring + let the status color win the fill.
+      color: #ffffff;
+    }
+  }
+}
+
+// Legend — two visually separated groups.
+//
+// Group 1 "Day status" uses solid fill dots, which read as cell
+// fills (matching how the whole calendar cell gets colored).
+//
+// Group 2 "Indicator (corner dot)" uses tiny mini-cell chips — a
+// small outlined circle with a colored dot in the top-right
+// corner. This mirrors exactly how the calendar renders those
+// states (on TOP of a cell), so employees don't confuse an
+// amber corner dot for the amber "Late" fill.
+.cal-legend {
+  display: flex; flex-wrap: wrap; gap: 12px 32px;
+  margin-top: 18px; padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  font-size: 12px; color: $muted;
+}
+.cal-legend-group {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+}
+.cal-legend-group--indicators {
+  padding-left: 20px;
+  border-left: 1px solid rgba(148, 163, 184, 0.20);
+
+  @media (max-width: 640px) {
+    padding-left: 0;
+    padding-top: 10px;
+    margin-top: 4px;
+    border-left: none;
+    border-top: 1px dashed rgba(148, 163, 184, 0.20);
+    flex-basis: 100%;
+  }
+}
+.cal-legend-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+  color: $muted; text-transform: uppercase;
+  margin-right: 4px;
+}
+.legend-item { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+.dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  &.dot-today   { background: transparent; box-shadow: 0 0 0 2px $c-today; }
+  &.dot-present { background: $c-present; }
+  &.dot-late    { background: $c-late; }
+  &.dot-halfday { background: $c-halfday; }
+  &.dot-absent  { background: $c-absent; }
+  &.dot-weekoff { background: $c-weekoff; border: 1px solid rgba(148, 163, 184, 0.35); }
+  &.dot-holiday { background: #2563eb; }
+}
+
+// Mini cell chip — outlined circle with a corner dot. Sample of
+// how the indicator renders on a real calendar cell, so users
+// map the legend directly to what they see.
+.chip {
+  position: relative;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.10);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  }
+  &.chip-reg::after          { background: $c-reg; }
+  &.chip-reg-pending::after  { background: $c-late; }
+  &.chip-reg-rejected::after { background: $c-absent; }
+}
+
+// ═════════════════════════════════════════════════════════════
+//  Regularization card (retained)
+// ═════════════════════════════════════════════════════════════
+.reg-card {
+  padding: 18px 20px !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(212, 168, 67, 0.25) !important;
+  background: #fbfaf5 !important;
+}
+.reg-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  @media (max-width: 600px) { flex-direction: column; align-items: stretch; }
+}
+.reg-info {
+  display: flex; gap: 14px; align-items: flex-start; min-width: 0;
+  strong { display: block; font-size: 14px; color: $ink; font-weight: 700; margin-bottom: 2px; }
+  p { margin: 0; font-size: 12.5px; color: $muted; line-height: 1.4; }
+}
+.reg-icon { color: $gold-dark; font-size: 26px; width: 26px; height: 26px; margin-top: 2px; }
+.reg-btn {
+  height: 40px !important; padding: 0 18px !important;
+  border-radius: 20px !important;
+  background: linear-gradient(135deg, $gold 0%, $gold-dark 100%) !important;
+  color: #ffffff !important; font-weight: 600 !important;
+  box-shadow: 0 3px 10px rgba(199, 150, 47, 0.28) !important;
+  white-space: nowrap;
+  mat-icon { margin-right: 6px; vertical-align: middle; }
+  @media (max-width: 600px) { width: 100%; }
+}
+.reg-list {
+  margin-top: 16px; padding-top: 14px;
+  border-top: 1px solid rgba(212, 168, 67, 0.20);
+  h4 { margin: 0 0 10px;
+       font-size: 12.5px; font-weight: 700;
+       text-transform: uppercase; letter-spacing: 0.05em; color: $muted; }
+}
+.reg-item {
+  padding: 10px 12px; border-radius: 8px;
+  background: #ffffff; border: 1px solid rgba(148, 163, 184, 0.14);
+  margin-bottom: 8px;
+  &:last-child { margin-bottom: 0; }
+}
+.reg-item-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.reg-item-date { font-weight: 600; font-size: 13px; color: $ink; }
+.reg-item-times {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 12.5px; color: $muted;
+}
+.reg-item-status {
+  margin-left: auto;
+  padding: 3px 10px; border-radius: 10px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  &.chip-pending  { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+  &.chip-approved { background: rgba(76, 175, 80, 0.16); color: #2e7d32; }
+  &.chip-rejected { background: rgba(244, 67, 54, 0.14); color: #c62828; }
+}
+.reg-item-reason { font-size: 12px; color: #475569; margin-top: 6px; font-style: italic; }
+.reg-item-review {
+  display: flex; gap: 6px; align-items: flex-start;
+  font-size: 12px; color: $muted; margin-top: 6px;
+  mat-icon { font-size: 15px; width: 15px; height: 15px; margin-top: 1px; }
+}
+.reg-empty {
+  text-align: center; padding: 28px 20px; color: $muted;
+  mat-icon { font-size: 32px; width: 32px; height: 32px; margin-bottom: 8px; }
+  p { margin: 0; font-size: 13px; }
+}
+
+// ═════════════════════════════════════════════════════════════
+//  Dark theme
+// ═════════════════════════════════════════════════════════════
 :host-context(body.dark-theme) {
-  .today-card { background: linear-gradient(135deg, rgba(212, 168, 67, 0.14) 0%, rgba(212, 168, 67, 0.06) 100%) !important; }
-  .today-left .today-date { color: #f5f5f5; }
-  .empty-card { background: rgba(148, 163, 184, 0.10); }
-  .history-header h3 { color: #f5f5f5; }
-  .today-hint strong { color: #F0C96A; }
-}
-
-@media (max-width: 600px) {
-  .today-row { flex-direction: column; align-items: flex-start; }
-  .today-right { width: 100%; }
-  .mark-btn { width: 100%; justify-content: center; }
+  .hero-card {
+    background: #1c1a15;
+    border-color: rgba(212, 168, 67, 0.30);
+    .hero-hi { color: #94a3b8; }
+    .hero-name { color: #f5f5f5; }
+  }
+  .hero-ticker {
+    background: #22201a;
+    border-color: rgba(212, 168, 67, 0.30);
+  }
+  .hero-ticker-value { color: #f5f5f5; }
+  .seg-tabs { background: rgba(212, 168, 67, 0.14); border-color: rgba(212, 168, 67, 0.30); }
+  .seg-tab--active { background: #1c1a15; }
+  .stats-card {
+    background: #1c1a15 !important;
+    border-color: rgba(212, 168, 67, 0.30) !important;
+  }
+  .stats-total { color: #f5f5f5; }
+  .stats-monthbox { background: #22201a; border-color: rgba(212, 168, 67, 0.30); }
+  .stats-month { color: #f5f5f5; }
+  .stat { background: #22201a; border-color: rgba(148, 163, 184, 0.20); }
+  .stat-value { color: #f5f5f5; }
+  .cal-card { background: #1c1a15 !important; border-color: rgba(212, 168, 67, 0.30) !important; }
+  .cal-cell { background: rgba(148, 163, 184, 0.10); color: #94a3b8; }
+  .cal-cell--future { color: #cbd5e1; }
+  .reg-card {
+    background: #22201a !important;
+    border-color: rgba(212, 168, 67, 0.35) !important;
+    .reg-info strong { color: #f5f5f5; }
+    .reg-info p { color: #94a3b8; }
+    .reg-list { border-top-color: rgba(212, 168, 67, 0.25); }
+    .reg-list h4 { color: #94a3b8; }
+    .reg-item { background: #1c1a15; border-color: rgba(148, 163, 184, 0.20); }
+    .reg-item-date { color: #f5f5f5; }
+    .reg-item-times { color: #94a3b8; }
+    .reg-item-reason { color: #cbd5e1; }
+    .reg-item-review { color: #94a3b8; }
+  }
+  .empty-card { background: rgba(148, 163, 184, 0.10) !important; }
 }

@@ -58,18 +58,201 @@ $gold-dark: #B8860B;
   }
 
   &__stats {
+    // Original 4-in-a-row layout preserved. My Details launcher
+    // now lives OUTSIDE this grid (in __details-row below) so the
+    // 4-card rhythm never breaks — no lopsided 3+2 wrap at mid
+    // widths, no forced 5-column that squeezes labels.
+    //
+    // Stat cards themselves stay compact via the ::ng-deep block
+    // further down, so the whole strip still reads small even
+    // though the grid math went back to the original.
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 24px;
-    margin-bottom: 24px;
+    gap: 12px;
+    margin-bottom: 12px;
 
     @media (max-width: 1200px) {
       grid-template-columns: repeat(2, 1fr);
     }
+    @media (max-width: 600px) {
+      grid-template-columns: repeat(2, 1fr);  // keep 2-col even on phones — the original "before" look
+      gap: 8px;
+    }
+    @media (max-width: 380px) {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    // Compact-mode override for the shared <app-stat-card>. Kept
+    // inside the teacher-dashboard scope so other role dashboards
+    // (which still want the roomier default) are untouched.
+    ::ng-deep app-stat-card {
+      .stat-card { border-radius: 12px; }
+      .stat-card__content {
+        padding: 12px 14px !important;
+        align-items: center;
+      }
+      .stat-card__info { gap: 2px; }
+      .stat-card__title    { font-size: 11px; letter-spacing: 0.02em; }
+      .stat-card__value    { font-size: 20px; line-height: 1.1; }
+      .stat-card__subtitle { font-size: 10.5px; }
+      .stat-card__icon-wrapper {
+        width: 34px; height: 34px; border-radius: 8px;
+      }
+      .stat-card__icon {
+        font-size: 18px; width: 18px; height: 18px;
+      }
+    }
+  }
+
+  // ── Workday strip — personal IN / OUT ─────────────
+  // Single horizontal row: icon + your-workday label + status +
+  // CTA button. Same visual language as the HR dashboard's
+  // hero-strip so a user who wears both hats sees consistent
+  // chrome. Only rendered when location-based attendance is on
+  // for the tenant (see workdayStripVisible in the TS).
+  &__workday {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid rgba(212, 168, 67, 0.25);
+    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05);
+
+    @media (max-width: 640px) {
+      flex-wrap: wrap;
+      padding: 10px 12px;
+    }
+  }
+  &__workday-body {
+    display: flex; align-items: center; gap: 10px;
+    flex: 1; min-width: 0;
+  }
+  &__workday-icon {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    background: rgba(148, 163, 184, 0.14);
+    color: #64748b;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px !important;
+    flex-shrink: 0;
+
+    &--started {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: #ffffff;
+    }
+    &--done {
+      background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%);
+      color: #ffffff;
+    }
+  }
+  &__workday-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  &__workday-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+    color: #64748b; text-transform: uppercase;
+  }
+  &__workday-status {
+    font-size: 13px; font-weight: 700; color: #1a1a1a;
+    letter-spacing: -0.01em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  &__workday-btn {
+    height: 36px !important;
+    padding: 0 14px !important;
+    border-radius: 8px !important;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+    color: #ffffff !important;
+    font-size: 12.5px !important; font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25) !important;
+    display: inline-flex !important; align-items: center !important; gap: 6px;
+    flex-shrink: 0;
+
+    mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    &:hover:not([disabled]) { box-shadow: 0 4px 12px rgba(37, 99, 235, 0.32) !important; }
+
+    @media (max-width: 500px) { flex-basis: 100%; justify-content: center !important; }
+  }
+  &__workday-done {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 16px;
+    background: rgba(76, 175, 80, 0.14); color: #15803d;
+    font-size: 12px; font-weight: 600;
+    flex-shrink: 0;
+
+    mat-icon { font-size: 16px; width: 16px; height: 16px; color: #16a34a; }
+  }
+
+  // ── My Details launcher card ─────────────────────
+  // Sits on its own row below the stats grid. Container aligns
+  // it to the start (left) and caps its width so it reads as a
+  // discrete "one more thing" launcher — a full-width strip would
+  // look like a second banner and steal focus from the stat row.
+  &__details-row {
+    margin-bottom: 16px;
+    display: flex;
+  }
+  &__details-card {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #fbfaf5 0%, #ffffff 100%);
+    border: 1px solid rgba(212, 168, 67, 0.30);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    cursor: pointer;
+    text-align: left;
+    font: inherit; color: inherit;
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+    // Natural width — hugs its content on desktop so it doesn't
+    // pretend to be another stat card. Sensible cap so a very long
+    // future hint doesn't stretch across the whole page.
+    min-width: 220px;
+    max-width: 320px;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(199, 150, 47, 0.20);
+    }
+    &:focus-visible {
+      outline: 2px solid #B8860B;
+      outline-offset: 2px;
+    }
 
     @media (max-width: 600px) {
-      grid-template-columns: 1fr;
+      // On phones the card takes the full row — same footprint
+      // logic as the stat cards below it, so the layout reads as
+      // one continuous stack.
+      display: flex;
+      width: 100%;
+      max-width: none;
+      padding: 10px 12px;
+      border-radius: 10px;
     }
+  }
+  &__details-icon {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #D4A843 0%, #B8860B 100%);
+    color: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(199, 150, 47, 0.25);
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  }
+  &__details-body { flex: 1; min-width: 0; }
+  &__details-title {
+    font-size: 13px; font-weight: 700; color: #1a1a1a;
+    letter-spacing: -0.01em; line-height: 1.2;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  &__details-hint {
+    font-size: 11px; color: #64748b; font-weight: 500;
+    margin-top: 2px; line-height: 1.3;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  &__details-chev {
+    color: #64748b; flex-shrink: 0;
+    font-size: 18px; width: 18px; height: 18px;
   }
 
   &__content {

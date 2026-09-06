@@ -8,12 +8,16 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { StatCardComponent } from '../../../shared/components/stat-card/stat-card.component';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { EmployeeAttendance, PublicAttendanceSettings } from '../../../core/models';
+import { MyDetailsDialogComponent } from './my-details-dialog/my-details-dialog.component';
 
 interface ScheduleRow {
   periodNumber: number;
@@ -63,6 +67,7 @@ interface UpcomingEventRow {
     MatTableModule,
     MatButtonModule,
     MatProgressSpinnerModule,
+    MatDialogModule,
     StatCardComponent,
     PageHeaderComponent,
   ],
@@ -92,6 +97,48 @@ export class TeacherDashboardComponent implements OnInit {
 
   scheduleColumns = ['period', 'time', 'class', 'subject', 'room', 'attendance'];
 
+  // ── Personal workday strip state ─────────────────────
+  // Lets a teacher / staff user punch their own IN / OUT directly
+  // from the dashboard instead of drilling into My Details → My
+  // Attendance. Hidden entirely when the tenant hasn't enabled
+  // location-based attendance for employees.
+  attendanceSettings: PublicAttendanceSettings | null = null;
+  todayPunch: EmployeeAttendance | null = null;
+  private todayIso = this.todayStr();
+
+  /** Whether the workday strip should render at all. False when
+   *  location-based attendance is off for the tenant, or when the
+   *  settings call errored (e.g. user isn't an employee record). */
+  get workdayStripVisible(): boolean {
+    return !!this.attendanceSettings?.locationBasedEnabled;
+  }
+
+  get workdayStatusLine(): string {
+    if (!this.todayPunch) return 'Yet to start work today.';
+    if (!this.todayPunch.outTime) {
+      return `Work started at ${this.formatWorkdayTime(this.todayPunch.inTime)}`;
+    }
+    return `Done — IN ${this.formatWorkdayTime(this.todayPunch.inTime)} · OUT ${this.formatWorkdayTime(this.todayPunch.outTime)}`;
+  }
+
+  get workdayCanPunch(): boolean {
+    if (!this.todayPunch) return true;
+    if (!this.todayPunch.outTime) return true;
+    return false;
+  }
+
+  get workdayButtonLabel(): string {
+    if (!this.todayPunch) return 'Start Workday';
+    if (!this.todayPunch.outTime) return 'End Workday';
+    return 'Done for today';
+  }
+
+  get workdayButtonIcon(): string {
+    if (!this.todayPunch) return 'login';
+    if (!this.todayPunch.outTime) return 'logout';
+    return 'verified';
+  }
+
   /** Name half of the header greeting — bold, primary size. */
   get greetingName(): string {
     const name = (this.auth.currentUser?.firstName || '').trim() || 'Teacher';
@@ -112,9 +159,59 @@ export class TeacherDashboardComponent implements OnInit {
   constructor(
     private api: ApiService,
     private auth: AuthService,
+    private dialog: MatDialog,
+    private router: Router,
   ) {}
 
+  /** Fires the settings + today's punch calls used to decide
+   *  whether to show the workday strip and what CTA to render.
+   *  Kept silent-fail so a user without an employee record (or a
+   *  tenant with HR turned off) just sees no strip — never an
+   *  error. */
+  private loadWorkdayStrip(): void {
+    this.api.hrPublicSettings().pipe(catchError(() => of(null as any))).subscribe({
+      next: (res) => { this.attendanceSettings = (res?.data as any) || null; },
+    });
+    this.api.hrMyAttendance().pipe(catchError(() => of({ data: [] as any[] } as any))).subscribe({
+      next: (res) => {
+        const rows = (res?.data as any[]) || [];
+        this.todayPunch = rows.find((r: any) => r.date === this.todayIso) || null;
+      },
+    });
+  }
+
+  /** Sends the user to the location-based punch page — same
+   *  destination the My Attendance page uses. */
+  goToWorkdayMark(): void {
+    this.router.navigate(['/hr/attendance/mark']);
+  }
+
+  private formatWorkdayTime(iso?: string): string {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleTimeString('en-IN',
+      { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+
+  /** Opens the "My Details" launcher popup — a tiny tile grid the
+   *  user can pick from to jump to My Attendance / My Profile.
+   *  Kept as a dashboard-local action rather than a top nav link so
+   *  the personal pages remain discoverable even for teachers who
+   *  never open the sidebar. */
+  openMyDetails(): void {
+    this.dialog.open(MyDetailsDialogComponent, {
+      autoFocus: false,
+      panelClass: 'my-details-dialog-panel',
+      width: '100vw',
+      maxWidth: '100vw',
+    });
+  }
+
   ngOnInit(): void {
+    // Load the personal workday strip in parallel — no dependency
+    // on the year / assignments loads below, and a silent-fail so
+    // non-employee users just don't see the strip.
+    this.loadWorkdayStrip();
+
     // Resolve the school's attendance mode so Mark Now / Mark buttons route
     // to the right page (day-wise vs subject-wise). Falls back to DAY_WISE
     // on error so the buttons still work.

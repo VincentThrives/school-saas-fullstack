@@ -23,6 +23,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -69,6 +70,38 @@ public class FeatureFlagFilter extends OncePerRequestFilter {
             Map.entry("/api/v1/biometric",    "biometric_terminal")
     );
 
+    /**
+     * HR sub-modules — currently just one ({@code hr_attendance}),
+     * but the two-tier structure is set up so future modules
+     * ({@code hr_leave}, {@code hr_payroll}, etc.) plug in the same
+     * way: umbrella {@code hr_module} + one sub-module per area.
+     *
+     * <p>Employee-facing endpoints ({@code /mark-self}, {@code /my},
+     * {@code /settings/public}, {@code /regularization/request},
+     * {@code /regularization/my}) are intentionally NOT in this
+     * table — they're gated by the umbrella only. Otherwise a
+     * disabled sub-module would block employees from marking
+     * themselves in, which is a bad UX and not what the sub-module
+     * toggle is meant to control (it's an admin-side toggle for
+     * "do we show HR staff the admin surface for this area").</p>
+     */
+    private static final List<Map.Entry<String, String>> HR_SUB_FEATURES = List.of(
+        // Admin-side endpoints under /attendance:
+        Map.entry("/api/v1/hr/attendance/regularization/pending",  "hr_attendance"),
+        Map.entry("/api/v1/hr/attendance/regularization/history",  "hr_attendance"),
+        // regularization/{id}/approve, /reject — HR admin actions.
+        // The /request and /my sub-paths are matched employee-side
+        // above by NOT being in this table (falls through to umbrella).
+        Map.entry("/api/v1/hr/attendance/regularization/",         "hr_attendance"),
+        Map.entry("/api/v1/hr/attendance/bindings",                "hr_attendance"),
+        Map.entry("/api/v1/hr/attendance/settings",                "hr_attendance"),
+        Map.entry("/api/v1/hr/attendance/employees",               "hr_attendance"),
+        Map.entry("/api/v1/hr/attendance/daily",                   "hr_attendance"),
+        Map.entry("/api/v1/hr/attendance/monthly",                 "hr_attendance"),
+        Map.entry("/api/v1/hr/attendance/report",                  "hr_attendance"),
+        Map.entry("/api/v1/hr/attendance/mark-manual",             "hr_attendance")
+    );
+
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
@@ -90,9 +123,11 @@ public class FeatureFlagFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Determine which feature this URI maps to
+        boolean isHrPath = uri.startsWith("/api/v1/hr/");
         String requiredFeature = resolveFeature(uri);
-        if (requiredFeature == null) {
+
+        // Nothing to check — non-flagged endpoint AND not HR.
+        if (requiredFeature == null && !isHrPath) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -112,18 +147,45 @@ public class FeatureFlagFilter extends OncePerRequestFilter {
         }
 
         Map<String, Boolean> flags = jwtUtil.getFeatureFlags(token);
-        Boolean enabled = flags.get(requiredFeature);
 
-        if (Boolean.FALSE.equals(enabled)) {
-            log.debug("Feature '{}' is disabled for this tenant — blocking {}", requiredFeature, uri);
-            sendFeatureDisabledResponse(response, requiredFeature);
-            return;
+        // HR paths: umbrella check first — if the whole module is
+        // off, every endpoint under /api/v1/hr/ is blocked with the
+        // umbrella key, regardless of any sub-feature toggle.
+        if (isHrPath) {
+            Boolean hrEnabled = flags.get("hr_module");
+            if (Boolean.FALSE.equals(hrEnabled)) {
+                log.debug("HR module disabled for this tenant — blocking {}", uri);
+                sendFeatureDisabledResponse(response, "hr_module");
+                return;
+            }
+        }
+
+        if (requiredFeature != null) {
+            Boolean enabled = flags.get(requiredFeature);
+            if (Boolean.FALSE.equals(enabled)) {
+                log.debug("Feature '{}' is disabled for this tenant — blocking {}", requiredFeature, uri);
+                sendFeatureDisabledResponse(response, requiredFeature);
+                return;
+            }
         }
 
         filterChain.doFilter(request, response);
     }
 
+    /**
+     * Two-tier lookup: HR sub-feature table first (most-specific
+     * prefixes for /api/v1/hr/*), then the generic per-module table.
+     * Returns null if no flag applies — combined with the HR umbrella
+     * check upstream, that means "no gating" for genuinely unflagged
+     * paths, but HR paths still get umbrella-gated even when this
+     * returns null (e.g., /mark-self).
+     */
     private String resolveFeature(String uri) {
+        for (Map.Entry<String, String> entry : HR_SUB_FEATURES) {
+            if (uri.startsWith(entry.getKey())) {
+                return entry.getValue();
+            }
+        }
         for (Map.Entry<String, String> entry : PATH_TO_FEATURE.entrySet()) {
             if (uri.startsWith(entry.getKey())) {
                 return entry.getValue();

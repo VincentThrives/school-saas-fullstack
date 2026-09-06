@@ -1,0 +1,30 @@
+<div class="md-container">
+  <div class="md-header">
+    <div class="md-title">
+      <mat-icon class="md-title-icon">account_circle</mat-icon>
+      <div>
+        <h2>My Details</h2>
+        <p class="md-subtitle">Personal pages — pick one to open.</p>
+      </div>
+    </div>
+    <button mat-icon-button (click)="close()" aria-label="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="md-grid">
+    <button class="md-tile"
+            *ngFor="let t of tiles"
+            (click)="goTo(t.route)"
+            type="button">
+      <div class="md-tile-icon">
+        <mat-icon>{{ t.icon }}</mat-icon>
+      </div>
+      <div class="md-tile-body">
+        <div class="md-tile-title">{{ t.title }}</div>
+        <div class="md-tile-hint">{{ t.hint }}</div>
+      </div>
+      <mat-icon class="md-tile-chev">chevron_right</mat-icon>
+    </button>
+  </div>
+</div>

@@ -11,132 +11,89 @@ $gold-dark: #B8860B;
   padding: 60px 0;
 }
 
-// ── Layout: two-column (side-nav + content pane) ─────────
+// ── Layout: single column (tab strip on top, full-width pane below)
 .settings-layout {
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-  }
+  display: block;
+  min-width: 0;
 }
 
-// ── Left side-nav ────────────────────────────────────────
-.settings-sidenav {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px;
+// ── Horizontal tab strip ──────────────────────────────
+// Replaces the earlier vertical side-nav — gives the content
+// pane full horizontal room and matches the pattern used on
+// the HR Approvals page (Pending / History tabs), keeping the
+// module visually consistent.
+.settings-tabs {
   background: rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(212, 168, 67, 0.20);
   border-radius: 14px;
-  position: sticky;
-  top: 88px;   // sits below the fixed app header
+  overflow: hidden;
 
-  @media (max-width: 900px) {
-    position: static;
-    flex-direction: row;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    padding: 6px;
+  ::ng-deep .mat-mdc-tab-header {
+    border-bottom: 1px solid rgba(212, 168, 67, 0.20);
   }
-}
+  ::ng-deep .mdc-tab {
+    min-width: 170px;
+    padding: 0 20px;
 
-.sidenav-item {
-  display: grid;
-  grid-template-columns: 24px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border: none;
-  background: transparent;
-  border-radius: 10px;
-  cursor: pointer;
-  text-align: left;
-  color: #334155;
-  transition: background 0.15s ease, color 0.15s ease;
-  min-width: 0;
-
-  mat-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
+    // Mobile: shrink the min-width so more tabs fit before the
+    // built-in horizontal scroll kicks in. Padding shrinks with it
+    // so labels stay readable.
+    @media (max-width: 640px) { min-width: 120px; padding: 0 10px; }
+  }
+  ::ng-deep .mdc-tab__text-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     color: #64748b;
-    transition: color 0.15s ease;
-  }
 
-  &:hover {
-    background: rgba(212, 168, 67, 0.06);
+    mat-icon {
+      font-size: 20px; width: 20px; height: 20px;
+      color: #64748b;
+    }
+  }
+  ::ng-deep .mdc-tab--active .mdc-tab__text-label {
+    color: $gold-dark;
     mat-icon { color: $gold-dark; }
   }
-
-  @media (max-width: 900px) {
-    scroll-snap-align: start;
-    min-width: 180px;
+  ::ng-deep .mat-mdc-tab-body-wrapper {
+    padding: 0;
   }
-}
-
-.sidenav-item--active {
-  background: linear-gradient(135deg, rgba(212, 168, 67, 0.14) 0%, rgba(212, 168, 67, 0.06) 100%);
-  color: #7a5a14;
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 $gold-dark;
-
-  mat-icon { color: $gold-dark; }
-
-  @media (max-width: 900px) {
-    box-shadow: inset 0 -3px 0 $gold-dark;
+  ::ng-deep .mat-mdc-tab-body-content {
+    overflow: hidden;   // pane provides its own scroll
   }
-}
 
-.sidenav-item-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
+  .tab-label {
+    font-weight: 600;
+    font-size: 13.5px;
 
-.sidenav-item-label {
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 1.2;
-}
+    // Keep the label on mobile — the icon alone isn't enough for
+    // "which tab am I looking at?". Shrink the font instead; the
+    // built-in mat-tab horizontal scroll handles overflow.
+    @media (max-width: 640px) { font-size: 12px; }
+  }
 
-.sidenav-item-hint {
-  font-size: 11px;
-  color: #94a3b8;
-  font-weight: 400;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  .tab-badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: rgba(148, 163, 184, 0.14);
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-left: 4px;
 
-.sidenav-status {
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 10px;
-  background: rgba(148, 163, 184, 0.14);
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+    &--on { background: rgba(76, 175, 80, 0.16); color: #2e7d32; }
 
-  &--on  { background: rgba(76, 175, 80, 0.16); color: #2e7d32; }
-  &--off { background: rgba(148, 163, 184, 0.14); color: #64748b; }
-}
-
-// ── Right content pane ──────────────────────────────────
-.settings-content {
-  min-width: 0;
+    @media (max-width: 480px) { display: none; }
+  }
 }
 
 .pane {
   padding: 28px 32px;
   background: #ffffff;
-  border: 1px solid rgba(212, 168, 67, 0.18);
-  border-radius: 14px;
+  // No border/radius — the enclosing .settings-tabs container
+  // provides the outer chrome now that tabs replaced the side-nav.
 
   @media (max-width: 640px) {
     padding: 20px;

@@ -51,10 +51,16 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/leaflet/dist/images",
+                "output": "assets/leaflet"
               }
             ],
             "styles": [
-              "src/styles.scss"
+              "src/styles.scss",
+              "node_modules/leaflet/dist/leaflet.css"
             ],
             "scripts": []
           },
@@ -137,10 +143,16 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/leaflet/dist/images",
+                "output": "assets/leaflet"
               }
             ],
             "styles": [
-              "src/styles.scss"
+              "src/styles.scss",
+              "node_modules/leaflet/dist/leaflet.css"
             ],
             "scripts": []
           }

@@ -76,8 +76,39 @@ public class EmployeeAttendanceSettings {
      *  are flagged {@link EmployeeAttendance#isLate()}. */
     private String lateThreshold = "09:15";
 
-    /** "HH:mm" — marks after this count as HALF_DAY, not full. */
+    /**
+     * Legacy IN-time threshold — marks after this used to count as
+     * HALF_DAY. Retained on the schema so older tenant docs still
+     * deserialize, but the compute path now uses
+     * {@link #halfDayCalculationEnabled} + {@link #halfDayMaxHours}
+     * instead. The IN-time rule mis-classified afternoon half-days
+     * (person arrives 13:00 for a legit afternoon shift, gets
+     * flagged HALF_DAY).
+     *
+     * @deprecated Kept for backward-compat reads only.
+     */
+    @Deprecated
     private String halfDayThreshold = "11:00";
+
+    /**
+     * When true, an employee whose OUT − IN duration is less than
+     * {@link #halfDayMaxHours} is stamped HALF_DAY instead of
+     * PRESENT. Only fires on OUT — until the second punch lands we
+     * can't measure duration, so the day stays PRESENT/LATE.
+     *
+     * <p>Doesn't apply to 1-punch tenants (no OUT = no duration).
+     * HR-manual rows respect whatever status HR picks and are not
+     * overridden.</p>
+     */
+    private boolean halfDayCalculationEnabled = true;
+
+    /**
+     * Total-hours-worked threshold — hours strictly less than this
+     * count as HALF_DAY. Default 4.0 covers a "half-shift" of a
+     * standard 8-hour school day; the tenant can raise this for
+     * longer standard shifts.
+     */
+    private double halfDayMaxHours = 4.0;
 
     /** "HH:mm" — the auto-absent scheduled job stamps ABSENT on any
      *  employee still unmarked after this time. Runs once daily. */
@@ -87,6 +118,24 @@ public class EmployeeAttendanceSettings {
      *  admin-only manual marking aren't surprised by rows appearing
      *  on their own. */
     private boolean autoAbsentEnabled = false;
+
+    /**
+     * Auto-OUT job — stamps OUT at {@link #autoOutTime} on any
+     * employee who punched IN today but hasn't punched OUT by the
+     * time the job runs. Closes the "employee forgot to punch out"
+     * loophole so the half-day rule (hours-worked) can fire
+     * correctly without waiting for a regularization request.
+     *
+     * <p>Off by default — enabling it is an explicit policy call
+     * (some schools want the missing OUT to stay visible until
+     * manually resolved).</p>
+     */
+    private boolean autoOutEnabled = false;
+
+    /** "HH:mm" — the OUT time stamped on rows missing an OUT punch.
+     *  Default 18:30 sits after a typical Indian school day end
+     *  (~15:00 for kids, ~17:00 for teachers with prep). */
+    private String autoOutTime = "18:30";
 
     // ── Regularization rules ────────────────────────────────
 
@@ -159,11 +208,23 @@ public class EmployeeAttendanceSettings {
     public String getHalfDayThreshold() { return halfDayThreshold; }
     public void setHalfDayThreshold(String v) { this.halfDayThreshold = v; }
 
+    public boolean isHalfDayCalculationEnabled() { return halfDayCalculationEnabled; }
+    public void setHalfDayCalculationEnabled(boolean v) { this.halfDayCalculationEnabled = v; }
+
+    public double getHalfDayMaxHours() { return halfDayMaxHours; }
+    public void setHalfDayMaxHours(double v) { this.halfDayMaxHours = v; }
+
     public String getAutoAbsentTime() { return autoAbsentTime; }
     public void setAutoAbsentTime(String v) { this.autoAbsentTime = v; }
 
     public boolean isAutoAbsentEnabled() { return autoAbsentEnabled; }
     public void setAutoAbsentEnabled(boolean v) { this.autoAbsentEnabled = v; }
+
+    public boolean isAutoOutEnabled() { return autoOutEnabled; }
+    public void setAutoOutEnabled(boolean v) { this.autoOutEnabled = v; }
+
+    public String getAutoOutTime() { return autoOutTime; }
+    public void setAutoOutTime(String v) { this.autoOutTime = v; }
 
     public boolean isRegularizationEnabled() { return regularizationEnabled; }
     public void setRegularizationEnabled(boolean v) { this.regularizationEnabled = v; }

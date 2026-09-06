@@ -55,7 +55,8 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Role *</mat-label>
-            <mat-select formControlName="employeeRole" required>
+            <mat-select formControlName="employeeRole" required
+                        (selectionChange)="onDesignationChange($event.value)">
               <mat-option *ngFor="let role of employeeRoles" [value]="role.value">
                 {{ role.label }}
               </mat-option>
@@ -109,7 +110,7 @@
                   {{ selectedAdditionalRolesLabel }}
                 </span>
               </mat-select-trigger>
-              <mat-option *ngFor="let r of additionalLoginRoles"
+              <mat-option *ngFor="let r of availableAdditionalRoles"
                           [value]="r.value"
                           [matTooltip]="r.hint">
                 {{ r.label }}

@@ -73,12 +73,12 @@ export class UserFormComponent implements OnInit {
     { value: UserRole.HR, label: 'HR / Payroll' },
   ];
 
-  /** Roles the admin has ticked in the multi-role picker. Kept in sync
-   *  with the primary "role" dropdown — that one always represents the
-   *  INITIAL active role the user will be logged in as. Toggling any
-   *  role here adds/removes it from the granted set; the primary
-   *  dropdown adjusts to stay a valid member. */
-  selectedRoles = new Set<UserRole>();
+  /** Roles the admin has ticked as EXTRA hats — never contains the
+   *  primary role from the dropdown. The final granted list sent to
+   *  the backend is `[primary, ...extraRoles]` (deduped). Kept as
+   *  a set so ordering flips (e.g. changing primary) don't need
+   *  index bookkeeping. */
+  extraRoles = new Set<UserRole>();
 
   constructor(
     private fb: FormBuilder,
@@ -102,36 +102,47 @@ export class UserFormComponent implements OnInit {
       phone: [''],
       role: [UserRole.TEACHER, Validators.required],
     });
-    // Seed the multi-role picker with the primary role on the new-user
-    // form so the checkbox for the default (TEACHER) is ticked; edit
-    // mode replaces this in loadUserData() with the persisted list.
-    this.selectedRoles.add(UserRole.TEACHER);
+    // No seed — extraRoles starts empty. Primary role is TEACHER by
+    // default; the checkboxes below list every role except that one,
+    // and admin ticks the extras they want to grant on top.
 
     if (this.isEditing) {
       this.loadUserData();
     }
   }
 
-  /** Toggles a role in the granted set. Enforces at least one role
-   *  (unticking the last one is a no-op) and keeps the primary "role"
-   *  dropdown pointing at a still-valid entry. */
+  /** Toggles an EXTRA role. No safeguards needed — extras are
+   *  independent of the primary dropdown; unticking every extra is
+   *  fine (the user keeps their primary role). */
   toggleRole(role: UserRole, checked: boolean): void {
     if (checked) {
-      this.selectedRoles.add(role);
+      this.extraRoles.add(role);
     } else {
-      if (this.selectedRoles.size <= 1) return;   // must always keep one
-      this.selectedRoles.delete(role);
-      // If we just unticked the current primary role, promote the first
-      // remaining one so the dropdown stays consistent.
-      if (this.userForm.get('role')?.value === role) {
-        const first = this.selectedRoles.values().next().value;
-        if (first) this.userForm.get('role')?.setValue(first);
-      }
+      this.extraRoles.delete(role);
     }
   }
 
+  /** Ticked in the extra-roles checkbox list. */
   isRoleSelected(role: UserRole): boolean {
-    return this.selectedRoles.has(role);
+    return this.extraRoles.has(role);
+  }
+
+  /** Roles rendered as extra-role checkboxes — every role except
+   *  the current primary. Getter recomputes on each render so the
+   *  list swaps in/out the right role when the primary changes. */
+  get extraRoleOptions(): { value: UserRole; label: string }[] {
+    const primary = this.userForm?.get('role')?.value;
+    return this.roles.filter(r => r.value !== primary);
+  }
+
+  /** Called when the admin picks a role in the "Primary role" dropdown.
+   *  If that role was ticked as an extra before the change, drop it
+   *  from the extras set — otherwise it would appear twice in the
+   *  final payload and the checkbox row would silently exclude it. */
+  onPrimaryRoleChange(role: UserRole): void {
+    if (this.extraRoles.has(role)) {
+      this.extraRoles.delete(role);
+    }
   }
 
   get pageTitle(): string {
@@ -152,13 +163,16 @@ export class UserFormComponent implements OnInit {
             phone: res.data.phone || '',
             role: res.data.activeRole || res.data.role,
           });
-          // Seed the multi-role picker from the persisted list; legacy
-          // users without a roles array fall back to a singleton of the
-          // legacy single-role field so their checkbox is ticked.
-          this.selectedRoles.clear();
-          const roles: UserRole[] = res.data.roles && res.data.roles.length
+          // Seed the extra-roles set from the persisted list minus
+          // the primary. Legacy users without a roles array have no
+          // extras to seed.
+          this.extraRoles.clear();
+          const persistedRoles: UserRole[] = res.data.roles && res.data.roles.length
               ? res.data.roles : [res.data.role];
-          roles.forEach(r => this.selectedRoles.add(r));
+          const primary: UserRole = res.data.activeRole || res.data.role;
+          persistedRoles
+              .filter(r => r !== primary)
+              .forEach(r => this.extraRoles.add(r));
         }
         this.isLoading = false;
       },
@@ -240,11 +254,13 @@ export class UserFormComponent implements OnInit {
       delete formData.password;
     }
 
-    // Multi-role payload — always send the granted set alongside the
-    // primary role field. Backend uses `role` as the initial active
-    // hat and `roles` as the full authorised list. Single-role users
-    // just have a one-item array (identical to the legacy behaviour).
-    formData.roles = Array.from(this.selectedRoles);
+    // Multi-role payload — full authorised list = [primary, ...extras].
+    // Backend uses `role` as the initial active hat and `roles` as
+    // the complete authorised list. Set semantics de-dupe defensively
+    // in case the primary somehow leaked into extras.
+    const primaryRole: UserRole = formData.role;
+    const fullRoles = new Set<UserRole>([primaryRole, ...this.extraRoles]);
+    formData.roles = Array.from(fullRoles);
 
     const request$ = this.isEditing && this.userId
       ? this.apiService.updateUser(this.userId, formData)

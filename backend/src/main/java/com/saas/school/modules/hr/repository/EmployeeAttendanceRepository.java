@@ -27,4 +27,8 @@ public interface EmployeeAttendanceRepository extends MongoRepository<EmployeeAt
      *  DON'T yet have a row for today (subtracted client-side against
      *  the full employee roster). */
     List<EmployeeAttendance> findByDateAndEmployeeIdIn(LocalDate date, List<String> employeeIds);
+
+    /** HR "Report — all employees between two dates". Powers the
+     *  Attendance Report page. Bounds are inclusive both sides. */
+    List<EmployeeAttendance> findByDateBetween(LocalDate from, LocalDate to);
 }

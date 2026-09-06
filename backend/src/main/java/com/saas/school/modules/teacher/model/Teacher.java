@@ -248,7 +248,12 @@ public class Teacher {
         /** Office coordinator with admin-style access gated per-tenant
          *  via the Coordinator Access page. Auto-creates a User account
          *  with {@link com.saas.school.modules.user.model.UserRole#SCHOOL_COORDINATOR}. */
-        COORDINATOR
+        COORDINATOR,
+        /** HR / Payroll designation for staff whose whole job is
+         *  running the HR module. Auto-creates a User account with
+         *  {@link com.saas.school.modules.user.model.UserRole#HR} so
+         *  the linked login lands on the HR dashboard by default. */
+        HR
     }
 
     public static class ClassSubjectAssignment {

@@ -1,7 +1,6 @@
 <div class="my-att-container">
   <app-page-header
     title="My Attendance"
-    subtitle="Mark your daily attendance and view your history"
     [breadcrumbs]="[
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'My Attendance' }
@@ -11,123 +10,229 @@
   <!-- ── Loading ────────────────────────────────────────── -->
   <div class="loading-strip" *ngIf="isLoadingSettings">
     <mat-spinner diameter="24"></mat-spinner>
-    <span>Loading settings…</span>
+    <span>Loading…</span>
   </div>
 
-  <!-- ── Not configured yet ──────────────────────────────── -->
+  <!-- ── Attendance not enabled by tenant ─────────────── -->
   <mat-card class="empty-card"
-            *ngIf="!isLoadingSettings && settings && !settings.locationBasedEnabled && !settings.biometricBasedEnabled">
+            *ngIf="!isLoadingSettings && settings
+                && !settings.locationBasedEnabled && !settings.biometricBasedEnabled">
     <mat-icon>info</mat-icon>
     <div>
       <h3>Attendance not enabled</h3>
-      <p>Your school hasn't turned on location-based or biometric attendance yet. Ask HR to configure it.</p>
+      <p>Your school hasn't turned on location or biometric attendance yet. Ask HR to configure it.</p>
     </div>
   </mat-card>
 
-  <!-- ── Today card — the star of the show ─────────────── -->
-  <mat-card class="today-card" *ngIf="!isLoadingSettings && settings?.locationBasedEnabled">
-    <mat-card-content>
-      <div class="today-row">
-        <div class="today-left">
-          <span class="today-label">Today</span>
-          <span class="today-date">{{ formatRowDate(todayIso) }}</span>
+  <!-- ── Hero strip (single horizontal row on desktop) ───────
+       Avatar + name + status pill + CTA all on one line so the
+       whole widget takes ~60px instead of the old three-stack
+       ~180px card. Ticker below only when a workday is in
+       progress. -->
+  <div class="hero-strip" *ngIf="!isLoadingSettings && settings?.locationBasedEnabled">
+    <div class="hero-avatar">{{ (welcomeName || '?').charAt(0).toUpperCase() }}</div>
+    <div class="hero-body">
+      <div class="hero-name">{{ welcomeName }}</div>
+      <span class="hero-substatus"
+            [class.hero-substatus--done]="today?.outTime"
+            [class.hero-substatus--started]="today && !today.outTime"
+            [class.hero-substatus--pending]="!today">
+        <span class="hero-status-dot"></span>
+        {{ workStatusLine }}
+      </span>
+    </div>
+
+    <button mat-flat-button class="hero-cta"
+            *ngIf="canPunch"
+            (click)="goToMarkPage()">
+      <mat-icon>{{ bigButtonIcon }}</mat-icon>
+      {{ bigButtonLabel }}
+    </button>
+
+    <div class="hero-done-inline" *ngIf="!canPunch && today && today.outTime">
+      <mat-icon>verified</mat-icon>
+      <span>IN {{ formatRowTime(today.inTime) }} · OUT {{ formatRowTime(today.outTime) }}</span>
+    </div>
+  </div>
+
+  <!-- Live stopwatch strip — outside the hero so it only takes
+       space when a workday is actually in progress. -->
+  <div class="hero-ticker"
+       *ngIf="!isLoadingSettings && settings?.locationBasedEnabled && today?.inTime"
+       [class.hero-ticker--live]="isWorkRunning">
+    <mat-icon>{{ isWorkRunning ? 'timer' : 'timer_off' }}</mat-icon>
+    <div class="hero-ticker-body">
+      <div class="hero-ticker-label">
+        {{ isWorkRunning ? 'On work' : 'Total time' }}
+        <span class="hero-ticker-dot" *ngIf="isWorkRunning"></span>
+      </div>
+      <div class="hero-ticker-value">{{ elapsedFormatted }}</div>
+    </div>
+    <div class="hero-ticker-times">
+      <div><span>IN</span> {{ formatRowTime(today?.inTime) }}</div>
+      <div *ngIf="today?.outTime"><span>OUT</span> {{ formatRowTime(today?.outTime) }}</div>
+    </div>
+  </div>
+
+  <!-- ── Segmented pill tabs (Attendance / Regularization) ─ -->
+  <div class="seg-tabs" *ngIf="!isLoadingSettings">
+    <button class="seg-tab"
+            [class.seg-tab--active]="activeTab === 'attendance'"
+            (click)="activeTab = 'attendance'">
+      <mat-icon>event_available</mat-icon>
+      Attendance
+    </button>
+    <button class="seg-tab"
+            [class.seg-tab--active]="activeTab === 'regularization'"
+            *ngIf="settings?.regularizationEnabled"
+            (click)="activeTab = 'regularization'">
+      <mat-icon>assignment_late</mat-icon>
+      Regularization
+      <span class="seg-tab-badge"
+            *ngIf="myRequests.length > 0">{{ myRequests.length }}</span>
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--   Attendance tab — calendar + monthly summary            -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="activeTab === 'attendance' && !isLoadingSettings">
+
+    <!-- Monthly stats card -->
+    <mat-card class="stats-card">
+      <div class="stats-head">
+        <div>
+          <div class="stats-total">{{ summary.present }}</div>
+          <div class="stats-total-label">days present</div>
         </div>
-        <div class="today-right">
-          <!-- Not marked → Mark IN button -->
-          <button mat-flat-button color="primary" class="mark-btn"
-                  *ngIf="!today"
-                  [disabled]="isMarking"
-                  (click)="markAttendance()">
-            <mat-spinner *ngIf="isMarking" diameter="18"></mat-spinner>
-            <mat-icon *ngIf="!isMarking">location_on</mat-icon>
-            {{ isMarking ? 'Getting location…' : 'Mark IN' }}
+        <div class="stats-monthbox">
+          <button mat-icon-button class="stats-nav-btn"
+                  (click)="prevMonth()" matTooltip="Previous month">
+            <mat-icon>keyboard_arrow_left</mat-icon>
           </button>
-
-          <!-- IN only → status + Mark OUT (2-punch tenants) -->
-          <ng-container *ngIf="today && !today.outTime">
-            <span class="status-inline" [ngClass]="statusChipClass(today.status)">
-              <mat-icon>check_circle</mat-icon>
-              IN at {{ formatRowTime(today.inTime) }}
-              <span *ngIf="today.late" class="late-inline">· Late</span>
-            </span>
-            <button mat-flat-button color="primary" class="mark-btn"
-                    *ngIf="settings && settings.expectedPunchesPerDay >= 2"
-                    [disabled]="isMarking"
-                    (click)="markAttendance()">
-              <mat-spinner *ngIf="isMarking" diameter="18"></mat-spinner>
-              <mat-icon *ngIf="!isMarking">logout</mat-icon>
-              {{ isMarking ? 'Getting location…' : 'Mark OUT' }}
-            </button>
-          </ng-container>
-
-          <!-- Both done → done card -->
-          <ng-container *ngIf="today && today.outTime">
-            <span class="status-inline chip-present done">
-              <mat-icon>check_circle</mat-icon>
-              Done · IN {{ formatRowTime(today.inTime) }}
-              · OUT {{ formatRowTime(today.outTime) }}
-            </span>
-          </ng-container>
+          <span class="stats-month">{{ monthLabel }}</span>
+          <button mat-icon-button class="stats-nav-btn"
+                  (click)="nextMonth()"
+                  [disabled]="!canGoNext"
+                  matTooltip="Next month">
+            <mat-icon>keyboard_arrow_right</mat-icon>
+          </button>
         </div>
       </div>
 
-      <p class="today-hint" *ngIf="!today">
-        Make sure you're within
-        <strong>{{ settings?.allowedRadiusMeters }} m</strong> of campus. Location permission required.
-      </p>
-    </mat-card-content>
-  </mat-card>
+      <div class="stats-grid">
+        <div class="stat stat--present">
+          <span class="stat-value">{{ summary.present }}</span>
+          <span class="stat-label">Present</span>
+        </div>
+        <div class="stat stat--late">
+          <span class="stat-value">{{ summary.late }}</span>
+          <span class="stat-label">Late</span>
+        </div>
+        <div class="stat stat--halfday">
+          <span class="stat-value">{{ summary.halfDay }}</span>
+          <span class="stat-label">Half-day</span>
+        </div>
+        <div class="stat stat--absent">
+          <span class="stat-value">{{ summary.absent }}</span>
+          <span class="stat-label">Absent</span>
+        </div>
+        <div class="stat stat--weekoff">
+          <span class="stat-value">{{ summary.weekOff }}</span>
+          <span class="stat-label">Week off</span>
+        </div>
+      </div>
+    </mat-card>
 
-  <!-- ── History table ─────────────────────────────────── -->
-  <mat-card class="history-card" *ngIf="!isLoadingSettings">
-    <div class="history-header">
-      <h3>This month</h3>
-      <span class="history-count">{{ rows.length }} record{{ rows.length === 1 ? '' : 's' }}</span>
-    </div>
+    <!-- Calendar -->
+    <mat-card class="cal-card">
+      <div class="loading-strip" *ngIf="isLoadingRows">
+        <mat-spinner diameter="20"></mat-spinner>
+        <span>Loading month…</span>
+      </div>
 
-    <div class="loading-strip" *ngIf="isLoadingRows">
-      <mat-spinner diameter="24"></mat-spinner>
-      <span>Loading history…</span>
-    </div>
+      <div class="cal-grid" *ngIf="!isLoadingRows">
+        <div class="cal-dow" *ngFor="let d of ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']"
+             [class.cal-dow--weekend]="d === 'Sun' || d === 'Sat'">
+          {{ d }}
+        </div>
+        <div *ngFor="let c of calendar"
+             [ngClass]="cellClass(c)"
+             [matTooltip]="cellTooltip(c)"
+             (click)="openDayDetails(c)">
+          <span>{{ c.dayOfMonth }}</span>
+        </div>
+      </div>
 
-    <table mat-table [dataSource]="rows" *ngIf="!isLoadingRows && rows.length > 0" class="history-table">
-      <ng-container matColumnDef="date">
-        <th mat-header-cell *matHeaderCellDef>Date</th>
-        <td mat-cell *matCellDef="let r">{{ formatRowDate(r.date) }}</td>
-      </ng-container>
-      <ng-container matColumnDef="status">
-        <th mat-header-cell *matHeaderCellDef>Status</th>
-        <td mat-cell *matCellDef="let r">
-          <span class="status-chip" [ngClass]="statusChipClass(r.status)">{{ r.status }}</span>
-          <span *ngIf="r.late" class="late-tag">Late</span>
-        </td>
-      </ng-container>
-      <ng-container matColumnDef="in">
-        <th mat-header-cell *matHeaderCellDef>IN</th>
-        <td mat-cell *matCellDef="let r">{{ formatRowTime(r.inTime) }}</td>
-      </ng-container>
-      <ng-container matColumnDef="out">
-        <th mat-header-cell *matHeaderCellDef>OUT</th>
-        <td mat-cell *matCellDef="let r">{{ formatRowTime(r.outTime) }}</td>
-      </ng-container>
-      <ng-container matColumnDef="source">
-        <th mat-header-cell *matHeaderCellDef>Source</th>
-        <td mat-cell *matCellDef="let r">
-          <mat-icon class="src-icon" [matTooltip]="r.source">
-            {{ r.source === 'LOCATION' ? 'location_on'
-              : r.source === 'BIOMETRIC' ? 'fingerprint'
-              : r.source === 'MANUAL' ? 'edit'
-              : 'assignment_late' }}
-          </mat-icon>
-        </td>
-      </ng-container>
-      <tr mat-header-row *matHeaderRowDef="displayedCols"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedCols;"></tr>
-    </table>
+      <!-- Legend — split into two groups so users don't confuse the
+           status FILLS (whole-cell coloring) with the INDICATOR
+           corner-dots that ride on top of cells. -->
+      <div class="cal-legend">
+        <div class="cal-legend-group">
+          <span class="cal-legend-title">Day status</span>
+          <span class="legend-item"><span class="dot dot-today"></span>Today</span>
+          <span class="legend-item"><span class="dot dot-present"></span>Present</span>
+          <span class="legend-item"><span class="dot dot-late"></span>Late</span>
+          <span class="legend-item"><span class="dot dot-halfday"></span>Half-day</span>
+          <span class="legend-item"><span class="dot dot-absent"></span>Absent</span>
+          <span class="legend-item"><span class="dot dot-weekoff"></span>Week off</span>
+          <span class="legend-item"><span class="dot dot-holiday"></span>Holiday</span>
+        </div>
+        <div class="cal-legend-group cal-legend-group--indicators">
+          <span class="cal-legend-title">Indicator (corner dot)</span>
+          <span class="legend-item"><span class="chip chip-reg"></span>Regularized</span>
+          <span class="legend-item"><span class="chip chip-reg-pending"></span>Pending regularization</span>
+          <span class="legend-item"><span class="chip chip-reg-rejected"></span>Rejected regularization</span>
+        </div>
+      </div>
+    </mat-card>
+  </ng-container>
 
-    <div class="empty-state" *ngIf="!isLoadingRows && rows.length === 0">
-      <mat-icon>event_available</mat-icon>
-      <p>No attendance records yet this month.</p>
-    </div>
-  </mat-card>
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--   Regularization tab                                     -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="activeTab === 'regularization' && !isLoadingSettings">
+    <mat-card class="reg-card">
+      <div class="reg-row">
+        <div class="reg-info">
+          <mat-icon class="reg-icon">assignment_late</mat-icon>
+          <div>
+            <strong>Missed a punch?</strong>
+            <p>Submit a regularization request — HR reviews and updates your attendance.</p>
+          </div>
+        </div>
+        <button mat-flat-button color="primary" class="reg-btn"
+                (click)="openRegularizationDialog()">
+          <mat-icon>edit_note</mat-icon>
+          Request regularization
+        </button>
+      </div>
+
+      <div class="reg-list" *ngIf="myRequests.length > 0">
+        <h4>Your recent requests</h4>
+        <div class="reg-item" *ngFor="let r of myRequests">
+          <div class="reg-item-main">
+            <span class="reg-item-date">{{ formatRowDate(r.date) }}</span>
+            <span class="reg-item-times">
+              <ng-container *ngIf="r.claimedInTime">IN {{ formatRowTime(r.claimedInTime) }}</ng-container>
+              <ng-container *ngIf="r.claimedInTime && r.claimedOutTime"> · </ng-container>
+              <ng-container *ngIf="r.claimedOutTime">OUT {{ formatRowTime(r.claimedOutTime) }}</ng-container>
+            </span>
+            <span class="reg-item-status" [ngClass]="requestStatusClass(r.status)">
+              {{ requestStatusLabel(r.status) }}
+            </span>
+          </div>
+          <div class="reg-item-reason" *ngIf="r.reason">"{{ r.reason }}"</div>
+          <div class="reg-item-review" *ngIf="r.reviewNotes">
+            <mat-icon>rate_review</mat-icon> {{ r.reviewNotes }}
+          </div>
+        </div>
+      </div>
+
+      <div class="reg-empty" *ngIf="myRequests.length === 0">
+        <mat-icon>inbox</mat-icon>
+        <p>No regularization requests yet.</p>
+      </div>
+    </mat-card>
+  </ng-container>
 </div>

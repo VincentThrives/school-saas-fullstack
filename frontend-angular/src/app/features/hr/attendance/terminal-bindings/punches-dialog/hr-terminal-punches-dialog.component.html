@@ -1,0 +1,117 @@
+<div class="pd-container">
+
+  <!-- ── Header ──────────────────────────────── -->
+  <div class="pd-header">
+    <div class="pd-title">
+      <mat-icon class="pd-title-icon">history</mat-icon>
+      <div>
+        <h2>Punches on this terminal</h2>
+        <p class="pd-subtitle">
+          <ng-container *ngIf="data.label">{{ data.label }} · </ng-container>
+          <span class="pd-serial">{{ data.serial }}</span>
+        </p>
+      </div>
+    </div>
+    <button mat-icon-button (click)="close()" matTooltip="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- ── Date picker ─────────────────────────── -->
+  <div class="pd-toolbar">
+    <mat-form-field appearance="outline" class="pd-date-field">
+      <mat-label>Date</mat-label>
+      <input matInput
+             [matDatepicker]="picker"
+             [(ngModel)]="punchesDate"
+             (dateChange)="onDateChange()">
+      <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+      <mat-datepicker #picker></mat-datepicker>
+    </mat-form-field>
+    <span class="pd-hint">
+      Only biometric punches on this terminal — location and manual marks stay out.
+    </span>
+  </div>
+
+  <!-- ── Body ────────────────────────────────── -->
+  <div class="pd-body">
+
+    <div class="pd-loading" *ngIf="isLoading">
+      <mat-spinner diameter="30"></mat-spinner>
+    </div>
+
+    <div class="pd-empty" *ngIf="!isLoading && punches.length === 0">
+      <mat-icon>event_busy</mat-icon>
+      <div>
+        <strong>No punches on this terminal for the picked date.</strong>
+        <p>Either no bound employee scanned that day, or their punches
+           landed on a different terminal.</p>
+      </div>
+    </div>
+
+    <table mat-table [dataSource]="punches"
+           *ngIf="!isLoading && punches.length > 0"
+           class="pd-table">
+
+      <ng-container matColumnDef="employee">
+        <th mat-header-cell *matHeaderCellDef>Employee</th>
+        <td mat-cell *matCellDef="let row">
+          <div class="pd-cell-name">{{ row.employeeName }}</div>
+          <div class="pd-cell-sub" *ngIf="row.designation">
+            {{ row.designation }}
+          </div>
+          <!-- Mobile-only inline: user id + status collapse into
+               the employee cell on narrow screens so the row stays
+               readable without horizontal scroll. -->
+          <div class="pd-cell-mobile-meta">
+            <span class="pd-uid">{{ row.terminalUserId || '—' }}</span>
+            <span class="pd-status"
+                  [class.pd-status--late]="row.late"
+                  [class.pd-status--halfday]="row.status === 'HALF_DAY'"
+                  [class.pd-status--present]="row.status === 'PRESENT' && !row.late">
+              {{ row.status || '—' }}
+              <span *ngIf="row.late && row.status !== 'HALF_DAY'"> · Late</span>
+            </span>
+          </div>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="userId">
+        <th mat-header-cell *matHeaderCellDef>User id</th>
+        <td mat-cell *matCellDef="let row">
+          <span class="pd-uid">{{ row.terminalUserId || '—' }}</span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="in">
+        <th mat-header-cell *matHeaderCellDef>IN</th>
+        <td mat-cell *matCellDef="let row" class="pd-time">
+          {{ clockTime(row.inTime) }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="out">
+        <th mat-header-cell *matHeaderCellDef>OUT</th>
+        <td mat-cell *matCellDef="let row" class="pd-time">
+          {{ clockTime(row.outTime) }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let row">
+          <span class="pd-status"
+                [class.pd-status--late]="row.late"
+                [class.pd-status--halfday]="row.status === 'HALF_DAY'"
+                [class.pd-status--present]="row.status === 'PRESENT' && !row.late">
+            {{ row.status || '—' }}
+            <span *ngIf="row.late && row.status !== 'HALF_DAY'"> · Late</span>
+          </span>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedCols"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedCols;"></tr>
+    </table>
+  </div>
+</div>

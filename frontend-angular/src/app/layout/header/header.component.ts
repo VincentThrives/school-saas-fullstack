@@ -101,10 +101,17 @@ export class HeaderComponent implements OnInit, OnDestroy {
       next: () => {
         this.isSwitchingRole = false;
         this.snackBar.open(`Now viewing as ${this.roleLabel(role)}`, 'Close', { duration: 2500 });
-        // Send the user to the dashboard root so the newly-visible
-        // sidebar's landing page shows first (avoids a route that the
-        // previous role could see but the new one can't).
-        this.router.navigate(['/dashboard']);
+        // Route to the target role's landing dashboard.
+        //
+        // HR has its own /hr/dashboard component. The generic
+        // /dashboard route dispatches by ngSwitch on currentRole
+        // but has no case for HR — so a switch to HR that lands
+        // on /dashboard falls through to the SCHOOL_ADMIN default
+        // and the user sees the previous role's board. Routing
+        // HR to /hr/dashboard fixes that; every other role stays
+        // on /dashboard where the switch statement covers them.
+        const landing = role === UserRole.HR ? '/hr/dashboard' : '/dashboard';
+        this.router.navigateByUrl(landing);
       },
       error: (err) => {
         this.isSwitchingRole = false;
