@@ -388,6 +388,7 @@ $c-reg:      #2563eb;  // blue — regularization / manual correction marker
   &--late    { border-left-color: $c-late;           background: rgba(245, 158, 11, 0.05); }
   &--halfday { border-left-color: $c-halfday;        background: rgba(168, 85, 247, 0.06); }
   &--absent  { border-left-color: $c-absent;         background: rgba(239, 68, 68, 0.05); }
+  &--leave   { border-left-color: #7c3aed;           background: rgba(124, 58, 237, 0.06); }
   &--weekoff { border-left-color: #94a3b8;           background: rgba(148, 163, 184, 0.05); }
 }
 .stat-value { font-size: 16px; font-weight: 800; color: $ink; letter-spacing: -0.02em; }
@@ -507,6 +508,11 @@ $c-reg:      #2563eb;  // blue — regularization / manual correction marker
     color: #ffffff;
     font-weight: 700;
   }
+  &--leave {
+    background: #7c3aed;   // distinct purple — Leave is neither present nor absent
+    color: #ffffff;
+    font-weight: 700;
+  }
   &--absent {
     background: $c-absent;
     color: #ffffff;
@@ -539,7 +545,8 @@ $c-reg:      #2563eb;  // blue — regularization / manual correction marker
     &.cal-cell--present,
     &.cal-cell--late,
     &.cal-cell--halfday,
-    &.cal-cell--absent {
+    &.cal-cell--absent,
+    &.cal-cell--leave {
       // Keep today's ring + let the status color win the fill.
       color: #ffffff;
     }

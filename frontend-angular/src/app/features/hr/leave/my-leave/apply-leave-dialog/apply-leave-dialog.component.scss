@@ -1,0 +1,57 @@
+h2[mat-dialog-title] {
+  display: flex; align-items: center; gap: 8px;
+  mat-icon { color: #B8860B; }
+}
+
+.apply-content {
+  padding-top: 8px !important;
+  min-width: 460px;
+  max-width: 100%;
+}
+
+.row {
+  display: flex; gap: 12px;
+  margin-bottom: 4px;
+
+  &.two { flex-wrap: wrap; }
+  &.two > mat-form-field { flex: 1 1 200px; }
+
+  .full { width: 100%; }
+}
+
+.half-toggles {
+  padding: 4px 4px 12px;
+  display: flex; flex-wrap: wrap; gap: 16px 24px;
+}
+
+.option-remaining {
+  color: #6b7280; font-size: 12px; margin-left: 4px;
+}
+
+.preview {
+  background: #fff7db;
+  border: 1px solid #f0d9a6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: #4a3a10;
+
+  .preview-line {
+    display: flex; align-items: center; gap: 8px;
+    &:not(:first-child) { margin-top: 4px; }
+  }
+  .preview-icon { color: #B8860B; font-size: 18px; width: 18px; height: 18px; }
+  .warn { color: #b91c1c; }
+  .warn-text { font-weight: 500; }
+}
+
+mat-dialog-actions button[mat-flat-button] {
+  min-width: 96px;
+  mat-spinner { margin: 0 auto; }
+}
+
+@media (max-width: 500px) {
+  .apply-content { min-width: 0; }
+  .row.two > mat-form-field { flex-basis: 100%; }
+}

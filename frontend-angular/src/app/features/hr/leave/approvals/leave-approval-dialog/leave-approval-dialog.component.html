@@ -1,0 +1,64 @@
+<h2 mat-dialog-title>
+  <mat-icon [class.approve-icon]="isApprove" [class.reject-icon]="!isApprove">
+    {{ isApprove ? 'check_circle' : 'cancel' }}
+  </mat-icon>
+  {{ isApprove ? 'Approve leave' : 'Reject leave' }}
+</h2>
+
+<mat-dialog-content class="review-content">
+  <div class="summary">
+    <div class="summary-row">
+      <span class="lbl">Employee</span>
+      <span class="val">{{ data.leave.employeeName }}</span>
+    </div>
+    <div class="summary-row" *ngIf="data.leave.designation">
+      <span class="lbl">Designation</span>
+      <span class="val">{{ data.leave.designation }}</span>
+    </div>
+    <div class="summary-row">
+      <span class="lbl">Leave</span>
+      <span class="val">
+        <span class="type-chip">{{ data.leave.leaveTypeCode }}</span>
+        {{ data.leave.leaveTypeName }}
+      </span>
+    </div>
+    <div class="summary-row">
+      <span class="lbl">Dates</span>
+      <span class="val">{{ formatRange(data.leave) }}</span>
+    </div>
+    <div class="summary-row">
+      <span class="lbl">Days</span>
+      <span class="val">{{ data.leave.days }}</span>
+    </div>
+    <div class="summary-row reason-row">
+      <span class="lbl">Reason</span>
+      <span class="val reason">{{ data.leave.reason }}</span>
+    </div>
+  </div>
+
+  <mat-form-field appearance="outline" class="notes-field">
+    <mat-label>{{ isApprove ? 'Notes (optional)' : 'Reason for rejection' }}</mat-label>
+    <textarea matInput [(ngModel)]="notes" rows="3"
+      [placeholder]="isApprove
+        ? 'Any note for the employee — e.g., \'Enjoy your break\''
+        : 'Tell the employee why you\'re rejecting so they can act on it'">
+    </textarea>
+  </mat-form-field>
+
+  <div class="hint" *ngIf="isApprove">
+    Approving will write ON_LEAVE attendance rows for every day in the
+    range and deduct {{ data.leave.days }} day{{ data.leave.days === 1 ? '' : 's' }}
+    from the employee's {{ data.leave.leaveTypeCode }} balance.
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">Cancel</button>
+  <button
+    mat-flat-button
+    [color]="isApprove ? 'primary' : 'warn'"
+    [disabled]="!canConfirm"
+    (click)="confirm()">
+    {{ isApprove ? 'Approve' : 'Reject' }}
+  </button>
+</mat-dialog-actions>

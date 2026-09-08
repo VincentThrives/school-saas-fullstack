@@ -1,0 +1,53 @@
+h2[mat-dialog-title] {
+  display: flex; align-items: center; gap: 8px;
+
+  .approve-icon { color: #16a34a; }
+  .reject-icon  { color: #dc2626; }
+}
+
+.review-content {
+  padding-top: 8px !important;
+  min-width: 440px;
+  max-width: 100%;
+}
+
+.summary {
+  background: #f9fafb;
+  border: 1px solid #edf0f4;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.summary-row {
+  display: flex; gap: 10px; padding: 3px 0;
+
+  .lbl { min-width: 90px; color: #6b7280; font-weight: 500; }
+  .val { color: #111827; }
+  &.reason-row { flex-direction: column; gap: 4px; .val.reason { color: #374151; font-style: italic; } }
+}
+
+.type-chip {
+  background: #fff7db; color: #8a6a12;
+  font-weight: 700; font-size: 11px; letter-spacing: .4px;
+  padding: 2px 8px; border-radius: 4px; margin-right: 4px;
+}
+
+.notes-field { width: 100%; }
+
+.hint {
+  background: #eef7ff;
+  border: 1px solid #cde5fb;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #234e70;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+mat-dialog-actions button[mat-flat-button] { min-width: 96px; }
+
+@media (max-width: 500px) {
+  .review-content { min-width: 0; }
+}

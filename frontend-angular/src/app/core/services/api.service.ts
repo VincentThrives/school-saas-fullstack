@@ -76,6 +76,12 @@ import {
   RegularizationRequest,
   SubmitRegularizationRequest,
   RegularizationReviewRequest,
+  LeaveType,
+  LeaveBalance,
+  LeaveApplication,
+  SubmitLeaveRequest,
+  LeaveReviewRequest,
+  UpsertLeaveTypeRequest,
 } from '../models';
 
 /** Scope an admin picks on the Publish Result tab. {@code subjectId} is
@@ -2383,5 +2389,101 @@ export class ApiService {
     return this.http.post<ApiResponse<RegularizationRequest>>(
       `${this.API}/hr/attendance/regularization/${encodeURIComponent(id)}/reject`,
       review || {});
+  }
+
+  // ── Leave module ─────────────────────────────────────────
+
+  /** Employee submits a leave application (multi-day, half-day
+   *  supported). Returns the enriched dto (with employeeName +
+   *  leaveTypeName filled in). */
+  hrApplyLeave(req: SubmitLeaveRequest): Observable<ApiResponse<LeaveApplication>> {
+    return this.http.post<ApiResponse<LeaveApplication>>(
+      `${this.API}/hr/leave/apply`, req);
+  }
+
+  /** Employee's own leave application history — every status. */
+  hrMyLeaves(): Observable<ApiResponse<LeaveApplication[]>> {
+    return this.http.get<ApiResponse<LeaveApplication[]>>(
+      `${this.API}/hr/leave/my`);
+  }
+
+  /** Employee's leave balance sheet for a given year (defaults to
+   *  current calendar year server-side when {@code year} is omitted). */
+  hrMyLeaveBalance(year?: number): Observable<ApiResponse<LeaveBalance[]>> {
+    const params = year != null ? `?year=${year}` : '';
+    return this.http.get<ApiResponse<LeaveBalance[]>>(
+      `${this.API}/hr/leave/my/balance${params}`);
+  }
+
+  /** Active leave types — the dropdown source for the Apply Leave
+   *  dialog. Mounted at /active-types (not /types/active) to avoid
+   *  the feature-flag filter's /types/* HR-gate. */
+  hrActiveLeaveTypes(): Observable<ApiResponse<LeaveType[]>> {
+    return this.http.get<ApiResponse<LeaveType[]>>(
+      `${this.API}/hr/leave/active-types`);
+  }
+
+  /** Employee cancels their own leave — PENDING always, APPROVED
+   *  only for future dates (server enforces + refunds proportionally). */
+  hrCancelLeave(id: string): Observable<ApiResponse<LeaveApplication>> {
+    return this.http.post<ApiResponse<LeaveApplication>>(
+      `${this.API}/hr/leave/${encodeURIComponent(id)}/cancel`, {});
+  }
+
+  /** HR: pending leave queue. */
+  hrPendingLeaves(): Observable<ApiResponse<LeaveApplication[]>> {
+    return this.http.get<ApiResponse<LeaveApplication[]>>(
+      `${this.API}/hr/leave/pending`);
+  }
+
+  /** HR: approved / rejected / cancelled history. */
+  hrLeaveHistory(): Observable<ApiResponse<LeaveApplication[]>> {
+    return this.http.get<ApiResponse<LeaveApplication[]>>(
+      `${this.API}/hr/leave/history`);
+  }
+
+  /** HR approves — writes ON_LEAVE attendance rows + deducts balance. */
+  hrApproveLeave(id: string, review?: LeaveReviewRequest):
+      Observable<ApiResponse<LeaveApplication>> {
+    return this.http.post<ApiResponse<LeaveApplication>>(
+      `${this.API}/hr/leave/${encodeURIComponent(id)}/approve`, review || {});
+  }
+
+  /** HR rejects with a note (required). */
+  hrRejectLeave(id: string, review?: LeaveReviewRequest):
+      Observable<ApiResponse<LeaveApplication>> {
+    return this.http.post<ApiResponse<LeaveApplication>>(
+      `${this.API}/hr/leave/${encodeURIComponent(id)}/reject`, review || {});
+  }
+
+  /** HR: any employee's balance sheet for a year. */
+  hrEmployeeLeaveBalance(employeeId: string, year?: number):
+      Observable<ApiResponse<LeaveBalance[]>> {
+    const params = year != null ? `?year=${year}` : '';
+    return this.http.get<ApiResponse<LeaveBalance[]>>(
+      `${this.API}/hr/leave/employees/${encodeURIComponent(employeeId)}/balance${params}`);
+  }
+
+  // Leave-type CRUD (HR only) — used by the HR → Leave → Settings page.
+
+  hrLeaveTypes(): Observable<ApiResponse<LeaveType[]>> {
+    return this.http.get<ApiResponse<LeaveType[]>>(
+      `${this.API}/hr/leave/types`);
+  }
+
+  hrCreateLeaveType(req: UpsertLeaveTypeRequest): Observable<ApiResponse<LeaveType>> {
+    return this.http.post<ApiResponse<LeaveType>>(
+      `${this.API}/hr/leave/types`, req);
+  }
+
+  hrUpdateLeaveType(id: string, req: UpsertLeaveTypeRequest):
+      Observable<ApiResponse<LeaveType>> {
+    return this.http.put<ApiResponse<LeaveType>>(
+      `${this.API}/hr/leave/types/${encodeURIComponent(id)}`, req);
+  }
+
+  hrToggleLeaveType(id: string): Observable<ApiResponse<LeaveType>> {
+    return this.http.post<ApiResponse<LeaveType>>(
+      `${this.API}/hr/leave/types/${encodeURIComponent(id)}/toggle`, {});
   }
 }

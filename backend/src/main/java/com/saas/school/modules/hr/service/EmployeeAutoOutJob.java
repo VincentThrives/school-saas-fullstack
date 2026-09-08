@@ -129,6 +129,11 @@ public class EmployeeAutoOutJob {
             if (row.getInTime() == null) continue;         // never came in
             if (row.getOutTime() != null) continue;        // already OUT
             if ("ABSENT".equalsIgnoreCase(row.getStatus())) continue;
+            // Leave rows have status=ON_LEAVE and null inTime — the
+            // inTime==null continue above catches the common case, but
+            // if some other flow ever stamps an IN on a leave day (unusual),
+            // we still don't want to auto-OUT on top of an approved leave.
+            if ("ON_LEAVE".equalsIgnoreCase(row.getStatus())) continue;
             // Guardrail: don't stamp a row whose IN was AFTER the
             // auto-out cutoff (rare — employee walked in after the
             // day nominally ended). Their duration would be negative.

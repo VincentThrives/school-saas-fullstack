@@ -99,7 +99,17 @@ public class FeatureFlagFilter extends OncePerRequestFilter {
         Map.entry("/api/v1/hr/attendance/daily",                   "hr_attendance"),
         Map.entry("/api/v1/hr/attendance/monthly",                 "hr_attendance"),
         Map.entry("/api/v1/hr/attendance/report",                  "hr_attendance"),
-        Map.entry("/api/v1/hr/attendance/mark-manual",             "hr_attendance")
+        Map.entry("/api/v1/hr/attendance/mark-manual",             "hr_attendance"),
+        // Leave admin surface — pending queue, history, approve/reject,
+        // type CRUD, and cross-employee balance lookups. Employee-facing
+        // paths (/apply, /my, /my/balance, /{id}/cancel, /types/active)
+        // stay off this list and fall through to the umbrella only, so
+        // employees can still apply / view their own leave when the
+        // sub-module is off for HR staff (rare but coherent).
+        Map.entry("/api/v1/hr/leave/pending",                      "hr_leave"),
+        Map.entry("/api/v1/hr/leave/history",                      "hr_leave"),
+        Map.entry("/api/v1/hr/leave/types",                        "hr_leave"),
+        Map.entry("/api/v1/hr/leave/employees",                    "hr_leave")
     );
 
     @Override

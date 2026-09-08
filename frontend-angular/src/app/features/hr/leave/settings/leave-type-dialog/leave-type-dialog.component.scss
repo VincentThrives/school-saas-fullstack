@@ -1,0 +1,25 @@
+h2[mat-dialog-title] {
+  display: flex; align-items: center; gap: 8px;
+  mat-icon { color: #B8860B; }
+}
+
+.type-content {
+  padding-top: 8px !important;
+  min-width: 360px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.full { width: 100%; }
+
+mat-checkbox {
+  margin: 6px 4px 0;
+}
+
+mat-dialog-actions button[mat-flat-button] {
+  min-width: 96px;
+  mat-spinner { margin: 0 auto; }
+}
+
+@media (max-width: 500px) {
+  .type-content { min-width: 0; }
+}

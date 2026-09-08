@@ -59,7 +59,8 @@ export type FeatureKey =
   | 'id_cards'
   | 'biometric_terminal'
   | 'hr_module'
-  | 'hr_attendance';
+  | 'hr_attendance'
+  | 'hr_leave';
 
 // API Response
 export interface ApiResponse<T> {
@@ -1484,5 +1485,96 @@ export interface HrTerminalPunch {
   late?: boolean;
   inTime?: string;
   outTime?: string;
+}
+
+// ── Leave module ─────────────────────────────────────────────
+
+/**
+ * One row in the tenant's leave-type catalog — e.g., CL / SL / EL /
+ * LOP. Powers the Apply Leave dropdown (active only) and the HR →
+ * Leave → Settings management page (all rows).
+ */
+export interface LeaveType {
+  id: string;
+  /** Uppercase short code, immutable once created. */
+  code: string;
+  name: string;
+  /** Days per year granted by default when we provision a fresh
+   *  balance row. 0 = uncapped (LOP-style). */
+  defaultAnnualQuota: number;
+  paid: boolean;
+  active: boolean;
+  sortOrder: number;
+}
+
+/** Create + update payload. Code is required on create, ignored on
+ *  update. Every other field is optional on update (partial patch). */
+export interface UpsertLeaveTypeRequest {
+  code?: string;
+  name?: string;
+  defaultAnnualQuota?: number;
+  paid?: boolean;
+  active?: boolean;
+  sortOrder?: number;
+}
+
+/** Per-employee, per-year, per-type balance row. remaining is derived
+ *  on the server as allocated + carryForwardIn - used. */
+export interface LeaveBalance {
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  allocated: number;
+  carryForwardIn: number;
+  used: number;
+  remaining: number;
+  /** False when the underlying type has been deactivated — the row
+   *  still surfaces for historical continuity but the UI dims it. */
+  typeActive: boolean;
+}
+
+/** Employee leave application — one row spans a date range. */
+export interface LeaveApplication {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  designation?: string;
+
+  leaveTypeCode: string;
+  leaveTypeName: string;
+
+  startDate: string;    // ISO yyyy-MM-dd
+  endDate: string;      // ISO yyyy-MM-dd
+  /** 2nd half of the first date. */
+  startHalf: boolean;
+  /** 1st half of the last date. Ignored when start == end. */
+  endHalf: boolean;
+  /** Full = 1.0, half = 0.5 — computed server-side at submit. */
+  days: number;
+
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
+  reviewedByUserId?: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
+
+  submittedByUserId?: string;
+  requestedAt?: string;
+  cancelledAt?: string;
+}
+
+/** Payload for POST /hr/leave/apply. */
+export interface SubmitLeaveRequest {
+  leaveTypeCode: string;
+  startDate: string;    // ISO yyyy-MM-dd
+  endDate: string;
+  startHalf?: boolean;
+  endHalf?: boolean;
+  reason: string;
+}
+
+/** Payload for approve/reject. Notes required on reject, optional on approve. */
+export interface LeaveReviewRequest {
+  notes?: string;
 }
 

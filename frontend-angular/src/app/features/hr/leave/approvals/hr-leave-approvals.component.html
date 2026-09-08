@@ -1,0 +1,98 @@
+<div class="lapp-container">
+  <app-page-header
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/hr/dashboard' },
+      { label: 'Leave', link: '/hr/leave/approvals' },
+      { label: 'Approvals' }
+    ]"
+    title="Leave Approvals">
+  </app-page-header>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="32"></mat-spinner>
+  </div>
+
+  <mat-tab-group *ngIf="!isLoading" animationDuration="200ms" class="lapp-tabs">
+    <!-- ── Pending ────────────────────────────────────────── -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        Pending
+        <span class="tab-badge" *ngIf="pending.length">{{ pending.length }}</span>
+      </ng-template>
+
+      <div class="tab-body">
+        <div class="empty-state" *ngIf="!pending.length">
+          <mat-icon>done_all</mat-icon>
+          <p>Nothing waiting — everyone's applications are handled.</p>
+        </div>
+
+        <div class="row-list" *ngIf="pending.length">
+          <div class="review-row" *ngFor="let row of pending">
+            <div class="row-main">
+              <div class="row-line1">
+                <span class="emp-name">{{ row.employeeName }}</span>
+                <span class="emp-desig" *ngIf="row.designation">{{ row.designation }}</span>
+              </div>
+              <div class="row-line2">
+                <span class="type-chip">{{ row.leaveTypeCode }}</span>
+                <span class="range">{{ formatRange(row) }}</span>
+                <span class="days">· {{ row.days }} day{{ row.days === 1 ? '' : 's' }}</span>
+              </div>
+              <div class="row-reason">{{ row.reason }}</div>
+              <div class="row-meta">Submitted {{ formatDateTime(row.requestedAt) }}</div>
+            </div>
+            <div class="row-actions">
+              <button mat-flat-button color="primary"
+                [disabled]="reviewingIds.has(row.id)"
+                (click)="openReview(row, 'approve')">
+                <mat-spinner *ngIf="reviewingIds.has(row.id)" diameter="16"></mat-spinner>
+                <ng-container *ngIf="!reviewingIds.has(row.id)">Approve</ng-container>
+              </button>
+              <button mat-stroked-button color="warn"
+                [disabled]="reviewingIds.has(row.id)"
+                (click)="openReview(row, 'reject')">
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- ── History ────────────────────────────────────────── -->
+    <mat-tab label="History">
+      <div class="tab-body">
+        <div class="empty-state" *ngIf="!history.length">
+          <mat-icon>history</mat-icon>
+          <p>No reviewed leaves yet.</p>
+        </div>
+
+        <div class="row-list" *ngIf="history.length">
+          <div class="review-row history" *ngFor="let row of history">
+            <div class="row-main">
+              <div class="row-line1">
+                <span class="emp-name">{{ row.employeeName }}</span>
+                <span class="emp-desig" *ngIf="row.designation">{{ row.designation }}</span>
+                <mat-chip [class]="statusClass(row.status)" disableRipple>{{ row.status }}</mat-chip>
+              </div>
+              <div class="row-line2">
+                <span class="type-chip">{{ row.leaveTypeCode }}</span>
+                <span class="range">{{ formatRange(row) }}</span>
+                <span class="days">· {{ row.days }} day{{ row.days === 1 ? '' : 's' }}</span>
+              </div>
+              <div class="row-reason">{{ row.reason }}</div>
+              <div class="row-meta" *ngIf="row.reviewNotes">
+                <mat-icon class="meta-icon">comment</mat-icon>
+                <span>{{ row.reviewNotes }}</span>
+              </div>
+              <div class="row-meta">
+                <span *ngIf="row.reviewedAt">Reviewed {{ formatDateTime(row.reviewedAt) }}</span>
+                <span *ngIf="row.cancelledAt">· Cancelled {{ formatDateTime(row.cancelledAt) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

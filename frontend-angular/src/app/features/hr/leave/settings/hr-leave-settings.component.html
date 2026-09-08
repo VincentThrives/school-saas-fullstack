@@ -1,0 +1,73 @@
+<div class="lsettings-container">
+  <app-page-header
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/hr/dashboard' },
+      { label: 'Leave' },
+      { label: 'Settings' }
+    ]"
+    title="Leave Settings">
+  </app-page-header>
+
+  <mat-card class="intro-card">
+    <mat-card-content>
+      <p>
+        Set up the leave types your school offers. Each type has a
+        default annual quota — that's the initial balance every
+        employee gets for the year. Deactivating a type hides it
+        from the Apply Leave form but keeps historical rows readable.
+      </p>
+    </mat-card-content>
+  </mat-card>
+
+  <div class="header-row">
+    <span class="row-title">Leave types</span>
+    <button mat-flat-button color="primary" (click)="openCreate()">
+      <mat-icon>add</mat-icon>
+      Add type
+    </button>
+  </div>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="28"></mat-spinner>
+  </div>
+
+  <div class="empty-state" *ngIf="!isLoading && !types.length">
+    <mat-icon>event_note</mat-icon>
+    <p>No leave types yet — tap "Add type" to create one.</p>
+  </div>
+
+  <div class="type-list" *ngIf="!isLoading && types.length">
+    <div class="type-row" *ngFor="let t of types" [class.type-row--inactive]="!t.active">
+      <div class="type-main">
+        <div class="type-code">{{ t.code }}</div>
+        <div class="type-body">
+          <div class="type-name">
+            {{ t.name }}
+            <mat-icon
+              *ngIf="!t.paid"
+              class="paid-icon"
+              matTooltip="Unpaid (LOP-style)">
+              money_off
+            </mat-icon>
+          </div>
+          <div class="type-meta">
+            <span>Quota: <strong>{{ t.defaultAnnualQuota || 'uncapped' }}</strong> days / year</span>
+            <span class="dot">·</span>
+            <span>{{ t.paid ? 'Paid' : 'Unpaid' }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="type-actions">
+        <mat-slide-toggle
+          [checked]="t.active"
+          [disabled]="togglingId === t.id"
+          (change)="toggle(t)"
+          matTooltip="Show / hide from Apply Leave">
+        </mat-slide-toggle>
+        <button mat-icon-button (click)="openEdit(t)" matTooltip="Edit">
+          <mat-icon>edit</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

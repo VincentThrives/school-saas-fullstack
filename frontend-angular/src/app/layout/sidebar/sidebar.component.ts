@@ -494,15 +494,25 @@ export class SidebarComponent implements OnInit, OnDestroy {
             { title: 'Attendance Settings', path: '/hr/attendance/settings',  icon: 'tune',             feature: 'hr_attendance' },
           ],
         },
+        // Leave module — mirrors the Attendance group shape. Approvals
+        // + Settings are HR-admin work; My Leave (the employee's own
+        // apply + history + balance) sits in the personal group below.
+        {
+          title: 'Leave', path: '', icon: 'beach_access', feature: 'hr_leave',
+          children: [
+            { title: 'Approvals',      path: '/hr/leave/approvals', icon: 'pending_actions', feature: 'hr_leave' },
+            { title: 'Leave Settings', path: '/hr/leave/settings',  icon: 'tune',            feature: 'hr_leave' },
+          ],
+        },
         {
           // Personal items — the HR user's own attendance history +
-          // their profile. Kept out of the Attendance group above
-          // (that's admin-side work items) so the mental split of
-          // "what I manage vs what's mine" is obvious in the
-          // sidebar.
+          // leave + profile. Kept out of the admin groups above so
+          // the mental split of "what I manage vs what's mine" is
+          // obvious in the sidebar.
           title: 'My Details', path: '', icon: 'account_circle',
           children: [
-            { title: 'My Attendance', path: '/hr/attendance/my', icon: 'how_to_reg', feature: 'hr_module' },
+            { title: 'My Attendance', path: '/hr/attendance/my', icon: 'how_to_reg',      feature: 'hr_module' },
+            { title: 'My Leave',      path: '/hr/leave/my',       icon: 'event_available', feature: 'hr_module' },
             { title: 'My Profile',    path: '/profile',           icon: 'person' },
           ],
         },
@@ -530,6 +540,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
               UserRole.SCHOOL_COORDINATOR],
       children: [
         { title: 'My Attendance', path: '/hr/attendance/my', icon: 'how_to_reg' },
+        { title: 'My Leave',      path: '/hr/leave/my',       icon: 'event_available', feature: 'hr_module' },
         { title: 'My Profile',    path: '/profile',           icon: 'person' },
       ],
     });

@@ -1,0 +1,92 @@
+<div class="mleave-container">
+  <app-page-header
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'My Leave' }
+    ]">
+  </app-page-header>
+
+  <!-- ── Balance strip ──────────────────────────────────────── -->
+  <section class="balance-section">
+    <div class="balance-head">
+      <span class="balance-title">Leave balance</span>
+      <span class="balance-year">{{ currentYear }}</span>
+    </div>
+    <div class="balance-grid" *ngIf="balances.length; else noBalance">
+      <div class="balance-card" *ngFor="let b of balances" [class.balance-card--inactive]="!b.typeActive">
+        <div class="balance-code">{{ b.leaveTypeCode }}</div>
+        <div class="balance-name">{{ b.leaveTypeName }}</div>
+        <div class="balance-remaining">
+          <span class="rem-num">{{ b.remaining }}</span>
+          <span class="rem-unit">day{{ b.remaining === 1 ? '' : 's' }} left</span>
+        </div>
+        <div class="balance-meta">
+          <span>Used {{ b.used }}</span>
+          <span class="dot">·</span>
+          <span>Total {{ b.allocated + b.carryForwardIn }}</span>
+        </div>
+      </div>
+    </div>
+    <ng-template #noBalance>
+      <div class="balance-empty">
+        No leave types configured yet — ask HR to set them up in
+        Leave Settings.
+      </div>
+    </ng-template>
+  </section>
+
+  <!-- ── Apply button ───────────────────────────────────────── -->
+  <div class="apply-row">
+    <button mat-flat-button color="primary" (click)="openApply()">
+      <mat-icon>event_available</mat-icon>
+      Apply for leave
+    </button>
+  </div>
+
+  <!-- ── History list ───────────────────────────────────────── -->
+  <section class="history-section">
+    <div class="history-head">
+      <span class="history-title">My leaves</span>
+      <span class="history-count" *ngIf="leaves.length">{{ leaves.length }} total</span>
+    </div>
+
+    <div class="loading-row" *ngIf="isLoading">
+      <mat-spinner diameter="28"></mat-spinner>
+    </div>
+
+    <div class="history-empty" *ngIf="!isLoading && !leaves.length">
+      <mat-icon>inbox</mat-icon>
+      <p>No leaves yet. Tap "Apply for leave" above to submit one.</p>
+    </div>
+
+    <div class="history-list" *ngIf="!isLoading && leaves.length">
+      <div class="leave-row" *ngFor="let row of sortedLeaves">
+        <div class="leave-main">
+          <div class="leave-line1">
+            <span class="type-chip">{{ row.leaveTypeCode }}</span>
+            <span class="range">{{ formatRange(row) }}</span>
+            <span class="days">· {{ row.days }} day{{ row.days === 1 ? '' : 's' }}</span>
+          </div>
+          <div class="leave-reason">{{ row.reason }}</div>
+          <div class="leave-line3" *ngIf="row.reviewNotes">
+            <mat-icon class="notes-icon">comment</mat-icon>
+            <span class="notes-text">{{ row.reviewNotes }}</span>
+          </div>
+        </div>
+        <div class="leave-side">
+          <mat-chip [class]="statusClass(row.status)" disableRipple>
+            {{ row.status }}
+          </mat-chip>
+          <button
+              *ngIf="canCancel(row)"
+              mat-stroked-button color="warn" class="cancel-btn"
+              [disabled]="cancellingId === row.id"
+              (click)="cancel(row)">
+            <mat-spinner *ngIf="cancellingId === row.id" diameter="16"></mat-spinner>
+            <ng-container *ngIf="cancellingId !== row.id">Cancel</ng-container>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

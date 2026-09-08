@@ -1,0 +1,44 @@
+<h2 mat-dialog-title>
+  <mat-icon>{{ isEdit ? 'edit_note' : 'add_circle' }}</mat-icon>
+  {{ isEdit ? 'Edit leave type' : 'Add leave type' }}
+</h2>
+
+<mat-dialog-content class="type-content">
+  <mat-form-field appearance="outline" class="full">
+    <mat-label>Code</mat-label>
+    <input matInput [(ngModel)]="form.code" [disabled]="isEdit"
+      placeholder="CL, SL, EL, LOP…" maxlength="8">
+    <mat-hint *ngIf="!isEdit">2–8 characters. Immutable once created.</mat-hint>
+    <mat-hint *ngIf="isEdit">Code can't be changed after creation.</mat-hint>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="full">
+    <mat-label>Name</mat-label>
+    <input matInput [(ngModel)]="form.name" placeholder="e.g., Casual leave">
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="full">
+    <mat-label>Default annual quota (days)</mat-label>
+    <input matInput type="number" min="0" step="0.5"
+      [(ngModel)]="form.defaultAnnualQuota">
+    <mat-hint>0 = uncapped (LOP-style). Balances use this as the initial allocation each year.</mat-hint>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="full">
+    <mat-label>Sort order</mat-label>
+    <input matInput type="number" min="0" [(ngModel)]="form.sortOrder">
+    <mat-hint>Lower = higher up in the Apply Leave dropdown.</mat-hint>
+  </mat-form-field>
+
+  <mat-checkbox [(ngModel)]="form.paid">
+    Paid leave (uncheck for LOP-style)
+  </mat-checkbox>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">Cancel</button>
+  <button mat-flat-button color="primary" (click)="submit()" [disabled]="isSaving">
+    <mat-spinner *ngIf="isSaving" diameter="18"></mat-spinner>
+    <ng-container *ngIf="!isSaving">{{ isEdit ? 'Save' : 'Create' }}</ng-container>
+  </button>
+</mat-dialog-actions>

@@ -117,8 +117,9 @@ public class DataInitializer implements CommandLineRunner {
             // enables Daily / Approvals / Settings / Terminal
             // Bindings as one coherent surface (they don't make
             // sense in isolation).
-            feature("hr_module",     "HR Module", "Employee HR surface (attendance, later leave + payroll)", false, "hr", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
-            feature("hr_attendance", "HR — Attendance", "Daily view + settings + approvals + terminal bindings for employee attendance", true, "hr", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE)
+            feature("hr_module",     "HR Module", "Employee HR surface (attendance, leave, later payroll)", false, "hr", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("hr_attendance", "HR — Attendance", "Daily view + settings + approvals + terminal bindings for employee attendance", true, "hr", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE),
+            feature("hr_leave",      "HR — Leave", "Leave applications + approvals + leave-type catalog for employees", true, "hr", false, ++order, SubscriptionPlan.STANDARD, SubscriptionPlan.ENTERPRISE)
         );
         // Upsert-style seed: pre-existing catalogs (already seeded on the
         // count==0 path in older builds) still receive any new entries we

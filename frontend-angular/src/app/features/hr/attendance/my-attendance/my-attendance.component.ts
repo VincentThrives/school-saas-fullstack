@@ -46,7 +46,7 @@ interface CalendarCell {
   holidayName?: string;
   isToday: boolean;
   isFuture: boolean;
-  status?: 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT';
+  status?: 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT' | 'ON_LEAVE';
   late?: boolean;
   /** Where the row came from. LOCATION / BIOMETRIC = real punch,
    *  MANUAL = HR filled it in, REGULARIZATION = a request was
@@ -356,6 +356,12 @@ export class MyAttendanceComponent implements OnInit, OnDestroy {
       'cal-cell--late':    !!c.status && isLate,
       'cal-cell--halfday': c.status === 'HALF_DAY',
       'cal-cell--absent':  c.status === 'ABSENT',
+      // Approved leave day — distinct purple fill so leave stands out
+      // from ABSENT (which is a red-tinted "you weren't here") and
+      // from PRESENT (green). Leaves are neither present nor absent
+      // as far as payroll is concerned; a colour of their own makes
+      // that obvious on the calendar.
+      'cal-cell--leave':   c.status === 'ON_LEAVE',
       // Corner-dot markers — mutually distinguishable colors so
       // employees can tell one from another at a glance:
       //   blue  = approved regularization / HR manual entry

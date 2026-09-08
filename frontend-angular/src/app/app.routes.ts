@@ -809,6 +809,35 @@ export const routes: Routes = [
         data: { roles: [UserRole.HR], feature: 'hr_attendance', title: 'Attendance Report' },
       },
 
+      // ── Leave module ─────────────────────────────────────
+      // Employee page — any authenticated Teacher-linked user; gated
+      // by the umbrella hr_module only so employees can still apply
+      // when HR staff have the hr_leave sub-module off (rare).
+      {
+        path: 'hr/leave/my',
+        loadComponent: () =>
+          import('./features/hr/leave/my-leave/my-leave.component')
+              .then(m => m.MyLeaveComponent),
+        canActivate: [featureGuard],
+        data: { feature: 'hr_module', title: 'My Leave' },
+      },
+      {
+        path: 'hr/leave/approvals',
+        loadComponent: () =>
+          import('./features/hr/leave/approvals/hr-leave-approvals.component')
+              .then(m => m.HrLeaveApprovalsComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.HR], feature: 'hr_leave', title: 'Leave Approvals' },
+      },
+      {
+        path: 'hr/leave/settings',
+        loadComponent: () =>
+          import('./features/hr/leave/settings/hr-leave-settings.component')
+              .then(m => m.HrLeaveSettingsComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.HR], feature: 'hr_leave', title: 'Leave Settings' },
+      },
+
       // Settings (SCHOOL_ADMIN only)
       {
         path: 'settings',
