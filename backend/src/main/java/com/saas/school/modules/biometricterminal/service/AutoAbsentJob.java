@@ -9,6 +9,7 @@ import com.saas.school.modules.biometricterminal.repository.AutoAbsentLogReposit
 import com.saas.school.modules.biometricterminal.repository.BiometricSettingsRepository;
 import com.saas.school.modules.notification.model.Notification;
 import com.saas.school.modules.notification.service.NotificationService;
+import com.saas.school.modules.sms.service.SmsService;
 import com.saas.school.modules.student.model.Student;
 import com.saas.school.modules.student.repository.StudentRepository;
 import com.saas.school.modules.tenant.model.Tenant;
@@ -40,10 +41,14 @@ import java.util.List;
  * we check "has your absent-mark time passed today?" and idempotency
  * ("did we already run today?") before doing any work.</p>
  *
- * <p>SMS is intentionally NOT fired here yet — the plan is to add a
- * DLT-registered template on the super-admin SMS panel first, then wire
- * SmsService in. For now, in-app notification via NotificationService
- * (which fans out to registered devices) is the only channel.</p>
+ * <p>Fires SMS through the existing ABSENCE_ALERT flow (same DLT
+ * template + audit + idempotency the manual "Send today's absent SMS"
+ * button on the SMS Notifications page uses). Each newly-marked student
+ * from this run is passed to {@link SmsService#sendAbsenceAlertsForToday}
+ * with the caller id {@code SYSTEM_AUTO} so the audit log shows the
+ * source. Wrapped in a broad catch so an SMS misconfig (globally off,
+ * per-tenant off, MSG91 error) never fails the ABSENT-marking part of
+ * the pass — in-app notifications still land regardless.</p>
  */
 @Component
 public class AutoAbsentJob {
@@ -57,6 +62,7 @@ public class AutoAbsentJob {
     @Autowired private StudentRepository studentRepository;
     @Autowired private StudentsAttendanceRepository attendanceRepository;
     @Autowired private NotificationService notificationService;
+    @Autowired private SmsService smsService;
 
     /**
      * Every 15 min from 09:00–13:00 IST. Cron is second-field-first
@@ -111,10 +117,12 @@ public class AutoAbsentJob {
         String todayKey = today.toString();
         if (logRepository.existsById(todayKey)) return; // already ran today
 
-        int marked = markAbsentees(today);
+        List<String> markedIds = markAbsentees(today);
+        int marked = markedIds.size();
         logRepository.save(new AutoAbsentLog(todayKey, marked, Instant.now()));
         log.info("Auto-absent: tenant={} date={} marked={}",
             tenant.getTenantId(), todayKey, marked);
+        fireAbsenceAlertSms(markedIds, tenant.getTenantId());
     }
 
     /**
@@ -150,20 +158,23 @@ public class AutoAbsentJob {
             log.info("Manual auto-absent skipped — already ran today for this tenant. Pass resetLog=true to force.");
             return 0;
         }
-        int marked = markAbsentees(today);
+        List<String> markedIds = markAbsentees(today);
+        int marked = markedIds.size();
         logRepository.save(new AutoAbsentLog(todayKey, marked, Instant.now()));
         log.info("Manual auto-absent complete: tenant={} date={} marked={} (enabled={})",
             com.saas.school.config.mongodb.TenantContext.getTenantId(),
             todayKey, marked, settings.isAbsentAutoMarkEnabled());
+        fireAbsenceAlertSms(markedIds, com.saas.school.config.mongodb.TenantContext.getTenantId());
         return marked;
     }
 
     /** Scan every active student → for each without a PRESENT day-wise
      *  entry today, upsert an ABSENT entry and fire an in-app parent
-     *  notification. Returns the count of students newly marked absent. */
-    private int markAbsentees(LocalDate today) {
+     *  notification. Returns the studentIds newly marked absent so the
+     *  caller can fan out the ABSENCE_ALERT SMS in one batched call. */
+    private List<String> markAbsentees(LocalDate today) {
         List<Student> students = studentRepository.findByDeletedAtIsNull();
-        int marked = 0;
+        List<String> markedIds = new ArrayList<>();
         for (Student s : students) {
             if (s.getClassId() == null || s.getSectionId() == null) continue;
 
@@ -200,10 +211,36 @@ public class AutoAbsentJob {
                 entry.setStatus("ABSENT");
             }
             attendanceRepository.save(row);
-            marked++;
+            markedIds.add(s.getStudentId());
             fireParentNotification(s);
         }
-        return marked;
+        return markedIds;
+    }
+
+    /**
+     * Fire ABSENCE_ALERT SMS for every student we just stamped ABSENT.
+     * Delegates to the existing {@link SmsService#sendAbsenceAlertsForToday}
+     * so the auto flow shares the same DLT template, per-tenant enable
+     * flag ({@code TenantSmsSettings.absenceAlertEnabled}), audit trail,
+     * and same-day dedup used by the manual "Send today's absent SMS"
+     * button on the SMS Notifications page.
+     *
+     * <p>SmsService raises BusinessException when SMS is globally off,
+     * the school hasn't been enabled, or absence alerts are toggled off
+     * for the tenant. Those are configuration signals not errors — we
+     * log at debug and let the ABSENT-marking side of the pass stand.
+     * Any other exception is warned but similarly non-fatal.</p>
+     */
+    private void fireAbsenceAlertSms(List<String> studentIds, String tenantId) {
+        if (studentIds == null || studentIds.isEmpty()) return;
+        try {
+            smsService.sendAbsenceAlertsForToday(studentIds, "SYSTEM_AUTO");
+            log.info("Auto-absent SMS queued: tenant={} count={}", tenantId, studentIds.size());
+        } catch (com.saas.school.common.exception.BusinessException e) {
+            log.debug("Auto-absent SMS skipped for tenant {}: {}", tenantId, e.getMessage());
+        } catch (Exception e) {
+            log.warn("Auto-absent SMS failed for tenant {}: {}", tenantId, e.getMessage(), e);
+        }
     }
 
     /** In-app push only for now — SMS wires in later once the DLT
