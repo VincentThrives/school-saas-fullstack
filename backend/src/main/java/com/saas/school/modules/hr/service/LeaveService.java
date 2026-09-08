@@ -22,13 +22,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -63,6 +66,11 @@ public class LeaveService {
     @Autowired private LeaveBalanceRepository balanceRepo;
     @Autowired private EmployeeAttendanceRepository attendanceRepo;
     @Autowired private TeacherRepository teacherRepo;
+    /** Used only for {@link EmployeeAttendanceService#getHolidaysInRange}
+     *  — no circular risk (attendance service doesn't reach into
+     *  the leave module). Kept optional (required=false) so unit
+     *  tests that don't stand up the whole HR module still boot. */
+    @Autowired(required = false) private EmployeeAttendanceService attendanceService;
 
     // ── Submit ─────────────────────────────────────────────────
 
@@ -102,9 +110,19 @@ public class LeaveService {
 
         boolean startHalf = req.isStartHalf();
         boolean endHalf = req.isEndHalf() && !start.equals(end); // single-day → only startHalf
-        double days = computeDays(start, end, startHalf, endHalf);
+
+        // Exclude Sundays + tenant-declared holidays from the day count
+        // AND from the ON_LEAVE attendance rows we write later. Applying
+        // leave for a range that includes a public holiday shouldn't
+        // consume any leave balance on that holiday — the employee
+        // isn't expected to work that day anyway. If the entire range
+        // is off-days, the request has nothing to do so we reject it.
+        Set<LocalDate> holidayDates = loadHolidayDates(start, end);
+        double days = computeEffectiveDays(start, end, startHalf, endHalf, holidayDates);
         if (days <= 0) {
-            throw new BusinessException("Leave duration comes out to 0 days — check the half-day toggles.");
+            throw new BusinessException(
+                "Every day in your selected range is either a Sunday or a declared "
+              + "holiday — no leave to apply for. Pick a range with at least one working day.");
         }
 
         // Overlap check — non-rejected leaves that intersect the new
@@ -173,8 +191,24 @@ public class LeaveService {
         LeaveType type = typeRepo.findByCode(row.getLeaveTypeCode()).orElseThrow(() ->
             new BusinessException("Leave type '" + row.getLeaveTypeCode() + "' no longer exists."));
 
-        writeAttendanceRows(row);
-        adjustBalance(row, +row.getDays());
+        // Re-resolve off-days at approve time — the holiday calendar
+        // may have gained/lost entries between submit and approve.
+        // Recompute {@code days} from the current holiday set so the
+        // balance deduction matches what we actually write. If every
+        // day is now off (rare — holiday added after submit), reject
+        // rather than deducting nothing but marking the leave APPROVED.
+        Set<LocalDate> holidayDates = loadHolidayDates(row.getStartDate(), row.getEndDate());
+        double effectiveDays = computeEffectiveDays(row.getStartDate(), row.getEndDate(),
+            row.isStartHalf(), row.isEndHalf(), holidayDates);
+        if (effectiveDays <= 0) {
+            throw new BusinessException(
+                "The requested range is now entirely holidays / Sundays — "
+              + "no working days to approve. Reject the request instead.");
+        }
+        row.setDays(effectiveDays);
+
+        writeAttendanceRows(row, holidayDates);
+        adjustBalance(row, +effectiveDays);
 
         row.setStatus(LeaveApplication.Status.APPROVED);
         row.setReviewedByUserId(reviewerUserId);
@@ -240,7 +274,11 @@ public class LeaveService {
             for (EmployeeAttendance r : generated) {
                 if (!r.getDate().isBefore(today)) {
                     toDelete.add(r);
-                    refund += weightForDate(r.getDate(), row);
+                    // Attendance rows exist only for working days
+                    // (writeAttendanceRows skipped off-days), so the
+                    // boundary weight is the entire per-day cost.
+                    refund += boundaryWeight(r.getDate(), row.getStartDate(),
+                        row.getEndDate(), row.isStartHalf(), row.isEndHalf());
                 }
             }
             if (!toDelete.isEmpty()) attendanceRepo.deleteAll(toDelete);
@@ -330,31 +368,68 @@ public class LeaveService {
         }
     }
 
-    /** Full day = 1.0, half day on either boundary shaves 0.5.
-     *  Single-day leave with startHalf=true is 0.5. */
-    private static double computeDays(LocalDate start, LocalDate end, boolean startHalf, boolean endHalf) {
-        long spanned = end.toEpochDay() - start.toEpochDay() + 1;
-        double days = spanned;
-        if (startHalf) days -= 0.5;
-        if (endHalf) days -= 0.5;
+    /** Effective days = sum of per-date weights for every WORKING date
+     *  in the range (Sundays + holidays excluded). Half-days on either
+     *  boundary contribute 0.5 instead of 1.0, but only if that
+     *  boundary date is itself a working day — a half-day toggle on a
+     *  Sunday boundary is silently a no-op (Sunday doesn't consume
+     *  balance at all). */
+    private static double computeEffectiveDays(LocalDate start, LocalDate end,
+                                                boolean startHalf, boolean endHalf,
+                                                Set<LocalDate> holidayDates) {
+        double days = 0;
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            if (!isWorkingDay(d, holidayDates)) continue;
+            days += boundaryWeight(d, start, end, startHalf, endHalf);
+        }
         return days;
     }
 
-    /** Per-date weight used at cancel-refund time. Boundary dates
-     *  may be halves; interior dates are always full. */
-    private static double weightForDate(LocalDate d, LeaveApplication row) {
-        if (d.equals(row.getStartDate()) && row.isStartHalf()) return 0.5;
-        if (d.equals(row.getEndDate()) && row.isEndHalf() && !row.getStartDate().equals(row.getEndDate())) return 0.5;
+    /** Working = not Sunday AND not in the holiday set. Matches how
+     *  the frontend My Attendance calendar renders off-days. */
+    private static boolean isWorkingDay(LocalDate d, Set<LocalDate> holidayDates) {
+        if (d.getDayOfWeek() == DayOfWeek.SUNDAY) return false;
+        if (holidayDates.contains(d)) return false;
+        return true;
+    }
+
+    /** Per-date weight (1.0 or 0.5) — pure math, doesn't check
+     *  working-day status. Callers must gate with {@link #isWorkingDay}
+     *  first. */
+    private static double boundaryWeight(LocalDate d, LocalDate start, LocalDate end,
+                                          boolean startHalf, boolean endHalf) {
+        boolean singleDay = start.equals(end);
+        if (d.equals(start) && startHalf) return 0.5;
+        if (d.equals(end) && endHalf && !singleDay) return 0.5;
         return 1.0;
     }
 
-    /** Upsert one attendance row per date in the leave range.
+    /** Load tenant-declared holiday dates in the range as a set for
+     *  O(1) contains checks. Returns empty set if the attendance
+     *  service isn't wired (unit tests, or a bare-bones tenant with
+     *  no events collection). */
+    private Set<LocalDate> loadHolidayDates(LocalDate from, LocalDate to) {
+        if (attendanceService == null) return Set.of();
+        try {
+            List<LocalDate> dates = attendanceService.getHolidaysInRange(from, to).getHolidayDates();
+            return dates == null ? Set.of() : new HashSet<>(dates);
+        } catch (Exception e) {
+            log.warn("Holiday load failed for range {} → {}: {}", from, to, e.getMessage());
+            return Set.of();
+        }
+    }
+
+    /** Upsert one attendance row per WORKING date in the leave range
+     *  (Sundays + declared holidays skipped — those days don't count
+     *  against balance and marking them ON_LEAVE would clutter the
+     *  calendar with purple over an already-tinted holiday cell).
      *  Existing rows on the same date are overwritten to ON_LEAVE —
      *  matches how Regularization overwrites; the marker + audit
      *  trail on the leave row itself is the source of truth. */
-    private void writeAttendanceRows(LeaveApplication row) {
+    private void writeAttendanceRows(LeaveApplication row, Set<LocalDate> holidayDates) {
         String marker = "leave:" + row.getId();
         for (LocalDate d = row.getStartDate(); !d.isAfter(row.getEndDate()); d = d.plusDays(1)) {
+            if (!isWorkingDay(d, holidayDates)) continue;
             EmployeeAttendance existing = attendanceRepo
                 .findByEmployeeIdAndDate(row.getEmployeeId(), d).orElse(null);
             EmployeeAttendance att = existing != null ? existing : new EmployeeAttendance();

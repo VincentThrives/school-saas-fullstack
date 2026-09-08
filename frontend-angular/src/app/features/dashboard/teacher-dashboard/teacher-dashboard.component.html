@@ -36,9 +36,15 @@
       {{ workdayButtonLabel }}
     </button>
     <span class="teacher-dashboard__workday-done"
-          *ngIf="!workdayCanPunch">
+          *ngIf="!workdayCanPunch && !workdayIsOnLeave">
       <mat-icon>verified</mat-icon>
       Done for today
+    </span>
+    <!-- On approved leave — no punch UI, just a purple pill. -->
+    <span class="teacher-dashboard__workday-onleave"
+          *ngIf="workdayIsOnLeave">
+      <mat-icon>beach_access</mat-icon>
+      On leave today
     </span>
   </div>
 

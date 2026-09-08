@@ -545,13 +545,23 @@ export class MyAttendanceComponent implements OnInit, OnDestroy {
   }
 
   get workStatusLine(): string {
+    if (this.isOnLeaveToday) return 'You\'re on approved leave today.';
     if (!this.today) return 'Yet to start work today.';
     if (!this.today.outTime) return `Work started at ${this.formatRowTime(this.today.inTime)}`;
     return `Done — IN ${this.formatRowTime(this.today.inTime)} · OUT ${this.formatRowTime(this.today.outTime)}`;
   }
 
+  /** True when today's row is an approved-leave row. Suppresses the
+   *  Start/End Workday CTA entirely — there's nothing to punch on a
+   *  leave day, and rendering the button would invite an
+   *  accidental mark that overrides the ON_LEAVE status. */
+  get isOnLeaveToday(): boolean {
+    return this.today?.status === 'ON_LEAVE';
+  }
+
   get canPunch(): boolean {
     if (!this.settings?.locationBasedEnabled) return false;
+    if (this.isOnLeaveToday) return false;
     if (!this.today) return true;
     if (this.settings.expectedPunchesPerDay >= 2 && !this.today.outTime) return true;
     return false;

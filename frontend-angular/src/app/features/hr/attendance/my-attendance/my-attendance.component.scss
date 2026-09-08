@@ -125,6 +125,19 @@ $c-reg:      #2563eb;  // blue — regularization / manual correction marker
   span { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 11.5px; }
 }
 
+// Approved-leave chip — sits in the same slot the punch CTA would,
+// so the hero-strip layout stays balanced. Purple echoes the leave
+// pill used elsewhere (calendar cell, chip class in the settings
+// listing) so employees pattern-match it as "leave" instantly.
+.hero-onleave-inline {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 16px;
+  background: rgba(124, 58, 237, 0.12); color: #6d28d9;
+  font-size: 12px; font-weight: 700;
+  flex-shrink: 0;
+  mat-icon { font-size: 16px; width: 16px; height: 16px; color: #7c3aed; }
+}
+
 // Live ticker strip — no top-margin now that it lives as its
 // own sibling of .hero-strip (the parent container gap handles
 // spacing between them).

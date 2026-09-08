@@ -13,6 +13,7 @@ import { ApiService } from '../../../../core/services/api.service';
 import { LeaveApplication, LeaveBalance } from '../../../../core/models';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { ApplyLeaveDialogComponent } from './apply-leave-dialog/apply-leave-dialog.component';
+import { ConfirmCancelDialogComponent } from './confirm-cancel-dialog/confirm-cancel-dialog.component';
 
 /**
  * Employee's Leave hub — balance widget across the top, an Apply
@@ -94,18 +95,26 @@ export class MyLeaveComponent implements OnInit {
 
   cancel(row: LeaveApplication): void {
     if (this.cancellingId) return;
-    if (!confirm(`Cancel your ${row.leaveTypeCode} leave (${row.startDate} → ${row.endDate})?`)) return;
-    this.cancellingId = row.id;
-    this.api.hrCancelLeave(row.id).subscribe({
-      next: () => {
-        this.cancellingId = null;
-        this.snack.open('Leave cancelled.', 'Close', { duration: 3000 });
-        this.load();
-      },
-      error: (err) => {
-        this.cancellingId = null;
-        this.snack.open(err?.error?.message || 'Failed to cancel leave.', 'Close', { duration: 4500 });
-      },
+    const ref = this.dialog.open(ConfirmCancelDialogComponent, {
+      width: '440px',
+      maxWidth: '95vw',
+      panelClass: ['centered-dialog'],
+      data: { leave: row },
+    });
+    ref.afterClosed().subscribe((confirmed) => {
+      if (!confirmed) return;
+      this.cancellingId = row.id;
+      this.api.hrCancelLeave(row.id).subscribe({
+        next: () => {
+          this.cancellingId = null;
+          this.snack.open('Leave cancelled.', 'Close', { duration: 3000 });
+          this.load();
+        },
+        error: (err) => {
+          this.cancellingId = null;
+          this.snack.open(err?.error?.message || 'Failed to cancel leave.', 'Close', { duration: 4500 });
+        },
+      });
     });
   }
 

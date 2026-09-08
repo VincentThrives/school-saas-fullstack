@@ -49,9 +49,16 @@
       {{ bigButtonLabel }}
     </button>
 
-    <div class="hero-done-inline" *ngIf="!canPunch && today && today.outTime">
+    <div class="hero-done-inline" *ngIf="!canPunch && today && today.outTime && !isOnLeaveToday">
       <mat-icon>verified</mat-icon>
       <span>IN {{ formatRowTime(today.inTime) }} · OUT {{ formatRowTime(today.outTime) }}</span>
+    </div>
+
+    <!-- Approved-leave day: no punch UI, just a purple chip so the
+         reason the CTA is missing is obvious. -->
+    <div class="hero-onleave-inline" *ngIf="isOnLeaveToday">
+      <mat-icon>beach_access</mat-icon>
+      <span>On leave today</span>
     </div>
   </div>
 

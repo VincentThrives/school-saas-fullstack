@@ -113,7 +113,16 @@ export class TeacherDashboardComponent implements OnInit {
     return !!this.attendanceSettings?.locationBasedEnabled;
   }
 
+  /** True when today's row is an approved-leave day — suppresses the
+   *  Start/End Workday CTA and swaps the status line so employees
+   *  don't get an ambiguous "yet to start" message on a day they're
+   *  legitimately off. */
+  get workdayIsOnLeave(): boolean {
+    return this.todayPunch?.status === 'ON_LEAVE';
+  }
+
   get workdayStatusLine(): string {
+    if (this.workdayIsOnLeave) return 'You\'re on approved leave today.';
     if (!this.todayPunch) return 'Yet to start work today.';
     if (!this.todayPunch.outTime) {
       return `Work started at ${this.formatWorkdayTime(this.todayPunch.inTime)}`;
@@ -122,6 +131,7 @@ export class TeacherDashboardComponent implements OnInit {
   }
 
   get workdayCanPunch(): boolean {
+    if (this.workdayIsOnLeave) return false;
     if (!this.todayPunch) return true;
     if (!this.todayPunch.outTime) return true;
     return false;

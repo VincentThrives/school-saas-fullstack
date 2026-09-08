@@ -1181,12 +1181,12 @@ export interface EmployeeAttendance {
   employeeId: string;
   /** ISO date "YYYY-MM-DD". */
   date: string;
-  /** PRESENT / ABSENT / LATE / HALF_DAY. */
+  /** PRESENT / ABSENT / LATE / HALF_DAY / ON_LEAVE. */
   status: string;
-  /** ISO instant. Null on ABSENT rows. */
+  /** ISO instant. Null on ABSENT / ON_LEAVE rows. */
   inTime?: string;
   outTime?: string;
-  source: 'LOCATION' | 'BIOMETRIC' | 'MANUAL' | 'REGULARIZATION';
+  source: 'LOCATION' | 'BIOMETRIC' | 'MANUAL' | 'REGULARIZATION' | 'LEAVE';
   markLatitude?: number;
   markLongitude?: number;
   markAccuracyMeters?: number;

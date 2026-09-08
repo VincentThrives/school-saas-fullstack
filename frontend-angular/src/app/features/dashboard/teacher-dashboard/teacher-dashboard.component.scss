@@ -183,6 +183,18 @@ $gold-dark: #B8860B;
     mat-icon { font-size: 16px; width: 16px; height: 16px; color: #16a34a; }
   }
 
+  // Purple echoes the leave palette used elsewhere (calendar cell,
+  // My Leave chips). Employees pattern-match it as "leave" instantly.
+  &__workday-onleave {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 16px;
+    background: rgba(124, 58, 237, 0.12); color: #6d28d9;
+    font-size: 12px; font-weight: 700;
+    flex-shrink: 0;
+
+    mat-icon { font-size: 16px; width: 16px; height: 16px; color: #7c3aed; }
+  }
+
   // ── My Details launcher card ─────────────────────
   // Sits on its own row below the stats grid. Container aligns
   // it to the start (left) and caps its width so it reads as a
