@@ -13,7 +13,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService } from '../../../../core/services/api.service';
-import { EmployeeLeaveBalanceSheet, LeaveBalance } from '../../../../core/models';
+import { AcademicYear, EmployeeLeaveBalanceSheet, LeaveBalance } from '../../../../core/models';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { OverrideBalanceDialogComponent } from './override-balance-dialog/override-balance-dialog.component';
 
@@ -46,17 +46,13 @@ import { OverrideBalanceDialogComponent } from './override-balance-dialog/overri
 export class HrLeaveBalancesComponent implements OnInit {
 
   sheets: EmployeeLeaveBalanceSheet[] = [];
+  academicYears: AcademicYear[] = [];
+  /** Currently selected academic year id — drives every fetch on
+   *  this page. Defaults to the tenant's current on first load. */
+  academicYearId: string | null = null;
   isLoading = false;
 
   searchText = '';
-  year = new Date().getFullYear();
-
-  /** Years to show in the selector — current + 2 back + 1 forward
-   *  is enough for retrospective and year-planning use. */
-  readonly yearOptions: number[] = (() => {
-    const now = new Date().getFullYear();
-    return [now + 1, now, now - 1, now - 2];
-  })();
 
   constructor(
     private api: ApiService,
@@ -64,11 +60,37 @@ export class HrLeaveBalancesComponent implements OnInit {
     private dialog: MatDialog,
   ) {}
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.loadAcademicYears();
+  }
+
+  /** Fetch the tenant's academic years then default the picker to
+   *  the current one before the first balance fetch. Failing this
+   *  step is loud on purpose — every downstream call needs an id. */
+  private loadAcademicYears(): void {
+    this.api.getAcademicYears().subscribe({
+      next: (res) => {
+        this.academicYears = res.data || [];
+        const current = this.academicYears.find(y => y.current)
+          || this.academicYears[0];
+        this.academicYearId = current?.academicYearId || null;
+        if (this.academicYearId) this.load();
+        else {
+          this.snack.open(
+            'No academic year set for this school. Ask an admin to configure one.',
+            'Close', { duration: 5000 });
+        }
+      },
+      error: () => {
+        this.snack.open('Could not load academic years.', 'Close', { duration: 4000 });
+      },
+    });
+  }
 
   load(): void {
+    if (!this.academicYearId) return;
     this.isLoading = true;
-    this.api.hrAllLeaveBalances(this.year).subscribe({
+    this.api.hrAllLeaveBalances(this.academicYearId).subscribe({
       next: (res) => { this.sheets = res.data || []; this.isLoading = false; },
       error: () => {
         this.isLoading = false;
@@ -78,6 +100,13 @@ export class HrLeaveBalancesComponent implements OnInit {
   }
 
   onYearChange(): void { this.load(); }
+
+  /** Label of the currently-selected academic year, for the dialog
+   *  header. Falls back to the id if the record isn't loaded. */
+  get selectedYearLabel(): string {
+    const y = this.academicYears.find(a => a.academicYearId === this.academicYearId);
+    return y?.label || (this.academicYearId ?? '');
+  }
 
   get filteredSheets(): EmployeeLeaveBalanceSheet[] {
     const q = this.searchText.trim().toLowerCase();
@@ -89,6 +118,7 @@ export class HrLeaveBalancesComponent implements OnInit {
   }
 
   openOverride(sheet: EmployeeLeaveBalanceSheet, balance: LeaveBalance): void {
+    if (!this.academicYearId) return;
     const ref = this.dialog.open(OverrideBalanceDialogComponent, {
       width: '460px',
       maxWidth: '95vw',
@@ -96,7 +126,8 @@ export class HrLeaveBalancesComponent implements OnInit {
       data: {
         employeeId: sheet.employeeId,
         employeeName: sheet.employeeName,
-        year: this.year,
+        academicYearId: this.academicYearId,
+        academicYearLabel: this.selectedYearLabel,
         balance,
       },
     });

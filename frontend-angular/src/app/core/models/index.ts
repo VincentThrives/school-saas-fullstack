@@ -1579,13 +1579,23 @@ export interface LeaveBalance {
   typeActive: boolean;
 }
 
-/** HR balance-sheet payload — one row per employee, full year of
- *  balances attached. Drives the HR → Leave → Balances page. */
+/** HR balance-sheet payload — one row per employee, full academic
+ *  year of balances attached. Drives the HR → Leave → Balances page. */
 export interface EmployeeLeaveBalanceSheet {
   employeeId: string;
   employeeName: string;
   designation?: string;
   balances: LeaveBalance[];
+}
+
+/** Compact projection of an AcademicYear as used across the leave
+ *  module (label + start/end dates suffice for pickers and hints). */
+export interface AcademicYearLite {
+  academicYearId: string;
+  label: string;
+  startDate?: string;   // ISO yyyy-MM-dd
+  endDate?: string;
+  isCurrent?: boolean;
 }
 
 /** HR partial-patch payload for overriding one employee's

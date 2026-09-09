@@ -10,7 +10,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService } from '../../../../core/services/api.service';
-import { LeaveApplication, LeaveBalance } from '../../../../core/models';
+import { AcademicYear, LeaveApplication, LeaveBalance } from '../../../../core/models';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { ApplyLeaveDialogComponent } from './apply-leave-dialog/apply-leave-dialog.component';
 import { ConfirmCancelDialogComponent } from './confirm-cancel-dialog/confirm-cancel-dialog.component';
@@ -43,7 +43,10 @@ export class MyLeaveComponent implements OnInit {
   isLoading = false;
   cancellingId: string | null = null;
 
-  currentYear = new Date().getFullYear();
+  /** Label of the school's current academic year (e.g. "2026-27") —
+   *  shown in the balance-widget header. Empty until academic-year
+   *  fetch resolves. */
+  currentYearLabel = '';
 
   constructor(
     private api: ApiService,
@@ -52,12 +55,25 @@ export class MyLeaveComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Resolve the tenant's current academic year so the widget header
+    // shows "Leave balance · 2026-27" — matches the rest of the app's
+    // AY-scoped reads. Failing this is silent (label stays empty) so
+    // the balances still render.
+    this.api.getAcademicYears().subscribe({
+      next: (res) => {
+        const list = res.data || [];
+        const current = list.find(y => y.current) || list[0];
+        this.currentYearLabel = current?.label || '';
+      },
+      error: () => { /* silent — label just stays empty */ },
+    });
     this.load();
   }
 
   load(): void {
     this.isLoading = true;
-    this.api.hrMyLeaveBalance(this.currentYear).subscribe({
+    // Server resolves current academic year when we pass no id.
+    this.api.hrMyLeaveBalance().subscribe({
       next: (res) => { this.balances = res.data || []; },
       error: () => { /* silent — balance widget can be empty on first-ever load */ },
     });

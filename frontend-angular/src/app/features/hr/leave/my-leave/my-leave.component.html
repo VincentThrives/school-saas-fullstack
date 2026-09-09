@@ -13,7 +13,7 @@
         <span class="balance-title">Leave balance</span>
         <span class="balance-subtitle">Your available balance for the year</span>
       </div>
-      <span class="balance-year">{{ currentYear }}</span>
+      <span class="balance-year" *ngIf="currentYearLabel">{{ currentYearLabel }}</span>
     </div>
     <div class="balance-grid" *ngIf="balances.length; else noBalance">
       <div class="balance-card" *ngFor="let b of balances"

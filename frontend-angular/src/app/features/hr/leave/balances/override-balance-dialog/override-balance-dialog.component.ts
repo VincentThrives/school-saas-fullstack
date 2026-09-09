@@ -14,7 +14,8 @@ import { LeaveBalance, OverrideBalanceRequest } from '../../../../../core/models
 interface DialogData {
   employeeId: string;
   employeeName: string;
-  year: number;
+  academicYearId: string;
+  academicYearLabel: string;
   balance: LeaveBalance;
 }
 
@@ -84,7 +85,7 @@ export class OverrideBalanceDialogComponent {
       this.data.employeeId,
       this.data.balance.leaveTypeCode,
       payload,
-      this.data.year,
+      this.data.academicYearId,
     ).subscribe({
       next: () => {
         this.isSaving = false;

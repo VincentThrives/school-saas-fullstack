@@ -9,11 +9,11 @@ import java.util.Optional;
 public interface LeaveBalanceRepository extends MongoRepository<LeaveBalance, String> {
 
     /** Single-row lookup keyed on the unique
-     *  {@code (employee, year, leaveTypeCode)} composite. */
-    Optional<LeaveBalance> findByEmployeeIdAndYearAndLeaveTypeCode(
-        String employeeId, int year, String leaveTypeCode);
+     *  {@code (employee, academicYearId, leaveTypeCode)} composite. */
+    Optional<LeaveBalance> findByEmployeeIdAndAcademicYearIdAndLeaveTypeCode(
+        String employeeId, String academicYearId, String leaveTypeCode);
 
-    /** Full annual sheet for one employee — powers the My Leave
-     *  balance widget and the HR balance drill-in. */
-    List<LeaveBalance> findByEmployeeIdAndYear(String employeeId, int year);
+    /** Full academic-year sheet for one employee — powers the My
+     *  Leave balance widget and the HR balance drill-in. */
+    List<LeaveBalance> findByEmployeeIdAndAcademicYearId(String employeeId, String academicYearId);
 }

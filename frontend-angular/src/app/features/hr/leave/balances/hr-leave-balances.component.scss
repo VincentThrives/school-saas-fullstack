@@ -6,7 +6,11 @@
   flex-wrap: wrap;
 
   .search-field { flex: 1; min-width: 240px; }
-  .year-field { width: 130px; }
+  .year-field { width: 200px; }
+}
+
+.current-badge {
+  color: #16a34a; font-weight: 600; font-size: 11px; margin-left: 4px;
 }
 
 .loading-row { display: flex; justify-content: center; padding: 40px; }

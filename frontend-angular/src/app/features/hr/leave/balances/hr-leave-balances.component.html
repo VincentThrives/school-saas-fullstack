@@ -18,9 +18,11 @@
     </mat-form-field>
 
     <mat-form-field appearance="outline" class="year-field">
-      <mat-label>Year</mat-label>
-      <mat-select [(ngModel)]="year" (selectionChange)="onYearChange()">
-        <mat-option *ngFor="let y of yearOptions" [value]="y">{{ y }}</mat-option>
+      <mat-label>Academic year</mat-label>
+      <mat-select [(ngModel)]="academicYearId" (selectionChange)="onYearChange()">
+        <mat-option *ngFor="let y of academicYears" [value]="y.academicYearId">
+          {{ y.label }}<span *ngIf="y.current" class="current-badge">· current</span>
+        </mat-option>
       </mat-select>
     </mat-form-field>
   </div>

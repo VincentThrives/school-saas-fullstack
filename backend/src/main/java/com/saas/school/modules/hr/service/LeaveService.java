@@ -3,6 +3,8 @@ package com.saas.school.modules.hr.service;
 import com.saas.school.common.exception.BusinessException;
 import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.config.mongodb.TenantContext;
+import com.saas.school.modules.academicyear.model.AcademicYear;
+import com.saas.school.modules.academicyear.repository.AcademicYearRepository;
 import com.saas.school.modules.hr.dto.EmployeeLeaveBalanceSheet;
 import com.saas.school.modules.hr.dto.LeaveApplicationDto;
 import com.saas.school.modules.hr.dto.LeaveBalanceDto;
@@ -68,6 +70,7 @@ public class LeaveService {
     @Autowired private LeaveBalanceRepository balanceRepo;
     @Autowired private EmployeeAttendanceRepository attendanceRepo;
     @Autowired private TeacherRepository teacherRepo;
+    @Autowired private AcademicYearRepository academicYearRepo;
     /** Used only for {@link EmployeeAttendanceService#getHolidaysInRange}
      *  — no circular risk (attendance service doesn't reach into
      *  the leave module). Kept optional (required=false) so unit
@@ -178,9 +181,12 @@ public class LeaveService {
 
         // Balance check — soft rule: capped types with 0 remaining
         // reject; uncapped types (defaultAnnualQuota <= 0 typically
-        // LOP) never reject on balance.
-        int year = start.getYear();
-        LeaveBalance balance = getOrProvisionBalance(employeeId, year, code, type);
+        // LOP) never reject on balance. Balance is keyed on the
+        // school's academic year the LEAVE STARTS in — matches how
+        // HR bookkeeping treats leave for a year that spans a
+        // rollover (leave counts against the year it started in).
+        String academicYearId = resolveAcademicYearForDate(start);
+        LeaveBalance balance = getOrProvisionBalance(employeeId, academicYearId, code, type);
         boolean uncapped = type.getDefaultAnnualQuota() <= 0 && balance.getAllocated() <= 0;
         if (!uncapped && (balance.getRemaining() - days) < 0) {
             throw new BusinessException(String.format(
@@ -349,24 +355,30 @@ public class LeaveService {
     }
 
     /**
-     * Employee's balance sheet for a given year. Lazily provisions
-     * a row for every active leave type — so first-time reads on a
-     * fresh year still populate a full grid rather than an empty
-     * one. Inactive types are only surfaced if there's already a
-     * saved row for them (historical continuity).
+     * Employee's balance sheet for a given academic year. Lazily
+     * provisions a row for every active leave type — so first-time
+     * reads on a fresh year still populate a full grid rather than
+     * an empty one. Inactive types are only surfaced if there's
+     * already a saved row for them (historical continuity).
+     *
+     * <p>When {@code academicYearId} is null we resolve the tenant's
+     * current academic year — the common case for the "just show me
+     * my balance right now" widget on My Leave.</p>
      */
-    public List<LeaveBalanceDto> getBalanceForUser(String userId, int year) {
+    public List<LeaveBalanceDto> getBalanceForUser(String userId, String academicYearId) {
         String employeeId = resolveEmployeeId(userId);
         if (employeeId == null) return List.of();
-        return getBalanceForEmployee(employeeId, year);
+        return getBalanceForEmployee(employeeId, academicYearId);
     }
 
     /**
      * HR-side view — every active employee's full balance sheet for
-     * a given year. Provisions missing rows lazily so a freshly-onboarded
-     * teacher shows up with default quotas immediately.
+     * a given academic year. Provisions missing rows lazily so a
+     * freshly-onboarded teacher shows up with default quotas
+     * immediately.
      */
-    public List<EmployeeLeaveBalanceSheet> getAllEmployeeBalances(int year) {
+    public List<EmployeeLeaveBalanceSheet> getAllEmployeeBalances(String academicYearId) {
+        String ayId = academicYearId != null ? academicYearId : resolveCurrentAcademicYearId();
         // TeacherRepository doesn't expose an unpaged findByDeletedAtIsNull;
         // findAll() + client-side soft-delete filter is fine at the
         // scale HR employee lists live at (dozens, not thousands).
@@ -377,7 +389,7 @@ public class LeaveService {
         for (Teacher e : employees) {
             String empId = e.getTeacherId();
             if (empId == null) continue;
-            List<LeaveBalanceDto> balances = getBalanceForEmployee(empId, year);
+            List<LeaveBalanceDto> balances = getBalanceForEmployee(empId, ayId);
             sheets.add(new EmployeeLeaveBalanceSheet(
                 empId, displayName(e), e.getEmployeeRole(), balances));
         }
@@ -385,33 +397,30 @@ public class LeaveService {
     }
 
     /**
-     * HR overrides one specific (employee, year, type) balance row —
-     * useful for senior teachers getting extra EL, mid-year joiners
-     * getting a pro-rated quota, or a year-end correction after a
-     * data-import bug. Only mutates fields that are non-null on the
-     * request; each mutation stamps updatedAt so the audit trail
-     * stays truthful.
-     *
-     * <p>Throws if the type doesn't exist for the tenant — HR can't
-     * mint a balance for a type that isn't in the catalog. Existing
-     * rows are provisioned on demand.</p>
+     * HR overrides one specific (employee, academicYear, type) balance
+     * row — useful for senior teachers getting extra EL, mid-year
+     * joiners on a pro-rated quota, or a data-cleanup correction.
+     * Only mutates fields that are non-null on the request; each
+     * mutation stamps updatedAt so the audit trail stays truthful.
      */
-    public LeaveBalanceDto overrideBalance(String employeeId, int year, String code,
-                                            OverrideBalanceRequest req) {
+    public LeaveBalanceDto overrideBalance(String employeeId, String academicYearId,
+                                            String code, OverrideBalanceRequest req) {
+        String ayId = academicYearId != null ? academicYearId : resolveCurrentAcademicYearId();
         LeaveType type = typeRepo.findByCode(code).orElseThrow(() ->
             new BusinessException("Leave type '" + code + "' doesn't exist."));
-        LeaveBalance b = getOrProvisionBalance(employeeId, year, code, type);
+        LeaveBalance b = getOrProvisionBalance(employeeId, ayId, code, type);
         if (req.getAllocated() != null) b.setAllocated(Math.max(0, req.getAllocated()));
         if (req.getCarryForwardIn() != null) b.setCarryForwardIn(Math.max(0, req.getCarryForwardIn()));
         if (req.getUsed() != null) b.setUsed(Math.max(0, req.getUsed()));
         b.setUpdatedAt(Instant.now());
         LeaveBalance saved = balanceRepo.save(b);
-        log.info("Balance overridden: employee={} year={} type={} allocated={} carryFwd={} used={}",
-            employeeId, year, code, saved.getAllocated(), saved.getCarryForwardIn(), saved.getUsed());
+        log.info("Balance overridden: employee={} ayId={} type={} allocated={} carryFwd={} used={}",
+            employeeId, ayId, code, saved.getAllocated(), saved.getCarryForwardIn(), saved.getUsed());
         return LeaveBalanceDto.fromEntity(saved, type);
     }
 
-    public List<LeaveBalanceDto> getBalanceForEmployee(String employeeId, int year) {
+    public List<LeaveBalanceDto> getBalanceForEmployee(String employeeId, String academicYearId) {
+        String ayId = academicYearId != null ? academicYearId : resolveCurrentAcademicYearId();
         List<LeaveType> types = typeRepo.findAllByOrderBySortOrderAscNameAsc();
         Map<String, LeaveType> byCode = types.stream()
             .collect(Collectors.toMap(LeaveType::getCode, t -> t, (a, b) -> a));
@@ -420,9 +429,9 @@ public class LeaveService {
         // the full spread on first read.
         for (LeaveType t : types) {
             if (!t.isActive()) continue;
-            getOrProvisionBalance(employeeId, year, t.getCode(), t);
+            getOrProvisionBalance(employeeId, ayId, t.getCode(), t);
         }
-        List<LeaveBalance> rows = balanceRepo.findByEmployeeIdAndYear(employeeId, year);
+        List<LeaveBalance> rows = balanceRepo.findByEmployeeIdAndAcademicYearId(employeeId, ayId);
         return rows.stream()
             .sorted((a, b) -> {
                 LeaveType ta = byCode.get(a.getLeaveTypeCode());
@@ -552,8 +561,9 @@ public class LeaveService {
      *  at that threshold so a heavy user isn't double-counted. */
     private void adjustBalance(LeaveApplication row, double delta) {
         LeaveType type = typeRepo.findByCode(row.getLeaveTypeCode()).orElse(null);
+        String ayId = resolveAcademicYearForDate(row.getStartDate());
         LeaveBalance b = getOrProvisionBalance(row.getEmployeeId(),
-            row.getStartDate().getYear(), row.getLeaveTypeCode(), type);
+            ayId, row.getLeaveTypeCode(), type);
         b.setUsed(Math.max(0, b.getUsed() + delta));
         if (type != null && type.getMandatoryPerYear() > 0) {
             double newMandatory = b.getMandatoryUsed() + delta;
@@ -568,17 +578,20 @@ public class LeaveService {
      *  code). Uses the type's defaultAnnualQuota as the initial
      *  allocation. Safe to call multiple times — the unique index
      *  makes duplicate provisioning race-safe (second one just re-reads). */
-    LeaveBalance getOrProvisionBalance(String employeeId, int year, String code, LeaveType type) {
-        return balanceRepo.findByEmployeeIdAndYearAndLeaveTypeCode(employeeId, year, code)
+    LeaveBalance getOrProvisionBalance(String employeeId, String academicYearId,
+                                        String code, LeaveType type) {
+        return balanceRepo.findByEmployeeIdAndAcademicYearIdAndLeaveTypeCode(
+                employeeId, academicYearId, code)
             .orElseGet(() -> {
                 LeaveBalance b = new LeaveBalance(
-                    TenantContext.getTenantId(), employeeId, year, code,
+                    TenantContext.getTenantId(), employeeId, academicYearId, code,
                     type != null ? type.getDefaultAnnualQuota() : 0.0);
                 try {
                     return balanceRepo.save(b);
                 } catch (org.springframework.dao.DuplicateKeyException dup) {
                     // Race with another concurrent provision — re-read.
-                    return balanceRepo.findByEmployeeIdAndYearAndLeaveTypeCode(employeeId, year, code)
+                    return balanceRepo.findByEmployeeIdAndAcademicYearIdAndLeaveTypeCode(
+                            employeeId, academicYearId, code)
                         .orElseThrow(() -> dup);
                 }
             });
@@ -587,6 +600,44 @@ public class LeaveService {
     private String resolveEmployeeId(String userId) {
         return teacherRepo.findByUserIdAndDeletedAtIsNull(userId)
             .map(Teacher::getTeacherId).orElse(null);
+    }
+
+    /**
+     * Resolve the academic year for a given date — falls back to the
+     * tenant's current academic year when the date isn't inside any
+     * declared range. Used for submit-time balance keying so a leave
+     * that spans a year rollover consumes from the year the leave
+     * STARTS in (matches how HR bookkeeping works — leave "belongs"
+     * to the year the employee left).
+     */
+    String resolveAcademicYearForDate(LocalDate date) {
+        List<AcademicYear> all = academicYearRepo.findAll();
+        for (AcademicYear ay : all) {
+            if (ay.getStartDate() == null || ay.getEndDate() == null) continue;
+            if (!date.isBefore(ay.getStartDate()) && !date.isAfter(ay.getEndDate())) {
+                return ay.getAcademicYearId();
+            }
+        }
+        return resolveCurrentAcademicYearId();
+    }
+
+    /** The tenant's currently-active academic year id — throws with a
+     *  clear message when the school hasn't set one, so HR knows to
+     *  fix that before using leaves. */
+    public String resolveCurrentAcademicYearId() {
+        return academicYearRepo.findByIsCurrent(true)
+            .map(AcademicYear::getAcademicYearId)
+            .orElseThrow(() -> new BusinessException(
+                "No current academic year set for this school. "
+              + "Ask your admin to mark one on the Academic Years page."));
+    }
+
+    /** Loads the full {@link AcademicYear} record — needed when we
+     *  need labels or start/end dates for display / summing. */
+    public AcademicYear resolveAcademicYearById(String academicYearId) {
+        return academicYearRepo.findById(academicYearId)
+            .orElseThrow(() -> new BusinessException(
+                "Academic year not found: " + academicYearId));
     }
 
     private LeaveApplication require(String id) {

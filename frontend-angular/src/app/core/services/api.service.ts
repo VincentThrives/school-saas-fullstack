@@ -2409,10 +2409,10 @@ export class ApiService {
       `${this.API}/hr/leave/my`);
   }
 
-  /** Employee's leave balance sheet for a given year (defaults to
-   *  current calendar year server-side when {@code year} is omitted). */
-  hrMyLeaveBalance(year?: number): Observable<ApiResponse<LeaveBalance[]>> {
-    const params = year != null ? `?year=${year}` : '';
+  /** Employee's leave balance sheet for an academic year. Server
+   *  resolves the tenant's current academic year when omitted. */
+  hrMyLeaveBalance(academicYearId?: string): Observable<ApiResponse<LeaveBalance[]>> {
+    const params = academicYearId ? `?academicYearId=${encodeURIComponent(academicYearId)}` : '';
     return this.http.get<ApiResponse<LeaveBalance[]>>(
       `${this.API}/hr/leave/my/balance${params}`);
   }
@@ -2458,10 +2458,10 @@ export class ApiService {
       `${this.API}/hr/leave/${encodeURIComponent(id)}/reject`, review || {});
   }
 
-  /** HR: any employee's balance sheet for a year. */
-  hrEmployeeLeaveBalance(employeeId: string, year?: number):
+  /** HR: any employee's balance sheet for an academic year. */
+  hrEmployeeLeaveBalance(employeeId: string, academicYearId?: string):
       Observable<ApiResponse<LeaveBalance[]>> {
-    const params = year != null ? `?year=${year}` : '';
+    const params = academicYearId ? `?academicYearId=${encodeURIComponent(academicYearId)}` : '';
     return this.http.get<ApiResponse<LeaveBalance[]>>(
       `${this.API}/hr/leave/employees/${encodeURIComponent(employeeId)}/balance${params}`);
   }
@@ -2491,17 +2491,18 @@ export class ApiService {
 
   // ── HR balance management ──────────────────────────
 
-  /** HR: every employee's full balance sheet for a year. */
-  hrAllLeaveBalances(year?: number): Observable<ApiResponse<EmployeeLeaveBalanceSheet[]>> {
-    const params = year != null ? `?year=${year}` : '';
+  /** HR: every employee's full balance sheet for an academic year. */
+  hrAllLeaveBalances(academicYearId?: string):
+      Observable<ApiResponse<EmployeeLeaveBalanceSheet[]>> {
+    const params = academicYearId ? `?academicYearId=${encodeURIComponent(academicYearId)}` : '';
     return this.http.get<ApiResponse<EmployeeLeaveBalanceSheet[]>>(
       `${this.API}/hr/leave/balances${params}`);
   }
 
-  /** HR override — partial patch on (employee, year, type). */
+  /** HR override — partial patch on (employee, academicYear, type). */
   hrOverrideLeaveBalance(employeeId: string, code: string, req: OverrideBalanceRequest,
-                         year?: number): Observable<ApiResponse<LeaveBalance>> {
-    const params = year != null ? `?year=${year}` : '';
+                         academicYearId?: string): Observable<ApiResponse<LeaveBalance>> {
+    const params = academicYearId ? `?academicYearId=${encodeURIComponent(academicYearId)}` : '';
     return this.http.post<ApiResponse<LeaveBalance>>(
       `${this.API}/hr/leave/employees/${encodeURIComponent(employeeId)}/balance/${encodeURIComponent(code)}/override${params}`,
       req);

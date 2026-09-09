@@ -25,15 +25,15 @@ import java.time.Instant;
  */
 @Document(collection = "leave_balances")
 @CompoundIndexes({
-    // Balance lookup by (employee, year, code) — the exact query shape
-    // the Apply Leave and My Balance surfaces use. Unique so the
-    // provisioning race can safely upsert.
-    @CompoundIndex(name = "employee_year_type_unique",
-        def = "{'employeeId':1,'year':1,'leaveTypeCode':1}", unique = true),
-    // Employee's full balance sheet for a year — driven by the widget
-    // on the My Leave page and by the HR balance report.
-    @CompoundIndex(name = "employee_year",
-        def = "{'employeeId':1,'year':1}")
+    // Balance lookup by (employee, academicYearId, code) — the exact
+    // query shape the Apply Leave and My Balance surfaces use. Unique
+    // so the provisioning race can safely upsert.
+    @CompoundIndex(name = "employee_ay_type_unique",
+        def = "{'employeeId':1,'academicYearId':1,'leaveTypeCode':1}", unique = true),
+    // Employee's full balance sheet for an academic year — driven by
+    // the widget on the My Leave page and by the HR balance report.
+    @CompoundIndex(name = "employee_ay",
+        def = "{'employeeId':1,'academicYearId':1}")
 })
 public class LeaveBalance {
 
@@ -47,11 +47,11 @@ public class LeaveBalance {
      *  {@link EmployeeAttendance} and {@link RegularizationRequest}. */
     private String employeeId;
 
-    /** Calendar year the balance applies to, e.g. 2026. Keeps the
-     *  balance sheet trivially bucketable without needing to know
-     *  the school's academic year — reports that need academic-year
-     *  totals can sum two rows. */
-    private int year;
+    /** Academic year id — matches the app-wide pattern. The rest of
+     *  the platform (attendance, exams, fees) keys on academicYearId
+     *  too, so leave stays consistent with the reports HR reads
+     *  alongside it. */
+    private String academicYearId;
 
     /** Uppercase code matching {@link LeaveType#getCode()}. Stored
      *  as a string (not id) so a rename of the type name doesn't
@@ -83,11 +83,11 @@ public class LeaveBalance {
 
     public LeaveBalance() {}
 
-    public LeaveBalance(String tenantId, String employeeId, int year,
+    public LeaveBalance(String tenantId, String employeeId, String academicYearId,
                         String leaveTypeCode, double allocated) {
         this.tenantId = tenantId;
         this.employeeId = employeeId;
-        this.year = year;
+        this.academicYearId = academicYearId;
         this.leaveTypeCode = leaveTypeCode;
         this.allocated = allocated;
     }
@@ -107,8 +107,8 @@ public class LeaveBalance {
     public String getEmployeeId() { return employeeId; }
     public void setEmployeeId(String employeeId) { this.employeeId = employeeId; }
 
-    public int getYear() { return year; }
-    public void setYear(int year) { this.year = year; }
+    public String getAcademicYearId() { return academicYearId; }
+    public void setAcademicYearId(String academicYearId) { this.academicYearId = academicYearId; }
 
     public String getLeaveTypeCode() { return leaveTypeCode; }
     public void setLeaveTypeCode(String leaveTypeCode) { this.leaveTypeCode = leaveTypeCode; }

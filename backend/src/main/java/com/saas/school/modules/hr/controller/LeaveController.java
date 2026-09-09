@@ -23,8 +23,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -58,13 +56,13 @@ public class LeaveController {
         return ResponseEntity.ok(ApiResponse.success(service.listMy(userId)));
     }
 
-    @Operation(summary = "The caller's leave balance for a given year (defaults to current)")
+    @Operation(summary = "The caller's leave balance for a given academic year (defaults to current)")
     @GetMapping("/my/balance")
     public ResponseEntity<ApiResponse<List<LeaveBalanceDto>>> myBalance(
             @AuthenticationPrincipal String userId,
-            @RequestParam(required = false) Integer year) {
-        int y = year != null ? year : LocalDate.now(ZoneId.of("Asia/Kolkata")).getYear();
-        return ResponseEntity.ok(ApiResponse.success(service.getBalanceForUser(userId, y)));
+            @RequestParam(required = false) String academicYearId) {
+        return ResponseEntity.ok(ApiResponse.success(
+            service.getBalanceForUser(userId, academicYearId)));
     }
 
     /**
@@ -127,36 +125,35 @@ public class LeaveController {
             "Leave rejected."));
     }
 
-    @Operation(summary = "HR view: any employee's leave balance for a year")
+    @Operation(summary = "HR view: any employee's leave balance for an academic year")
     @GetMapping("/employees/{employeeId}/balance")
     @PreAuthorize("hasRole('HR')")
     public ResponseEntity<ApiResponse<List<LeaveBalanceDto>>> employeeBalance(
             @PathVariable String employeeId,
-            @RequestParam(required = false) Integer year) {
-        int y = year != null ? year : LocalDate.now(ZoneId.of("Asia/Kolkata")).getYear();
-        return ResponseEntity.ok(ApiResponse.success(service.getBalanceForEmployee(employeeId, y)));
+            @RequestParam(required = false) String academicYearId) {
+        return ResponseEntity.ok(ApiResponse.success(
+            service.getBalanceForEmployee(employeeId, academicYearId)));
     }
 
-    @Operation(summary = "HR view: every employee's full balance sheet for a year")
+    @Operation(summary = "HR view: every employee's full balance sheet for an academic year")
     @GetMapping("/balances")
     @PreAuthorize("hasRole('HR')")
     public ResponseEntity<ApiResponse<List<EmployeeLeaveBalanceSheet>>> allBalances(
-            @RequestParam(required = false) Integer year) {
-        int y = year != null ? year : LocalDate.now(ZoneId.of("Asia/Kolkata")).getYear();
-        return ResponseEntity.ok(ApiResponse.success(service.getAllEmployeeBalances(y)));
+            @RequestParam(required = false) String academicYearId) {
+        return ResponseEntity.ok(ApiResponse.success(
+            service.getAllEmployeeBalances(academicYearId)));
     }
 
-    @Operation(summary = "HR override: adjust an employee's allocation / carry-forward / used for one (year, type)")
+    @Operation(summary = "HR override: adjust an employee's allocation / carry-forward / used for one (academicYear, type)")
     @PostMapping("/employees/{employeeId}/balance/{code}/override")
     @PreAuthorize("hasRole('HR')")
     public ResponseEntity<ApiResponse<LeaveBalanceDto>> overrideBalance(
             @PathVariable String employeeId,
             @PathVariable String code,
-            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) String academicYearId,
             @RequestBody OverrideBalanceRequest req) {
-        int y = year != null ? year : LocalDate.now(ZoneId.of("Asia/Kolkata")).getYear();
         return ResponseEntity.ok(ApiResponse.success(
-            service.overrideBalance(employeeId, y, code.trim().toUpperCase(), req),
+            service.overrideBalance(employeeId, academicYearId, code.trim().toUpperCase(), req),
             "Balance updated."));
     }
 }
