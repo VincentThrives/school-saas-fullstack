@@ -837,6 +837,24 @@ export const routes: Routes = [
         canActivate: [roleGuard, featureGuard],
         data: { roles: [UserRole.HR], feature: 'hr_leave', title: 'Leave Settings' },
       },
+      // Full-page Leave-type editor — same 4-tab shape the dialog
+      // held, but has room to breathe and its own back button.
+      {
+        path: 'hr/leave/settings/type/new',
+        loadComponent: () =>
+          import('./features/hr/leave/settings/leave-type-form/leave-type-form.component')
+              .then(m => m.LeaveTypeFormComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.HR], feature: 'hr_leave', title: 'New Leave Type' },
+      },
+      {
+        path: 'hr/leave/settings/type/:id/edit',
+        loadComponent: () =>
+          import('./features/hr/leave/settings/leave-type-form/leave-type-form.component')
+              .then(m => m.LeaveTypeFormComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.HR], feature: 'hr_leave', title: 'Edit Leave Type' },
+      },
       {
         path: 'hr/leave/balances',
         loadComponent: () =>

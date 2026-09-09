@@ -1,0 +1,199 @@
+<div class="lt-form-container">
+  <app-page-header
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/hr/dashboard' },
+      { label: 'Leave' },
+      { label: 'Settings', link: '/hr/leave/settings' },
+      { label: isEdit ? 'Edit type' : 'New type' }
+    ]"
+    [title]="isEdit ? 'Edit leave type' : 'New leave type'">
+  </app-page-header>
+
+  <!-- Back button — a full-page form deserves a big obvious way out. -->
+  <div class="back-row">
+    <button mat-stroked-button (click)="cancel()">
+      <mat-icon>arrow_back</mat-icon>
+      Back to Settings
+    </button>
+  </div>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="32"></mat-spinner>
+  </div>
+
+  <mat-card class="form-card" *ngIf="!isLoading">
+    <mat-tab-group animationDuration="180ms" class="lt-tabs" dynamicHeight="true">
+
+      <!-- ── Basics ─────────────────────────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>badge</mat-icon>
+          Basics
+        </ng-template>
+        <div class="tab-body">
+          <div class="row two">
+            <mat-form-field appearance="outline">
+              <mat-label>Code</mat-label>
+              <input matInput [(ngModel)]="form.code" [disabled]="isEdit"
+                placeholder="CL, SL, EL…" maxlength="8">
+              <mat-hint>{{ isEdit ? 'Code is immutable.' : '2–8 chars, uppercase.' }}</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Sort order</mat-label>
+              <input matInput type="number" min="0" [(ngModel)]="form.sortOrder">
+              <mat-hint>Lower = higher on the Apply dropdown.</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <mat-form-field appearance="outline" class="full">
+            <mat-label>Name</mat-label>
+            <input matInput [(ngModel)]="form.name" placeholder="e.g., Casual leave">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full">
+            <mat-label>Description (optional)</mat-label>
+            <textarea matInput [(ngModel)]="form.description" rows="3"
+              placeholder="One line shown to employees on the dropdown"></textarea>
+          </mat-form-field>
+
+          <div class="swatch-row">
+            <span class="swatch-label">Color</span>
+            <div class="swatches">
+              <button
+                *ngFor="let c of colorSwatches"
+                type="button"
+                class="swatch"
+                [class.swatch--active]="form.color === c"
+                [style.background]="c"
+                (click)="pickColor(c)"
+                matTooltip="{{ c }}">
+              </button>
+            </div>
+          </div>
+
+          <mat-checkbox [(ngModel)]="form.paid" class="paid-check">
+            Paid leave (uncheck for LOP-style)
+          </mat-checkbox>
+        </div>
+      </mat-tab>
+
+      <!-- ── Balance & accrual ──────────────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>account_balance_wallet</mat-icon>
+          Balance
+        </ng-template>
+        <div class="tab-body">
+          <mat-form-field appearance="outline" class="full">
+            <mat-label>Default annual quota (days)</mat-label>
+            <input matInput type="number" min="0" step="0.5"
+              [(ngModel)]="form.defaultAnnualQuota">
+            <mat-hint>0 = uncapped (LOP-style). Balances use this as initial allocation each year.</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full">
+            <mat-label>Accrual pattern</mat-label>
+            <mat-select [(ngModel)]="form.accrualType">
+              <mat-option value="YEARLY">Yearly — full quota on Jan 1</mat-option>
+              <mat-option value="MONTHLY">Monthly — 1/12 credited each month</mat-option>
+              <mat-option value="QUARTERLY">Quarterly — 1/4 credited each quarter</mat-option>
+            </mat-select>
+            <mat-hint>Monthly / quarterly types can't be over-consumed before they accrue.</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full">
+            <mat-label>Compulsory per year (days)</mat-label>
+            <input matInput type="number" min="0" step="0.5" [(ngModel)]="form.mandatoryPerYear">
+            <mat-hint>Employees must consume at least this many before year-end. 0 = no requirement.</mat-hint>
+          </mat-form-field>
+
+          <div class="policy-block">
+            <div class="policy-toggle">
+              <mat-slide-toggle [(ngModel)]="form.carryForward">
+                Carry unused balance to next year
+              </mat-slide-toggle>
+            </div>
+            <mat-form-field appearance="outline" class="full" *ngIf="form.carryForward">
+              <mat-label>Carry-forward cap (days)</mat-label>
+              <input matInput type="number" min="0" step="0.5" [(ngModel)]="form.carryForwardMax">
+              <mat-hint>Days beyond this cap are forfeited at year-end. 0 = uncapped.</mat-hint>
+            </mat-form-field>
+          </div>
+        </div>
+      </mat-tab>
+
+      <!-- ── Application rules ──────────────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>rule</mat-icon>
+          Rules
+        </ng-template>
+        <div class="tab-body">
+          <div class="row two">
+            <mat-form-field appearance="outline">
+              <mat-label>Notice period (days)</mat-label>
+              <input matInput type="number" min="0" [(ngModel)]="form.minAdvanceDays">
+              <mat-hint>0 = same-day allowed.</mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Max consecutive days</mat-label>
+              <input matInput type="number" min="0" [(ngModel)]="form.maxConsecutiveDays">
+              <mat-hint>0 = uncapped.</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <mat-form-field appearance="outline" class="full">
+            <mat-label>Attachment required after (days)</mat-label>
+            <input matInput type="number" min="0" [(ngModel)]="form.requiresAttachmentAfterDays">
+            <mat-hint>e.g., 3 for SL requires medical cert on the 4th day+. 0 = never.</mat-hint>
+          </mat-form-field>
+        </div>
+      </mat-tab>
+
+      <!-- ── Applicability ──────────────────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon>person_search</mat-icon>
+          Applicable to
+        </ng-template>
+        <div class="tab-body">
+          <mat-form-field appearance="outline" class="full">
+            <mat-label>Gender restriction</mat-label>
+            <mat-select [(ngModel)]="form.applicableGender">
+              <mat-option value="ANY">Any employee</mat-option>
+              <mat-option value="FEMALE">Female employees only</mat-option>
+              <mat-option value="MALE">Male employees only</mat-option>
+            </mat-select>
+            <mat-hint>Use for maternity / paternity. Shown as info on the Apply dialog.</mat-hint>
+          </mat-form-field>
+
+          <div class="future-hint">
+            <mat-icon>upcoming</mat-icon>
+            <div>
+              <strong>Coming soon</strong>
+              <span>
+                Per-role and per-designation targeting (grant EL only to teachers,
+                exclude support staff, etc.) plus per-employee overrides on the
+                Balances page.
+              </span>
+            </div>
+          </div>
+        </div>
+      </mat-tab>
+
+    </mat-tab-group>
+
+    <!-- Sticky footer keeps Save reachable from any tab without
+         forcing the user to scroll down. -->
+    <div class="form-footer">
+      <button mat-button (click)="cancel()">Cancel</button>
+      <button mat-flat-button color="primary" (click)="submit()" [disabled]="isSaving">
+        <mat-spinner *ngIf="isSaving" diameter="18"></mat-spinner>
+        <ng-container *ngIf="!isSaving">
+          <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
+          {{ isEdit ? 'Save changes' : 'Create type' }}
+        </ng-container>
+      </button>
+    </div>
+  </mat-card>
+</div>

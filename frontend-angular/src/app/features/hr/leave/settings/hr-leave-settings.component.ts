@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -7,12 +8,10 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService } from '../../../../core/services/api.service';
 import { LeaveType } from '../../../../core/models';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
-import { LeaveTypeDialogComponent } from './leave-type-dialog/leave-type-dialog.component';
 
 /**
  * HR-only page for managing the tenant's leave-type catalog. Fresh
@@ -32,7 +31,7 @@ import { LeaveTypeDialogComponent } from './leave-type-dialog/leave-type-dialog.
     CommonModule,
     MatCardModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatSlideToggleModule, MatProgressSpinnerModule, MatSnackBarModule,
-    MatDialogModule, MatTooltipModule,
+    MatTooltipModule,
     PageHeaderComponent,
   ],
   templateUrl: './hr-leave-settings.component.html',
@@ -47,7 +46,7 @@ export class HrLeaveSettingsComponent implements OnInit {
   constructor(
     private api: ApiService,
     private snack: MatSnackBar,
-    private dialog: MatDialog,
+    private router: Router,
   ) {}
 
   ngOnInit(): void { this.load(); }
@@ -63,24 +62,15 @@ export class HrLeaveSettingsComponent implements OnInit {
     });
   }
 
+  /** Route to the dedicated create page. Router return brings us back
+   *  here and re-runs ngOnInit → load, so no manual reload wiring
+   *  needed on the caller side. */
   openCreate(): void {
-    const ref = this.dialog.open(LeaveTypeDialogComponent, {
-      width: '440px',
-      maxWidth: '95vw',
-      panelClass: ['centered-dialog'],
-      data: { mode: 'create' },
-    });
-    ref.afterClosed().subscribe(saved => { if (saved) this.load(); });
+    this.router.navigate(['/hr/leave/settings/type/new']);
   }
 
   openEdit(t: LeaveType): void {
-    const ref = this.dialog.open(LeaveTypeDialogComponent, {
-      width: '440px',
-      maxWidth: '95vw',
-      panelClass: ['centered-dialog'],
-      data: { mode: 'edit', type: t },
-    });
-    ref.afterClosed().subscribe(saved => { if (saved) this.load(); });
+    this.router.navigate(['/hr/leave/settings/type', t.id, 'edit']);
   }
 
   toggle(t: LeaveType): void {

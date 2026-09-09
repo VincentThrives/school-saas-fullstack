@@ -1,0 +1,120 @@
+.lt-form-container {
+  padding: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.back-row {
+  margin-bottom: 14px;
+
+  button {
+    display: inline-flex; align-items: center; gap: 4px;
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  }
+}
+
+.loading-row {
+  display: flex; justify-content: center; padding: 60px 0;
+}
+
+.form-card {
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+.lt-tabs {
+  ::ng-deep .mat-mdc-tab-body-content { padding: 0; overflow: visible; }
+  ::ng-deep .mat-mdc-tab-header { border-bottom: 1px solid #edf0f4; }
+  ::ng-deep .mdc-tab {
+    height: 52px !important;
+    .mdc-tab__content {
+      display: flex; gap: 6px; align-items: center;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    }
+  }
+}
+
+.tab-body {
+  padding: 22px 26px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.row {
+  display: flex; gap: 14px;
+  &.two { flex-wrap: wrap; }
+  &.two > mat-form-field { flex: 1 1 220px; }
+}
+.full { width: 100%; }
+
+.swatch-row {
+  padding: 4px 4px 14px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+
+  .swatch-label {
+    font-size: 12px; font-weight: 700; color: #6b7280;
+    text-transform: uppercase; letter-spacing: .6px;
+  }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+  .swatch {
+    width: 32px; height: 32px; border-radius: 9px;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, .10);
+    cursor: pointer;
+    transition: transform .12s, box-shadow .12s;
+
+    &:hover { transform: scale(1.1); }
+    &--active {
+      box-shadow: 0 0 0 2px #1f2937, 0 4px 12px rgba(15, 23, 42, .18);
+      transform: scale(1.1);
+    }
+  }
+}
+
+.paid-check { margin: 6px 4px 8px; }
+
+.policy-block {
+  background: #f9fafb;
+  border: 1px solid #edf0f4;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 8px;
+
+  .policy-toggle { margin-bottom: 12px; }
+}
+
+.future-hint {
+  display: flex; gap: 12px;
+  background: #eef7ff;
+  border: 1px solid #cde5fb;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 14px;
+
+  mat-icon { color: #234e70; margin-top: 2px; }
+  strong { display: block; color: #123a58; font-size: 13px; margin-bottom: 4px; }
+  span { color: #234e70; font-size: 12.5px; line-height: 1.55; }
+}
+
+// Sticky footer — action buttons pinned to the card bottom so a user
+// on the last tab isn't hunting for Save.
+.form-footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 14px 22px;
+  border-top: 1px solid #edf0f4;
+  background: #fafbfc;
+
+  button[mat-flat-button] {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-width: 150px;
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    mat-spinner { margin: 0 auto; }
+  }
+}
+
+@media (max-width: 640px) {
+  .lt-form-container { padding: 12px; }
+  .tab-body { padding: 18px 16px 12px; }
+  .row.two > mat-form-field { flex-basis: 100%; }
+  .form-footer { flex-direction: column-reverse; padding: 14px 16px; }
+  .form-footer button { width: 100%; }
+}
