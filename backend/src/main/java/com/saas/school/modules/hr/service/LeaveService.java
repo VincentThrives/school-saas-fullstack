@@ -3,9 +3,11 @@ package com.saas.school.modules.hr.service;
 import com.saas.school.common.exception.BusinessException;
 import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.config.mongodb.TenantContext;
+import com.saas.school.modules.hr.dto.EmployeeLeaveBalanceSheet;
 import com.saas.school.modules.hr.dto.LeaveApplicationDto;
 import com.saas.school.modules.hr.dto.LeaveBalanceDto;
 import com.saas.school.modules.hr.dto.LeaveReviewRequest;
+import com.saas.school.modules.hr.dto.OverrideBalanceRequest;
 import com.saas.school.modules.hr.dto.SubmitLeaveRequest;
 import com.saas.school.modules.hr.model.EmployeeAttendance;
 import com.saas.school.modules.hr.model.LeaveApplication;
@@ -108,6 +110,29 @@ public class LeaveService {
             throw new BusinessException("End date can't be before start date.");
         }
 
+        // Gender restriction (applicableGender) is captured on the
+        // type but not runtime-enforced yet — Teacher doesn't carry a
+        // gender field today, so we'd have to null-guess. The UI shows
+        // "Applicable to: Female employees only" so HR can enforce
+        // out-of-band; a later phase can add Teacher.gender and flip
+        // this to a hard block.
+
+        // Notice-period check — how many days in advance the type
+        // requires. Same-day sick leave has notice=0 so it's always
+        // allowed. Uses IST (matches every other date comparison in
+        // the HR module).
+        int notice = type.getMinAdvanceDays();
+        if (notice > 0) {
+            LocalDate today = LocalDate.now(ZONE);
+            long daysUntilStart = start.toEpochDay() - today.toEpochDay();
+            if (daysUntilStart < notice) {
+                throw new BusinessException(String.format(
+                    "%s requires at least %d day%s advance notice — earliest start date is %s.",
+                    type.getName(), notice, notice == 1 ? "" : "s",
+                    today.plusDays(notice)));
+            }
+        }
+
         boolean startHalf = req.isStartHalf();
         boolean endHalf = req.isEndHalf() && !start.equals(end); // single-day → only startHalf
 
@@ -123,6 +148,16 @@ public class LeaveService {
             throw new BusinessException(
                 "Every day in your selected range is either a Sunday or a declared "
               + "holiday — no leave to apply for. Pick a range with at least one working day.");
+        }
+
+        // Max-consecutive check — prevents "6-month sabbatical via CL".
+        // Uses ceiling so a request of "3.5 days" against a max of 3
+        // still trips the check. 0 = uncapped.
+        int maxConsecutive = type.getMaxConsecutiveDays();
+        if (maxConsecutive > 0 && days > maxConsecutive) {
+            throw new BusinessException(String.format(
+                "%s allows a maximum of %d consecutive working day%s per application.",
+                type.getName(), maxConsecutive, maxConsecutive == 1 ? "" : "s"));
         }
 
         // Overlap check — non-rejected leaves that intersect the new
@@ -326,6 +361,56 @@ public class LeaveService {
         return getBalanceForEmployee(employeeId, year);
     }
 
+    /**
+     * HR-side view — every active employee's full balance sheet for
+     * a given year. Provisions missing rows lazily so a freshly-onboarded
+     * teacher shows up with default quotas immediately.
+     */
+    public List<EmployeeLeaveBalanceSheet> getAllEmployeeBalances(int year) {
+        // TeacherRepository doesn't expose an unpaged findByDeletedAtIsNull;
+        // findAll() + client-side soft-delete filter is fine at the
+        // scale HR employee lists live at (dozens, not thousands).
+        List<Teacher> employees = teacherRepo.findAll().stream()
+            .filter(t -> t.getDeletedAt() == null)
+            .toList();
+        List<EmployeeLeaveBalanceSheet> sheets = new ArrayList<>();
+        for (Teacher e : employees) {
+            String empId = e.getTeacherId();
+            if (empId == null) continue;
+            List<LeaveBalanceDto> balances = getBalanceForEmployee(empId, year);
+            sheets.add(new EmployeeLeaveBalanceSheet(
+                empId, displayName(e), e.getEmployeeRole(), balances));
+        }
+        return sheets;
+    }
+
+    /**
+     * HR overrides one specific (employee, year, type) balance row —
+     * useful for senior teachers getting extra EL, mid-year joiners
+     * getting a pro-rated quota, or a year-end correction after a
+     * data-import bug. Only mutates fields that are non-null on the
+     * request; each mutation stamps updatedAt so the audit trail
+     * stays truthful.
+     *
+     * <p>Throws if the type doesn't exist for the tenant — HR can't
+     * mint a balance for a type that isn't in the catalog. Existing
+     * rows are provisioned on demand.</p>
+     */
+    public LeaveBalanceDto overrideBalance(String employeeId, int year, String code,
+                                            OverrideBalanceRequest req) {
+        LeaveType type = typeRepo.findByCode(code).orElseThrow(() ->
+            new BusinessException("Leave type '" + code + "' doesn't exist."));
+        LeaveBalance b = getOrProvisionBalance(employeeId, year, code, type);
+        if (req.getAllocated() != null) b.setAllocated(Math.max(0, req.getAllocated()));
+        if (req.getCarryForwardIn() != null) b.setCarryForwardIn(Math.max(0, req.getCarryForwardIn()));
+        if (req.getUsed() != null) b.setUsed(Math.max(0, req.getUsed()));
+        b.setUpdatedAt(Instant.now());
+        LeaveBalance saved = balanceRepo.save(b);
+        log.info("Balance overridden: employee={} year={} type={} allocated={} carryFwd={} used={}",
+            employeeId, year, code, saved.getAllocated(), saved.getCarryForwardIn(), saved.getUsed());
+        return LeaveBalanceDto.fromEntity(saved, type);
+    }
+
     public List<LeaveBalanceDto> getBalanceForEmployee(String employeeId, int year) {
         List<LeaveType> types = typeRepo.findAllByOrderBySortOrderAscNameAsc();
         Map<String, LeaveType> byCode = types.stream()
@@ -348,9 +433,7 @@ public class LeaveService {
             })
             .map(b -> {
                 LeaveType t = byCode.get(b.getLeaveTypeCode());
-                String name = t != null ? t.getName() : b.getLeaveTypeCode();
-                boolean active = t != null && t.isActive();
-                return LeaveBalanceDto.fromEntity(b, name, active);
+                return LeaveBalanceDto.fromEntity(b, t);
             })
             .toList();
     }
@@ -463,12 +546,20 @@ public class LeaveService {
         return mine;
     }
 
-    /** Balance mutate helper — positive delta = consume, negative = refund. */
+    /** Balance mutate helper — positive delta = consume, negative =
+     *  refund. Also mirrors the delta into {@link LeaveBalance#getMandatoryUsed()}
+     *  when the type has a {@code mandatoryPerYear} threshold, capped
+     *  at that threshold so a heavy user isn't double-counted. */
     private void adjustBalance(LeaveApplication row, double delta) {
         LeaveType type = typeRepo.findByCode(row.getLeaveTypeCode()).orElse(null);
         LeaveBalance b = getOrProvisionBalance(row.getEmployeeId(),
             row.getStartDate().getYear(), row.getLeaveTypeCode(), type);
         b.setUsed(Math.max(0, b.getUsed() + delta));
+        if (type != null && type.getMandatoryPerYear() > 0) {
+            double newMandatory = b.getMandatoryUsed() + delta;
+            newMandatory = Math.max(0, Math.min(newMandatory, type.getMandatoryPerYear()));
+            b.setMandatoryUsed(newMandatory);
+        }
         b.setUpdatedAt(Instant.now());
         balanceRepo.save(b);
     }

@@ -1,0 +1,61 @@
+<h2 mat-dialog-title>
+  <mat-icon [style.color]="data.balance.color">tune</mat-icon>
+  Override balance
+</h2>
+
+<mat-dialog-content class="override-content">
+  <div class="summary">
+    <div class="summary-line">
+      <span class="lbl">Employee</span>
+      <span class="val">{{ data.employeeName }}</span>
+    </div>
+    <div class="summary-line">
+      <span class="lbl">Type</span>
+      <span class="val">
+        <span class="type-chip" [style.background]="data.balance.color || '#B8860B'">
+          {{ data.balance.leaveTypeCode }}
+        </span>
+        {{ data.balance.leaveTypeName }}
+      </span>
+    </div>
+    <div class="summary-line">
+      <span class="lbl">Year</span>
+      <span class="val">{{ data.year }}</span>
+    </div>
+  </div>
+
+  <div class="row three">
+    <mat-form-field appearance="outline">
+      <mat-label>Allocated</mat-label>
+      <input matInput type="number" min="0" step="0.5" [(ngModel)]="form.allocated">
+      <mat-hint>Year's grant.</mat-hint>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Carry-in</mat-label>
+      <input matInput type="number" min="0" step="0.5" [(ngModel)]="form.carryForwardIn">
+      <mat-hint>From last year.</mat-hint>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Used</mat-label>
+      <input matInput type="number" min="0" step="0.5" [(ngModel)]="form.used">
+      <mat-hint>Consumed so far.</mat-hint>
+    </mat-form-field>
+  </div>
+
+  <div class="preview" [class.preview--negative]="liveRemaining < 0">
+    <mat-icon>{{ liveRemaining < 0 ? 'warning' : 'summarize' }}</mat-icon>
+    <span>
+      Remaining after save:
+      <strong>{{ liveRemaining }}</strong> day{{ liveRemaining === 1 ? '' : 's' }}
+    </span>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()">Cancel</button>
+  <button mat-flat-button color="primary" (click)="submit()"
+    [disabled]="isSaving || !changed">
+    <mat-spinner *ngIf="isSaving" diameter="18"></mat-spinner>
+    <ng-container *ngIf="!isSaving">Save</ng-container>
+  </button>
+</mat-dialog-actions>

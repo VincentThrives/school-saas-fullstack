@@ -1,0 +1,104 @@
+<div class="lbal-container">
+  <app-page-header
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/hr/dashboard' },
+      { label: 'Leave' },
+      { label: 'Balances' }
+    ]"
+    title="Leave Balances">
+  </app-page-header>
+
+  <!-- ── Filter strip ────────────────────────────────── -->
+  <div class="filter-strip">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search employees</mat-label>
+      <input matInput [(ngModel)]="searchText"
+        placeholder="Name, designation, or ID">
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="year-field">
+      <mat-label>Year</mat-label>
+      <mat-select [(ngModel)]="year" (selectionChange)="onYearChange()">
+        <mat-option *ngFor="let y of yearOptions" [value]="y">{{ y }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="32"></mat-spinner>
+  </div>
+
+  <div class="empty-state" *ngIf="!isLoading && !filteredSheets.length">
+    <mat-icon>groups</mat-icon>
+    <p *ngIf="!sheets.length">No employees found.</p>
+    <p *ngIf="sheets.length && !filteredSheets.length">No employees match "{{ searchText }}".</p>
+  </div>
+
+  <!-- ── Employee balance sheets ─────────────────────── -->
+  <div class="sheet-list" *ngIf="!isLoading && filteredSheets.length">
+    <div class="employee-card" *ngFor="let s of filteredSheets">
+      <div class="emp-head">
+        <div class="emp-avatar">
+          {{ (s.employeeName || '?').charAt(0).toUpperCase() }}
+        </div>
+        <div class="emp-info">
+          <div class="emp-name">{{ s.employeeName }}</div>
+          <div class="emp-meta">
+            <span *ngIf="s.designation" class="emp-designation">{{ s.designation }}</span>
+            <span class="emp-id">{{ s.employeeId }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="balance-grid">
+        <div class="balance-cell" *ngFor="let b of s.balances"
+             (click)="openOverride(s, b)"
+             matTooltip="Click to override">
+          <div class="cell-head">
+            <span class="type-chip" [style.background]="b.color || '#B8860B'">{{ b.leaveTypeCode }}</span>
+            <span class="cell-name" [class.strike]="!b.typeActive">{{ b.leaveTypeName }}</span>
+          </div>
+
+          <div class="cell-remaining">
+            <span class="rem-num" [style.color]="b.color || '#4a3a10'">{{ b.remaining }}</span>
+            <span class="rem-unit">left</span>
+          </div>
+
+          <div class="cell-progress">
+            <div class="cell-progress-fill"
+                 [style.width.%]="usedPct(b)"
+                 [style.background]="b.color || '#B8860B'"></div>
+          </div>
+
+          <div class="cell-meta">
+            <span>{{ b.used }} used</span>
+            <span class="dot">·</span>
+            <span>{{ b.allocated + b.carryForwardIn }} total</span>
+          </div>
+
+          <!-- Mandatory-quota hint — only surfaces when the type has a
+               compulsory threshold. Amber when still owed, green when
+               employee has met it. -->
+          <div class="cell-mandatory"
+               *ngIf="b.mandatoryPerYear > 0"
+               [class.cell-mandatory--met]="mandatoryRemaining(b) === 0">
+            <mat-icon>rule</mat-icon>
+            <span *ngIf="mandatoryRemaining(b) > 0">
+              {{ mandatoryRemaining(b) }} compulsory left
+            </span>
+            <span *ngIf="mandatoryRemaining(b) === 0">
+              Compulsory met
+            </span>
+          </div>
+
+          <!-- Carry-forward hint. -->
+          <div class="cell-carry" *ngIf="b.carryForwardIn > 0">
+            <mat-icon>redo</mat-icon>
+            <span>+{{ b.carryForwardIn }} carried in</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

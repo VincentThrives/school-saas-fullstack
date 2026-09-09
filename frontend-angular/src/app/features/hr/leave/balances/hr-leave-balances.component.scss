@@ -1,0 +1,165 @@
+.lbal-container { padding: 16px; max-width: 1200px; margin: 0 auto; }
+
+// ── Filter strip ────────────────────────────────
+.filter-strip {
+  display: flex; gap: 12px; margin-bottom: 18px;
+  flex-wrap: wrap;
+
+  .search-field { flex: 1; min-width: 240px; }
+  .year-field { width: 130px; }
+}
+
+.loading-row { display: flex; justify-content: center; padding: 40px; }
+.empty-state {
+  text-align: center; padding: 60px 20px; color: #9ca3af;
+  mat-icon { font-size: 48px; height: 48px; width: 48px; opacity: .55; }
+  p { margin: 8px 0 0; font-size: 14px; }
+}
+
+.sheet-list { display: flex; flex-direction: column; gap: 14px; }
+
+// ── Employee card ───────────────────────────────
+.employee-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px 18px;
+  transition: box-shadow .12s;
+
+  &:hover { box-shadow: 0 2px 12px rgba(15, 23, 42, .06); }
+}
+
+.emp-head {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.emp-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, #D4A843 0%, #B8860B 100%);
+  color: #fff; font-weight: 700; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.emp-info { flex: 1; min-width: 0; }
+
+.emp-name {
+  font-weight: 700; color: #1f2937; font-size: 15px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.emp-meta {
+  display: flex; gap: 6px; align-items: center; margin-top: 2px;
+  color: #6b7280; font-size: 12px;
+
+  .emp-designation {
+    background: #f3f4f6; color: #4b5563;
+    padding: 1px 8px; border-radius: 4px;
+    font-weight: 500;
+  }
+  .emp-id {
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 11px;
+  }
+}
+
+// ── Balance grid ────────────────────────────────
+.balance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.balance-cell {
+  background: #fafbfc;
+  border: 1px solid #edf0f4;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: transform .12s, box-shadow .12s, border-color .12s;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, .08);
+    border-color: #d1d5db;
+    background: #fff;
+  }
+}
+
+.cell-head {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 8px;
+
+  .type-chip {
+    font-weight: 700; font-size: 10px; letter-spacing: .5px;
+    color: #fff;
+    padding: 2px 7px; border-radius: 4px;
+    min-width: 30px; text-align: center;
+  }
+  .cell-name {
+    color: #6b7280; font-size: 11px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+
+    &.strike { text-decoration: line-through; opacity: .6; }
+  }
+}
+
+.cell-remaining {
+  display: flex; align-items: baseline; gap: 5px;
+  margin-bottom: 8px;
+  .rem-num { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+  .rem-unit { font-size: 11px; color: #9ca3af; font-weight: 500; }
+}
+
+.cell-progress {
+  height: 5px; border-radius: 3px;
+  background: #e5e7eb;
+  overflow: hidden;
+  margin-bottom: 6px;
+
+  &-fill {
+    height: 100%;
+    transition: width .2s;
+    border-radius: 3px;
+  }
+}
+
+.cell-meta {
+  display: flex; gap: 5px; align-items: center;
+  color: #6b7280; font-size: 11px;
+  .dot { opacity: .5; }
+}
+
+.cell-mandatory,
+.cell-carry {
+  display: flex; align-items: center; gap: 4px;
+  margin-top: 6px;
+  padding: 3px 6px; border-radius: 4px;
+  font-size: 10.5px; font-weight: 600;
+
+  mat-icon { font-size: 12px; width: 12px; height: 12px; }
+}
+
+.cell-mandatory {
+  background: #fff3cd; color: #85670c;
+  mat-icon { color: #b58513; }
+
+  &--met {
+    background: #d1fae5; color: #065f46;
+    mat-icon { color: #059669; }
+  }
+}
+
+.cell-carry {
+  background: #ede9fe; color: #5b21b6;
+  mat-icon { color: #7c3aed; }
+}
+
+// ── Mobile ──────────────────────────────────────
+@media (max-width: 600px) {
+  .lbal-container { padding: 12px; }
+  .balance-grid { grid-template-columns: 1fr 1fr; }
+}

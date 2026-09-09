@@ -82,6 +82,8 @@ import {
   SubmitLeaveRequest,
   LeaveReviewRequest,
   UpsertLeaveTypeRequest,
+  EmployeeLeaveBalanceSheet,
+  OverrideBalanceRequest,
 } from '../models';
 
 /** Scope an admin picks on the Publish Result tab. {@code subjectId} is
@@ -2485,5 +2487,23 @@ export class ApiService {
   hrToggleLeaveType(id: string): Observable<ApiResponse<LeaveType>> {
     return this.http.post<ApiResponse<LeaveType>>(
       `${this.API}/hr/leave/types/${encodeURIComponent(id)}/toggle`, {});
+  }
+
+  // ── HR balance management ──────────────────────────
+
+  /** HR: every employee's full balance sheet for a year. */
+  hrAllLeaveBalances(year?: number): Observable<ApiResponse<EmployeeLeaveBalanceSheet[]>> {
+    const params = year != null ? `?year=${year}` : '';
+    return this.http.get<ApiResponse<EmployeeLeaveBalanceSheet[]>>(
+      `${this.API}/hr/leave/balances${params}`);
+  }
+
+  /** HR override — partial patch on (employee, year, type). */
+  hrOverrideLeaveBalance(employeeId: string, code: string, req: OverrideBalanceRequest,
+                         year?: number): Observable<ApiResponse<LeaveBalance>> {
+    const params = year != null ? `?year=${year}` : '';
+    return this.http.post<ApiResponse<LeaveBalance>>(
+      `${this.API}/hr/leave/employees/${encodeURIComponent(employeeId)}/balance/${encodeURIComponent(code)}/override${params}`,
+      req);
   }
 }

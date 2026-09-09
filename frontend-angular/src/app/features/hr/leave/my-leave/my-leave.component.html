@@ -9,21 +9,69 @@
   <!-- ── Balance strip ──────────────────────────────────────── -->
   <section class="balance-section">
     <div class="balance-head">
-      <span class="balance-title">Leave balance</span>
+      <div>
+        <span class="balance-title">Leave balance</span>
+        <span class="balance-subtitle">Your available balance for the year</span>
+      </div>
       <span class="balance-year">{{ currentYear }}</span>
     </div>
     <div class="balance-grid" *ngIf="balances.length; else noBalance">
-      <div class="balance-card" *ngFor="let b of balances" [class.balance-card--inactive]="!b.typeActive">
-        <div class="balance-code">{{ b.leaveTypeCode }}</div>
-        <div class="balance-name">{{ b.leaveTypeName }}</div>
-        <div class="balance-remaining">
-          <span class="rem-num">{{ b.remaining }}</span>
-          <span class="rem-unit">day{{ b.remaining === 1 ? '' : 's' }} left</span>
-        </div>
-        <div class="balance-meta">
-          <span>Used {{ b.used }}</span>
-          <span class="dot">·</span>
-          <span>Total {{ b.allocated + b.carryForwardIn }}</span>
+      <div class="balance-card" *ngFor="let b of balances"
+           [class.balance-card--inactive]="!b.typeActive">
+        <!-- Color stripe on the left echoes the type's color. -->
+        <div class="balance-stripe" [style.background]="b.color || '#B8860B'"></div>
+
+        <div class="balance-body">
+          <div class="balance-head-row">
+            <span class="balance-code" [style.background]="b.color || '#B8860B'">
+              {{ b.leaveTypeCode }}
+            </span>
+            <span class="balance-name">{{ b.leaveTypeName }}</span>
+          </div>
+
+          <div class="balance-remaining">
+            <span class="rem-num" [style.color]="b.color || '#4a3a10'">
+              {{ b.remaining }}
+            </span>
+            <span class="rem-unit">day{{ b.remaining === 1 ? '' : 's' }} left</span>
+          </div>
+
+          <div class="balance-bar">
+            <div class="balance-bar-fill"
+                 [style.width.%]="usedPct(b)"
+                 [style.background]="b.color || '#B8860B'"></div>
+          </div>
+
+          <div class="balance-meta">
+            <span>{{ b.used }} used</span>
+            <span class="dot">·</span>
+            <span>{{ b.allocated + b.carryForwardIn }} total</span>
+          </div>
+
+          <!-- Compulsory quota — amber when still owed, green when met. -->
+          <div class="balance-hint balance-hint--warn"
+               *ngIf="b.mandatoryPerYear > 0 && mandatoryRemaining(b) > 0">
+            <mat-icon>rule</mat-icon>
+            <span>Take at least {{ mandatoryRemaining(b) }} more day{{ mandatoryRemaining(b) === 1 ? '' : 's' }} this year</span>
+          </div>
+          <div class="balance-hint balance-hint--good"
+               *ngIf="b.mandatoryPerYear > 0 && mandatoryRemaining(b) === 0">
+            <mat-icon>check_circle</mat-icon>
+            <span>Compulsory quota met</span>
+          </div>
+
+          <!-- Carry-forward hint. -->
+          <div class="balance-hint balance-hint--info" *ngIf="b.carryForwardIn > 0">
+            <mat-icon>redo</mat-icon>
+            <span>+{{ b.carryForwardIn }} carried from last year</span>
+          </div>
+
+          <!-- Accrual hint — matters for MONTHLY types where the
+               employee can't take all of it right away. -->
+          <div class="balance-hint balance-hint--info" *ngIf="b.accrualType === 'MONTHLY'">
+            <mat-icon>trending_up</mat-icon>
+            <span>{{ (b.allocated / 12).toFixed(1) }} days credited each month</span>
+          </div>
         </div>
       </div>
     </div>

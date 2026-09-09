@@ -72,6 +72,13 @@ public class LeaveBalance {
      *  day = 0.5, full = 1.0. Refunded on approved-leave cancellation. */
     private double used;
 
+    /** Slice of {@link #used} that counted against the type's
+     *  {@code mandatoryPerYear} threshold. Lets HR see who's behind
+     *  their compulsory quota — e.g., "Priya has used only 2 of 5
+     *  mandatory EL days" — and remind them before year-end. Same
+     *  units as {@link #used}; refunded proportionally on cancel. */
+    private double mandatoryUsed;
+
     private Instant updatedAt = Instant.now();
 
     public LeaveBalance() {}
@@ -114,6 +121,9 @@ public class LeaveBalance {
 
     public double getUsed() { return used; }
     public void setUsed(double used) { this.used = used; }
+
+    public double getMandatoryUsed() { return mandatoryUsed; }
+    public void setMandatoryUsed(double mandatoryUsed) { this.mandatoryUsed = mandatoryUsed; }
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }

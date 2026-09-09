@@ -495,12 +495,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
           ],
         },
         // Leave module — mirrors the Attendance group shape. Approvals
-        // + Settings are HR-admin work; My Leave (the employee's own
-        // apply + history + balance) sits in the personal group below.
+        // + Balances + Settings are HR-admin work; My Leave (the
+        // employee's own apply + history + balance) sits in the
+        // personal group below.
         {
           title: 'Leave', path: '', icon: 'beach_access', feature: 'hr_leave',
           children: [
             { title: 'Approvals',      path: '/hr/leave/approvals', icon: 'pending_actions', feature: 'hr_leave' },
+            { title: 'Balances',       path: '/hr/leave/balances',  icon: 'account_balance_wallet', feature: 'hr_leave' },
             { title: 'Leave Settings', path: '/hr/leave/settings',  icon: 'tune',            feature: 'hr_leave' },
           ],
         },

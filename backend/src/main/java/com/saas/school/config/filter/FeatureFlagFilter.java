@@ -109,7 +109,8 @@ public class FeatureFlagFilter extends OncePerRequestFilter {
         Map.entry("/api/v1/hr/leave/pending",                      "hr_leave"),
         Map.entry("/api/v1/hr/leave/history",                      "hr_leave"),
         Map.entry("/api/v1/hr/leave/types",                        "hr_leave"),
-        Map.entry("/api/v1/hr/leave/employees",                    "hr_leave")
+        Map.entry("/api/v1/hr/leave/employees",                    "hr_leave"),
+        Map.entry("/api/v1/hr/leave/balances",                     "hr_leave")
     );
 
     @Override

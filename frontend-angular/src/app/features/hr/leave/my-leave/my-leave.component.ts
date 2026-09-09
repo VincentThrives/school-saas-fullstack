@@ -149,6 +149,22 @@ export class MyLeaveComponent implements OnInit {
     }
   }
 
+  /** Used %, capped at 100 for the progress bar. Zero total gives 0
+   *  so uncapped LOP-style rows render a flat empty bar rather than
+   *  divide-by-zero NaN. */
+  usedPct(b: LeaveBalance): number {
+    const total = b.allocated + b.carryForwardIn;
+    if (total <= 0) return 0;
+    return Math.min(100, Math.round((b.used / total) * 100));
+  }
+
+  /** Compulsory days still owed for the year. 0 or negative means
+   *  the quota is already met. */
+  mandatoryRemaining(b: LeaveBalance): number {
+    if (!b.mandatoryPerYear) return 0;
+    return Math.max(0, b.mandatoryPerYear - b.mandatoryUsed);
+  }
+
   /** Pending first, then most-recently-submitted downstream. */
   get sortedLeaves(): LeaveApplication[] {
     return [...this.leaves].sort((a, b) => {

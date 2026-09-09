@@ -97,4 +97,16 @@ export class HrLeaveSettingsComponent implements OnInit {
       },
     });
   }
+
+  /** Take the type's hex color and produce a faded tint suitable
+   *  for the code badge background. Falls back to a gold-tinted
+   *  default if no color is set. Naive rgba(hex, 0.15) works for
+   *  the 6-char hex codes the swatch picker produces. */
+  fadeColor(hex?: string): string {
+    if (!hex || hex.length !== 7 || !hex.startsWith('#')) return '#fff7db';
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, 0.15)`;
+  }
 }

@@ -67,6 +67,79 @@ public class LeaveType {
     /** Display order on the dropdown + settings page. Lower = higher up. */
     private int sortOrder = 100;
 
+    // ── Premium schema — extended attributes ───────────────
+
+    /** One-line explanation shown as a tooltip / help hint on the
+     *  Apply Leave dropdown. Empty is fine — the {@code name} carries
+     *  the label. */
+    private String description;
+
+    /** Hex color used to badge this type on the calendar, the balance
+     *  cards, and the leave-request rows. Falls back to a palette
+     *  default on the frontend when null / blank. */
+    private String color;
+
+    // ── Carry-forward ──────────────────────────────────
+
+    /** When true, unused balance at year-end rolls over into the next
+     *  year's opening balance (subject to {@link #carryForwardMax}).
+     *  Defaults false — schools opt in per type (typical: EL carries,
+     *  CL / SL don't). */
+    private boolean carryForward = false;
+
+    /** Cap on days carried forward. 0 = uncapped (rare — most schools
+     *  set a hard limit like 30 or 45). Ignored when
+     *  {@link #carryForward} is false. */
+    private double carryForwardMax = 0;
+
+    // ── Accrual — how the year's allocation is credited ─
+
+    /** How the {@link #defaultAnnualQuota} is credited to the
+     *  employee's balance during the year:
+     *  <ul>
+     *    <li>{@code YEARLY} — full quota granted on Jan 1 (default).</li>
+     *    <li>{@code MONTHLY} — 1/12 of the quota credited on the 1st
+     *        of each month. Employees can't take leave they haven't
+     *        yet accrued.</li>
+     *    <li>{@code QUARTERLY} — 1/4 credited each quarter.</li>
+     *  </ul>
+     *  Accrual is enforced at submit time — the LeaveService rejects
+     *  a request that would consume more than the currently-accrued
+     *  balance for MONTHLY / QUARTERLY types.
+     */
+    private String accrualType = "YEARLY";
+
+    // ── Application rules ──────────────────────────────
+
+    /** Minimum days between today and startDate. e.g., PL might need
+     *  7 days notice; CL / SL usually 0. Enforced at submit — a
+     *  request violating notice is rejected with a specific message. */
+    private int minAdvanceDays = 0;
+
+    /** Maximum consecutive working days per single application.
+     *  0 = uncapped. Prevents "6-month sabbatical via CL". Enforced
+     *  at submit against the effective (working-day) count. */
+    private int maxConsecutiveDays = 0;
+
+    /** Threshold at which a supporting document is required.
+     *  e.g., SL over 3 days needs a medical certificate. 0 = never.
+     *  Enforcement is deferred to a later phase (file upload UX);
+     *  today the field is captured for the type so HR knows the
+     *  policy and can enforce out-of-band. */
+    private int requiresAttachmentAfterDays = 0;
+
+    /** Restricts who can apply. {@code ANY} (default) means every
+     *  employee sees it in the dropdown. {@code MALE} / {@code FEMALE}
+     *  restrict to that gender — used for maternity / paternity leave. */
+    private String applicableGender = "ANY";
+
+    /** Compulsory days that MUST be taken every year — schools use
+     *  this for EL where a minimum consumption is mandated by policy.
+     *  Tracked via {@code LeaveBalance.mandatoryUsed} so HR can see
+     *  who's short and remind them before year-end. 0 = no
+     *  compulsory quota. */
+    private double mandatoryPerYear = 0;
+
     private Instant createdAt = Instant.now();
     private Instant updatedAt = Instant.now();
 
@@ -105,6 +178,38 @@ public class LeaveType {
 
     public int getSortOrder() { return sortOrder; }
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public String getColor() { return color; }
+    public void setColor(String color) { this.color = color; }
+
+    public boolean isCarryForward() { return carryForward; }
+    public void setCarryForward(boolean carryForward) { this.carryForward = carryForward; }
+
+    public double getCarryForwardMax() { return carryForwardMax; }
+    public void setCarryForwardMax(double carryForwardMax) { this.carryForwardMax = carryForwardMax; }
+
+    public String getAccrualType() { return accrualType; }
+    public void setAccrualType(String accrualType) { this.accrualType = accrualType; }
+
+    public int getMinAdvanceDays() { return minAdvanceDays; }
+    public void setMinAdvanceDays(int minAdvanceDays) { this.minAdvanceDays = minAdvanceDays; }
+
+    public int getMaxConsecutiveDays() { return maxConsecutiveDays; }
+    public void setMaxConsecutiveDays(int maxConsecutiveDays) { this.maxConsecutiveDays = maxConsecutiveDays; }
+
+    public int getRequiresAttachmentAfterDays() { return requiresAttachmentAfterDays; }
+    public void setRequiresAttachmentAfterDays(int requiresAttachmentAfterDays) {
+        this.requiresAttachmentAfterDays = requiresAttachmentAfterDays;
+    }
+
+    public String getApplicableGender() { return applicableGender; }
+    public void setApplicableGender(String applicableGender) { this.applicableGender = applicableGender; }
+
+    public double getMandatoryPerYear() { return mandatoryPerYear; }
+    public void setMandatoryPerYear(double mandatoryPerYear) { this.mandatoryPerYear = mandatoryPerYear; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

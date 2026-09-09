@@ -1491,20 +1491,44 @@ export interface HrTerminalPunch {
 
 /**
  * One row in the tenant's leave-type catalog — e.g., CL / SL / EL /
- * LOP. Powers the Apply Leave dropdown (active only) and the HR →
- * Leave → Settings management page (all rows).
+ * LOP / MAT / PAT. Powers the Apply Leave dropdown (active only) and
+ * the HR → Leave → Settings management page (all rows).
+ *
+ * <p>The fields cover the full HR policy surface: quotas + accrual +
+ * carry-forward + notice period + max consecutive + gender
+ * restriction + compulsory quota. The frontend only renders the
+ * subset that's set — a type with all defaults reads as "simple".</p>
  */
 export interface LeaveType {
   id: string;
   /** Uppercase short code, immutable once created. */
   code: string;
   name: string;
-  /** Days per year granted by default when we provision a fresh
-   *  balance row. 0 = uncapped (LOP-style). */
+  description?: string;
+  /** Hex color for badges and the calendar cell. */
+  color?: string;
+
   defaultAnnualQuota: number;
   paid: boolean;
   active: boolean;
   sortOrder: number;
+
+  carryForward: boolean;
+  /** Cap on days carried into next year. 0 = uncapped. */
+  carryForwardMax: number;
+  /** YEARLY | MONTHLY | QUARTERLY. */
+  accrualType: 'YEARLY' | 'MONTHLY' | 'QUARTERLY';
+
+  /** Days advance notice required. 0 = same-day allowed. */
+  minAdvanceDays: number;
+  /** Max consecutive working days per single application. 0 = uncapped. */
+  maxConsecutiveDays: number;
+  /** Threshold beyond which a supporting document is required. */
+  requiresAttachmentAfterDays: number;
+  /** ANY | MALE | FEMALE — restricts who sees the type. */
+  applicableGender: 'ANY' | 'MALE' | 'FEMALE';
+  /** Compulsory quota — how many days MUST be taken per year. */
+  mandatoryPerYear: number;
 }
 
 /** Create + update payload. Code is required on create, ignored on
@@ -1512,24 +1536,64 @@ export interface LeaveType {
 export interface UpsertLeaveTypeRequest {
   code?: string;
   name?: string;
+  description?: string;
+  color?: string;
   defaultAnnualQuota?: number;
   paid?: boolean;
   active?: boolean;
   sortOrder?: number;
+  carryForward?: boolean;
+  carryForwardMax?: number;
+  accrualType?: 'YEARLY' | 'MONTHLY' | 'QUARTERLY';
+  minAdvanceDays?: number;
+  maxConsecutiveDays?: number;
+  requiresAttachmentAfterDays?: number;
+  applicableGender?: 'ANY' | 'MALE' | 'FEMALE';
+  mandatoryPerYear?: number;
 }
 
 /** Per-employee, per-year, per-type balance row. remaining is derived
- *  on the server as allocated + carryForwardIn - used. */
+ *  on the server as allocated + carryForwardIn - used. Enriched with
+ *  the type's color + policy fields so the widget can render context
+ *  without a second round-trip. */
 export interface LeaveBalance {
   leaveTypeCode: string;
   leaveTypeName: string;
+  color?: string;
+  paid: boolean;
+  accrualType: 'YEARLY' | 'MONTHLY' | 'QUARTERLY';
+
   allocated: number;
   carryForwardIn: number;
   used: number;
   remaining: number;
+
+  mandatoryPerYear: number;
+  mandatoryUsed: number;
+
+  carryForwardEnabled: boolean;
+  carryForwardMax: number;
+
   /** False when the underlying type has been deactivated — the row
    *  still surfaces for historical continuity but the UI dims it. */
   typeActive: boolean;
+}
+
+/** HR balance-sheet payload — one row per employee, full year of
+ *  balances attached. Drives the HR → Leave → Balances page. */
+export interface EmployeeLeaveBalanceSheet {
+  employeeId: string;
+  employeeName: string;
+  designation?: string;
+  balances: LeaveBalance[];
+}
+
+/** HR partial-patch payload for overriding one employee's
+ *  allocation / carry-forward / used for a (year, type). */
+export interface OverrideBalanceRequest {
+  allocated?: number;
+  carryForwardIn?: number;
+  used?: number;
 }
 
 /** Employee leave application — one row spans a date range. */

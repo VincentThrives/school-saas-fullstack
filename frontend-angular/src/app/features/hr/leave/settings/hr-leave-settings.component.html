@@ -11,10 +11,10 @@
   <mat-card class="intro-card">
     <mat-card-content>
       <p>
-        Set up the leave types your school offers. Each type has a
-        default annual quota — that's the initial balance every
-        employee gets for the year. Deactivating a type hides it
-        from the Apply Leave form but keeps historical rows readable.
+        Every leave type has quota, accrual pattern, notice period,
+        carry-forward rules, and applicability — configure each below.
+        Deactivating a type hides it from the Apply Leave form but
+        keeps historical rows readable.
       </p>
     </mat-card-content>
   </mat-card>
@@ -38,25 +38,64 @@
 
   <div class="type-list" *ngIf="!isLoading && types.length">
     <div class="type-row" *ngFor="let t of types" [class.type-row--inactive]="!t.active">
+      <!-- Color-tinted vertical stripe on the left echoes the type's
+           color across the whole app (calendar, balance card, badge). -->
+      <div class="type-stripe" [style.background]="t.color || '#B8860B'"></div>
+
       <div class="type-main">
-        <div class="type-code">{{ t.code }}</div>
+        <div class="type-code" [style.background]="fadeColor(t.color)"
+                               [style.color]="t.color || '#8a6a12'">
+          {{ t.code }}
+        </div>
+
         <div class="type-body">
           <div class="type-name">
             {{ t.name }}
-            <mat-icon
-              *ngIf="!t.paid"
-              class="paid-icon"
-              matTooltip="Unpaid (LOP-style)">
+            <mat-icon *ngIf="!t.paid" class="paid-icon" matTooltip="Unpaid (LOP-style)">
               money_off
             </mat-icon>
           </div>
-          <div class="type-meta">
-            <span>Quota: <strong>{{ t.defaultAnnualQuota || 'uncapped' }}</strong> days / year</span>
-            <span class="dot">·</span>
-            <span>{{ t.paid ? 'Paid' : 'Unpaid' }}</span>
+          <div class="type-desc" *ngIf="t.description">{{ t.description }}</div>
+
+          <!-- Compact chip row showing every configured policy so HR
+               reads the whole config at a glance without opening edit. -->
+          <div class="type-chips">
+            <span class="chip">
+              <mat-icon>event_available</mat-icon>
+              {{ t.defaultAnnualQuota || 'Uncapped' }}{{ t.defaultAnnualQuota ? ' days / year' : '' }}
+            </span>
+            <span class="chip" *ngIf="t.accrualType !== 'YEARLY'">
+              <mat-icon>trending_up</mat-icon>
+              {{ t.accrualType === 'MONTHLY' ? 'Monthly accrual' : 'Quarterly accrual' }}
+            </span>
+            <span class="chip" *ngIf="t.carryForward">
+              <mat-icon>redo</mat-icon>
+              Carry {{ t.carryForwardMax ? 'up to ' + t.carryForwardMax + ' days' : 'uncapped' }}
+            </span>
+            <span class="chip" *ngIf="t.minAdvanceDays > 0">
+              <mat-icon>schedule</mat-icon>
+              {{ t.minAdvanceDays }} day{{ t.minAdvanceDays === 1 ? '' : 's' }} notice
+            </span>
+            <span class="chip" *ngIf="t.maxConsecutiveDays > 0">
+              <mat-icon>vertical_align_center</mat-icon>
+              Max {{ t.maxConsecutiveDays }} consecutive
+            </span>
+            <span class="chip" *ngIf="t.mandatoryPerYear > 0">
+              <mat-icon>rule</mat-icon>
+              {{ t.mandatoryPerYear }} compulsory
+            </span>
+            <span class="chip" *ngIf="t.requiresAttachmentAfterDays > 0">
+              <mat-icon>attach_file</mat-icon>
+              Attach after {{ t.requiresAttachmentAfterDays }}
+            </span>
+            <span class="chip" *ngIf="t.applicableGender !== 'ANY'">
+              <mat-icon>person</mat-icon>
+              {{ t.applicableGender === 'FEMALE' ? 'Female only' : 'Male only' }}
+            </span>
           </div>
         </div>
       </div>
+
       <div class="type-actions">
         <mat-slide-toggle
           [checked]="t.active"

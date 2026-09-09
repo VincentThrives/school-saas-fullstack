@@ -1,25 +1,92 @@
 h2[mat-dialog-title] {
   display: flex; align-items: center; gap: 8px;
-  mat-icon { color: #B8860B; }
+  mat-icon { transition: color .2s; }
 }
 
 .type-content {
-  padding-top: 8px !important;
-  min-width: 360px;
-  display: flex; flex-direction: column; gap: 4px;
+  padding: 0 !important;
+  min-width: 520px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
+.type-tabs {
+  ::ng-deep .mat-mdc-tab-body-content { padding: 0; overflow: visible; }
+  ::ng-deep .mat-mdc-tab-header { border-bottom: 1px solid #edf0f4; }
+}
+
+.tab-body {
+  padding: 18px 20px 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+
+.row {
+  display: flex; gap: 12px;
+  &.two { flex-wrap: wrap; }
+  &.two > mat-form-field { flex: 1 1 200px; }
+}
 .full { width: 100%; }
 
-mat-checkbox {
-  margin: 6px 4px 0;
+.swatch-row {
+  padding: 4px 4px 12px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+
+  .swatch-label {
+    font-size: 12px; font-weight: 600; color: #6b7280;
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+  .swatch {
+    width: 28px; height: 28px; border-radius: 8px;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, .10);
+    cursor: pointer;
+    transition: transform .1s, box-shadow .1s;
+
+    &:hover { transform: scale(1.08); }
+    &--active {
+      box-shadow: 0 0 0 2px #1f2937, 0 4px 10px rgba(15, 23, 42, .15);
+      transform: scale(1.08);
+    }
+  }
 }
 
-mat-dialog-actions button[mat-flat-button] {
-  min-width: 96px;
-  mat-spinner { margin: 0 auto; }
+.paid-check { margin: 6px 4px 4px; }
+
+.policy-block {
+  background: #f9fafb;
+  border: 1px solid #edf0f4;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 6px;
+
+  .policy-toggle { margin-bottom: 10px; }
 }
 
-@media (max-width: 500px) {
+.future-hint {
+  display: flex; gap: 12px;
+  background: #eef7ff;
+  border: 1px solid #cde5fb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 12px;
+
+  mat-icon { color: #234e70; margin-top: 2px; }
+  strong { display: block; color: #123a58; font-size: 13px; margin-bottom: 4px; }
+  span { color: #234e70; font-size: 12px; line-height: 1.5; }
+}
+
+mat-dialog-actions {
+  padding: 12px 20px !important;
+  border-top: 1px solid #edf0f4;
+
+  button[mat-flat-button] {
+    min-width: 130px;
+    mat-spinner { margin: 0 auto; }
+  }
+}
+
+@media (max-width: 640px) {
   .type-content { min-width: 0; }
+  .row.two > mat-form-field { flex-basis: 100%; }
 }

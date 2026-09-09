@@ -837,6 +837,14 @@ export const routes: Routes = [
         canActivate: [roleGuard, featureGuard],
         data: { roles: [UserRole.HR], feature: 'hr_leave', title: 'Leave Settings' },
       },
+      {
+        path: 'hr/leave/balances',
+        loadComponent: () =>
+          import('./features/hr/leave/balances/hr-leave-balances.component')
+              .then(m => m.HrLeaveBalancesComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.HR], feature: 'hr_leave', title: 'Leave Balances' },
+      },
 
       // Settings (SCHOOL_ADMIN only)
       {

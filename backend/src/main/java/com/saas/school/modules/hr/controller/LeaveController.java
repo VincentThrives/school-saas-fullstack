@@ -1,10 +1,12 @@
 package com.saas.school.modules.hr.controller;
 
 import com.saas.school.common.response.ApiResponse;
+import com.saas.school.modules.hr.dto.EmployeeLeaveBalanceSheet;
 import com.saas.school.modules.hr.dto.LeaveApplicationDto;
 import com.saas.school.modules.hr.dto.LeaveBalanceDto;
 import com.saas.school.modules.hr.dto.LeaveReviewRequest;
 import com.saas.school.modules.hr.dto.LeaveTypeDto;
+import com.saas.school.modules.hr.dto.OverrideBalanceRequest;
 import com.saas.school.modules.hr.dto.SubmitLeaveRequest;
 import com.saas.school.modules.hr.service.LeaveService;
 import com.saas.school.modules.hr.service.LeaveTypeService;
@@ -133,5 +135,28 @@ public class LeaveController {
             @RequestParam(required = false) Integer year) {
         int y = year != null ? year : LocalDate.now(ZoneId.of("Asia/Kolkata")).getYear();
         return ResponseEntity.ok(ApiResponse.success(service.getBalanceForEmployee(employeeId, y)));
+    }
+
+    @Operation(summary = "HR view: every employee's full balance sheet for a year")
+    @GetMapping("/balances")
+    @PreAuthorize("hasRole('HR')")
+    public ResponseEntity<ApiResponse<List<EmployeeLeaveBalanceSheet>>> allBalances(
+            @RequestParam(required = false) Integer year) {
+        int y = year != null ? year : LocalDate.now(ZoneId.of("Asia/Kolkata")).getYear();
+        return ResponseEntity.ok(ApiResponse.success(service.getAllEmployeeBalances(y)));
+    }
+
+    @Operation(summary = "HR override: adjust an employee's allocation / carry-forward / used for one (year, type)")
+    @PostMapping("/employees/{employeeId}/balance/{code}/override")
+    @PreAuthorize("hasRole('HR')")
+    public ResponseEntity<ApiResponse<LeaveBalanceDto>> overrideBalance(
+            @PathVariable String employeeId,
+            @PathVariable String code,
+            @RequestParam(required = false) Integer year,
+            @RequestBody OverrideBalanceRequest req) {
+        int y = year != null ? year : LocalDate.now(ZoneId.of("Asia/Kolkata")).getYear();
+        return ResponseEntity.ok(ApiResponse.success(
+            service.overrideBalance(employeeId, y, code.trim().toUpperCase(), req),
+            "Balance updated."));
     }
 }
