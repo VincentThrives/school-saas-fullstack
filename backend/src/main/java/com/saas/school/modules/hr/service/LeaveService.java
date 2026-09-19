@@ -155,7 +155,8 @@ public class LeaveService {
         // isn't expected to work that day anyway. If the entire range
         // is off-days, the request has nothing to do so we reject it.
         Set<LocalDate> holidayDates = loadHolidayDates(start, end);
-        double days = computeEffectiveDays(start, end, startHalf, endHalf, holidayDates);
+        Set<LocalDate> workingDayDates = loadWorkingDayDates(start, end);
+        double days = computeEffectiveDays(start, end, startHalf, endHalf, holidayDates, workingDayDates);
         if (days <= 0) {
             throw new BusinessException(
                 "Every day in your selected range is either a Sunday or a declared "
@@ -260,8 +261,9 @@ public class LeaveService {
         // day is now off (rare — holiday added after submit), reject
         // rather than deducting nothing but marking the leave APPROVED.
         Set<LocalDate> holidayDates = loadHolidayDates(row.getStartDate(), row.getEndDate());
+        Set<LocalDate> workingDayDates = loadWorkingDayDates(row.getStartDate(), row.getEndDate());
         double effectiveDays = computeEffectiveDays(row.getStartDate(), row.getEndDate(),
-            row.isStartHalf(), row.isEndHalf(), holidayDates);
+            row.isStartHalf(), row.isEndHalf(), holidayDates, workingDayDates);
         if (effectiveDays <= 0) {
             throw new BusinessException(
                 "The requested range is now entirely holidays / Sundays — "
@@ -269,7 +271,7 @@ public class LeaveService {
         }
         row.setDays(effectiveDays);
 
-        writeAttendanceRows(row, holidayDates);
+        writeAttendanceRows(row, holidayDates, workingDayDates);
         adjustBalance(row, +effectiveDays);
 
         row.setStatus(LeaveApplication.Status.APPROVED);
@@ -495,26 +497,33 @@ public class LeaveService {
     }
 
     /** Effective days = sum of per-date weights for every WORKING date
-     *  in the range (Sundays + holidays excluded). Half-days on either
-     *  boundary contribute 0.5 instead of 1.0, but only if that
-     *  boundary date is itself a working day — a half-day toggle on a
-     *  Sunday boundary is silently a no-op (Sunday doesn't consume
-     *  balance at all). */
+     *  in the range (Sundays + holidays excluded, unless a WORKING_DAY
+     *  event overrides the Sunday). Half-days on either boundary
+     *  contribute 0.5 instead of 1.0, but only if that boundary date
+     *  is itself a working day — a half-day toggle on a Sunday
+     *  boundary is silently a no-op (Sunday doesn't consume balance
+     *  at all). */
     private static double computeEffectiveDays(LocalDate start, LocalDate end,
                                                 boolean startHalf, boolean endHalf,
-                                                Set<LocalDate> holidayDates) {
+                                                Set<LocalDate> holidayDates,
+                                                Set<LocalDate> workingDayDates) {
         double days = 0;
         for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
-            if (!isWorkingDay(d, holidayDates)) continue;
+            if (!isWorkingDay(d, holidayDates, workingDayDates)) continue;
             days += boundaryWeight(d, start, end, startHalf, endHalf);
         }
         return days;
     }
 
-    /** Working = not Sunday AND not in the holiday set. Matches how
-     *  the frontend My Attendance calendar renders off-days. */
-    private static boolean isWorkingDay(LocalDate d, Set<LocalDate> holidayDates) {
-        if (d.getDayOfWeek() == DayOfWeek.SUNDAY) return false;
+    /** Working = not Sunday (unless a WORKING_DAY event overrides it)
+     *  AND not in the holiday set. The WORKING_DAY override lets HR
+     *  turn a specific Sunday into a working day for exceptional
+     *  cases (exam days, replacement working days, staff training).
+     *  Matches the calendar rendering on the frontend. */
+    private static boolean isWorkingDay(LocalDate d, Set<LocalDate> holidayDates,
+                                         Set<LocalDate> workingDayDates) {
+        boolean sundayOverride = workingDayDates != null && workingDayDates.contains(d);
+        if (d.getDayOfWeek() == DayOfWeek.SUNDAY && !sundayOverride) return false;
         if (holidayDates.contains(d)) return false;
         return true;
     }
@@ -545,6 +554,20 @@ public class LeaveService {
         }
     }
 
+    /** WORKING_DAY overrides declared on the school calendar — Sundays
+     *  (or holidays) the tenant wants counted as working days. Same
+     *  silent-fail contract as {@link #loadHolidayDates}. */
+    private Set<LocalDate> loadWorkingDayDates(LocalDate from, LocalDate to) {
+        if (attendanceService == null) return Set.of();
+        try {
+            List<LocalDate> dates = attendanceService.getHolidaysInRange(from, to).getWorkingDayDates();
+            return dates == null ? Set.of() : new HashSet<>(dates);
+        } catch (Exception e) {
+            log.warn("Working-day load failed for range {} → {}: {}", from, to, e.getMessage());
+            return Set.of();
+        }
+    }
+
     /** Upsert one attendance row per WORKING date in the leave range
      *  (Sundays + declared holidays skipped — those days don't count
      *  against balance and marking them ON_LEAVE would clutter the
@@ -552,10 +575,11 @@ public class LeaveService {
      *  Existing rows on the same date are overwritten to ON_LEAVE —
      *  matches how Regularization overwrites; the marker + audit
      *  trail on the leave row itself is the source of truth. */
-    private void writeAttendanceRows(LeaveApplication row, Set<LocalDate> holidayDates) {
+    private void writeAttendanceRows(LeaveApplication row, Set<LocalDate> holidayDates,
+                                     Set<LocalDate> workingDayDates) {
         String marker = "leave:" + row.getId();
         for (LocalDate d = row.getStartDate(); !d.isAfter(row.getEndDate()); d = d.plusDays(1)) {
-            if (!isWorkingDay(d, holidayDates)) continue;
+            if (!isWorkingDay(d, holidayDates, workingDayDates)) continue;
             EmployeeAttendance existing = attendanceRepo
                 .findByEmployeeIdAndDate(row.getEmployeeId(), d).orElse(null);
             EmployeeAttendance att = existing != null ? existing : new EmployeeAttendance();

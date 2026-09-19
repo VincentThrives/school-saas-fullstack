@@ -152,9 +152,14 @@ public class EmployeeAutoAbsentJob {
         if (now.isAfter(windowEnd)) return;
 
         LocalDate today = LocalDate.now(ZONE);
-        // Skip Sundays — the default off-day. Skipping holidays is
-        // done below via the declared-holiday check.
-        if (today.getDayOfWeek() == DayOfWeek.SUNDAY) return;
+        // Skip Sundays — the default off-day — UNLESS the school
+        // has declared today as a WORKING_DAY on the calendar
+        // (Sunday make-up, exam day, staff training). Holidays
+        // always skip; a school can't be both closed AND expecting
+        // staff to punch in.
+        boolean isWorkingSunday = today.getDayOfWeek() == DayOfWeek.SUNDAY
+            && isDeclaredWorkingDay(today);
+        if (today.getDayOfWeek() == DayOfWeek.SUNDAY && !isWorkingSunday) return;
         if (isDeclaredHoliday(today)) return;
 
         Instant absentInstant = Instant.now();
@@ -219,6 +224,27 @@ public class EmployeeAutoAbsentJob {
      *  Falls back to false (no holiday) if the events module isn't
      *  wired — keeps the job running even in dev environments where
      *  the repo bean isn't loaded. */
+    /** True when the school calendar has a WORKING_DAY event covering
+     *  the given date. HR uses this to flip a Sunday (or other normal
+     *  off-day) into a working day for exceptional cases. Silent-fail:
+     *  events module unavailable → treat as no override, keep default
+     *  Sunday-skip behavior. */
+    private boolean isDeclaredWorkingDay(LocalDate date) {
+        if (schoolEventRepo == null) return false;
+        try {
+            List<SchoolEvent> events = schoolEventRepo.findOverlappingWorkingDays(date, date);
+            for (SchoolEvent e : events) {
+                LocalDate start = e.getStartDate();
+                LocalDate end = e.getEndDate() != null ? e.getEndDate() : start;
+                if (start == null) continue;
+                if (!date.isBefore(start) && !date.isAfter(end)) return true;
+            }
+        } catch (Exception ex) {
+            log.debug("Working-day lookup failed: {}", ex.getMessage());
+        }
+        return false;
+    }
+
     private boolean isDeclaredHoliday(LocalDate date) {
         if (schoolEventRepo == null) return false;
         try {

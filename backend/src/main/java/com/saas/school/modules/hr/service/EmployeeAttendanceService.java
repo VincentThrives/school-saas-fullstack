@@ -284,8 +284,9 @@ public class EmployeeAttendanceService {
     public HrAttendanceReportResponse getHolidaysInRange(LocalDate from, LocalDate to) {
         List<LocalDate> dates = new ArrayList<>();
         List<String> names = new ArrayList<>();
+        List<LocalDate> workingDayDates = new ArrayList<>();
         if (schoolEventRepo == null || from == null || to == null) {
-            return new HrAttendanceReportResponse(List.of(), dates, names);
+            return new HrAttendanceReportResponse(List.of(), dates, names, workingDayDates);
         }
         LocalDate rangeFrom = from.isAfter(to) ? to : from;
         LocalDate rangeTo   = from.isAfter(to) ? from : to;
@@ -305,7 +306,26 @@ public class EmployeeAttendanceService {
         } catch (Exception ex) {
             log.warn("Failed to load holidays for range {}..{}: {}", rangeFrom, rangeTo, ex.getMessage());
         }
-        return new HrAttendanceReportResponse(List.of(), dates, names);
+        // WORKING_DAY events — the escape hatch that flips a Sunday
+        // (or a declared holiday day) into a normal working day.
+        // Same range-clip expansion as the holiday loop above.
+        try {
+            List<SchoolEvent> workEvents = schoolEventRepo.findOverlappingWorkingDays(rangeFrom, rangeTo);
+            for (SchoolEvent e : workEvents) {
+                LocalDate start = e.getStartDate();
+                LocalDate end = e.getEndDate() != null ? e.getEndDate() : start;
+                if (start == null) continue;
+                LocalDate clipStart = start.isBefore(rangeFrom) ? rangeFrom : start;
+                LocalDate clipEnd = end.isAfter(rangeTo) ? rangeTo : end;
+                for (LocalDate d = clipStart; !d.isAfter(clipEnd); d = d.plusDays(1)) {
+                    workingDayDates.add(d);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to load working-day overrides for range {}..{}: {}",
+                rangeFrom, rangeTo, ex.getMessage());
+        }
+        return new HrAttendanceReportResponse(List.of(), dates, names, workingDayDates);
     }
 
     private static String displayName(Teacher t) {
@@ -342,10 +362,11 @@ public class EmployeeAttendanceService {
         HrAttendanceReportResponse holidays = getHolidaysInRange(from, to);
         List<LocalDate> holidayDates = holidays.getHolidayDates();
         List<String> holidayNames = holidays.getHolidayNames();
+        List<LocalDate> workingDayDates = holidays.getWorkingDayDates();
 
         List<EmployeeAttendance> rows = repo.findAllRowsInRange(from, to);
         if (rows.isEmpty()) {
-            return new HrAttendanceReportResponse(List.of(), holidayDates, holidayNames);
+            return new HrAttendanceReportResponse(List.of(), holidayDates, holidayNames, workingDayDates);
         }
 
         // Batch-fetch the employee names for everyone appearing in
@@ -378,7 +399,7 @@ public class EmployeeAttendanceService {
             dto.setRemarks(r.getRemarks());
             out.add(dto);
         }
-        return new HrAttendanceReportResponse(out, holidayDates, holidayNames);
+        return new HrAttendanceReportResponse(out, holidayDates, holidayNames, workingDayDates);
     }
 
     /** Employee "My Attendance — this month" AND HR per-employee

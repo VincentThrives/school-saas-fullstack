@@ -112,6 +112,10 @@ export class MyAttendanceComponent implements OnInit, OnDestroy {
    *  by yyyy-MM-dd for O(1) lookup during calendar cell build.
    *  Refreshed alongside `loadMonth()` whenever the range changes. */
   holidayNameByDate = new Map<string, string>();
+  /** Sundays the school declared as WORKING via a WORKING_DAY event.
+   *  Rendered as normal weekday cells (not week-off) so the employee
+   *  sees them as expected working days. */
+  workingSundaySet = new Set<string>();
 
   isLoadingSettings = false;
   isLoadingRows = false;
@@ -201,9 +205,16 @@ export class MyAttendanceComponent implements OnInit, OnDestroy {
         const dates = res?.data?.holidayDates || [];
         const names = res?.data?.holidayNames || [];
         dates.forEach((d, i) => this.holidayNameByDate.set(d, names[i] || ''));
+        // Working-Sunday overrides come from the same endpoint. Empty
+        // for tenants that don't use the WORKING_DAY event type.
+        this.workingSundaySet = new Set<string>(res?.data?.workingDayDates || []);
         this.rebuildCalendar();
       },
-      error: () => { this.holidayNameByDate = new Map(); this.rebuildCalendar(); },
+      error: () => {
+        this.holidayNameByDate = new Map();
+        this.workingSundaySet = new Set();
+        this.rebuildCalendar();
+      },
     });
   }
 
@@ -312,7 +323,9 @@ export class MyAttendanceComponent implements OnInit, OnDestroy {
     const todayIso = this.todayIso;
     // Week-off = Sunday for now. Future work: read the tenant's
     // configured week-off day(s) from settings when we add that.
-    const isWeekOff = d.getDay() === 0;
+    // Sunday flipped to WORKING via a WORKING_DAY event stops being
+    // a week-off — the employee is expected to punch in that day.
+    const isWeekOff = d.getDay() === 0 && !this.workingSundaySet.has(iso);
     const isHoliday = this.holidayNameByDate.has(iso);
     return {
       date: d,

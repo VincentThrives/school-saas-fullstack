@@ -1349,6 +1349,11 @@ export interface HrAttendanceReport {
   holidayDates: string[];
   /** Human-readable holiday title, indexed alongside holidayDates. */
   holidayNames: string[];
+  /** Sundays (and other normally-off days) the school has declared
+   *  as WORKING via a WORKING_DAY event. These count as working days
+   *  for the attendance % and render as normal weekday cells on the
+   *  calendar (not week-off). Multi-day expanded, one entry per day. */
+  workingDayDates?: string[];
 }
 
 /** HR-only manual entry payload. */

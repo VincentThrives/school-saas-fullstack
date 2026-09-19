@@ -134,6 +134,10 @@ export class AttendanceReportComponent implements OnInit {
    *  exclude those days from the working-days denominator and to
    *  render Holiday chips in the day-by-day dialog. */
   holidayDates = new Set<string>();
+  /** Sundays the school declared as WORKING via a WORKING_DAY event.
+   *  Counted in the working-days denominator and rendered as normal
+   *  weekday cells instead of week-off. */
+  workingDayDates = new Set<string>();
   /** Holiday date → name lookup for tooltips. */
   holidayNameByDate = new Map<string, string>();
 
@@ -171,6 +175,7 @@ export class AttendanceReportComponent implements OnInit {
       rows: rowsForEmp,
       holidayDates: [...this.holidayDates],
       holidayNames: new Map(this.holidayNameByDate),
+      workingDayDates: [...this.workingDayDates],
     };
     this.dialog.open(EmployeeDayReportDialogComponent, {
       data,
@@ -215,6 +220,7 @@ export class AttendanceReportComponent implements OnInit {
         // membership tests in workingDays calc, Map for tooltip
         // labels in the day-by-day dialog.
         this.holidayDates = new Set<string>(reportData.holidayDates || []);
+        this.workingDayDates = new Set<string>(reportData.workingDayDates || []);
         this.holidayNameByDate = new Map<string, string>();
         (reportData.holidayDates || []).forEach((d, i) => {
           this.holidayNameByDate.set(d, (reportData.holidayNames || [])[i] || '');
@@ -297,9 +303,13 @@ export class AttendanceReportComponent implements OnInit {
     // This is the SAME for everyone until we credit off-day work
     // per-employee below.
     let baseWorkingDays = 0;
+    // Local alias so the closure below stays terse and lint-clean.
+    const workingSundays = this.workingDayDates;
     const dateInfo = this.dateColumns.map(iso => {
       const dow = new Date(iso).getDay();
-      const isSun = dow === 0;
+      // A Sunday flipped to WORKING via a WORKING_DAY event stops
+      // counting as a week-off — treat it like a regular weekday.
+      const isSun = dow === 0 && !workingSundays.has(iso);
       const isHoliday = this.holidayDates.has(iso);
       const isOff = isSun || isHoliday;
       if (!isOff) baseWorkingDays++;
@@ -344,9 +354,12 @@ export class AttendanceReportComponent implements OnInit {
 
       // Award working-day credit when this row lands on a Sunday
       // or declared holiday — the employee came in on the off day
-      // so it counts toward their expected work.
+      // so it counts toward their expected work. A Sunday that's a
+      // declared WORKING_DAY is NOT an off-day, so no bonus credit
+      // (it's already inside baseWorkingDays for everyone).
       const dow = new Date(r.date).getDay();
-      const wasOffDay = (dow === 0) || this.holidayDates.has(r.date);
+      const wasOffDay = ((dow === 0 && !this.workingDayDates.has(r.date))
+                         || this.holidayDates.has(r.date));
       // ABSENT on an off-day doesn't credit — they were expected
       // NOT to work; being absent is the default state.
       if (wasOffDay && r.status !== 'ABSENT') {
@@ -360,11 +373,15 @@ export class AttendanceReportComponent implements OnInit {
     for (const e of map.values()) {
       const offWorked = workedOnOff.get(e.employeeId)?.size || 0;
       e.workingDays = baseWorkingDays + offWorked;
-      // Unmarked = total − (marked ANY status). A P/L/H/A/On-leave
-      // on a Sunday counts as marked, so a person who came in on a
-      // Sunday doesn't get penalised with an Unmarked entry too.
+      // Unmarked = WORKING days without a row. Using totalDays here
+      // would make every regular Sunday show as "unmarked" and let
+      // Unmarked exceed Working — visually confusing (row screamed
+      // "18 unmarked out of 17 working days!"). workingDays already
+      // credits any off-day the employee actually worked, so this is
+      // the honest "expected-to-punch days minus recorded rows"
+      // count. Clamped >= 0 as a safety net.
       const marked = e.present + e.late + e.halfDay + e.absent + e.onLeave;
-      e.unmarked = Math.max(0, e.totalDays - marked);
+      e.unmarked = Math.max(0, e.workingDays - marked);
       // % anchored to WORKING days (not total). Half-days count
       // as 0.5; Late still counts as present (showed up, just tardy).
       // On-leave counts as attended — approved leave shouldn't
@@ -421,7 +438,9 @@ export class AttendanceReportComponent implements OnInit {
     let baseWorking = 0;
     for (const iso of this.dateColumns) {
       const dow = new Date(iso).getDay();
-      const isSun = dow === 0;
+      // Sunday flipped to WORKING via a WORKING_DAY event → count as
+      // a working day, not week-off. Keeps the % denominator honest.
+      const isSun = dow === 0 && !this.workingDayDates.has(iso);
       const isHoliday = this.holidayDates.has(iso);
       if (!isSun && !isHoliday) baseWorking++;
     }
@@ -479,6 +498,12 @@ export class AttendanceReportComponent implements OnInit {
   }
 
   /** True when the date is a Sunday. */
+  /** True when this date is a Sunday the school marked WORKING —
+   *  drives cell styling (normal weekday) + legend copy. */
+  isWorkingSunday(iso: string): boolean {
+    return this.workingDayDates.has(iso) && new Date(iso).getDay() === 0;
+  }
+
   isSunday(iso: string): boolean {
     return new Date(iso).getDay() === 0;
   }
@@ -498,7 +523,12 @@ export class AttendanceReportComponent implements OnInit {
     if (cell?.status === 'ON_LEAVE')   return 'grid-cell grid-cell--leave';
     if (cell?.status === 'PRESENT')    return 'grid-cell grid-cell--present';
     if (dateIso && this.isHoliday(dateIso)) return 'grid-cell grid-cell--holiday';
-    if (dateIso && this.isSunday(dateIso))  return 'grid-cell grid-cell--weekoff';
+    // Sunday flipped to WORKING via a WORKING_DAY event: render as
+    // an empty weekday cell (no week-off tint) so the visual scan
+    // reads it as "expected working, not marked."
+    if (dateIso && this.isSunday(dateIso) && !this.isWorkingSunday(dateIso)) {
+      return 'grid-cell grid-cell--weekoff';
+    }
     return 'grid-cell grid-cell--empty';
   }
 
@@ -509,7 +539,7 @@ export class AttendanceReportComponent implements OnInit {
     if (cell?.status === 'ON_LEAVE')   return 'LV';
     if (cell?.status === 'PRESENT')    return 'P';
     if (dateIso && this.isHoliday(dateIso)) return 'HO';
-    if (dateIso && this.isSunday(dateIso))  return 'WO';
+    if (dateIso && this.isSunday(dateIso) && !this.isWorkingSunday(dateIso)) return 'WO';
     // Em-dash reads clearly at the grid's small font size — the
     // earlier middle-dot (·) was almost invisible at 11px muted grey.
     return '—';
@@ -523,7 +553,10 @@ export class AttendanceReportComponent implements OnInit {
       const name = this.holidayNameByDate.get(dateIso) || '';
       parts.push(name ? `Holiday — ${name}` : 'Holiday');
     }
-    else if (dateIso && this.isSunday(dateIso)) parts.push('Week-off (Sunday)');
+    else if (dateIso && this.isSunday(dateIso) && !this.isWorkingSunday(dateIso)) {
+      parts.push('Week-off (Sunday)');
+    }
+    else if (dateIso && this.isWorkingSunday(dateIso)) parts.push('Working Sunday');
     else parts.push('No punch');
     if (cell?.inTime)  parts.push(`IN ${this.formatIsoTime(cell.inTime)}`);
     if (cell?.outTime) parts.push(`OUT ${this.formatIsoTime(cell.outTime)}`);

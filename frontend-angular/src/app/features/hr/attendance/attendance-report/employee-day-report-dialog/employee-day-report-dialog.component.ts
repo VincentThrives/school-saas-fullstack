@@ -33,6 +33,10 @@ export interface EmployeeDayReportData {
   holidayDates?: string[];
   /** Holiday date → name map for tooltips. */
   holidayNames?: Map<string, string>;
+  /** Sundays the school declared as WORKING via a WORKING_DAY event.
+   *  Included in the working-days denominator and rendered as normal
+   *  weekday cells (not week-off). */
+  workingDayDates?: string[];
 }
 
 type DayStatus = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT' | 'ON_LEAVE' | 'UNMARKED' | 'WEEKOFF' | 'HOLIDAY';
@@ -67,12 +71,16 @@ export class EmployeeDayReportDialogComponent {
 
   /** yyyy-MM-dd Set for O(1) holiday lookups from the injected data. */
   private holidaySet = new Set<string>();
+  /** Working-Sundays lookup — flip cells from week-off to a normal
+   *  weekday when the school declared that Sunday as WORKING. */
+  private workingSundaySet = new Set<string>();
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: EmployeeDayReportData,
     private ref: MatDialogRef<EmployeeDayReportDialogComponent>,
   ) {
     this.holidaySet = new Set<string>(data.holidayDates || []);
+    this.workingSundaySet = new Set<string>(data.workingDayDates || []);
     this.buildRows();
     this.buildTotals();
   }
@@ -92,7 +100,10 @@ export class EmployeeDayReportDialogComponent {
     for (const iso of this.data.dateColumns) {
       const d = new Date(iso);
       const dow = d.getDay();
-      const isSunday = dow === 0;
+      // A Sunday declared WORKING via a WORKING_DAY event isn't a
+      // week-off — treat it like a normal weekday and let it drop
+      // through to UNMARKED (or the actual status if a row exists).
+      const isSunday = dow === 0 && !this.workingSundaySet.has(iso);
       const isHoliday = this.holidaySet.has(iso);
       const row = byDate.get(iso);
       const status: DayStatus = row
@@ -137,7 +148,8 @@ export class EmployeeDayReportDialogComponent {
     // suppressed for them). Mirror of the summary page's math.
     const offDaysWorked = this.rows.filter(r =>
       (r.status === 'PRESENT' || r.status === 'LATE' || r.status === 'HALF_DAY')
-      && (new Date(r.dateIso).getDay() === 0 || this.holidaySet.has(r.dateIso)),
+      && ((new Date(r.dateIso).getDay() === 0 && !this.workingSundaySet.has(r.dateIso))
+          || this.holidaySet.has(r.dateIso)),
     ).length;
     const baseWorking = this.totals.totalDays - this.totals.weekOff - this.totals.holiday;
     this.totals.workingDays = baseWorking + offDaysWorked;

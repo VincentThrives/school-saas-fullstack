@@ -30,15 +30,30 @@ public class HrAttendanceReportResponse {
      *  {@link #holidayDates}. Empty string when the event carries
      *  no title. Used for the tooltip in the day-by-day dialog. */
     private List<String> holidayNames;
+    /** yyyy-MM-dd dates within the requested range that fall on a
+     *  Sunday (or other normally-off day) which the school has
+     *  overridden as a WORKING day via a WORKING_DAY event. The
+     *  frontend counts these in the working-days denominator and
+     *  renders them as normal weekday cells, not week-off. Multi-day
+     *  events are expanded — one entry per calendar day. */
+    private List<LocalDate> workingDayDates;
 
     public HrAttendanceReportResponse() {}
 
     public HrAttendanceReportResponse(List<HrDailyAttendanceDto> rows,
                                       List<LocalDate> holidayDates,
                                       List<String> holidayNames) {
+        this(rows, holidayDates, holidayNames, List.of());
+    }
+
+    public HrAttendanceReportResponse(List<HrDailyAttendanceDto> rows,
+                                      List<LocalDate> holidayDates,
+                                      List<String> holidayNames,
+                                      List<LocalDate> workingDayDates) {
         this.rows = rows;
         this.holidayDates = holidayDates;
         this.holidayNames = holidayNames;
+        this.workingDayDates = workingDayDates;
     }
 
     public List<HrDailyAttendanceDto> getRows() { return rows; }
@@ -49,4 +64,7 @@ public class HrAttendanceReportResponse {
 
     public List<String> getHolidayNames() { return holidayNames; }
     public void setHolidayNames(List<String> holidayNames) { this.holidayNames = holidayNames; }
+
+    public List<LocalDate> getWorkingDayDates() { return workingDayDates; }
+    public void setWorkingDayDates(List<LocalDate> workingDayDates) { this.workingDayDates = workingDayDates; }
 }
