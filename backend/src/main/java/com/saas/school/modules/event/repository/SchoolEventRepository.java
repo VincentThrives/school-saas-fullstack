@@ -17,6 +17,16 @@ public interface SchoolEventRepository extends MongoRepository<SchoolEvent, Stri
     @Query("{'$or': [{'isHoliday': true}, {'type': 'HOLIDAY'}], 'startDate':{$lte:?1}, 'endDate':{$gte:?0}}")
     List<SchoolEvent> findOverlappingHolidays(LocalDate from, LocalDate to);
 
+    /** WORKING_DAY events overlapping the range — the counterpart of
+     *  {@link #findOverlappingHolidays}. Used by the auto-absent job
+     *  to override its Sunday / holiday skip when the school has
+     *  explicitly marked that date as a working day (e.g. a Sunday
+     *  make-up class or a rescheduled festival). Same overlap logic:
+     *  event starts on or before the range end AND ends on or after
+     *  the range start. */
+    @Query("{'type': 'WORKING_DAY', 'startDate':{$lte:?1}, 'endDate':{$gte:?0}}")
+    List<SchoolEvent> findOverlappingWorkingDays(LocalDate from, LocalDate to);
+
     List<SchoolEvent> findByIsHolidayTrue();
     List<SchoolEvent> findByType(SchoolEvent.EventType type);
 

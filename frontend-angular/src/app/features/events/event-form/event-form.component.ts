@@ -53,6 +53,11 @@ export class EventFormComponent implements OnInit {
     { value: 'SPORTS', label: 'Sports' },
     { value: 'ACADEMIC', label: 'Academic' },
     { value: 'HOLIDAY', label: 'Holiday' },
+    // Working day override — schools mark a Sunday (or a previously
+    // declared holiday) as WORKING_DAY so the auto-absent job runs
+    // normally on that date. Rare but important for Sunday make-up
+    // classes / rescheduled festival days.
+    { value: 'WORKING_DAY', label: 'Working day (override Sunday/holiday)' },
     { value: 'MEETING', label: 'Meeting' },
     { value: 'OTHER', label: 'Other' },
   ];

@@ -128,6 +128,9 @@ export class EventsListComponent implements OnInit {
     SPORTS: '#4CAF50',
     ACADEMIC: '#2196F3',
     HOLIDAY: '#F44336',
+    // Teal — visually distinct from HOLIDAY red so HR spots at a
+    // glance which Sundays are "working" vs regular holidays.
+    WORKING_DAY: '#009688',
     MEETING: '#FF9800',
     OTHER: '#9E9E9E',
   };

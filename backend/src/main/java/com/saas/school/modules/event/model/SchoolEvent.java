@@ -30,7 +30,21 @@ public class SchoolEvent {
     private Integer month;  // 1..12
     @CreatedDate private Instant createdAt;
 
-    public enum EventType { CULTURAL, SPORTS, ACADEMIC, HOLIDAY, MEETING, OTHER }
+    /**
+     * Event type — the value drives the school calendar's color and,
+     * for HOLIDAY and WORKING_DAY, downstream automation:
+     * <ul>
+     *   <li>{@code HOLIDAY} — auto-absent job skips this date; the HR
+     *       attendance calendar renders it tinted; the working-days
+     *       count in reports excludes it.</li>
+     *   <li>{@code WORKING_DAY} — override for a Sunday (or a
+     *       previously-declared holiday) that the school has decided
+     *       to work. If today is Sunday BUT a WORKING_DAY event
+     *       covers today, auto-absent runs normally. Rare but critical
+     *       — Diwali make-up class, exam prep Sundays, etc.</li>
+     * </ul>
+     */
+    public enum EventType { CULTURAL, SPORTS, ACADEMIC, HOLIDAY, WORKING_DAY, MEETING, OTHER }
     public enum RecurrencePattern { WEEKLY, MONTHLY, YEARLY }
 
     public SchoolEvent() {

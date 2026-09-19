@@ -7,6 +7,7 @@ import com.saas.school.modules.biometricterminal.model.AutoAbsentLog;
 import com.saas.school.modules.biometricterminal.model.BiometricSettings;
 import com.saas.school.modules.biometricterminal.repository.AutoAbsentLogRepository;
 import com.saas.school.modules.biometricterminal.repository.BiometricSettingsRepository;
+import com.saas.school.modules.event.repository.SchoolEventRepository;
 import com.saas.school.modules.notification.model.Notification;
 import com.saas.school.modules.notification.service.NotificationService;
 import com.saas.school.modules.sms.service.SmsService;
@@ -20,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -40,6 +42,15 @@ import java.util.List;
  * within which any Indian school's cutoff would fall. For each tenant
  * we check "has your absent-mark time passed today?" and idempotency
  * ("did we already run today?") before doing any work.</p>
+ *
+ * <p><b>Sunday / holiday guard.</b> The job silently skips if today is a
+ * Sunday OR overlaps a declared HOLIDAY event on the school calendar
+ * — a production-incident fix (schools without Sunday scans were
+ * getting every student stamped absent + SMS-blasted). HR can override
+ * this per-date by adding a WORKING_DAY event on the same School
+ * Events page they use for holidays (Sunday make-up class, rescheduled
+ * festival, extra exam day). The idempotency marker still gets written
+ * so the 15-min cron doesn't re-evaluate the same day every tick.</p>
  *
  * <p>Fires SMS through the existing ABSENCE_ALERT flow (same DLT
  * template + audit + idempotency the manual "Send today's absent SMS"
@@ -63,6 +74,12 @@ public class AutoAbsentJob {
     @Autowired private StudentsAttendanceRepository attendanceRepository;
     @Autowired private NotificationService notificationService;
     @Autowired private SmsService smsService;
+    /** SchoolEvent lookups drive the Sunday / holiday skip logic.
+     *  Optional (required=false) so unit tests that stand up a bare
+     *  auto-absent context without the events module still boot —
+     *  the null-guarded helpers below fall back to "not a holiday
+     *  / not a working-day override" when the repo is absent. */
+    @Autowired(required = false) private SchoolEventRepository schoolEventRepository;
 
     /**
      * Every 15 min from 09:00–13:00 IST. Cron is second-field-first
@@ -117,12 +134,82 @@ public class AutoAbsentJob {
         String todayKey = today.toString();
         if (logRepository.existsById(todayKey)) return; // already ran today
 
+        // Sunday / holiday guards — critical fix for a production
+        // incident where schools with biometric off on Sunday had every
+        // student stamped absent and got SMS-blasted. Skip is
+        // overridable via a WORKING_DAY event on the school calendar
+        // (Sunday make-up class, rescheduled festival, exam day).
+        // We still write the idempotency marker so the 15-min cron
+        // doesn't re-evaluate this same day every tick.
+        if (isNonWorkingDay(today, tenant.getTenantId())) {
+            logRepository.save(new AutoAbsentLog(todayKey, 0, Instant.now()));
+            return;
+        }
+
         List<String> markedIds = markAbsentees(today);
         int marked = markedIds.size();
         logRepository.save(new AutoAbsentLog(todayKey, marked, Instant.now()));
         log.info("Auto-absent: tenant={} date={} marked={}",
             tenant.getTenantId(), todayKey, marked);
         fireAbsenceAlertSms(markedIds, tenant.getTenantId());
+    }
+
+    /**
+     * True when today is a Sunday OR a declared holiday for the
+     * current tenant, UNLESS the school has explicitly marked today
+     * as a WORKING_DAY event on the school calendar (Sunday make-up,
+     * rescheduled festival, extra exam day).
+     *
+     * <p>Signature takes {@code tenantId} only for the log line —
+     * TenantContext is already set by the caller so repository
+     * queries scope to the right tenant DB.</p>
+     */
+    private boolean isNonWorkingDay(LocalDate today, String tenantId) {
+        boolean isSunday = today.getDayOfWeek() == DayOfWeek.SUNDAY;
+        boolean isHoliday = isDeclaredHoliday(today);
+        if (!isSunday && !isHoliday) return false;
+
+        // Working-day override — HR marked today as a working day
+        // even though it's a Sunday / previously a holiday. Run
+        // auto-absent normally.
+        if (hasWorkingDayOverride(today)) {
+            log.info("Auto-absent: tenant={} date={} is {}{}, but has a WORKING_DAY override — running normally",
+                tenantId, today,
+                isSunday ? "Sunday" : "",
+                isHoliday ? (isSunday ? " + holiday" : "holiday") : "");
+            return false;
+        }
+
+        log.info("Auto-absent skip: tenant={} date={} reason={}",
+            tenantId, today,
+            isSunday && isHoliday ? "Sunday+holiday"
+                : isSunday ? "Sunday"
+                : "holiday");
+        return true;
+    }
+
+    /** True when any HOLIDAY-typed SchoolEvent overlaps today. Empty
+     *  / null-safe so a missing events collection just returns false. */
+    private boolean isDeclaredHoliday(LocalDate today) {
+        if (schoolEventRepository == null) return false;
+        try {
+            return !schoolEventRepository.findOverlappingHolidays(today, today).isEmpty();
+        } catch (Exception e) {
+            log.warn("Holiday lookup failed for {}: {}", today, e.getMessage());
+            return false;
+        }
+    }
+
+    /** True when any WORKING_DAY event overlaps today — HR's escape
+     *  hatch to override the Sunday/holiday skip. */
+    private boolean hasWorkingDayOverride(LocalDate today) {
+        if (schoolEventRepository == null) return false;
+        try {
+            return !schoolEventRepository.findOverlappingWorkingDays(today, today).isEmpty();
+        } catch (Exception e) {
+            log.warn("Working-day-override lookup failed for {}: {}", today, e.getMessage());
+            return false;
+        }
     }
 
     /**
@@ -156,6 +243,15 @@ public class AutoAbsentJob {
         }
         if (!resetLog && logRepository.existsById(todayKey)) {
             log.info("Manual auto-absent skipped — already ran today for this tenant. Pass resetLog=true to force.");
+            return 0;
+        }
+        // Same Sunday / holiday guard as the scheduled tick — an admin
+        // clicking "Run now" on a Sunday shouldn't be able to accidentally
+        // trigger the exact production bug we're fixing. Working-day
+        // override still lets a legitimate Sunday work session through.
+        String currentTenantId = com.saas.school.config.mongodb.TenantContext.getTenantId();
+        if (isNonWorkingDay(today, currentTenantId)) {
+            logRepository.save(new AutoAbsentLog(todayKey, 0, Instant.now()));
             return 0;
         }
         List<String> markedIds = markAbsentees(today);
