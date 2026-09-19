@@ -2,6 +2,8 @@ package com.saas.school.modules.hr.dto;
 
 import com.saas.school.modules.hr.model.LeaveType;
 
+import java.util.List;
+
 public class LeaveTypeDto {
 
     private String id;
@@ -25,6 +27,11 @@ public class LeaveTypeDto {
     private String applicableGender;
     private double mandatoryPerYear;
 
+    /** Per-employment-category policy overrides. Null / empty on
+     *  legacy types → top-level fields apply to everyone (same as
+     *  before per-category rules landed). */
+    private List<LeaveType.CategoryPolicy> policies;
+
     public static LeaveTypeDto fromEntity(LeaveType t) {
         LeaveTypeDto d = new LeaveTypeDto();
         d.id = t.getId();
@@ -44,6 +51,7 @@ public class LeaveTypeDto {
         d.requiresAttachmentAfterDays = t.getRequiresAttachmentAfterDays();
         d.applicableGender = t.getApplicableGender();
         d.mandatoryPerYear = t.getMandatoryPerYear();
+        d.policies = t.getPolicies();
         return d;
     }
 
@@ -64,4 +72,5 @@ public class LeaveTypeDto {
     public int getRequiresAttachmentAfterDays() { return requiresAttachmentAfterDays; }
     public String getApplicableGender() { return applicableGender; }
     public double getMandatoryPerYear() { return mandatoryPerYear; }
+    public List<LeaveType.CategoryPolicy> getPolicies() { return policies; }
 }

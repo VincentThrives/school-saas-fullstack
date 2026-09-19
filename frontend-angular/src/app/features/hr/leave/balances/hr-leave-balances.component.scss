@@ -1,4 +1,6 @@
-.lbal-container { padding: 16px; max-width: 1200px; margin: 0 auto; }
+// The main-layout .content-wrapper already supplies side + top
+// padding; keeping our own to 0 avoids the doubled-space feel.
+.lbal-container { padding: 0 0 40px; max-width: 1200px; margin: 0 auto; }
 
 // ── Filter strip ────────────────────────────────
 .filter-strip {
@@ -20,30 +22,30 @@
   p { margin: 8px 0 0; font-size: 14px; }
 }
 
-.sheet-list { display: flex; flex-direction: column; gap: 14px; }
+.sheet-list { display: flex; flex-direction: column; gap: 12px; }
 
 // ── Employee card ───────────────────────────────
 .employee-card {
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
-  padding: 16px 18px;
+  padding: 12px 14px;
   transition: box-shadow .12s;
 
   &:hover { box-shadow: 0 2px 12px rgba(15, 23, 42, .06); }
 }
 
 .emp-head {
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 14px;
-  padding-bottom: 12px;
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #f3f4f6;
 }
 
 .emp-avatar {
-  width: 36px; height: 36px; border-radius: 50%;
+  width: 32px; height: 32px; border-radius: 50%;
   background: linear-gradient(135deg, #D4A843 0%, #B8860B 100%);
-  color: #fff; font-weight: 700; font-size: 15px;
+  color: #fff; font-weight: 700; font-size: 14px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
@@ -51,13 +53,29 @@
 .emp-info { flex: 1; min-width: 0; }
 
 .emp-name {
-  font-weight: 700; color: #1f2937; font-size: 15px;
+  font-weight: 700; color: #1f2937; font-size: 14px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.cat-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  background: #eef4ff;
+  color: #274b91;
+  border: 1px solid #d5e2fb;
+  &.cat-contract  { background: #fff4e6; color: #8a5a12; border-color: #fbdda6; }
+  &.cat-probation { background: #ecfdf5; color: #14804a; border-color: #b7ecd3; }
+  &.cat-parttime  { background: #f5f3ff; color: #5b3ea3; border-color: #ddd6fe; }
 }
 
 .emp-meta {
   display: flex; gap: 6px; align-items: center; margin-top: 2px;
-  color: #6b7280; font-size: 12px;
+  color: #6b7280; font-size: 11.5px;
 
   .emp-designation {
     background: #f3f4f6; color: #4b5563;
@@ -66,63 +84,69 @@
   }
   .emp-id {
     font-family: 'SFMono-Regular', Consolas, monospace;
-    font-size: 11px;
+    font-size: 10.5px;
   }
 }
 
-// ── Balance grid ────────────────────────────────
-.balance-grid {
+// ── Balance tiles ───────────────────────────────
+// Small stacked tiles — code+name row on top, progress bar in the
+// middle, X/Y · used row on the bottom. Auto-fits 160px min columns
+// so 4–7 tiles land per row on desktop, 2 per row on mobile.
+.balance-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
 }
 
-.balance-cell {
+.balance-tile {
   background: #fafbfc;
   border: 1px solid #edf0f4;
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 8px;
+  padding: 8px 10px;
   cursor: pointer;
-  transition: transform .12s, box-shadow .12s, border-color .12s;
+  transition: background .12s, border-color .12s, transform .12s;
 
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(15, 23, 42, .08);
-    border-color: #d1d5db;
     background: #fff;
+    border-color: #d1d5db;
+    transform: translateY(-1px);
   }
 }
 
-.cell-head {
+.tile-head {
   display: flex; align-items: center; gap: 6px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 
-  .type-chip {
+  .tile-chip {
     font-weight: 700; font-size: 10px; letter-spacing: .5px;
     color: #fff;
-    padding: 2px 7px; border-radius: 4px;
+    padding: 2px 6px; border-radius: 4px;
     min-width: 30px; text-align: center;
+    flex-shrink: 0;
   }
-  .cell-name {
-    color: #6b7280; font-size: 11px; font-weight: 500;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  .tile-name {
+    color: #374151; font-size: 11.5px; font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1; min-width: 0;
 
     &.strike { text-decoration: line-through; opacity: .6; }
   }
+  .tile-icon {
+    font-size: 13px; width: 13px; height: 13px;
+    flex-shrink: 0;
+    cursor: help;
+  }
+  .icon-accrual { color: #0284c7; }
+  .icon-mandatory { color: #b58513; }
+  .icon-mandatory-met { color: #059669; }
+  .icon-carry { color: #7c3aed; }
 }
 
-.cell-remaining {
-  display: flex; align-items: baseline; gap: 5px;
-  margin-bottom: 8px;
-  .rem-num { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
-  .rem-unit { font-size: 11px; color: #9ca3af; font-weight: 500; }
-}
-
-.cell-progress {
+.tile-progress {
   height: 5px; border-radius: 3px;
   background: #e5e7eb;
   overflow: hidden;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 
   &-fill {
     height: 100%;
@@ -131,39 +155,25 @@
   }
 }
 
-.cell-meta {
-  display: flex; gap: 5px; align-items: center;
-  color: #6b7280; font-size: 11px;
-  .dot { opacity: .5; }
-}
+.tile-meta {
+  display: flex; align-items: baseline; gap: 3px;
+  white-space: nowrap;
 
-.cell-mandatory,
-.cell-carry {
-  display: flex; align-items: center; gap: 4px;
-  margin-top: 6px;
-  padding: 3px 6px; border-radius: 4px;
-  font-size: 10.5px; font-weight: 600;
-
-  mat-icon { font-size: 12px; width: 12px; height: 12px; }
-}
-
-.cell-mandatory {
-  background: #fff3cd; color: #85670c;
-  mat-icon { color: #b58513; }
-
-  &--met {
-    background: #d1fae5; color: #065f46;
-    mat-icon { color: #059669; }
-  }
-}
-
-.cell-carry {
-  background: #ede9fe; color: #5b21b6;
-  mat-icon { color: #7c3aed; }
+  .tile-rem { font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+  .tile-total { font-size: 11px; color: #9ca3af; font-weight: 500; }
+  .tile-used { font-size: 10.5px; color: #6b7280; margin-left: auto; }
 }
 
 // ── Mobile ──────────────────────────────────────
+// Two tiles per row — keeps the compact tile grid but adapts to
+// narrow viewports without shrinking each tile past legibility.
 @media (max-width: 600px) {
-  .lbal-container { padding: 12px; }
-  .balance-grid { grid-template-columns: 1fr 1fr; }
+  .lbal-container { padding: 0 0 32px; }
+
+  .balance-tiles {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .balance-tile { padding: 8px; }
 }

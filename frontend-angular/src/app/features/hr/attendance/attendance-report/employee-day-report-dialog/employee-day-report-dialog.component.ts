@@ -35,7 +35,7 @@ export interface EmployeeDayReportData {
   holidayNames?: Map<string, string>;
 }
 
-type DayStatus = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT' | 'UNMARKED' | 'WEEKOFF' | 'HOLIDAY';
+type DayStatus = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT' | 'ON_LEAVE' | 'UNMARKED' | 'WEEKOFF' | 'HOLIDAY';
 
 interface DayRow {
   dateIso: string;
@@ -60,7 +60,8 @@ export class EmployeeDayReportDialogComponent {
   rows: DayRow[] = [];
 
   totals = {
-    present: 0, late: 0, halfDay: 0, absent: 0, unmarked: 0, weekOff: 0, holiday: 0,
+    present: 0, late: 0, halfDay: 0, absent: 0, onLeave: 0,
+    unmarked: 0, weekOff: 0, holiday: 0,
     totalDays: 0, workingDays: 0, percent: 0,
   };
 
@@ -124,6 +125,7 @@ export class EmployeeDayReportDialogComponent {
       else if (r.status === 'LATE')     this.totals.late++;
       else if (r.status === 'HALF_DAY') this.totals.halfDay++;
       else if (r.status === 'ABSENT')   this.totals.absent++;
+      else if (r.status === 'ON_LEAVE') this.totals.onLeave++;
       else if (r.status === 'WEEKOFF')  this.totals.weekOff++;
       else if (r.status === 'HOLIDAY')  this.totals.holiday++;
       else                              this.totals.unmarked++;
@@ -139,7 +141,10 @@ export class EmployeeDayReportDialogComponent {
     ).length;
     const baseWorking = this.totals.totalDays - this.totals.weekOff - this.totals.holiday;
     this.totals.workingDays = baseWorking + offDaysWorked;
-    const attendedEq = this.totals.present + this.totals.late + this.totals.halfDay * 0.5;
+    // Approved leave counts as attended for %, same as the summary
+    // page — not the employee's fault, they had HR permission to be off.
+    const attendedEq = this.totals.present + this.totals.late
+      + this.totals.halfDay * 0.5 + this.totals.onLeave;
     this.totals.percent = this.totals.workingDays > 0
       ? Math.round((attendedEq / this.totals.workingDays) * 100)
       : 0;
@@ -176,6 +181,7 @@ export class EmployeeDayReportDialogComponent {
       case 'LATE':     return 'Late';
       case 'HALF_DAY': return 'Half-day';
       case 'ABSENT':   return 'Absent';
+      case 'ON_LEAVE': return 'On leave';
       case 'WEEKOFF':  return 'Week-off';
       case 'HOLIDAY':  return 'Holiday';
       default:         return 'Unmarked';
@@ -214,6 +220,7 @@ export class EmployeeDayReportDialogComponent {
       ['Late',      String(this.totals.late)].map(this.csvEscape).join(','),
       ['Half-day',  String(this.totals.halfDay)].map(this.csvEscape).join(','),
       ['Absent',    String(this.totals.absent)].map(this.csvEscape).join(','),
+      ['On leave',  String(this.totals.onLeave)].map(this.csvEscape).join(','),
       ['Unmarked',  String(this.totals.unmarked)].map(this.csvEscape).join(','),
       ['Week-off',  String(this.totals.weekOff)].map(this.csvEscape).join(','),
       ['Total days',String(this.totals.totalDays)].map(this.csvEscape).join(','),
@@ -262,12 +269,13 @@ export class EmployeeDayReportDialogComponent {
 
     // ── Summary strip (7 stat boxes) ──────────────
     const summaryY = 108;
-    const boxW = (pageWidth - 80) / 7;
+    const boxW = (pageWidth - 80) / 8;
     const stats: Array<[string, string | number, [number, number, number]]> = [
       ['Present',    this.totals.present,   [34, 197, 94]],
       ['Late',       this.totals.late,      [245, 158, 11]],
       ['Half-day',   this.totals.halfDay,   [168, 85, 247]],
       ['Absent',     this.totals.absent,    [239, 68, 68]],
+      ['On leave',   this.totals.onLeave,   [15, 118, 110]],
       ['Unmarked',   this.totals.unmarked,  [148, 163, 184]],
       ['Week-off',   this.totals.weekOff,   [203, 213, 225]],
       ['Attendance', `${this.totals.percent}%`, [184, 134, 11]],
@@ -335,6 +343,7 @@ export class EmployeeDayReportDialogComponent {
         else if (label === 'Late')     data.cell.styles.textColor = [180, 83, 9];
         else if (label === 'Half-day') data.cell.styles.textColor = [126, 34, 206];
         else if (label === 'Absent')   data.cell.styles.textColor = [185, 28, 28];
+        else if (label === 'On leave') data.cell.styles.textColor = [15, 118, 110];
         else if (label === 'Unmarked') data.cell.styles.textColor = [71, 85, 105];
         else if (label === 'Week-off') data.cell.styles.textColor = [100, 116, 139];
       },

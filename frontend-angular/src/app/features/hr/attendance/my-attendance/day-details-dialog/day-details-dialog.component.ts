@@ -33,17 +33,35 @@ import {
 export class DayDetailsDialogComponent {
 
   constructor(
-    private ref: MatDialogRef<DayDetailsDialogComponent>,
+    private ref: MatDialogRef<DayDetailsDialogComponent, string | undefined>,
     @Inject(MAT_DIALOG_DATA) public data: {
       dateIso: string;
       row?: EmployeeAttendance;
       request?: RegularizationRequest;
       isWeekOff?: boolean;
+      isHoliday?: boolean;
+      holidayName?: string;
       isFuture?: boolean;
     },
   ) {}
 
   close(): void { this.ref.close(); }
+
+  /** Ask the caller (My Attendance) to open the Apply Leave dialog
+   *  for this date. We close first with a signal — my-attendance
+   *  reacts in afterClosed() to hand off to the leave dialog. */
+  applyForLeave(): void { this.ref.close('APPLY_LEAVE'); }
+
+  /** Can the employee apply for leave on this day?
+   *  Hidden for week-offs, declared holidays, and days already on
+   *  leave. Everything else is fair game — including past dates
+   *  (retro leave application is a valid use case for HR to allow). */
+  get canApplyLeave(): boolean {
+    if (this.data.isWeekOff) return false;
+    if (this.data.isHoliday) return false;
+    if (this.data.row?.status === 'ON_LEAVE') return false;
+    return true;
+  }
 
   get dateLabel(): string {
     return new Date(this.data.dateIso).toLocaleDateString('en-IN',
@@ -77,7 +95,18 @@ export class DayDetailsDialogComponent {
   }
 
   /** Where the row came from — human-friendly copy. */
+  /** Was this row created by the auto-absent scheduled job, even
+   *  though its source may say MANUAL (legacy pre-fix rows)? Detect
+   *  via the "Auto-marked" prefix on remarks so old rows still show
+   *  the right copy. */
+  private get isAutoStamped(): boolean {
+    if (this.data.row?.source === 'AUTO') return true;
+    const r = this.data.row?.remarks || '';
+    return r.startsWith('Auto-marked') || r.startsWith('Auto-stamped');
+  }
+
   get sourceLabel(): string {
+    if (this.isAutoStamped) return 'Auto-marked by system';
     switch (this.data.row?.source) {
       case 'LOCATION':       return 'Location — phone GPS';
       case 'BIOMETRIC':      return 'Biometric terminal';
@@ -88,6 +117,7 @@ export class DayDetailsDialogComponent {
   }
 
   get sourceIcon(): string {
+    if (this.isAutoStamped) return 'smart_toy';
     switch (this.data.row?.source) {
       case 'LOCATION':       return 'location_on';
       case 'BIOMETRIC':      return 'fingerprint';

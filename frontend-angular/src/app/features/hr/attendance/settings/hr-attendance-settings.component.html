@@ -201,11 +201,6 @@
               <input matInput [(ngModel)]="settings.lateThreshold" placeholder="09:15">
               <mat-hint>Marks at/after this time are flagged Late.</mat-hint>
             </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Auto-absent time (HH:MM)</mat-label>
-              <input matInput [(ngModel)]="settings.autoAbsentTime" placeholder="11:00">
-              <mat-hint>Unmarked employees stamped ABSENT after this.</mat-hint>
-            </mat-form-field>
           </div>
 
           <!-- Half-day (hours-worked) rule ─────────────── -->
@@ -250,11 +245,27 @@
             </mat-form-field>
           </div>
 
+          <!-- Auto-absent rule — stamps ABSENT on any employee still
+               unmarked after the cutoff time. Same toggle-then-time
+               pattern as Auto-OUT so HR reads them symmetrically. -->
           <div class="toggle-row">
             <mat-slide-toggle color="primary" [(ngModel)]="settings.autoAbsentEnabled">
-              <span class="toggle-title">Run auto-absent job daily</span>
+              <span class="toggle-title">Auto-mark ABSENT for employees who never came in</span>
             </mat-slide-toggle>
-            <p class="toggle-hint">Off by default. Turn on once every employee is marking daily.</p>
+            <p class="toggle-hint">
+              After the auto-absent time below, any employee with no attendance row for
+              today gets marked ABSENT. Employees on approved leave or who already
+              punched in are skipped. Off by default — turn on once every employee is
+              marking daily.
+            </p>
+          </div>
+
+          <div class="form-grid" *ngIf="settings.autoAbsentEnabled">
+            <mat-form-field appearance="outline">
+              <mat-label>Auto-absent time (HH:MM)</mat-label>
+              <input matInput [(ngModel)]="settings.autoAbsentTime" placeholder="11:00">
+              <mat-hint>Runs hourly for 3 hours after this time.</mat-hint>
+            </mat-form-field>
           </div>
         </div>
       </div>

@@ -79,6 +79,18 @@ public class LeaveBalance {
      *  units as {@link #used}; refunded proportionally on cancel. */
     private double mandatoryUsed;
 
+    /** Accrual counter — how many "monthly slices" of the annual
+     *  quota have already been credited into {@link #allocated}. The
+     *  denominator is the academic year's month count (10 for Jun–Mar,
+     *  12 for a full year AY). YEARLY types jump to the AY month count
+     *  the moment a balance is provisioned. MONTHLY advances by 1
+     *  per month; QUARTERLY by 3 per quarter (with a possibly shorter
+     *  final quarter for AYs that don't divide by 3). The monthly
+     *  {@code LeaveAccrualJob} tops up {@link #allocated} whenever
+     *  this lags the expected count for today's date. Defaults to 0
+     *  in the model so provisioning code owns the initial value. */
+    private int accruedUnits;
+
     private Instant updatedAt = Instant.now();
 
     public LeaveBalance() {}
@@ -124,6 +136,9 @@ public class LeaveBalance {
 
     public double getMandatoryUsed() { return mandatoryUsed; }
     public void setMandatoryUsed(double mandatoryUsed) { this.mandatoryUsed = mandatoryUsed; }
+
+    public int getAccruedUnits() { return accruedUnits; }
+    public void setAccruedUnits(int accruedUnits) { this.accruedUnits = accruedUnits; }
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }

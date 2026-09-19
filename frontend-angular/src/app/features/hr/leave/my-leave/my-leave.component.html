@@ -1,9 +1,16 @@
 <div class="mleave-container">
+  <!-- Header owns both the crumb + title and the primary Apply CTA
+       so the button sits inline with the title (top-right) instead
+       of adding a whole extra row of vertical space. -->
   <app-page-header
     [breadcrumbs]="[
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'My Leave' }
-    ]">
+    ]"
+    title="My Leave"
+    actionLabel="Apply for leave"
+    actionIcon="event_available"
+    (actionClick)="openApply()">
   </app-page-header>
 
   <!-- ── Balance strip ──────────────────────────────────────── -->
@@ -15,63 +22,58 @@
       </div>
       <span class="balance-year" *ngIf="currentYearLabel">{{ currentYearLabel }}</span>
     </div>
-    <div class="balance-grid" *ngIf="balances.length; else noBalance">
-      <div class="balance-card" *ngFor="let b of balances"
-           [class.balance-card--inactive]="!b.typeActive">
-        <!-- Color stripe on the left echoes the type's color. -->
-        <div class="balance-stripe" [style.background]="b.color || '#B8860B'"></div>
+    <!-- Compact tile grid — matches HR Balances page density. All
+         the same info (code, name, remaining, bar, used, total, meta
+         icons) but the whole leave-type spread fits in one row on
+         desktop and two rows on mobile instead of one tall card per
+         type. -->
+    <div class="balance-tiles" *ngIf="balances.length; else noBalance">
+      <div class="balance-tile" *ngFor="let b of balances"
+           [class.balance-tile--inactive]="!b.typeActive">
+        <div class="tile-head">
+          <span class="tile-chip" [style.background]="b.color || '#B8860B'">
+            {{ b.leaveTypeCode }}
+          </span>
+          <span class="tile-name">{{ b.leaveTypeName }}</span>
 
-        <div class="balance-body">
-          <div class="balance-head-row">
-            <span class="balance-code" [style.background]="b.color || '#B8860B'">
-              {{ b.leaveTypeCode }}
-            </span>
-            <span class="balance-name">{{ b.leaveTypeName }}</span>
-          </div>
+          <!-- Meta icons pinned to the right, tooltips carry detail. -->
+          <mat-icon *ngIf="b.accrualType === 'MONTHLY' && (b.accruedUnits ?? 0) < (b.accrualTotalUnits ?? 12)"
+                    class="tile-icon icon-accrual"
+                    [matTooltip]="'Monthly · ' + b.accruedUnits + '/' + b.accrualTotalUnits + ' months credited (' + ((b.annualQuota || 0) / (b.accrualTotalUnits || 12)).toFixed(2) + ' days/month)'">
+            trending_up
+          </mat-icon>
+          <mat-icon *ngIf="b.accrualType === 'QUARTERLY' && (b.accruedUnits ?? 0) < (b.accrualTotalUnits ?? 12)"
+                    class="tile-icon icon-accrual"
+                    [matTooltip]="'Quarterly · ' + b.accruedUnits + '/' + b.accrualTotalUnits + ' months credited'">
+            trending_up
+          </mat-icon>
+          <mat-icon *ngIf="b.mandatoryPerYear > 0 && mandatoryRemaining(b) > 0"
+                    class="tile-icon icon-mandatory"
+                    [matTooltip]="'Take at least ' + mandatoryRemaining(b) + ' more day' + (mandatoryRemaining(b) === 1 ? '' : 's') + ' this year'">
+            rule
+          </mat-icon>
+          <mat-icon *ngIf="b.mandatoryPerYear > 0 && mandatoryRemaining(b) === 0"
+                    class="tile-icon icon-mandatory-met"
+                    matTooltip="Compulsory quota met">
+            check_circle
+          </mat-icon>
+          <mat-icon *ngIf="b.carryForwardIn > 0"
+                    class="tile-icon icon-carry"
+                    [matTooltip]="'+' + b.carryForwardIn + ' carried from last year'">
+            redo
+          </mat-icon>
+        </div>
 
-          <div class="balance-remaining">
-            <span class="rem-num" [style.color]="b.color || '#4a3a10'">
-              {{ b.remaining }}
-            </span>
-            <span class="rem-unit">day{{ b.remaining === 1 ? '' : 's' }} left</span>
-          </div>
+        <div class="tile-progress">
+          <div class="tile-progress-fill"
+               [style.width.%]="usedPct(b)"
+               [style.background]="b.color || '#B8860B'"></div>
+        </div>
 
-          <div class="balance-bar">
-            <div class="balance-bar-fill"
-                 [style.width.%]="usedPct(b)"
-                 [style.background]="b.color || '#B8860B'"></div>
-          </div>
-
-          <div class="balance-meta">
-            <span>{{ b.used }} used</span>
-            <span class="dot">·</span>
-            <span>{{ b.allocated + b.carryForwardIn }} total</span>
-          </div>
-
-          <!-- Compulsory quota — amber when still owed, green when met. -->
-          <div class="balance-hint balance-hint--warn"
-               *ngIf="b.mandatoryPerYear > 0 && mandatoryRemaining(b) > 0">
-            <mat-icon>rule</mat-icon>
-            <span>Take at least {{ mandatoryRemaining(b) }} more day{{ mandatoryRemaining(b) === 1 ? '' : 's' }} this year</span>
-          </div>
-          <div class="balance-hint balance-hint--good"
-               *ngIf="b.mandatoryPerYear > 0 && mandatoryRemaining(b) === 0">
-            <mat-icon>check_circle</mat-icon>
-            <span>Compulsory quota met</span>
-          </div>
-
-          <!-- Carry-forward hint. -->
-          <div class="balance-hint balance-hint--info" *ngIf="b.carryForwardIn > 0">
-            <mat-icon>redo</mat-icon>
-            <span>+{{ b.carryForwardIn }} carried from last year</span>
-          </div>
-
-          <!-- Accrual hint — matters for MONTHLY types where the
-               employee can't take all of it right away. -->
-          <div class="balance-hint balance-hint--info" *ngIf="b.accrualType === 'MONTHLY'">
-            <mat-icon>trending_up</mat-icon>
-            <span>{{ (b.allocated / 12).toFixed(1) }} days credited each month</span>
-          </div>
+        <div class="tile-meta">
+          <span class="tile-rem" [style.color]="b.color || '#4a3a10'">{{ b.remaining }}</span>
+          <span class="tile-total">/ {{ b.allocated + b.carryForwardIn }}</span>
+          <span class="tile-used">· {{ b.used }} used</span>
         </div>
       </div>
     </div>
@@ -82,14 +84,6 @@
       </div>
     </ng-template>
   </section>
-
-  <!-- ── Apply button ───────────────────────────────────────── -->
-  <div class="apply-row">
-    <button mat-flat-button color="primary" (click)="openApply()">
-      <mat-icon>event_available</mat-icon>
-      Apply for leave
-    </button>
-  </div>
 
   <!-- ── History list ───────────────────────────────────────── -->
   <section class="history-section">

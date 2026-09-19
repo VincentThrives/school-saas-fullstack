@@ -36,77 +36,89 @@
     <p>No leave types yet — tap "Add type" to create one.</p>
   </div>
 
-  <div class="type-list" *ngIf="!isLoading && types.length">
-    <div class="type-row" *ngFor="let t of types" [class.type-row--inactive]="!t.active">
-      <!-- Color-tinted vertical stripe on the left echoes the type's
-           color across the whole app (calendar, balance card, badge). -->
+  <!-- Responsive card grid — auto-fits 300px min columns on desktop,
+       stacks to one column on mobile. -->
+  <div class="type-grid" *ngIf="!isLoading && types.length">
+    <div class="type-card" *ngFor="let t of types"
+         [class.type-card--inactive]="!t.active">
+      <!-- Top stripe: type's brand color. Sits above the card header
+           like a color-coded folder tab. -->
       <div class="type-stripe" [style.background]="t.color || '#B8860B'"></div>
 
-      <div class="type-main">
-        <div class="type-code" [style.background]="fadeColor(t.color)"
-                               [style.color]="t.color || '#8a6a12'">
-          {{ t.code }}
+      <!-- Card header: code badge, name, active toggle. -->
+      <div class="card-header">
+        <div class="header-left">
+          <div class="type-code" [style.background]="fadeColor(t.color)"
+                                 [style.color]="t.color || '#8a6a12'">
+            {{ t.code }}
+          </div>
+          <div class="header-text">
+            <div class="type-name">
+              {{ t.name }}
+              <mat-icon *ngIf="!t.paid" class="paid-icon"
+                        matTooltip="Unpaid (LOP-style)">
+                money_off
+              </mat-icon>
+            </div>
+            <div class="type-status" [class.type-status--off]="!t.active">
+              {{ t.active ? 'Active' : 'Hidden from Apply Leave' }}
+            </div>
+          </div>
         </div>
-
-        <div class="type-body">
-          <div class="type-name">
-            {{ t.name }}
-            <mat-icon *ngIf="!t.paid" class="paid-icon" matTooltip="Unpaid (LOP-style)">
-              money_off
-            </mat-icon>
-          </div>
-          <div class="type-desc" *ngIf="t.description">{{ t.description }}</div>
-
-          <!-- Compact chip row showing every configured policy so HR
-               reads the whole config at a glance without opening edit. -->
-          <div class="type-chips">
-            <span class="chip">
-              <mat-icon>event_available</mat-icon>
-              {{ t.defaultAnnualQuota || 'Uncapped' }}{{ t.defaultAnnualQuota ? ' days / year' : '' }}
-            </span>
-            <span class="chip" *ngIf="t.accrualType !== 'YEARLY'">
-              <mat-icon>trending_up</mat-icon>
-              {{ t.accrualType === 'MONTHLY' ? 'Monthly accrual' : 'Quarterly accrual' }}
-            </span>
-            <span class="chip" *ngIf="t.carryForward">
-              <mat-icon>redo</mat-icon>
-              Carry {{ t.carryForwardMax ? 'up to ' + t.carryForwardMax + ' days' : 'uncapped' }}
-            </span>
-            <span class="chip" *ngIf="t.minAdvanceDays > 0">
-              <mat-icon>schedule</mat-icon>
-              {{ t.minAdvanceDays }} day{{ t.minAdvanceDays === 1 ? '' : 's' }} notice
-            </span>
-            <span class="chip" *ngIf="t.maxConsecutiveDays > 0">
-              <mat-icon>vertical_align_center</mat-icon>
-              Max {{ t.maxConsecutiveDays }} consecutive
-            </span>
-            <span class="chip" *ngIf="t.mandatoryPerYear > 0">
-              <mat-icon>rule</mat-icon>
-              {{ t.mandatoryPerYear }} compulsory
-            </span>
-            <span class="chip" *ngIf="t.requiresAttachmentAfterDays > 0">
-              <mat-icon>attach_file</mat-icon>
-              Attach after {{ t.requiresAttachmentAfterDays }}
-            </span>
-            <span class="chip" *ngIf="t.applicableGender !== 'ANY'">
-              <mat-icon>person</mat-icon>
-              {{ t.applicableGender === 'FEMALE' ? 'Female only' : 'Male only' }}
-            </span>
-          </div>
+        <div class="header-actions">
+          <mat-slide-toggle
+            [checked]="t.active"
+            [disabled]="togglingId === t.id"
+            (change)="toggle(t)"
+            matTooltip="Show / hide from Apply Leave">
+          </mat-slide-toggle>
+          <button mat-icon-button (click)="openEdit(t)"
+                  class="edit-btn"
+                  matTooltip="Edit type">
+            <mat-icon>edit</mat-icon>
+          </button>
         </div>
       </div>
 
-      <div class="type-actions">
-        <mat-slide-toggle
-          [checked]="t.active"
-          [disabled]="togglingId === t.id"
-          (change)="toggle(t)"
-          matTooltip="Show / hide from Apply Leave">
-        </mat-slide-toggle>
-        <button mat-icon-button (click)="openEdit(t)" matTooltip="Edit">
-          <mat-icon>edit</mat-icon>
-        </button>
+      <!-- Optional description. -->
+      <div class="type-desc" *ngIf="t.description">{{ t.description }}</div>
+
+      <!-- Config chips — quick-scan summary of every configured rule. -->
+      <div class="type-chips">
+        <span class="chip">
+          <mat-icon>event_available</mat-icon>
+          {{ t.defaultAnnualQuota || 'Uncapped' }}{{ t.defaultAnnualQuota ? ' days / year' : '' }}
+        </span>
+        <span class="chip" *ngIf="t.accrualType !== 'YEARLY'">
+          <mat-icon>trending_up</mat-icon>
+          {{ t.accrualType === 'MONTHLY' ? 'Monthly accrual' : 'Quarterly accrual' }}
+        </span>
+        <span class="chip" *ngIf="t.carryForward">
+          <mat-icon>redo</mat-icon>
+          Carry {{ t.carryForwardMax ? 'up to ' + t.carryForwardMax + ' days' : 'uncapped' }}
+        </span>
+        <span class="chip" *ngIf="t.minAdvanceDays > 0">
+          <mat-icon>schedule</mat-icon>
+          {{ t.minAdvanceDays }} day{{ t.minAdvanceDays === 1 ? '' : 's' }} notice
+        </span>
+        <span class="chip" *ngIf="t.maxConsecutiveDays > 0">
+          <mat-icon>vertical_align_center</mat-icon>
+          Max {{ t.maxConsecutiveDays }} consecutive
+        </span>
+        <span class="chip" *ngIf="t.mandatoryPerYear > 0">
+          <mat-icon>rule</mat-icon>
+          {{ t.mandatoryPerYear }} compulsory
+        </span>
+        <span class="chip" *ngIf="t.requiresAttachmentAfterDays > 0">
+          <mat-icon>attach_file</mat-icon>
+          Attach after {{ t.requiresAttachmentAfterDays }}
+        </span>
+        <span class="chip" *ngIf="t.applicableGender !== 'ANY'">
+          <mat-icon>person</mat-icon>
+          {{ t.applicableGender === 'FEMALE' ? 'Female only' : 'Male only' }}
+        </span>
       </div>
+
     </div>
   </div>
 </div>

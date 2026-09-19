@@ -65,6 +65,16 @@
           </mat-form-field>
 
           <mat-form-field appearance="outline">
+            <mat-label>Employment type *</mat-label>
+            <mat-select formControlName="employmentCategory" required>
+              <mat-option *ngFor="let c of employmentCategoryOptions" [value]="c.value">
+                {{ c.label }}
+              </mat-option>
+            </mat-select>
+            <mat-hint>Drives which leave-type policy applies (quota, accrual, carry-forward)</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
             <mat-label>Date of Birth *</mat-label>
             <input matInput formControlName="dateOfBirth" [matDatepicker]="dobPicker" [max]="todayForDob" placeholder="dd/mm/yyyy" readonly required>
             <mat-datepicker-toggle matIconSuffix [for]="dobPicker"></mat-datepicker-toggle>

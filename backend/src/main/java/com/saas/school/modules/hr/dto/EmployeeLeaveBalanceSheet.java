@@ -13,20 +13,28 @@ public class EmployeeLeaveBalanceSheet {
     private String employeeId;
     private String employeeName;
     private String designation;
+    /** Employment category — used by the HR Balances page to render a
+     *  small "Contract" / "Probation" badge next to the employee's
+     *  name so HR can see at a glance whose balances came from which
+     *  per-category policy on the leave type. */
+    private String employmentCategory;
     private List<LeaveBalanceDto> balances;
 
     public EmployeeLeaveBalanceSheet() {}
 
     public EmployeeLeaveBalanceSheet(String employeeId, String employeeName,
-                                     String designation, List<LeaveBalanceDto> balances) {
+                                     String designation, String employmentCategory,
+                                     List<LeaveBalanceDto> balances) {
         this.employeeId = employeeId;
         this.employeeName = employeeName;
         this.designation = designation;
+        this.employmentCategory = employmentCategory;
         this.balances = balances;
     }
 
     public String getEmployeeId() { return employeeId; }
     public String getEmployeeName() { return employeeName; }
     public String getDesignation() { return designation; }
+    public String getEmploymentCategory() { return employmentCategory; }
     public List<LeaveBalanceDto> getBalances() { return balances; }
 }

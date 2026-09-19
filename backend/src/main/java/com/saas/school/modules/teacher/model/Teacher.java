@@ -28,6 +28,20 @@ public class Teacher {
     private String employeeRole;
 
     /**
+     * Employment category — drives which per-category policy on a
+     * {@link com.saas.school.modules.hr.model.LeaveType} applies to
+     * this employee's leaves (quota, accrual, carry-forward, etc.).
+     *
+     * <p>One of {@code FULL_TIME}, {@code CONTRACT}, {@code PROBATION},
+     * {@code PART_TIME}. Null on legacy docs — every caller that reads
+     * this defaults to {@code FULL_TIME}, matching the "everyone is
+     * full-time" behavior schools have today. Employees created after
+     * this ships get the category set explicitly (default FULL_TIME
+     * unless HR picks otherwise on the form).</p>
+     */
+    private String employmentCategory;
+
+    /**
      * Extra login roles granted to the auto-provisioned {@link
      * com.saas.school.modules.user.model.User} account beyond the
      * one mapped from {@link #employeeRole}. Typical case: a
@@ -216,6 +230,9 @@ public class Teacher {
 
     public String getEmployeeRole() { return employeeRole; }
     public void setEmployeeRole(String employeeRole) { this.employeeRole = employeeRole; }
+
+    public String getEmploymentCategory() { return employmentCategory; }
+    public void setEmploymentCategory(String employmentCategory) { this.employmentCategory = employmentCategory; }
 
     public List<String> getAdditionalRoles() { return additionalRoles; }
     public void setAdditionalRoles(List<String> additionalRoles) { this.additionalRoles = additionalRoles; }

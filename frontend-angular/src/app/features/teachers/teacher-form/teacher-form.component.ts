@@ -18,7 +18,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { scrollToFirstInvalid } from '../../../shared/utils/form-scroll';
 import { ApiService } from '../../../core/services/api.service';
-import { SchoolClass, EmployeeRole, UserRole } from '../../../core/models';
+import { SchoolClass, EmployeeRole, UserRole, EmploymentCategory, EMPLOYMENT_CATEGORY_OPTIONS } from '../../../core/models';
 
 @Component({
   selector: 'app-teacher-form',
@@ -54,6 +54,10 @@ export class TeacherFormComponent implements OnInit {
   isSaving = false;
 
   classes: SchoolClass[] = [];
+
+  /** Employment-category dropdown source. Shared const so the labels
+   *  stay consistent with the HR Balances page and any future report. */
+  readonly employmentCategoryOptions = EMPLOYMENT_CATEGORY_OPTIONS;
 
   employeeRoles: { value: EmployeeRole; label: string }[] = [
     { value: 'TEACHER', label: 'Teacher' },
@@ -192,6 +196,10 @@ export class TeacherFormComponent implements OnInit {
       phone: [''],
       employeeId: ['', Validators.required],
       employeeRole: ['TEACHER', Validators.required],
+      // Employment category drives which per-category LeaveType policy
+      // applies (quota, accrual, carry-forward). Defaults to FULL_TIME
+      // — schools without per-category rules are unaffected.
+      employmentCategory: ['FULL_TIME', Validators.required],
       qualification: [''],
       specialization: [''],
       // DOB is required — login password is derived from `firstName@<birthYear>`.
@@ -249,6 +257,7 @@ export class TeacherFormComponent implements OnInit {
             phone: t.phone || '',
             employeeId: t.employeeId || '',
             employeeRole: t.employeeRole || 'TEACHER',
+            employmentCategory: t.employmentCategory || 'FULL_TIME',
             qualification: t.qualification || '',
             specialization: t.specialization || '',
             dateOfBirth: t.dateOfBirth || '',

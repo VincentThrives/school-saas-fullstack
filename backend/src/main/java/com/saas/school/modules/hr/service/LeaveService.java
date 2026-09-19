@@ -120,11 +120,20 @@ public class LeaveService {
         // out-of-band; a later phase can add Teacher.gender and flip
         // this to a hard block.
 
+        // Resolve the effective policy for THIS employee's employment
+        // category. Legacy types (no policies list) return a fallback
+        // policy built from the top-level fields → identical behavior
+        // to before the per-category feature landed. Legacy employees
+        // without a category are treated as FULL_TIME by the resolver.
+        Teacher employee = teacherRepo.findById(employeeId).orElse(null);
+        String employeeCategory = employee != null ? employee.getEmploymentCategory() : null;
+        LeaveType.CategoryPolicy policy = type.resolvePolicyFor(employeeCategory);
+
         // Notice-period check — how many days in advance the type
         // requires. Same-day sick leave has notice=0 so it's always
         // allowed. Uses IST (matches every other date comparison in
         // the HR module).
-        int notice = type.getMinAdvanceDays();
+        int notice = policy.getMinAdvanceDays();
         if (notice > 0) {
             LocalDate today = LocalDate.now(ZONE);
             long daysUntilStart = start.toEpochDay() - today.toEpochDay();
@@ -156,7 +165,7 @@ public class LeaveService {
         // Max-consecutive check — prevents "6-month sabbatical via CL".
         // Uses ceiling so a request of "3.5 days" against a max of 3
         // still trips the check. 0 = uncapped.
-        int maxConsecutive = type.getMaxConsecutiveDays();
+        int maxConsecutive = policy.getMaxConsecutiveDays();
         if (maxConsecutive > 0 && days > maxConsecutive) {
             throw new BusinessException(String.format(
                 "%s allows a maximum of %d consecutive working day%s per application.",
@@ -204,6 +213,18 @@ public class LeaveService {
         row.setEndDate(end);
         row.setStartHalf(startHalf);
         row.setEndHalf(endHalf);
+        // Which half is off — only meaningful when the request is a
+        // half-day single-day one. Silently ignored for multi-day or
+        // full-day requests so a stale client value can't misfile it.
+        if (start.equals(end) && startHalf) {
+            String part = req.getHalfDayPart();
+            if (part != null) {
+                String norm = part.trim().toUpperCase();
+                if (norm.equals("FIRST") || norm.equals("SECOND")) {
+                    row.setHalfDayPart(norm);
+                }
+            }
+        }
         row.setDays(days);
         row.setReason(req.getReason().trim());
         row.setStatus(LeaveApplication.Status.PENDING);
@@ -391,7 +412,8 @@ public class LeaveService {
             if (empId == null) continue;
             List<LeaveBalanceDto> balances = getBalanceForEmployee(empId, ayId);
             sheets.add(new EmployeeLeaveBalanceSheet(
-                empId, displayName(e), e.getEmployeeRole(), balances));
+                empId, displayName(e), e.getEmployeeRole(),
+                e.getEmploymentCategory(), balances));
         }
         return sheets;
     }
@@ -416,7 +438,10 @@ public class LeaveService {
         LeaveBalance saved = balanceRepo.save(b);
         log.info("Balance overridden: employee={} ayId={} type={} allocated={} carryFwd={} used={}",
             employeeId, ayId, code, saved.getAllocated(), saved.getCarryForwardIn(), saved.getUsed());
-        return LeaveBalanceDto.fromEntity(saved, type);
+        String category = teacherRepo.findById(employeeId)
+            .map(Teacher::getEmploymentCategory).orElse(null);
+        return LeaveBalanceDto.fromEntity(saved, type, type.resolvePolicyFor(category),
+            academicYearMonthCount(ayId));
     }
 
     public List<LeaveBalanceDto> getBalanceForEmployee(String employeeId, String academicYearId) {
@@ -424,6 +449,13 @@ public class LeaveService {
         List<LeaveType> types = typeRepo.findAllByOrderBySortOrderAscNameAsc();
         Map<String, LeaveType> byCode = types.stream()
             .collect(Collectors.toMap(LeaveType::getCode, t -> t, (a, b) -> a));
+
+        // Resolve this employee's category once — every row's policy
+        // will resolve against the same code, so the extra lookup pays
+        // off across all types.
+        String category = teacherRepo.findById(employeeId)
+            .map(Teacher::getEmploymentCategory).orElse(null);
+        int ayMonthCount = academicYearMonthCount(ayId);
 
         // Provision missing rows for active types so the widget shows
         // the full spread on first read.
@@ -442,7 +474,9 @@ public class LeaveService {
             })
             .map(b -> {
                 LeaveType t = byCode.get(b.getLeaveTypeCode());
-                return LeaveBalanceDto.fromEntity(b, t);
+                LeaveType.CategoryPolicy policy =
+                    t != null ? t.resolvePolicyFor(category) : null;
+                return LeaveBalanceDto.fromEntity(b, t, policy, ayMonthCount);
             })
             .toList();
     }
@@ -547,7 +581,7 @@ public class LeaveService {
     private List<EmployeeAttendance> findGeneratedRows(LeaveApplication row) {
         String marker = "leave:" + row.getId();
         List<EmployeeAttendance> range = attendanceRepo
-            .findByEmployeeIdAndDateBetween(row.getEmployeeId(), row.getStartDate(), row.getEndDate());
+            .findEmployeeRowsInRange(row.getEmployeeId(), row.getStartDate(), row.getEndDate());
         List<EmployeeAttendance> mine = new ArrayList<>();
         for (EmployeeAttendance r : range) {
             if (marker.equals(r.getMarkedByUserId())) mine.add(r);
@@ -583,9 +617,31 @@ public class LeaveService {
         return balanceRepo.findByEmployeeIdAndAcademicYearIdAndLeaveTypeCode(
                 employeeId, academicYearId, code)
             .orElseGet(() -> {
+                // Allocation comes from the effective policy for this
+                // employee's category — for legacy types (no policies)
+                // this equals the top-level defaultAnnualQuota, so
+                // existing behavior is preserved.
+                double annualQuota = 0.0;
+                String accrualType = "YEARLY";
+                if (type != null) {
+                    String cat = teacherRepo.findById(employeeId)
+                        .map(Teacher::getEmploymentCategory).orElse(null);
+                    LeaveType.CategoryPolicy policy = type.resolvePolicyFor(cat);
+                    annualQuota = policy.getAnnualQuota();
+                    accrualType = policy.getAccrualType();
+                }
+                // Credit only what has accrued as of today. Distributed
+                // across the academic year's ACTUAL month count so a
+                // 10-month AY (Jun–Mar, common in India) still ends up
+                // crediting the whole annual quota by year-end — not
+                // 10/12 of it.
+                int total = academicYearMonthCount(academicYearId);
+                int units = expectedAccruedUnits(accrualType, academicYearId, LocalDate.now());
+                double allocation = annualQuota * (units / (double) total);
                 LeaveBalance b = new LeaveBalance(
                     TenantContext.getTenantId(), employeeId, academicYearId, code,
-                    type != null ? type.getDefaultAnnualQuota() : 0.0);
+                    allocation);
+                b.setAccruedUnits(units);
                 try {
                     return balanceRepo.save(b);
                 } catch (org.springframework.dao.DuplicateKeyException dup) {
@@ -595,6 +651,71 @@ public class LeaveService {
                         .orElseThrow(() -> dup);
                 }
             });
+    }
+
+    /**
+     * Count the academic year's month-length (inclusive). For the
+     * common Indian AY of Jun→Mar this is 10; for a full Jul→Jun
+     * this is 12; for Apr→Mar this is 12. Falls back to 12 when the
+     * AY record is missing or has open-ended dates, so legacy types
+     * behave as before. Never returns less than 1 (division-by-zero
+     * guard).
+     */
+    int academicYearMonthCount(String academicYearId) {
+        return academicYearRepo.findById(academicYearId)
+            .map(ay -> {
+                if (ay.getStartDate() == null || ay.getEndDate() == null) return 12;
+                int months = (ay.getEndDate().getYear() - ay.getStartDate().getYear()) * 12
+                    + (ay.getEndDate().getMonthValue() - ay.getStartDate().getMonthValue()) + 1;
+                return Math.max(1, months);
+            })
+            .orElse(12);
+    }
+
+    /**
+     * Compute how many "accrual months" of the academic year have
+     * completed as of the given date, for a given accrual pattern.
+     * Central helper used by both the lazy provisioning path and the
+     * monthly {@code LeaveAccrualJob}. The result is always in the
+     * range 0..{@link #academicYearMonthCount(String)} so a 10-month
+     * AY caps at 10, a 12-month AY caps at 12.
+     *
+     * <ul>
+     *  <li>{@code YEARLY} → the full AY month count (full quota
+     *      credited upfront)</li>
+     *  <li>{@code MONTHLY} → months elapsed since AY start
+     *      (start month counts as 1)</li>
+     *  <li>{@code QUARTERLY} → 3, 6, 9, 12 based on quarters since AY
+     *      start — the last quarter may credit fewer than 3 when the
+     *      AY doesn't divide evenly (e.g., 10-month AY: 3+3+3+1)</li>
+     * </ul>
+     *
+     * @param accrualType     "YEARLY" / "MONTHLY" / "QUARTERLY"; null / unknown → YEARLY
+     * @param academicYearId  drives the anchor date; falls back to the
+     *                        tenant's current AY if the id is unknown
+     * @param asOf            the reference date (usually today)
+     */
+    int expectedAccruedUnits(String accrualType, String academicYearId, LocalDate asOf) {
+        int total = academicYearMonthCount(academicYearId);
+        if (accrualType == null
+                || "YEARLY".equalsIgnoreCase(accrualType)) {
+            return total;
+        }
+        LocalDate ayStart = academicYearRepo.findById(academicYearId)
+            .map(AcademicYear::getStartDate).orElse(null);
+        if (ayStart == null) return total; // no anchor → behave like yearly
+        if (asOf.isBefore(ayStart)) return 0;
+        // Months since AY start, inclusive of AY-start month = 1
+        int months = (asOf.getYear() - ayStart.getYear()) * 12
+                   + (asOf.getMonthValue() - ayStart.getMonthValue()) + 1;
+        months = Math.max(0, Math.min(total, months));
+        if ("QUARTERLY".equalsIgnoreCase(accrualType)) {
+            // Credits happen at AY-months 1, 4, 7, 10 → 3 slices each,
+            // clipped so the tail quarter can't over-run the AY length.
+            int quarterCredits = ((months + 2) / 3) * 3;
+            return Math.min(total, quarterCredits);
+        }
+        return months;
     }
 
     private String resolveEmployeeId(String userId) {

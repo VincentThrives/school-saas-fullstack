@@ -88,6 +88,15 @@ public class LeaveApplication {
      *  endHalf is ignored to prevent "half + half = zero" confusion. */
     private boolean endHalf;
 
+    /** For single-day half-day requests, which half is off:
+     *  {@code FIRST} = morning off (employee comes in for the second
+     *  half); {@code SECOND} = afternoon off (employee leaves at
+     *  lunch). Null for full-day or multi-day requests. Doesn't
+     *  affect balance math (both halves = 0.5 day) — surfaces on HR
+     *  approval + attendance so a supervisor knows when the employee
+     *  is actually on the premises. */
+    private String halfDayPart;
+
     /** Computed at submit — total leave days requested. Full = 1,
      *  half = 0.5. Stored so balance reads don't need to re-derive
      *  from the date range every time. */
@@ -140,6 +149,9 @@ public class LeaveApplication {
 
     public boolean isEndHalf() { return endHalf; }
     public void setEndHalf(boolean endHalf) { this.endHalf = endHalf; }
+
+    public String getHalfDayPart() { return halfDayPart; }
+    public void setHalfDayPart(String halfDayPart) { this.halfDayPart = halfDayPart; }
 
     public double getDays() { return days; }
     public void setDays(double days) { this.days = days; }

@@ -58,6 +58,7 @@
           <mat-option value="LATE">Late</mat-option>
           <mat-option value="HALF_DAY">Half-day</mat-option>
           <mat-option value="ABSENT">Absent</mat-option>
+          <mat-option value="ON_LEAVE">On leave</mat-option>
         </mat-select>
       </mat-form-field>
 
@@ -124,6 +125,13 @@
         <div class="rep-kpi-label">Absent</div>
       </div>
     </div>
+    <div class="rep-kpi rep-kpi--leave">
+      <div class="rep-kpi-icon"><mat-icon>event_available</mat-icon></div>
+      <div class="rep-kpi-body">
+        <div class="rep-kpi-value">{{ kpis.onLeave }}</div>
+        <div class="rep-kpi-label">On leave</div>
+      </div>
+    </div>
     <div class="rep-kpi rep-kpi--slate">
       <div class="rep-kpi-icon"><mat-icon>help_outline</mat-icon></div>
       <div class="rep-kpi-body">
@@ -183,6 +191,7 @@
             <th class="num" matTooltip="Days marked late">Late</th>
             <th class="num" matTooltip="Days marked half-day">Half-day</th>
             <th class="num" matTooltip="Days marked absent">Absent</th>
+            <th class="num" matTooltip="Days approved on leave — counted as attended for the Attendance % calc">On leave</th>
             <th class="num" matTooltip="Days in the range with no attendance record at all">Unmarked</th>
             <th class="num" matTooltip="Working days for this employee — excludes Sundays + declared holidays, but adds any off-day they actually worked">Working</th>
             <th class="num" matTooltip="Total calendar days in the picked range">Total</th>
@@ -210,6 +219,7 @@
             <td class="num"><span class="chip chip--late">{{ r.late }}</span></td>
             <td class="num"><span class="chip chip--half">{{ r.halfDay }}</span></td>
             <td class="num"><span class="chip chip--absent">{{ r.absent }}</span></td>
+            <td class="num"><span class="chip chip--leave">{{ r.onLeave }}</span></td>
             <td class="num"><span class="chip chip--unmarked">{{ r.unmarked }}</span></td>
             <td class="num rep-working"
                 [matTooltip]="r.workingDays !== (r.workingDays - (r.workingDays)) ? '' : ''">

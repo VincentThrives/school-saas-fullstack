@@ -16,12 +16,12 @@
     </ng-container>
   </nav>
 
-  <!-- Title and Actions Row -->
-  <div class="title-row">
+  <!-- Title and Actions Row — skip the whole row when there's no
+       title, subtitle, or action to render, so callers that only
+       want the breadcrumb (My Leave, HR Dashboard) don't pay the
+       flex-container's height/gap for nothing. -->
+  <div class="title-row" *ngIf="title || subtitle || hasActions">
     <div class="title-section">
-      <!-- *ngIf so callers that only want the breadcrumb (e.g. HR
-           Dashboard, where the crumb already communicates the page)
-           don't get an empty <h1> taking layout space. -->
       <h1 class="page-title" *ngIf="title">{{ title }}</h1>
       <p class="page-subtitle" *ngIf="subtitle">{{ subtitle }}</p>
     </div>

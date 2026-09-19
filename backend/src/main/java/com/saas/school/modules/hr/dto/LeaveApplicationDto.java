@@ -25,6 +25,11 @@ public class LeaveApplicationDto {
     private LocalDate endDate;
     private boolean startHalf;
     private boolean endHalf;
+    /** Which half is off on a single-day request — FIRST / SECOND /
+     *  null (multi-day or full day). Surfaces on My Leave + HR
+     *  Approvals so both sides know when the employee is actually on
+     *  the premises that day. */
+    private String halfDayPart;
     private double days;
 
     private String reason;
@@ -51,6 +56,7 @@ public class LeaveApplicationDto {
         d.endDate = row.getEndDate();
         d.startHalf = row.isStartHalf();
         d.endHalf = row.isEndHalf();
+        d.halfDayPart = row.getHalfDayPart();
         d.days = row.getDays();
         d.reason = row.getReason();
         d.status = row.getStatus() != null ? row.getStatus().name() : null;
@@ -73,6 +79,7 @@ public class LeaveApplicationDto {
     public LocalDate getEndDate() { return endDate; }
     public boolean isStartHalf() { return startHalf; }
     public boolean isEndHalf() { return endHalf; }
+    public String getHalfDayPart() { return halfDayPart; }
     public double getDays() { return days; }
     public String getReason() { return reason; }
     public String getStatus() { return status; }

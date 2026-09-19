@@ -18,6 +18,7 @@ import {
 } from '../../../../core/models';
 import { RegularizationDialogComponent } from './regularization-dialog/regularization-dialog.component';
 import { DayDetailsDialogComponent } from './day-details-dialog/day-details-dialog.component';
+import { ApplyLeaveDialogComponent } from '../../leave/my-leave/apply-leave-dialog/apply-leave-dialog.component';
 
 /**
  * One cell in the calendar grid — a specific date with the
@@ -53,7 +54,12 @@ interface CalendarCell {
    *  approved. Drives a small indicator dot on the calendar cell
    *  so employees can tell "which of my present days came from
    *  a real punch vs a regularization". */
-  source?: 'LOCATION' | 'BIOMETRIC' | 'MANUAL' | 'REGULARIZATION';
+  source?: 'LOCATION' | 'BIOMETRIC' | 'MANUAL' | 'REGULARIZATION' | 'AUTO';
+  /** Remarks copied from the underlying row — inspected by the
+   *  cellClass logic so legacy pre-fix auto-absent rows (source=
+   *  MANUAL but remarks="Auto-marked …") still render as system-
+   *  generated, not HR manual. */
+  remarks?: string;
   /** Status of any regularization request submitted for this day
    *  (pending/rejected requests don't produce an attendance row,
    *  so we surface them via a corner-dot indicator on the cell —
@@ -321,8 +327,19 @@ export class MyAttendanceComponent implements OnInit, OnDestroy {
       status: row?.status as CalendarCell['status'],
       late: row?.late,
       source: row?.source as CalendarCell['source'],
+      remarks: row?.remarks,
       regRequestStatus: regStatus as CalendarCell['regRequestStatus'],
     };
+  }
+
+  /** Was this cell's row created by the auto-absent scheduled job?
+   *  Legacy rows have source=MANUAL but remarks starting with
+   *  "Auto-marked" / "Auto-stamped" — treat both cases as system-
+   *  generated so the calendar doesn't paint an HR-manual dot. */
+  private isAutoStamped(c: CalendarCell): boolean {
+    if (c.source === 'AUTO') return true;
+    const r = c.remarks || '';
+    return r.startsWith('Auto-marked') || r.startsWith('Auto-stamped');
   }
 
   /** Class per cell — drives the color-coded circles. Kept as a
@@ -371,7 +388,10 @@ export class MyAttendanceComponent implements OnInit, OnDestroy {
       'cal-cell--regularized':  c.source === 'REGULARIZATION'
                              || c.regRequestStatus === 'APPROVED'
                              || c.regRequestStatus === 'AUTO_APPROVED',
-      'cal-cell--manual':       c.source === 'MANUAL',
+      // Only real HR manual entries get the manual-dot — the auto-
+      // absent job's rows are excluded via isAutoStamped so they
+      // don't wear the same badge as HR-initiated marks.
+      'cal-cell--manual':       c.source === 'MANUAL' && !this.isAutoStamped(c),
       'cal-cell--reg-pending':  c.regRequestStatus === 'PENDING',
       'cal-cell--reg-rejected': c.regRequestStatus === 'REJECTED',
     };
@@ -386,6 +406,7 @@ export class MyAttendanceComponent implements OnInit, OnDestroy {
     if (c.status) bits.push(c.status);
     if (c.late) bits.push('Late');
     if (c.source === 'REGULARIZATION') bits.push('Regularized');
+    else if (this.isAutoStamped(c)) bits.push('Auto-marked');
     else if (c.source === 'MANUAL') bits.push('HR-marked');
     if (c.regRequestStatus === 'PENDING') bits.push('Regularization pending');
     else if (c.regRequestStatus === 'REJECTED') bits.push('Regularization rejected');
@@ -467,7 +488,7 @@ export class MyAttendanceComponent implements OnInit, OnDestroy {
     if (!c.inCurrentMonth) return;
     const row = this.rows.find(r => r.date === c.iso);
     const request = this.myRequests.find(r => r.date === c.iso);
-    this.dialog.open(DayDetailsDialogComponent, {
+    const ref = this.dialog.open(DayDetailsDialogComponent, {
       data: {
         dateIso: c.iso,
         row,
@@ -481,6 +502,35 @@ export class MyAttendanceComponent implements OnInit, OnDestroy {
       panelClass: 'day-details-panel',
       width: '100vw',
       maxWidth: '100vw',
+    });
+    // Day-details dialog returns a signal string when the user picked
+    // an action from its footer. Right now the only such action is
+    // "Apply for leave" — open the Apply dialog pre-filled with the
+    // clicked date. Runs after afterClosed() so the two dialogs never
+    // overlap on screen.
+    ref.afterClosed().subscribe((signal) => {
+      if (signal === 'APPLY_LEAVE') this.openApplyForDate(c.iso);
+    });
+  }
+
+  /** Open the Apply Leave dialog with start and end date pre-filled
+   *  to a specific calendar cell — driven by the "Apply for leave"
+   *  CTA inside the day-details popup. Reloads the month after a
+   *  successful submit so the calendar reflects the pending leave
+   *  right away. */
+  openApplyForDate(dateIso: string): void {
+    const ref = this.dialog.open(ApplyLeaveDialogComponent, {
+      data: { startDate: dateIso, endDate: dateIso },
+      autoFocus: false,
+      panelClass: 'apply-leave-dialog-panel',
+      width: '520px',
+      maxWidth: '95vw',
+    });
+    ref.afterClosed().subscribe((submitted) => {
+      if (submitted) {
+        this.loadMonth();
+        this.loadMyRequests();
+      }
     });
   }
 

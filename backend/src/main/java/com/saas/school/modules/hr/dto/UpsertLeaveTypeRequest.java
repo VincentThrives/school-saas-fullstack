@@ -1,5 +1,9 @@
 package com.saas.school.modules.hr.dto;
 
+import com.saas.school.modules.hr.model.LeaveType;
+
+import java.util.List;
+
 /** Payload for creating or updating a {@link com.saas.school.modules.hr.model.LeaveType}.
  *  Code is required on create; ignored on update (immutable).
  *
@@ -29,6 +33,12 @@ public class UpsertLeaveTypeRequest {
     /** ANY / MALE / FEMALE */
     private String applicableGender;
     private Double mandatoryPerYear;
+
+    /** Per-employment-category overrides. Send empty list to clear
+     *  existing overrides and fall back to the top-level "applies to
+     *  everyone" fields. Null on the request means "leave existing
+     *  policies untouched" (partial-patch semantics). */
+    private List<LeaveType.CategoryPolicy> policies;
 
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
@@ -79,4 +89,7 @@ public class UpsertLeaveTypeRequest {
 
     public Double getMandatoryPerYear() { return mandatoryPerYear; }
     public void setMandatoryPerYear(Double mandatoryPerYear) { this.mandatoryPerYear = mandatoryPerYear; }
+
+    public List<LeaveType.CategoryPolicy> getPolicies() { return policies; }
+    public void setPolicies(List<LeaveType.CategoryPolicy> policies) { this.policies = policies; }
 }

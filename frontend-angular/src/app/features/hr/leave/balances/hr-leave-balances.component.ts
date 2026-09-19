@@ -13,7 +13,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ApiService } from '../../../../core/services/api.service';
-import { AcademicYear, EmployeeLeaveBalanceSheet, LeaveBalance } from '../../../../core/models';
+import {
+  AcademicYear, EmployeeLeaveBalanceSheet, EMPLOYMENT_CATEGORY_OPTIONS,
+  EmploymentCategory, LeaveBalance,
+} from '../../../../core/models';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { OverrideBalanceDialogComponent } from './override-balance-dialog/override-balance-dialog.component';
 
@@ -147,5 +150,14 @@ export class HrLeaveBalancesComponent implements OnInit {
     const total = b.allocated + b.carryForwardIn;
     if (total <= 0) return 0;
     return Math.min(100, Math.round((b.used / total) * 100));
+  }
+
+  /** Human-readable label for a category code (Contract, Probation…).
+   *  Legacy employees without a code render as Full-time — that is
+   *  how the backend treats them for policy resolution too. */
+  categoryLabel(code?: EmploymentCategory | string | null): string {
+    const key = (code || 'FULL_TIME') as EmploymentCategory;
+    return EMPLOYMENT_CATEGORY_OPTIONS.find(o => o.value === key)?.label
+      || 'Full-time';
   }
 }

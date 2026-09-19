@@ -34,14 +34,22 @@
     </mat-form-field>
   </div>
 
-  <!-- Half-day toggles.  Single-day requests: one toggle only, labelled
-       clearly so users don't wonder whether "start half" means morning
-       or afternoon off. -->
-  <div class="row half-toggles">
+  <!-- Half-day picker.  Single-day requests: radio group so the
+       user picks explicitly between a full day and either half —
+       "Half day (2nd half off)" wasn't accessible for morning-off
+       leaves. Multi-day requests keep the two-checkbox model. -->
+  <div class="row half-toggles" *ngIf="isSingleDay">
+    <mat-radio-group [(ngModel)]="form.dayMode" class="day-mode-group">
+      <mat-radio-button value="FULL">Full day</mat-radio-button>
+      <mat-radio-button value="FIRST">First half off (morning)</mat-radio-button>
+      <mat-radio-button value="SECOND">Second half off (afternoon)</mat-radio-button>
+    </mat-radio-group>
+  </div>
+  <div class="row half-toggles" *ngIf="!isSingleDay">
     <mat-checkbox [(ngModel)]="form.startHalf">
-      {{ isSingleDay ? 'Half day (2nd half off)' : 'First day is a half day' }}
+      First day is a half day
     </mat-checkbox>
-    <mat-checkbox [(ngModel)]="form.endHalf" *ngIf="!isSingleDay">
+    <mat-checkbox [(ngModel)]="form.endHalf">
       Last day is a half day
     </mat-checkbox>
   </div>

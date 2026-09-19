@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Per-tenant catalog of leave types the school offers — e.g., CL
@@ -140,6 +141,23 @@ public class LeaveType {
      *  compulsory quota. */
     private double mandatoryPerYear = 0;
 
+    /**
+     * Per-employment-category overrides. Null / empty on legacy types
+     * → the top-level fields above act as a single implicit "applies
+     * to all categories" policy (identical to how the type worked
+     * before per-category rules landed).
+     *
+     * <p>When populated, each entry targets one
+     * {@link com.saas.school.modules.teacher.model.Teacher#getEmploymentCategory()}
+     * value ({@code FULL_TIME}, {@code CONTRACT}, {@code PROBATION},
+     * {@code PART_TIME}). Resolver logic in {@link #resolvePolicyFor}
+     * matches an employee's category to the right policy and falls
+     * back to the top-level fields when there's no match — so an HR
+     * user can define policies for only the categories that differ
+     * from the default and leave the rest implicit.</p>
+     */
+    private List<CategoryPolicy> policies;
+
     private Instant createdAt = Instant.now();
     private Instant updatedAt = Instant.now();
 
@@ -211,9 +229,112 @@ public class LeaveType {
     public double getMandatoryPerYear() { return mandatoryPerYear; }
     public void setMandatoryPerYear(double mandatoryPerYear) { this.mandatoryPerYear = mandatoryPerYear; }
 
+    public List<CategoryPolicy> getPolicies() { return policies; }
+    public void setPolicies(List<CategoryPolicy> policies) { this.policies = policies; }
+
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    /**
+     * Resolve the effective policy fields for an employee in a given
+     * category. Steps:
+     * <ol>
+     *   <li>If {@link #policies} is populated, look for a matching
+     *       entry by {@code categoryCode}. Match → return it.</li>
+     *   <li>No match (or {@code policies} null / empty) → build a
+     *       fallback policy from the top-level fields on this type
+     *       and return it. This preserves the pre-per-category
+     *       behavior: every employee gets the same rules.</li>
+     * </ol>
+     * Callers can rely on a non-null result — resolution never
+     * throws.
+     *
+     * @param categoryCode employee's employment category (FULL_TIME,
+     *   CONTRACT, PROBATION, PART_TIME). Null / blank is treated as
+     *   FULL_TIME (matches how legacy employees without a category
+     *   field are handled).
+     */
+    public CategoryPolicy resolvePolicyFor(String categoryCode) {
+        String category = (categoryCode == null || categoryCode.isBlank())
+            ? "FULL_TIME" : categoryCode.trim().toUpperCase();
+        if (policies != null) {
+            for (CategoryPolicy p : policies) {
+                if (p == null || p.getCategoryCode() == null) continue;
+                if (category.equalsIgnoreCase(p.getCategoryCode())) return p;
+            }
+        }
+        return defaultPolicyFromTopLevel();
+    }
+
+    /** Build a CategoryPolicy from the type's top-level fields. Used
+     *  as the fallback when no per-category override matches. */
+    private CategoryPolicy defaultPolicyFromTopLevel() {
+        CategoryPolicy p = new CategoryPolicy();
+        p.setCategoryCode(null);      // null = "applies to all"
+        p.setAnnualQuota(this.defaultAnnualQuota);
+        p.setAccrualType(this.accrualType != null ? this.accrualType : "YEARLY");
+        p.setCarryForward(this.carryForward);
+        p.setCarryForwardMax(this.carryForwardMax);
+        p.setMinAdvanceDays(this.minAdvanceDays);
+        p.setMaxConsecutiveDays(this.maxConsecutiveDays);
+        p.setMandatoryPerYear(this.mandatoryPerYear);
+        return p;
+    }
+
+    /**
+     * Per-employment-category policy override. Mirrors the policy
+     * fields on {@link LeaveType} — same units, same semantics — but
+     * scoped to one employment category. When an employee's category
+     * matches, this policy's values are used instead of the type's
+     * top-level defaults.
+     *
+     * <p>Intentionally NOT covering every top-level field:
+     * description, color, sortOrder, paid, active, applicableGender,
+     * requiresAttachmentAfterDays are properties of the type itself
+     * and don't vary by employee category. Only the fields schools
+     * actually vary per category live here.</p>
+     */
+    public static class CategoryPolicy {
+        /** FULL_TIME / CONTRACT / PROBATION / PART_TIME. Null on the
+         *  synthetic fallback returned by {@link #defaultPolicyFromTopLevel}. */
+        private String categoryCode;
+        private double annualQuota;
+        /** YEARLY / MONTHLY / QUARTERLY — same values the type-level
+         *  accrualType accepts. */
+        private String accrualType = "YEARLY";
+        private boolean carryForward;
+        private double carryForwardMax;
+        private int minAdvanceDays;
+        private int maxConsecutiveDays;
+        private double mandatoryPerYear;
+
+        public CategoryPolicy() {}
+
+        public String getCategoryCode() { return categoryCode; }
+        public void setCategoryCode(String categoryCode) { this.categoryCode = categoryCode; }
+
+        public double getAnnualQuota() { return annualQuota; }
+        public void setAnnualQuota(double annualQuota) { this.annualQuota = annualQuota; }
+
+        public String getAccrualType() { return accrualType; }
+        public void setAccrualType(String accrualType) { this.accrualType = accrualType; }
+
+        public boolean isCarryForward() { return carryForward; }
+        public void setCarryForward(boolean carryForward) { this.carryForward = carryForward; }
+
+        public double getCarryForwardMax() { return carryForwardMax; }
+        public void setCarryForwardMax(double carryForwardMax) { this.carryForwardMax = carryForwardMax; }
+
+        public int getMinAdvanceDays() { return minAdvanceDays; }
+        public void setMinAdvanceDays(int minAdvanceDays) { this.minAdvanceDays = minAdvanceDays; }
+
+        public int getMaxConsecutiveDays() { return maxConsecutiveDays; }
+        public void setMaxConsecutiveDays(int maxConsecutiveDays) { this.maxConsecutiveDays = maxConsecutiveDays; }
+
+        public double getMandatoryPerYear() { return mandatoryPerYear; }
+        public void setMandatoryPerYear(double mandatoryPerYear) { this.mandatoryPerYear = mandatoryPerYear; }
+    }
 }

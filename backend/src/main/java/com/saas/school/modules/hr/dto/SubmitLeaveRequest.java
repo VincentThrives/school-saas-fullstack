@@ -12,6 +12,11 @@ public class SubmitLeaveRequest {
     private boolean startHalf;
     /** 1st half of endDate. Ignored when start == end. */
     private boolean endHalf;
+    /** For single-day half-day requests only: which half is the leave
+     *  ("FIRST" = morning off, "SECOND" = afternoon off). Ignored on
+     *  multi-day / full-day requests. Persisted on {@link com.saas.school.modules.hr.model.LeaveApplication}
+     *  so HR knows when the employee is actually present that day. */
+    private String halfDayPart;
     private String reason;
 
     public String getLeaveTypeCode() { return leaveTypeCode; }
@@ -28,6 +33,9 @@ public class SubmitLeaveRequest {
 
     public boolean isEndHalf() { return endHalf; }
     public void setEndHalf(boolean endHalf) { this.endHalf = endHalf; }
+
+    public String getHalfDayPart() { return halfDayPart; }
+    public void setHalfDayPart(String halfDayPart) { this.halfDayPart = halfDayPart; }
 
     public String getReason() { return reason; }
     public void setReason(String reason) { this.reason = reason; }

@@ -1,5 +1,6 @@
+// Rely on the main-layout .content-wrapper for outer padding.
 .lt-form-container {
-  padding: 16px;
+  padding: 0 0 40px;
   max-width: 900px;
   margin: 0 auto;
 }
@@ -82,6 +83,64 @@
   .policy-toggle { margin-bottom: 12px; }
 }
 
+// Master "different rules per employee type" toggle sits at the top
+// of the Balance tab. Different color so it reads as a mode switch,
+// not just another policy field.
+.per-cat-master {
+  background: linear-gradient(135deg, #fff8ec 0%, #fdf1d6 100%);
+  border: 1px solid #f0d9a6;
+  margin-top: 0;
+  margin-bottom: 14px;
+
+  .policy-hint {
+    margin: 6px 0 0;
+    color: #6b5720;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+}
+
+// Per-category tab strip — nested inside the outer Balance tab.
+.per-cat-tabs {
+  margin-top: 4px;
+  ::ng-deep .mat-mdc-tab-header { border-bottom: 1px solid #edf0f4; }
+}
+.per-cat-body {
+  padding: 18px 4px 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+
+// Inline error below a specific field — small, red, unobtrusive.
+.field-error {
+  margin: -8px 4px 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+// Cross-field validation banner — collates every violation so HR
+// can see the whole picture in one place, then jumps them to Save.
+.validation-banner {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 14px;
+
+  mat-icon { color: #b91c1c; margin-top: 2px; }
+  strong { display: block; color: #7f1d1d; font-size: 13px; margin-bottom: 4px; }
+  ul {
+    margin: 0; padding-left: 18px;
+    color: #991b1b; font-size: 12.5px; line-height: 1.55;
+    li + li { margin-top: 2px; }
+  }
+}
+
 .future-hint {
   display: flex; gap: 12px;
   background: #eef7ff;
@@ -112,7 +171,7 @@
 }
 
 @media (max-width: 640px) {
-  .lt-form-container { padding: 12px; }
+  .lt-form-container { padding: 0 0 32px; }
   .tab-body { padding: 18px 16px 12px; }
   .row.two > mat-form-field { flex-basis: 100%; }
   .form-footer { flex-direction: column-reverse; padding: 14px 16px; }

@@ -41,7 +41,7 @@ import { HrDailyAttendance, HrEmployeeOption, HrAttendanceReport } from '../../.
  * free-text employee search. Export to CSV / print-to-PDF via
  * the browser — no third-party libs needed for the MVP.</p>
  */
-type StatusKey = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT';
+type StatusKey = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT' | 'ON_LEAVE';
 
 interface EmployeeSummary {
   employeeId: string;
@@ -51,6 +51,12 @@ interface EmployeeSummary {
   late: number;
   halfDay: number;
   absent: number;
+  /** Days marked ON_LEAVE via an approved leave application. Rendered
+   *  as its own column so leave days don't get lumped in with Absent
+   *  or (worse) Unmarked — HR needs to see leaves as a first-class
+   *  count for compliance conversations. Counted as attended for the
+   *  Attendance % calc (approved absence isn't a penalty). */
+  onLeave: number;
   /** Days in the picked range where NO attendance row exists at all
    *  (neither punched, marked, nor absent-stamped by the daily job).
    *  Rendered as its own column so HR can tell the difference between
@@ -310,7 +316,7 @@ export class AttendanceReportComponent implements OnInit {
         employeeId: emp.employeeId,
         name: emp.name || '(unnamed)',
         designation: emp.designation,
-        present: 0, late: 0, halfDay: 0, absent: 0,
+        present: 0, late: 0, halfDay: 0, absent: 0, onLeave: 0,
         unmarked: 0,      // computed below
         totalDays,        // raw calendar days
         workingDays: baseWorkingDays,   // may be bumped up if employee worked on Sunday / holiday
@@ -333,6 +339,7 @@ export class AttendanceReportComponent implements OnInit {
       if (r.late) e.late++;
       else if (r.status === 'HALF_DAY') e.halfDay++;
       else if (r.status === 'ABSENT') e.absent++;
+      else if (r.status === 'ON_LEAVE') e.onLeave++;
       else if (r.status === 'PRESENT') e.present++;
 
       // Award working-day credit when this row lands on a Sunday
@@ -353,14 +360,16 @@ export class AttendanceReportComponent implements OnInit {
     for (const e of map.values()) {
       const offWorked = workedOnOff.get(e.employeeId)?.size || 0;
       e.workingDays = baseWorkingDays + offWorked;
-      // Unmarked = total − (marked ANY status). A P/L/H/A on a
-      // Sunday counts as marked, so a person who came in on a
+      // Unmarked = total − (marked ANY status). A P/L/H/A/On-leave
+      // on a Sunday counts as marked, so a person who came in on a
       // Sunday doesn't get penalised with an Unmarked entry too.
-      const marked = e.present + e.late + e.halfDay + e.absent;
+      const marked = e.present + e.late + e.halfDay + e.absent + e.onLeave;
       e.unmarked = Math.max(0, e.totalDays - marked);
       // % anchored to WORKING days (not total). Half-days count
       // as 0.5; Late still counts as present (showed up, just tardy).
-      const attendedEq = e.present + e.late + e.halfDay * 0.5;
+      // On-leave counts as attended — approved leave shouldn't
+      // penalise the employee's attendance score.
+      const attendedEq = e.present + e.late + e.halfDay * 0.5 + e.onLeave;
       e.percent = e.workingDays > 0
         ? Math.round((attendedEq / e.workingDays) * 100)
         : 0;
@@ -375,6 +384,7 @@ export class AttendanceReportComponent implements OnInit {
         if (this.statusFilter === 'LATE'      && e.late    === 0) return false;
         if (this.statusFilter === 'HALF_DAY'  && e.halfDay === 0) return false;
         if (this.statusFilter === 'ABSENT'    && e.absent  === 0) return false;
+        if (this.statusFilter === 'ON_LEAVE'  && e.onLeave === 0) return false;
         if (this.statusFilter === 'PRESENT'   && e.present === 0) return false;
         return true;
       })
@@ -391,19 +401,20 @@ export class AttendanceReportComponent implements OnInit {
     workingDays: number;
     holidayDays: number;
     avgAttendance: number;
-    late: number; halfDay: number; absent: number; unmarked: number;
+    late: number; halfDay: number; absent: number; onLeave: number; unmarked: number;
   } {
     const rows = this.summaryRows;
-    let late = 0, halfDay = 0, absent = 0, present = 0, unmarked = 0;
+    let late = 0, halfDay = 0, absent = 0, present = 0, onLeave = 0, unmarked = 0;
     let workingSlots = 0, attendedEq = 0;
     for (const r of rows) {
       present  += r.present;
       late     += r.late;
       halfDay  += r.halfDay;
       absent   += r.absent;
+      onLeave  += r.onLeave;
       unmarked += r.unmarked;
       workingSlots += r.workingDays;
-      attendedEq   += r.present + r.late + r.halfDay * 0.5;
+      attendedEq   += r.present + r.late + r.halfDay * 0.5 + r.onLeave;
     }
     // Same base-working-days calc as summaryRows but as a single
     // scalar for the KPI card ("22 working days this month").
@@ -421,7 +432,7 @@ export class AttendanceReportComponent implements OnInit {
       holidayDays: [...this.holidayDates].filter(d =>
         d >= this.dateColumns[0] && d <= this.dateColumns[this.dateColumns.length - 1]).length,
       avgAttendance: workingSlots > 0 ? Math.round((attendedEq / workingSlots) * 100) : 0,
-      late, halfDay, absent, unmarked,
+      late, halfDay, absent, onLeave, unmarked,
     };
   }
 
@@ -484,6 +495,7 @@ export class AttendanceReportComponent implements OnInit {
     if (cell?.late)                    return 'grid-cell grid-cell--late';
     if (cell?.status === 'HALF_DAY')   return 'grid-cell grid-cell--halfday';
     if (cell?.status === 'ABSENT')     return 'grid-cell grid-cell--absent';
+    if (cell?.status === 'ON_LEAVE')   return 'grid-cell grid-cell--leave';
     if (cell?.status === 'PRESENT')    return 'grid-cell grid-cell--present';
     if (dateIso && this.isHoliday(dateIso)) return 'grid-cell grid-cell--holiday';
     if (dateIso && this.isSunday(dateIso))  return 'grid-cell grid-cell--weekoff';
@@ -494,6 +506,7 @@ export class AttendanceReportComponent implements OnInit {
     if (cell?.late)                    return 'L';
     if (cell?.status === 'HALF_DAY')   return 'H';
     if (cell?.status === 'ABSENT')     return 'A';
+    if (cell?.status === 'ON_LEAVE')   return 'LV';
     if (cell?.status === 'PRESENT')    return 'P';
     if (dateIso && this.isHoliday(dateIso)) return 'HO';
     if (dateIso && this.isSunday(dateIso))  return 'WO';
@@ -547,11 +560,11 @@ export class AttendanceReportComponent implements OnInit {
       this.snack.open('No data to export', 'Close', { duration: 2500 });
       return;
     }
-    const header = ['Employee', 'Designation', 'Present', 'Late', 'Half-day', 'Absent', 'Unmarked', 'Working', 'Total', 'Attendance %'];
+    const header = ['Employee', 'Designation', 'Present', 'Late', 'Half-day', 'Absent', 'On leave', 'Unmarked', 'Working', 'Total', 'Attendance %'];
     const lines = [
       header.map(this.csvEscape).join(','),
       ...rows.map(r => [
-        r.name, r.designation || '', r.present, r.late, r.halfDay, r.absent, r.unmarked,
+        r.name, r.designation || '', r.present, r.late, r.halfDay, r.absent, r.onLeave, r.unmarked,
         r.workingDays, r.totalDays, `${r.percent}%`,
       ].map(v => this.csvEscape(String(v))).join(',')),
     ];
@@ -600,11 +613,11 @@ export class AttendanceReportComponent implements OnInit {
 
     autoTable(doc, {
       startY: 168,
-      head: [['Employee', 'Designation', 'Present', 'Late', 'Half-day', 'Absent', 'Unmarked', 'Working', 'Total', 'Attendance %']],
+      head: [['Employee', 'Designation', 'Present', 'Late', 'Half-day', 'Absent', 'On leave', 'Unmarked', 'Working', 'Total', 'Attendance %']],
       body: rows.map(r => [
         r.name,
         r.designation ? this.designationLabel(r.designation) : '—',
-        r.present, r.late, r.halfDay, r.absent, r.unmarked,
+        r.present, r.late, r.halfDay, r.absent, r.onLeave, r.unmarked,
         r.workingDays, r.totalDays,
         `${r.percent}%`,
       ]),
@@ -743,6 +756,7 @@ export class AttendanceReportComponent implements OnInit {
       ['Late',        k.late,                     [245, 158, 11]],
       ['Half-day',    k.halfDay,                  [168, 85, 247]],
       ['Absent',      k.absent,                   [239, 68, 68]],
+      ['On leave',    k.onLeave,                  [15,  118, 110]],
       ['Unmarked',    k.unmarked,                 [148, 163, 184]],
     ];
     stats.forEach(([label, value, rgb], i) => {

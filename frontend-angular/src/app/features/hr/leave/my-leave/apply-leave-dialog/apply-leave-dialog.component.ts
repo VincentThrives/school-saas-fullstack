@@ -1,13 +1,14 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, Optional } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatRadioModule } from '@angular/material/radio';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -35,7 +36,8 @@ import { LeaveBalance, LeaveType, SubmitLeaveRequest } from '../../../../../core
     CommonModule, FormsModule,
     MatDialogModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatCheckboxModule, MatSnackBarModule, MatProgressSpinnerModule,
+    MatCheckboxModule, MatRadioModule,
+    MatSnackBarModule, MatProgressSpinnerModule,
     MatDatepickerModule,
   ],
   providers: [provideNativeDateAdapter()],
@@ -53,6 +55,11 @@ export class ApplyLeaveDialogComponent implements OnInit {
     endDate: Date | null;
     startHalf: boolean;
     endHalf: boolean;
+    /** Single-day request only: which half of the day is off.
+     *  'FULL' → full-day leave; 'FIRST' → morning off; 'SECOND' →
+     *  afternoon off. The radio's model. Multi-day requests ignore
+     *  this and use the startHalf / endHalf checkboxes instead. */
+    dayMode: 'FULL' | 'FIRST' | 'SECOND';
     reason: string;
   } = {
     leaveTypeCode: '',
@@ -60,6 +67,7 @@ export class ApplyLeaveDialogComponent implements OnInit {
     endDate: null,
     startHalf: false,
     endHalf: false,
+    dayMode: 'FULL',
     reason: '',
   };
 
@@ -70,7 +78,25 @@ export class ApplyLeaveDialogComponent implements OnInit {
     private api: ApiService,
     private ref: MatDialogRef<ApplyLeaveDialogComponent, boolean>,
     private snack: MatSnackBar,
-  ) {}
+    // Optional so the dialog still opens from the plain "Apply for
+    // leave" button (My Leave page) without any prefill data.
+    @Optional() @Inject(MAT_DIALOG_DATA) private prefill?: {
+      startDate?: string | Date | null;
+      endDate?: string | Date | null;
+    } | null,
+  ) {
+    // Pre-fill dates when the caller passed them — e.g. clicking a
+    // calendar cell on My Attendance's Apply CTA. Same date is used
+    // for both start and end (single-day request) unless the caller
+    // supplied an explicit endDate.
+    if (this.prefill?.startDate) {
+      const d = this.toDate(this.prefill.startDate);
+      if (d) {
+        this.form.startDate = d;
+        this.form.endDate = this.toDate(this.prefill.endDate) || d;
+      }
+    }
+  }
 
   ngOnInit(): void {
     this.isLoading = true;
@@ -116,8 +142,13 @@ export class ApplyLeaveDialogComponent implements OnInit {
     const spanMs = end.getTime() - start.getTime();
     const spanned = Math.round(spanMs / 86400000) + 1;
     let d = spanned;
-    if (this.form.startHalf) d -= 0.5;
-    if (this.form.endHalf && !this.sameDay(start, end)) d -= 0.5;
+    // Single-day: dayMode drives it. Multi-day: legacy checkboxes.
+    if (this.sameDay(start, end)) {
+      if (this.form.dayMode !== 'FULL') d -= 0.5;
+    } else {
+      if (this.form.startHalf) d -= 0.5;
+      if (this.form.endHalf) d -= 0.5;
+    }
     return Math.max(0, d);
   }
 
@@ -148,12 +179,18 @@ export class ApplyLeaveDialogComponent implements OnInit {
     if (this.requestedDays <= 0) return this.snackErr('Requested duration is 0 days — check the half-day toggles.');
     if (!this.form.reason.trim()) return this.snackErr('Reason is required.');
 
+    // Reduce single-day dayMode → startHalf + halfDayPart. Multi-day
+    // requests keep the checkbox model as before.
+    const halfPart: 'FIRST' | 'SECOND' | null =
+      (this.isSingleDay && (this.form.dayMode === 'FIRST' || this.form.dayMode === 'SECOND'))
+        ? this.form.dayMode : null;
     const payload: SubmitLeaveRequest = {
       leaveTypeCode: this.form.leaveTypeCode,
       startDate: this.toIso(this.form.startDate),
       endDate: this.toIso(this.form.endDate),
-      startHalf: this.form.startHalf,
+      startHalf: this.isSingleDay ? halfPart !== null : this.form.startHalf,
       endHalf: this.form.endHalf && !this.isSingleDay,
+      halfDayPart: halfPart,
       reason: this.form.reason.trim(),
     };
     this.isSubmitting = true;
@@ -191,5 +228,14 @@ export class ApplyLeaveDialogComponent implements OnInit {
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
+  }
+
+  /** Coerce a pre-fill value (ISO string or Date) into a Date. Null-
+   *  safe so undefined/empty caller data quietly no-ops. */
+  private toDate(v: string | Date | null | undefined): Date | null {
+    if (!v) return null;
+    if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
   }
 }

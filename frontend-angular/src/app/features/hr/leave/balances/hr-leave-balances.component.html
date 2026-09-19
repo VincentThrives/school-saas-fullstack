@@ -45,59 +45,74 @@
           {{ (s.employeeName || '?').charAt(0).toUpperCase() }}
         </div>
         <div class="emp-info">
-          <div class="emp-name">{{ s.employeeName }}</div>
+          <div class="emp-name">
+            {{ s.employeeName }}
+            <span class="cat-badge"
+                  [class.cat-contract]="s.employmentCategory === 'CONTRACT'"
+                  [class.cat-probation]="s.employmentCategory === 'PROBATION'"
+                  [class.cat-parttime]="s.employmentCategory === 'PART_TIME'"
+                  matTooltip="Employment category — drives which per-category leave policy applies">
+              {{ categoryLabel(s.employmentCategory) }}
+            </span>
+          </div>
           <div class="emp-meta">
             <span *ngIf="s.designation" class="emp-designation">{{ s.designation }}</span>
-            <span class="emp-id">{{ s.employeeId }}</span>
           </div>
         </div>
       </div>
 
-      <div class="balance-grid">
-        <div class="balance-cell" *ngFor="let b of s.balances"
+      <!-- Compact tile grid — each leave type is a small stacked
+           tile (code+name / progress bar / X/Y · used). Many fit per
+           row so an employee with 6 types still lands in one row on a
+           wide desktop and two rows on mobile. -->
+      <div class="balance-tiles">
+        <div class="balance-tile" *ngFor="let b of s.balances"
              (click)="openOverride(s, b)"
              matTooltip="Click to override">
-          <div class="cell-head">
-            <span class="type-chip" [style.background]="b.color || '#B8860B'">{{ b.leaveTypeCode }}</span>
-            <span class="cell-name" [class.strike]="!b.typeActive">{{ b.leaveTypeName }}</span>
+          <div class="tile-head">
+            <span class="tile-chip" [style.background]="b.color || '#B8860B'">
+              {{ b.leaveTypeCode }}
+            </span>
+            <span class="tile-name" [class.strike]="!b.typeActive">{{ b.leaveTypeName }}</span>
+
+            <!-- Corner meta icons — only render when relevant. -->
+            <mat-icon *ngIf="b.accrualType === 'MONTHLY' && (b.accruedUnits ?? 0) < (b.accrualTotalUnits ?? 12)"
+                      class="tile-icon icon-accrual"
+                      [matTooltip]="'Monthly · ' + b.accruedUnits + '/' + b.accrualTotalUnits + ' months credited'">
+              schedule
+            </mat-icon>
+            <mat-icon *ngIf="b.accrualType === 'QUARTERLY' && (b.accruedUnits ?? 0) < (b.accrualTotalUnits ?? 12)"
+                      class="tile-icon icon-accrual"
+                      [matTooltip]="'Quarterly · ' + b.accruedUnits + '/' + b.accrualTotalUnits + ' months credited'">
+              schedule
+            </mat-icon>
+            <mat-icon *ngIf="b.mandatoryPerYear > 0 && mandatoryRemaining(b) > 0"
+                      class="tile-icon icon-mandatory"
+                      [matTooltip]="mandatoryRemaining(b) + ' compulsory day(s) left'">
+              rule
+            </mat-icon>
+            <mat-icon *ngIf="b.mandatoryPerYear > 0 && mandatoryRemaining(b) === 0"
+                      class="tile-icon icon-mandatory-met"
+                      matTooltip="Compulsory quota met">
+              check_circle
+            </mat-icon>
+            <mat-icon *ngIf="b.carryForwardIn > 0"
+                      class="tile-icon icon-carry"
+                      [matTooltip]="'+' + b.carryForwardIn + ' carried in from last year'">
+              redo
+            </mat-icon>
           </div>
 
-          <div class="cell-remaining">
-            <span class="rem-num" [style.color]="b.color || '#4a3a10'">{{ b.remaining }}</span>
-            <span class="rem-unit">left</span>
-          </div>
-
-          <div class="cell-progress">
-            <div class="cell-progress-fill"
+          <div class="tile-progress">
+            <div class="tile-progress-fill"
                  [style.width.%]="usedPct(b)"
                  [style.background]="b.color || '#B8860B'"></div>
           </div>
 
-          <div class="cell-meta">
-            <span>{{ b.used }} used</span>
-            <span class="dot">·</span>
-            <span>{{ b.allocated + b.carryForwardIn }} total</span>
-          </div>
-
-          <!-- Mandatory-quota hint — only surfaces when the type has a
-               compulsory threshold. Amber when still owed, green when
-               employee has met it. -->
-          <div class="cell-mandatory"
-               *ngIf="b.mandatoryPerYear > 0"
-               [class.cell-mandatory--met]="mandatoryRemaining(b) === 0">
-            <mat-icon>rule</mat-icon>
-            <span *ngIf="mandatoryRemaining(b) > 0">
-              {{ mandatoryRemaining(b) }} compulsory left
-            </span>
-            <span *ngIf="mandatoryRemaining(b) === 0">
-              Compulsory met
-            </span>
-          </div>
-
-          <!-- Carry-forward hint. -->
-          <div class="cell-carry" *ngIf="b.carryForwardIn > 0">
-            <mat-icon>redo</mat-icon>
-            <span>+{{ b.carryForwardIn }} carried in</span>
+          <div class="tile-meta">
+            <span class="tile-rem" [style.color]="b.color || '#4a3a10'">{{ b.remaining }}</span>
+            <span class="tile-total">/ {{ b.allocated + b.carryForwardIn }}</span>
+            <span class="tile-used">· {{ b.used }} used</span>
           </div>
         </div>
       </div>

@@ -44,6 +44,12 @@ export class MyDetailsDialogComponent {
       route: '/hr/attendance/my',
     },
     {
+      title: 'My Leave',
+      hint: 'Check your leave balance, apply for a new leave, and see history.',
+      icon: 'event_available',
+      route: '/hr/leave/my',
+    },
+    {
       title: 'My Profile',
       hint: 'View and edit your personal details, contact info, and login preferences.',
       icon: 'person',

@@ -302,8 +302,14 @@ $muted:     #64748b;
 .dd-footer {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   padding: 10px 4px 4px;
   border-top: 1px solid rgba(148, 163, 184, 0.14);
+
+  .dd-apply-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  }
   margin-top: 8px;
 }
 

@@ -145,5 +145,14 @@
 
   <div class="dd-footer">
     <button mat-button (click)="close()">Close</button>
+    <!-- Apply-for-leave shortcut — surfaces on any date that isn't a
+         week-off, declared holiday, or already an approved-leave day. -->
+    <button *ngIf="canApplyLeave"
+            mat-flat-button color="primary"
+            class="dd-apply-btn"
+            (click)="applyForLeave()">
+      <mat-icon>event_available</mat-icon>
+      Apply for leave
+    </button>
   </div>
 </div>

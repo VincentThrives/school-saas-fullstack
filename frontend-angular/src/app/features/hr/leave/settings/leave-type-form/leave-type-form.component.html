@@ -84,41 +84,153 @@
           Balance
         </ng-template>
         <div class="tab-body">
-          <mat-form-field appearance="outline" class="full">
-            <mat-label>Default annual quota (days)</mat-label>
-            <input matInput type="number" min="0" step="0.5"
-              [(ngModel)]="form.defaultAnnualQuota">
-            <mat-hint>0 = uncapped (LOP-style). Balances use this as initial allocation each year.</mat-hint>
-          </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full">
-            <mat-label>Accrual pattern</mat-label>
-            <mat-select [(ngModel)]="form.accrualType">
-              <mat-option value="YEARLY">Yearly — full quota on Jan 1</mat-option>
-              <mat-option value="MONTHLY">Monthly — 1/12 credited each month</mat-option>
-              <mat-option value="QUARTERLY">Quarterly — 1/4 credited each quarter</mat-option>
-            </mat-select>
-            <mat-hint>Monthly / quarterly types can't be over-consumed before they accrue.</mat-hint>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full">
-            <mat-label>Compulsory per year (days)</mat-label>
-            <input matInput type="number" min="0" step="0.5" [(ngModel)]="form.mandatoryPerYear">
-            <mat-hint>Employees must consume at least this many before year-end. 0 = no requirement.</mat-hint>
-          </mat-form-field>
-
-          <div class="policy-block">
+          <!-- Per-category master toggle. OFF (default) = single set
+               of quota/accrual/carry-forward values applies to
+               everyone (backwards-compatible with legacy types). ON
+               = expand to per-category tabs with the same fields
+               repeated. -->
+          <div class="policy-block per-cat-master">
             <div class="policy-toggle">
-              <mat-slide-toggle [(ngModel)]="form.carryForward">
-                Carry unused balance to next year
+              <mat-slide-toggle
+                [(ngModel)]="perCategoryEnabled"
+                (change)="onPerCategoryToggle()">
+                Different rules for different employee types
               </mat-slide-toggle>
             </div>
-            <mat-form-field appearance="outline" class="full" *ngIf="form.carryForward">
-              <mat-label>Carry-forward cap (days)</mat-label>
-              <input matInput type="number" min="0" step="0.5" [(ngModel)]="form.carryForwardMax">
-              <mat-hint>Days beyond this cap are forfeited at year-end. 0 = uncapped.</mat-hint>
-            </mat-form-field>
+            <p class="policy-hint">
+              Off — same quota + accrual + carry-forward apply to every
+              employee. On — configure per employment type (Full-time,
+              Contract, Probation, Part-time). Every new employee's
+              category comes from their profile.
+            </p>
           </div>
+
+          <!-- ─── Single-set fields (toggle OFF) ─── -->
+          <ng-container *ngIf="!perCategoryEnabled">
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Default annual quota (days)</mat-label>
+              <input matInput type="number" min="0" step="0.5"
+                [(ngModel)]="form.defaultAnnualQuota">
+              <mat-hint>0 = uncapped (LOP-style). Balances use this as initial allocation each year.</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Accrual pattern</mat-label>
+              <mat-select [(ngModel)]="form.accrualType">
+                <mat-option value="YEARLY">Yearly — full quota at academic year start</mat-option>
+                <mat-option value="MONTHLY">Monthly — 1/12 credited each month</mat-option>
+                <mat-option value="QUARTERLY">Quarterly — 1/4 credited each quarter</mat-option>
+              </mat-select>
+              <mat-hint>Monthly / quarterly types can't be over-consumed before they accrue.</mat-hint>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full">
+              <mat-label>Compulsory per year (days)</mat-label>
+              <input matInput type="number" min="0" step="0.5" [(ngModel)]="form.mandatoryPerYear">
+              <mat-hint>Employees must consume at least this many before year-end. 0 = no requirement.</mat-hint>
+            </mat-form-field>
+
+            <div class="policy-block">
+              <div class="policy-toggle">
+                <mat-slide-toggle [(ngModel)]="form.carryForward">
+                  Carry unused balance to next year
+                </mat-slide-toggle>
+              </div>
+              <mat-form-field appearance="outline" class="full" *ngIf="form.carryForward">
+                <mat-label>Carry-forward cap (days)</mat-label>
+                <input matInput type="number" min="0" step="0.5" [(ngModel)]="form.carryForwardMax">
+                <mat-hint>Days beyond this cap are forfeited at year-end. 0 = uncapped.</mat-hint>
+              </mat-form-field>
+              <div class="field-error" *ngIf="carryFwdError(form.defaultAnnualQuota, form.carryForwardMax, form.carryForward)">
+                {{ carryFwdError(form.defaultAnnualQuota, form.carryForwardMax, form.carryForward) }}
+              </div>
+            </div>
+
+            <!-- Live inline error banner for cross-field problems the
+                 single-field hints can't express. -->
+            <div class="validation-banner" *ngIf="topLevelErrors.length">
+              <mat-icon>error_outline</mat-icon>
+              <div>
+                <strong>Fix before saving:</strong>
+                <ul>
+                  <li *ngFor="let e of topLevelErrors">{{ e }}</li>
+                </ul>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- ─── Per-category tabs (toggle ON) ─── -->
+          <mat-tab-group *ngIf="perCategoryEnabled"
+                         animationDuration="180ms"
+                         class="per-cat-tabs"
+                         dynamicHeight="true">
+            <mat-tab *ngFor="let c of categoryOptions" [label]="c.label">
+              <div class="per-cat-body">
+                <mat-form-field appearance="outline" class="full">
+                  <mat-label>Annual quota (days)</mat-label>
+                  <input matInput type="number" min="0" step="0.01"
+                    [(ngModel)]="perCategory[c.value].annualQuota">
+                  <mat-hint>Days per year for {{ c.label.toLowerCase() }} employees.</mat-hint>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="full">
+                  <mat-label>Accrual pattern</mat-label>
+                  <mat-select [(ngModel)]="perCategory[c.value].accrualType">
+                    <mat-option value="YEARLY">Yearly — full quota at academic year start</mat-option>
+                    <mat-option value="MONTHLY">Monthly — 1/12 each month</mat-option>
+                    <mat-option value="QUARTERLY">Quarterly — 1/4 each quarter</mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="full">
+                  <mat-label>Compulsory per year (days)</mat-label>
+                  <input matInput type="number" min="0" step="0.5"
+                    [(ngModel)]="perCategory[c.value].mandatoryPerYear">
+                </mat-form-field>
+
+                <div class="policy-block">
+                  <div class="policy-toggle">
+                    <mat-slide-toggle [(ngModel)]="perCategory[c.value].carryForward">
+                      Carry unused balance to next year
+                    </mat-slide-toggle>
+                  </div>
+                  <mat-form-field appearance="outline" class="full"
+                    *ngIf="perCategory[c.value].carryForward">
+                    <mat-label>Carry-forward cap (days)</mat-label>
+                    <input matInput type="number" min="0" step="0.5"
+                      [(ngModel)]="perCategory[c.value].carryForwardMax">
+                    <mat-hint>Days beyond this cap are forfeited. 0 = uncapped.</mat-hint>
+                  </mat-form-field>
+                </div>
+
+                <div class="row two">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Notice before (days)</mat-label>
+                    <input matInput type="number" min="0"
+                      [(ngModel)]="perCategory[c.value].minAdvanceDays">
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Max consecutive days</mat-label>
+                    <input matInput type="number" min="0"
+                      [(ngModel)]="perCategory[c.value].maxConsecutiveDays">
+                  </mat-form-field>
+                </div>
+
+                <!-- Per-tab cross-field errors — keeps HR anchored to
+                     which tab is wrong when they're editing four. -->
+                <div class="validation-banner" *ngIf="categoryErrors(c.value).length">
+                  <mat-icon>error_outline</mat-icon>
+                  <div>
+                    <strong>Fix before saving:</strong>
+                    <ul>
+                      <li *ngFor="let e of categoryErrors(c.value)">{{ e }}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </mat-tab>
+          </mat-tab-group>
         </div>
       </mat-tab>
 
@@ -131,7 +243,7 @@
         <div class="tab-body">
           <div class="row two">
             <mat-form-field appearance="outline">
-              <mat-label>Notice period (days)</mat-label>
+              <mat-label>Notice before (days)</mat-label>
               <input matInput type="number" min="0" [(ngModel)]="form.minAdvanceDays">
               <mat-hint>0 = same-day allowed.</mat-hint>
             </mat-form-field>
@@ -187,7 +299,10 @@
          forcing the user to scroll down. -->
     <div class="form-footer">
       <button mat-button (click)="cancel()">Cancel</button>
-      <button mat-flat-button color="primary" (click)="submit()" [disabled]="isSaving">
+      <button mat-flat-button color="primary" (click)="submit()"
+              [disabled]="isSaving || hasValidationErrors"
+              [matTooltip]="hasValidationErrors ? allErrors[0] : ''"
+              matTooltipPosition="above">
         <mat-spinner *ngIf="isSaving" diameter="18"></mat-spinner>
         <ng-container *ngIf="!isSaving">
           <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>

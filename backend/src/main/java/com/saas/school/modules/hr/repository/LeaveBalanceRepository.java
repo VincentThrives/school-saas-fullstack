@@ -16,4 +16,9 @@ public interface LeaveBalanceRepository extends MongoRepository<LeaveBalance, St
     /** Full academic-year sheet for one employee — powers the My
      *  Leave balance widget and the HR balance drill-in. */
     List<LeaveBalance> findByEmployeeIdAndAcademicYearId(String employeeId, String academicYearId);
+
+    /** All balances for the given academic year — driven by the
+     *  monthly accrual top-up job so it can walk only the rows for
+     *  the year that's currently active. */
+    List<LeaveBalance> findByAcademicYearId(String academicYearId);
 }

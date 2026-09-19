@@ -118,6 +118,13 @@ public class TeacherController {
 
             req.setTeacherId(UUID.randomUUID().toString());
             if (req.getEmployeeRole() == null || req.getEmployeeRole().isEmpty()) req.setEmployeeRole("TEACHER");
+            // Default employment category — matches the pre-per-category
+            // behavior where every employee was implicitly full-time.
+            // HR can override on the form (Full-time / Contract /
+            // Probation / Part-time) before submit.
+            if (req.getEmploymentCategory() == null || req.getEmploymentCategory().isBlank()) {
+                req.setEmploymentCategory("FULL_TIME");
+            }
             req.syncFromAssignments();
 
             // Auto-create User account for login — same helper the bulk-import
@@ -155,6 +162,7 @@ public class TeacherController {
         if (req.getQualification() != null) existing.setQualification(req.getQualification());
         if (req.getSpecialization() != null) existing.setSpecialization(req.getSpecialization());
         if (req.getEmployeeRole() != null) existing.setEmployeeRole(req.getEmployeeRole());
+        if (req.getEmploymentCategory() != null) existing.setEmploymentCategory(req.getEmploymentCategory());
         // Multi-role additions: the frontend sends the full desired
         // list on every edit (empty array means "no additional roles").
         // Detect that by checking != null so a submit without the field

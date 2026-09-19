@@ -343,7 +343,7 @@ public class EmployeeAttendanceService {
         List<LocalDate> holidayDates = holidays.getHolidayDates();
         List<String> holidayNames = holidays.getHolidayNames();
 
-        List<EmployeeAttendance> rows = repo.findByDateBetween(from, to);
+        List<EmployeeAttendance> rows = repo.findAllRowsInRange(from, to);
         if (rows.isEmpty()) {
             return new HrAttendanceReportResponse(List.of(), holidayDates, holidayNames);
         }
@@ -390,7 +390,7 @@ public class EmployeeAttendanceService {
             from = today.withDayOfMonth(1);
             to = today.withDayOfMonth(today.lengthOfMonth());
         }
-        return repo.findByEmployeeIdAndDateBetween(employeeId, from, to);
+        return repo.findEmployeeRowsInRange(employeeId, from, to);
     }
 
     /** Look up the caller's linked employee record; used by

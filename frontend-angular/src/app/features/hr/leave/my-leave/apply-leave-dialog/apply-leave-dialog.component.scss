@@ -24,6 +24,16 @@ h2[mat-dialog-title] {
   display: flex; flex-wrap: wrap; gap: 16px 24px;
 }
 
+// Radio group for single-day requests — stacks vertically on
+// mobile so the three options don't wrap awkwardly.
+.day-mode-group {
+  display: flex; flex-wrap: wrap; gap: 8px 20px;
+
+  @media (max-width: 480px) {
+    flex-direction: column; gap: 6px;
+  }
+}
+
 .option-remaining {
   color: #6b7280; font-size: 12px; margin-left: 4px;
 }

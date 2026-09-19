@@ -204,6 +204,10 @@ export interface Teacher {
   qualification?: string;
   specialization?: string;
   employeeRole?: EmployeeRole;
+  /** FULL_TIME | CONTRACT | PROBATION | PART_TIME — drives which
+   *  per-category policy on a LeaveType applies. Legacy employees
+   *  without a category are treated as FULL_TIME server-side. */
+  employmentCategory?: 'FULL_TIME' | 'CONTRACT' | 'PROBATION' | 'PART_TIME';
   classSubjectAssignments?: ClassSubjectAssignment[];
   classIds: string[];
   subjectIds: string[];
@@ -1186,7 +1190,7 @@ export interface EmployeeAttendance {
   /** ISO instant. Null on ABSENT / ON_LEAVE rows. */
   inTime?: string;
   outTime?: string;
-  source: 'LOCATION' | 'BIOMETRIC' | 'MANUAL' | 'REGULARIZATION' | 'LEAVE';
+  source: 'LOCATION' | 'BIOMETRIC' | 'MANUAL' | 'REGULARIZATION' | 'LEAVE' | 'AUTO';
   markLatitude?: number;
   markLongitude?: number;
   markAccuracyMeters?: number;
@@ -1325,7 +1329,7 @@ export interface HrDailyAttendance {
   inTime?: string;
   outTime?: string;
 
-  source?: 'LOCATION' | 'BIOMETRIC' | 'MANUAL' | 'REGULARIZATION';
+  source?: 'LOCATION' | 'BIOMETRIC' | 'MANUAL' | 'REGULARIZATION' | 'AUTO';
   distanceFromCampusMeters?: number;
   markAccuracyMeters?: number;
   remarks?: string;
@@ -1529,6 +1533,37 @@ export interface LeaveType {
   applicableGender: 'ANY' | 'MALE' | 'FEMALE';
   /** Compulsory quota — how many days MUST be taken per year. */
   mandatoryPerYear: number;
+  /** Per-employment-category overrides. Null / empty on legacy types
+   *  → the top-level fields above apply to every employee. */
+  policies?: CategoryPolicy[] | null;
+}
+
+/** Employment category code — drives which per-category policy on
+ *  a LeaveType applies to this employee. Legacy employees without a
+ *  category are treated as FULL_TIME server-side. */
+export type EmploymentCategory = 'FULL_TIME' | 'CONTRACT' | 'PROBATION' | 'PART_TIME';
+
+/** Human-friendly labels for the employment-category dropdown. */
+export const EMPLOYMENT_CATEGORY_OPTIONS: { value: EmploymentCategory; label: string }[] = [
+  { value: 'FULL_TIME', label: 'Full-time' },
+  { value: 'CONTRACT',  label: 'Contract'  },
+  { value: 'PROBATION', label: 'Probation' },
+  { value: 'PART_TIME', label: 'Part-time' },
+];
+
+/** Per-employment-category policy override on a LeaveType. Populated
+ *  when HR enables "Different rules per employee type" on the Leave
+ *  Type form. Legacy types leave this null → top-level fields on
+ *  LeaveType apply to everyone. */
+export interface CategoryPolicy {
+  categoryCode: EmploymentCategory | null;
+  annualQuota: number;
+  accrualType: 'YEARLY' | 'MONTHLY' | 'QUARTERLY';
+  carryForward: boolean;
+  carryForwardMax: number;
+  minAdvanceDays: number;
+  maxConsecutiveDays: number;
+  mandatoryPerYear: number;
 }
 
 /** Create + update payload. Code is required on create, ignored on
@@ -1550,6 +1585,9 @@ export interface UpsertLeaveTypeRequest {
   requiresAttachmentAfterDays?: number;
   applicableGender?: 'ANY' | 'MALE' | 'FEMALE';
   mandatoryPerYear?: number;
+  /** Send the full desired list — [] clears overrides so top-level
+   *  fields apply to everyone. Omit (null) to leave existing untouched. */
+  policies?: CategoryPolicy[];
 }
 
 /** Per-employee, per-year, per-type balance row. remaining is derived
@@ -1561,7 +1599,23 @@ export interface LeaveBalance {
   leaveTypeName: string;
   color?: string;
   paid: boolean;
+  /** Effective accrual pattern for THIS employee (comes from their
+   *  category's policy for per-category types, falls back to the
+   *  type's top-level accrualType otherwise). */
   accrualType: 'YEARLY' | 'MONTHLY' | 'QUARTERLY';
+  /** Effective annual quota after category resolution — what the row
+   *  will finally credit by year-end. Lets the UI show "5 of 12
+   *  credited" for MONTHLY types. */
+  annualQuota?: number;
+  /** How many monthly slices (0..{@link accrualTotalUnits}) have
+   *  been credited into {@code allocated} so far. Grows over the
+   *  year for MONTHLY / QUARTERLY types; equals the AY month count
+   *  for YEARLY. */
+  accruedUnits?: number;
+  /** Total accrual slices for this academic year (the AY's month
+   *  count — 10 for a Jun–Mar AY, 12 for a full Apr–Mar year).
+   *  Denominator for the progress hint. */
+  accrualTotalUnits?: number;
 
   allocated: number;
   carryForwardIn: number;
@@ -1585,6 +1639,10 @@ export interface EmployeeLeaveBalanceSheet {
   employeeId: string;
   employeeName: string;
   designation?: string;
+  /** Employment category (FULL_TIME/CONTRACT/PROBATION/PART_TIME). Used
+   *  by the HR Balances page to render a small badge next to the name
+   *  so per-category policy allocations are traceable. */
+  employmentCategory?: EmploymentCategory;
   balances: LeaveBalance[];
 }
 
@@ -1622,6 +1680,10 @@ export interface LeaveApplication {
   startHalf: boolean;
   /** 1st half of the last date. Ignored when start == end. */
   endHalf: boolean;
+  /** Which half is off on a single-day request — FIRST = morning off
+   *  (employee comes in after lunch), SECOND = afternoon off. Null
+   *  for full-day or multi-day requests. */
+  halfDayPart?: 'FIRST' | 'SECOND' | null;
   /** Full = 1.0, half = 0.5 — computed server-side at submit. */
   days: number;
 
@@ -1644,6 +1706,9 @@ export interface SubmitLeaveRequest {
   endDate: string;
   startHalf?: boolean;
   endHalf?: boolean;
+  /** For single-day half-day requests: which half is off. Ignored
+   *  on multi-day and full-day requests server-side. */
+  halfDayPart?: 'FIRST' | 'SECOND' | null;
   reason: string;
 }
 

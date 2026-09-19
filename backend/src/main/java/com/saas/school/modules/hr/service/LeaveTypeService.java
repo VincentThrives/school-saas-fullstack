@@ -145,6 +145,68 @@ public class LeaveTypeService {
             t.setApplicableGender(v);
         }
         if (req.getMandatoryPerYear() != null) t.setMandatoryPerYear(Math.max(0, req.getMandatoryPerYear()));
+        // Per-category policies. Null on request = leave existing
+        // untouched (partial patch); empty list = clear overrides.
+        // Non-null list replaces the existing policies wholesale —
+        // no partial merging, keeps the code simple + matches how the
+        // frontend form always sends the full desired list.
+        if (req.getPolicies() != null) t.setPolicies(req.getPolicies());
+        // Cross-field guard — same rules the client-side validators
+        // enforce, replayed on the server so an API caller bypassing
+        // the form can't sneak an inconsistent type in. Runs LAST
+        // so it sees the fully-applied fields, including policies.
+        validateCrossField(t);
+    }
+
+    /**
+     * Enforce sanity relationships between fields the individual @min
+     * checks can't catch:
+     * <ul>
+     *   <li>{@code carryForwardMax ≤ defaultAnnualQuota} — can't carry
+     *       more than you can accumulate</li>
+     *   <li>{@code mandatoryPerYear ≤ defaultAnnualQuota} — can't be
+     *       required to take more days than you get</li>
+     *   <li>{@code maxConsecutiveDays ≤ defaultAnnualQuota} — can't
+     *       take a longer stretch than your annual allotment</li>
+     * </ul>
+     * Same rules apply per-policy when policies are configured.
+     * Uncapped types ({@code annualQuota == 0}) skip these checks —
+     * an uncapped LOP-style balance has no ceiling.
+     */
+    private void validateCrossField(LeaveType t) {
+        checkTuple("top-level",
+            t.getDefaultAnnualQuota(),
+            t.isCarryForward() ? t.getCarryForwardMax() : 0,
+            t.getMandatoryPerYear(),
+            t.getMaxConsecutiveDays());
+        if (t.getPolicies() != null) {
+            for (LeaveType.CategoryPolicy p : t.getPolicies()) {
+                if (p == null) continue;
+                String label = p.getCategoryCode() != null ? p.getCategoryCode() : "policy";
+                checkTuple(label,
+                    p.getAnnualQuota(),
+                    p.isCarryForward() ? p.getCarryForwardMax() : 0,
+                    p.getMandatoryPerYear(),
+                    p.getMaxConsecutiveDays());
+            }
+        }
+    }
+
+    private void checkTuple(String label, double annual, double carry,
+                            double mandatory, double maxConsec) {
+        if (annual <= 0) return;    // uncapped — skip
+        if (carry > annual) {
+            throw new BusinessException(label + ": carry-forward cap ("
+                + carry + ") can't exceed the annual quota (" + annual + ").");
+        }
+        if (mandatory > annual) {
+            throw new BusinessException(label + ": compulsory quota ("
+                + mandatory + ") can't exceed the annual quota (" + annual + ").");
+        }
+        if (maxConsec > annual) {
+            throw new BusinessException(label + ": max consecutive days ("
+                + maxConsec + ") can't exceed the annual quota (" + annual + ").");
+        }
     }
 
     /** Partial update — only non-null fields on the request are
