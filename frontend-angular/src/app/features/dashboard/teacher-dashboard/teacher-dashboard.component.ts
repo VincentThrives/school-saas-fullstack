@@ -121,8 +121,19 @@ export class TeacherDashboardComponent implements OnInit {
     return this.todayPunch?.status === 'ON_LEAVE';
   }
 
+  /** Auto-absent row: system stamped ABSENT before any punch arrived.
+   *  Employee can't just start their workday now — a Regularization
+   *  request has to correct the record. */
+  get workdayIsAutoAbsent(): boolean {
+    return this.todayPunch?.status === 'ABSENT' && !this.todayPunch?.inTime;
+  }
+
   get workdayStatusLine(): string {
     if (this.workdayIsOnLeave) return 'You\'re on approved leave today.';
+    if (this.workdayIsAutoAbsent) {
+      return 'Marked ABSENT by the school\'s auto-absent policy. Submit a '
+           + 'Regularization request to correct this.';
+    }
     if (!this.todayPunch) return 'Yet to start work today.';
     if (!this.todayPunch.outTime) {
       return `Work started at ${this.formatWorkdayTime(this.todayPunch.inTime)}`;
@@ -132,6 +143,7 @@ export class TeacherDashboardComponent implements OnInit {
 
   get workdayCanPunch(): boolean {
     if (this.workdayIsOnLeave) return false;
+    if (this.workdayIsAutoAbsent) return false;
     if (!this.todayPunch) return true;
     if (!this.todayPunch.outTime) return true;
     return false;

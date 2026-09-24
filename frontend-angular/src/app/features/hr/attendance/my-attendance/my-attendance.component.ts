@@ -609,9 +609,21 @@ export class MyAttendanceComponent implements OnInit, OnDestroy {
 
   get workStatusLine(): string {
     if (this.isOnLeaveToday) return 'You\'re on approved leave today.';
+    if (this.isAutoAbsentToday) {
+      return 'Marked ABSENT by the school\'s auto-absent policy. Submit a '
+           + 'Regularization request to correct this.';
+    }
     if (!this.today) return 'Yet to start work today.';
     if (!this.today.outTime) return `Work started at ${this.formatRowTime(this.today.inTime)}`;
     return `Done — IN ${this.formatRowTime(this.today.inTime)} · OUT ${this.formatRowTime(this.today.outTime)}`;
+  }
+
+  /** True when today's row is an auto-absent stamp (status=ABSENT
+   *  with no IN yet). Hides the Start/End Workday CTA — the employee
+   *  can't fix this via self-mark, they have to submit a
+   *  Regularization request so HR can verify. */
+  get isAutoAbsentToday(): boolean {
+    return this.today?.status === 'ABSENT' && !this.today?.inTime;
   }
 
   /** True when today's row is an approved-leave row. Suppresses the
@@ -625,6 +637,10 @@ export class MyAttendanceComponent implements OnInit, OnDestroy {
   get canPunch(): boolean {
     if (!this.settings?.locationBasedEnabled) return false;
     if (this.isOnLeaveToday) return false;
+    // Auto-absent stamped ABSENT for today → Start/End Workday
+    // buttons are both hidden. Employee has to submit a
+    // Regularization to correct it.
+    if (this.isAutoAbsentToday) return false;
     if (!this.today) return true;
     if (this.settings.expectedPunchesPerDay >= 2 && !this.today.outTime) return true;
     return false;

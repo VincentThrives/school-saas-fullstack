@@ -156,12 +156,21 @@ public class EmployeeAttendanceService {
         // (repurposed since biometric has no HR admin actor).
         String actor = "adms:" + terminalSerial + "/" + terminalUserId;
 
-        // If the terminal claims OUT and there's already an IN, jump
-        // straight to promoting OUT rather than running the full
-        // isLate/isHalfDay computation on the OUT time.
+        // If the terminal claims OUT and there's already a REAL IN,
+        // jump straight to promoting OUT rather than running the full
+        // isLate/isHalfDay computation on the OUT time. The
+        // {@code getInTime() != null} guard is important: an
+        // auto-absent ABSENT row (source=AUTO, no IN, no OUT) also
+        // satisfies "row exists and OUT is empty", and without this
+        // guard we'd stamp the OUT time on an ABSENT row that never
+        // had an IN — which is the "punched but IN column empty"
+        // bug we saw in production on the first day teachers used
+        // the terminal.
         if ("OUT".equalsIgnoreCase(direction)) {
             EmployeeAttendance existing = repo.findByEmployeeIdAndDate(employeeId, date).orElse(null);
-            if (existing != null && existing.getOutTime() == null) {
+            if (existing != null
+                    && existing.getInTime() != null
+                    && existing.getOutTime() == null) {
                 existing.setOutTime(scannedAt);
                 existing.setMarkedByUserId(actor);
                 // Recompute HALF_DAY vs PRESENT now that we can
@@ -174,8 +183,10 @@ public class EmployeeAttendanceService {
             }
             // No IN row yet but terminal quoted OUT — treat as a
             // late-first-punch (the person walked in without
-            // scanning, then scanned OUT going home). Fall through
-            // to upsertPunch which will create an IN row.
+            // scanning, then scanned OUT going home) OR the
+            // auto-absent job stamped an ABSENT-no-punches row
+            // earlier. Fall through to upsertPunch which will
+            // write an IN and upgrade the status.
         }
         upsertPunch(employeeId, date, scannedAt, settings, "BIOMETRIC", actor,
             null, null, null, null, false);
@@ -440,12 +451,18 @@ public class EmployeeAttendanceService {
                                           Double distanceMeters, boolean mocked) {
         EmployeeAttendance existing = repo.findByEmployeeIdAndDate(employeeId, date).orElse(null);
 
-        // First punch of the day — write IN + compute status.
-        if (existing == null) {
-            EmployeeAttendance row = new EmployeeAttendance();
-            row.setAttendanceId(UUID.randomUUID().toString());
-            row.setEmployeeId(employeeId);
-            row.setDate(date);
+        // First real IN punch of the day — either no row at all, or an
+        // auto-absent row (source=AUTO, inTime=null) that we need to
+        // upgrade in place so its history/attendanceId is preserved.
+        // Anything else (existing row with a real IN) falls through to
+        // the OUT/dedup branches below.
+        if (existing == null || existing.getInTime() == null) {
+            EmployeeAttendance row = existing != null ? existing : new EmployeeAttendance();
+            if (existing == null) {
+                row.setAttendanceId(UUID.randomUUID().toString());
+                row.setEmployeeId(employeeId);
+                row.setDate(date);
+            }
             row.setInTime(when);
             row.setSource(source);
             row.setMarkedByUserId(markedByUserId);
@@ -464,10 +481,21 @@ public class EmployeeAttendanceService {
             boolean isLate = isAfterOrEqual(when, settings.getLateThreshold());
             row.setStatus("PRESENT");
             row.setLate(isLate);
+            // Clear the auto-absent stamp's stale remark ("Auto-
+            // marked ABSENT — no punch by 11:00") — the person did
+            // turn up, that reason no longer applies. Keeps the
+            // audit trail on {@code source} + {@code markedByUserId}.
+            if (existing != null && "AUTO".equalsIgnoreCase(existing.getSource())) {
+                row.setRemarks(null);
+                // Clear the auto-out flag too if it somehow made
+                // it here — we're re-writing this row as a fresh IN.
+                row.setOutTime(null);
+            }
 
             repo.save(row);
-            log.info("Employee self-mark IN: employee={} date={} status={} late={} distance={}m",
-                    employeeId, date, row.getStatus(), isLate, distanceMeters == null ? -1 : distanceMeters.intValue());
+            log.info("Employee mark IN: employee={} date={} status={} late={} upgraded-from-auto-absent={}",
+                    employeeId, date, row.getStatus(), isLate,
+                    existing != null && "AUTO".equalsIgnoreCase(existing.getSource()));
             return MarkSelfResponse.from(row, "IN");
         }
 
