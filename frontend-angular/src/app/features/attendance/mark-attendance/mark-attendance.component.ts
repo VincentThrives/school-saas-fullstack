@@ -20,7 +20,7 @@ import { PageHeaderComponent } from '../../../shared/components/page-header/page
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { TenantFeatureService } from '../../../core/services/tenant-feature.service';
-import { SchoolClass, AcademicYear, UserRole } from '../../../core/models';
+import { SchoolClass, AcademicYear, UserRole, WeekDay } from '../../../core/models';
 import {
   OverrideReasonDialogComponent,
   OverrideReasonResult,
@@ -120,6 +120,16 @@ export class MarkAttendanceComponent implements OnInit {
   noPeriodsDayLabel = '';
   noTimetableConfigured = false;
 
+  /** True when the selected class has today's day-of-week in its
+   *  {@code weeklyOffDays} list — LKG on Saturday, UKG on Wednesday, etc.
+   *  Blocks the roster + save button identically to the holiday /
+   *  no-periods banners, and gets the same "Mark attendance anyway"
+   *  override (special classes DO happen — parent orientation on a
+   *  normally-off Saturday, exam-day makeup). */
+  isClassOffToday = false;
+  /** Human label for the banner ("Saturday", "Wednesday"). */
+  classOffDayLabel = '';
+
   /**
    * Escape hatch for the holiday / no-periods banners. Schools DO open on
    * Sundays for makeup classes, exams, or events, and testers also need to
@@ -158,7 +168,8 @@ export class MarkAttendanceComponent implements OnInit {
    *  NOT overridable — a missing timetable is a config problem, not a
    *  "we're open on Sunday" case; admin must go configure it. */
   get isDayBlockedAndNotOverridden(): boolean {
-    return !this.overrideDayBlock && (this.isHoliday || this.noPeriodsToday);
+    return !this.overrideDayBlock
+        && (this.isHoliday || this.noPeriodsToday || this.isClassOffToday);
   }
 
   /**
@@ -385,8 +396,37 @@ export class MarkAttendanceComponent implements OnInit {
     this.overrideDayType = null;
     this.refreshHolidayBanner();
     this.refreshNoPeriodsBanner();
+    this.refreshClassOffBanner();
     this.autoLiftBlockIfAlreadyMarked();
     this.maybeAutoLoadStudents();
+  }
+
+  /** Java DayOfWeek names — matches the backend enum stored on
+   *  SchoolClass.weeklyOffDays. JS Date.getDay() is 0=Sun..6=Sat. */
+  private readonly WEEKDAY_NAMES: WeekDay[] = [
+    'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY',
+    'THURSDAY', 'FRIDAY', 'SATURDAY',
+  ];
+  private readonly WEEKDAY_LABELS: Record<WeekDay, string> = {
+    SUNDAY: 'Sunday', MONDAY: 'Monday', TUESDAY: 'Tuesday',
+    WEDNESDAY: 'Wednesday', THURSDAY: 'Thursday',
+    FRIDAY: 'Friday', SATURDAY: 'Saturday',
+  };
+
+  /** Recompute {@link isClassOffToday} from the currently-selected class
+   *  and date. Runs on every scope change (class pick, date pick). */
+  private refreshClassOffBanner(): void {
+    this.isClassOffToday = false;
+    this.classOffDayLabel = '';
+    if (!this.selectedClassId || !this.selectedDate) return;
+    const cls = this.classes.find(c => c.classId === this.selectedClassId);
+    const off = (cls?.weeklyOffDays || []) as WeekDay[];
+    if (off.length === 0) return;
+    const dow = this.WEEKDAY_NAMES[this.selectedDate.getDay()];
+    if (off.includes(dow)) {
+      this.isClassOffToday = true;
+      this.classOffDayLabel = this.WEEKDAY_LABELS[dow];
+    }
   }
 
   /** Apply the hub's prefill once the dropdowns have data to bind against.
@@ -479,6 +519,7 @@ export class MarkAttendanceComponent implements OnInit {
     this.timetablePeriodsByDay.clear();
     this.timetableCacheKey = '';
     this.refreshNoPeriodsBanner();
+    this.refreshClassOffBanner();
   }
 
   /** Section dropdown handler — triggers the timetable cache load so
@@ -538,7 +579,8 @@ export class MarkAttendanceComponent implements OnInit {
     if (this.noTimetableConfigured) return;
     // Soft gates (holiday / no-periods) yield when the admin has clicked
     // "Mark attendance anyway" for this scope+date.
-    if (!this.overrideDayBlock && (this.isHoliday || this.noPeriodsToday)) return;
+    if (!this.overrideDayBlock
+        && (this.isHoliday || this.noPeriodsToday || this.isClassOffToday)) return;
     if (this.isLoading) return;
     const dateStr = this.formatDate(this.selectedDate);
     const key = `${this.selectedClassId}::${this.selectedSectionId}::${this.selectedAcademicYearId}::${dateStr}`;

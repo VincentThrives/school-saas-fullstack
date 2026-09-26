@@ -115,6 +115,24 @@
     </div>
   </div>
 
+  <!-- Weekly-off Banner — fires when the picked class has today's
+       day-of-week in its weeklyOffDays (LKG on Saturday, etc.). No
+       "Mark anyway" hatch here — the block is structural, not a
+       schedule quirk. If a school genuinely needs to mark this class
+       today, they should clear the class's weekly-off in Class Edit
+       instead of side-stepping per-day. -->
+  <div class="holiday-banner class-off-banner"
+       *ngIf="isClassOffToday && !isHoliday && !noPeriodsToday && !noTimetableConfigured">
+    <mat-icon class="holiday-banner-icon">event_busy</mat-icon>
+    <div class="holiday-banner-text">
+      <h3>Weekly off — {{ classOffDayLabel }}</h3>
+      <p>
+        This class is configured as off on {{ classOffDayLabel }}s.
+        No attendance to mark. Edit the class if this needs to change.
+      </p>
+    </div>
+  </div>
+
   <!-- Optional "override on" hint chip — reminds the admin that they
        chose to mark on a non-working day, and lets them back out with
        one click if they clicked "Mark anyway" by mistake. Hidden once
