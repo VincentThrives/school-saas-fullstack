@@ -12,6 +12,26 @@ $amber-deep: #B45309;
   padding-bottom: 32px;
 }
 
+.weekly-off-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: $amber-soft;
+  color: $amber-deep;
+  font-size: 13px;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: $amber-deep;
+  }
+
+  strong { font-weight: 600; }
+}
+
 .filter-card {
   border-radius: 12px;
   .filter-row {

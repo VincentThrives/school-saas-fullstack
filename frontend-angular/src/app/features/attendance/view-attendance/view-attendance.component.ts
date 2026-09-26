@@ -17,7 +17,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
-import { AcademicYear } from '../../../core/models';
+import { AcademicYear, SchoolClass, WeekDay } from '../../../core/models';
 
 interface AbsentStudentRef {
   studentId: string;
@@ -86,6 +86,18 @@ export class ViewAttendanceComponent implements OnInit {
   /** Filter the card grid by class name. 'ALL' shows every class. */
   classFilter: string = 'ALL';
 
+  /** classId → weekly off-days lookup. Filled once from the Classes API
+   *  and refreshed only when the tenant reloads the page. Used to hide
+   *  class cards on their configured weekly off days (LKG/UKG on
+   *  Saturday, etc.) so admins don't get prompted to mark attendance
+   *  for a class that isn't in session. */
+  private classOffDays = new Map<string, Set<WeekDay>>();
+
+  /** Class names hidden by the weekly-off filter on the selected date.
+   *  Rendered as a small info line above the tabs so the admin
+   *  understands why some sections are missing. */
+  hiddenOffClassNames: string[] = [];
+
   /** Card keys ({classId}::{sectionId}) whose absentee list is expanded.
    *  Cards with the list collapsed show only the count header — keeps the
    *  grid tidy when a section has 15+ absentees. */
@@ -103,6 +115,11 @@ export class ViewAttendanceComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Pre-fetch classes so we know each class's weekly off-days before
+    // the first day-status render. Fire-and-forget: if it errors we
+    // just fall back to no filtering (existing behaviour).
+    this.loadClassOffDays();
+
     this.api.getAcademicYears().subscribe({
       next: (res) => {
         this.academicYears = Array.isArray(res.data) ? res.data : (res.data as any)?.content || [];
@@ -114,6 +131,60 @@ export class ViewAttendanceComponent implements OnInit {
         this.academicYears = [];
       },
     });
+  }
+
+  private loadClassOffDays(): void {
+    this.api.getClasses().subscribe({
+      next: (res) => {
+        const list: SchoolClass[] = Array.isArray(res.data)
+          ? res.data
+          : ((res.data as any)?.content || []);
+        this.classOffDays.clear();
+        for (const cls of list) {
+          if (!cls.classId) continue;
+          const set = new Set<WeekDay>();
+          for (const d of (cls.weeklyOffDays || [])) set.add(d);
+          this.classOffDays.set(cls.classId, set);
+        }
+        // Recompute the hidden-list against whatever rows are already
+        // on screen so a late-arriving classes response still updates
+        // the info line without waiting for the next reload().
+        this.rebuildHiddenClassNames();
+      },
+      error: () => {
+        this.classOffDays.clear();
+      },
+    });
+  }
+
+  /** Java DayOfWeek names — matches the backend enum stored on
+   *  SchoolClass.weeklyOffDays. JS Date.getDay() is 0=Sun..6=Sat. */
+  private readonly WEEKDAY_NAMES: WeekDay[] = [
+    'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY',
+    'THURSDAY', 'FRIDAY', 'SATURDAY',
+  ];
+
+  private selectedDayOfWeek(): WeekDay {
+    return this.WEEKDAY_NAMES[this.selectedDate.getDay()];
+  }
+
+  /** True when the selected date falls on this class's weekly off day. */
+  private isClassOffToday(classId: string): boolean {
+    const set = this.classOffDays.get(classId);
+    if (!set || set.size === 0) return false;
+    return set.has(this.selectedDayOfWeek());
+  }
+
+  private rebuildHiddenClassNames(): void {
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const r of this.rows) {
+      if (!this.isClassOffToday(r.classId)) continue;
+      if (seen.has(r.className)) continue;
+      seen.add(r.className);
+      names.push(r.className);
+    }
+    this.hiddenOffClassNames = names;
   }
 
   onAcademicYearChange(): void { this.reload(); }
@@ -129,10 +200,12 @@ export class ViewAttendanceComponent implements OnInit {
     this.api.getAttendanceDayStatus(this.selectedAcademicYearId, dateStr).subscribe({
       next: (res) => {
         this.rows = Array.isArray(res.data) ? res.data : [];
+        this.rebuildHiddenClassNames();
         this.isLoading = false;
       },
       error: (err) => {
         this.rows = [];
+        this.hiddenOffClassNames = [];
         this.isLoading = false;
         this.snackBar.open(err?.error?.message || 'Failed to load attendance status', 'Close', { duration: 3000 });
       },
@@ -149,8 +222,12 @@ export class ViewAttendanceComponent implements OnInit {
   }
 
   get filteredRows(): DayStatusRow[] {
-    if (this.classFilter === 'ALL') return this.rows;
-    return this.rows.filter(r => r.className === this.classFilter);
+    // Weekly-off hide first — a class not in session today is out of
+    // scope for BOTH tabs. Class-name chip filter runs on top of that
+    // as a normal drill-down.
+    const base = this.rows.filter(r => !this.isClassOffToday(r.classId));
+    if (this.classFilter === 'ALL') return base;
+    return base.filter(r => r.className === this.classFilter);
   }
 
   get todoRows(): DayStatusRow[] {

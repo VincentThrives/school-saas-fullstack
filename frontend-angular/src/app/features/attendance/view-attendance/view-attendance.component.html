@@ -44,6 +44,18 @@
     </mat-chip-listbox>
   </div>
 
+  <!-- Weekly-off notice — classes whose per-class weekly off day covers
+       the selected date are hidden from both tabs (no attendance to mark).
+       Line stays out of the way when nothing's hidden. -->
+  <div class="weekly-off-notice" *ngIf="hiddenOffClassNames.length > 0">
+    <mat-icon>event_busy</mat-icon>
+    <span>
+      Weekly off today for
+      <strong>{{ hiddenOffClassNames.join(', ') }}</strong>
+      — those sections are hidden.
+    </span>
+  </div>
+
   <!-- Tabs — Yet to mark first so the admin lands on what's outstanding.
        Tab content is driven by the rows arrays directly; Material handles
        which tab body is visible. -->
