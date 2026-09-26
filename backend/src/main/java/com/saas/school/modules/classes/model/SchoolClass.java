@@ -4,6 +4,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.util.List;
 
@@ -14,6 +15,20 @@ public class SchoolClass {
     private String name;
     private String academicYearId;
     private List<Section> sections;
+
+    /**
+     * Weekdays this class is <b>not</b> in session — e.g. LKG/UKG/Nursery
+     * with {@code [SATURDAY]} when the primary section works Mon–Sat but
+     * kindergarten runs Mon–Fri only. Empty or null means the class
+     * follows the tenant defaults (Sunday off + declared holidays).
+     *
+     * <p>Read by {@code AutoAbsentJob} to skip students whose class has
+     * today's day-of-week in this list: no ABSENT stamp, no parent SMS.
+     * Independent from the global Sunday/holiday guard — a tenant-level
+     * {@code WORKING_DAY} override still doesn't force a class in on a
+     * day it structurally doesn't attend.</p>
+     */
+    private List<DayOfWeek> weeklyOffDays;
 
     @CreatedDate
     private Instant createdAt;
@@ -72,6 +87,14 @@ public class SchoolClass {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public List<DayOfWeek> getWeeklyOffDays() {
+        return weeklyOffDays;
+    }
+
+    public void setWeeklyOffDays(List<DayOfWeek> weeklyOffDays) {
+        this.weeklyOffDays = weeklyOffDays;
     }
 
     // ── Nested types ──────────────────────────────────────────────

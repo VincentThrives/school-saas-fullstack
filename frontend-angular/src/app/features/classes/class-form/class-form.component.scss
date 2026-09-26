@@ -28,6 +28,45 @@ $gold-dark: #B8860B;
   margin: 28px 0;
 }
 
+.weekly-off-row {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.weekly-off-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #444;
+}
+
+.weekly-off-hint {
+  color: #888;
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.weekly-off-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.weekly-off-chip {
+  min-width: 56px;
+  border-radius: 999px !important;
+  padding: 0 14px !important;
+  line-height: 32px !important;
+
+  &.selected {
+    background: $gold-light !important;
+    border-color: $gold !important;
+    color: $gold-dark !important;
+    font-weight: 600;
+  }
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

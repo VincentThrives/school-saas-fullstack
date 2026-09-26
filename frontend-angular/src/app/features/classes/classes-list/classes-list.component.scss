@@ -67,9 +67,29 @@ $gold-dark: #B8860B;
   }
 }
 
+.class-name-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .class-name {
   font-weight: 600;
   font-size: 14px;
+}
+
+.weekly-off-badge {
+  display: inline-block;
+  width: fit-content;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(212, 168, 67, 0.12);
+  color: #8a6a1a;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.02em;
 }
 
 .sections-chips {

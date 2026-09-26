@@ -56,7 +56,14 @@
             <div class="class-icon">
               <mat-icon>school</mat-icon>
             </div>
-            <span class="class-name">{{ cls.name }}</span>
+            <div class="class-name-stack">
+              <span class="class-name">{{ cls.name }}</span>
+              <span class="weekly-off-badge"
+                    *ngIf="getWeeklyOffLabel(cls)"
+                    matTooltip="Auto-absent skips this class on these weekdays">
+                {{ getWeeklyOffLabel(cls) }}
+              </span>
+            </div>
           </div>
         </td>
       </ng-container>

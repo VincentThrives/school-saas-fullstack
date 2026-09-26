@@ -45,6 +45,30 @@
           </mat-form-field>
         </div>
 
+        <!-- Weekly off days — LKG/UKG/Nursery Saturday off, etc.
+             Sunday isn't offered because the tenant-global rule already
+             skips every Sunday. Auto-absent skips classes on their off
+             days: no ABSENT stamp, no parent SMS. -->
+        <div class="weekly-off-row">
+          <label class="weekly-off-label">
+            Weekly off days
+            <span class="weekly-off-hint">
+              — auto-absent skips this class on these weekdays (Sundays are always off).
+            </span>
+          </label>
+          <div class="weekly-off-chips">
+            <button
+              *ngFor="let opt of weeklyOffOptions"
+              type="button"
+              mat-stroked-button
+              class="weekly-off-chip"
+              [class.selected]="isWeeklyOffSelected(opt.value)"
+              (click)="toggleWeeklyOff(opt.value)">
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+
         <mat-divider class="section-divider"></mat-divider>
 
         <!-- Sections -->

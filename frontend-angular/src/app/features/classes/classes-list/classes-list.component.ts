@@ -223,6 +223,20 @@ export class ClassesListComponent implements OnInit {
     return schoolClass.sections?.map(s => s.name) || [];
   }
 
+  /** "Sat off" / "Fri, Sat off" — empty string when the class has no
+   *  per-class weekly off days configured (follows tenant defaults). */
+  getWeeklyOffLabel(schoolClass: SchoolClass): string {
+    const days = schoolClass.weeklyOffDays;
+    if (!days || days.length === 0) return '';
+    const order: string[] = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'];
+    const short: Record<string, string> = {
+      MONDAY: 'Mon', TUESDAY: 'Tue', WEDNESDAY: 'Wed', THURSDAY: 'Thu',
+      FRIDAY: 'Fri', SATURDAY: 'Sat', SUNDAY: 'Sun',
+    };
+    const sorted = [...days].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    return `${sorted.map(d => short[d] || d).join(', ')} off`;
+  }
+
   getEnrolledStudents(schoolClass: SchoolClass): number {
     return this.studentCountMap[schoolClass.classId] || 0;
   }

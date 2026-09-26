@@ -222,11 +222,18 @@ export interface Teacher {
 }
 
 // SchoolClass
+export type WeekDay =
+  | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY'
+  | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+
 export interface SchoolClass {
   classId: string;
   name: string;
   academicYearId: string;
   sections: { sectionId: string; name: string; capacity: number; classTeacherId?: string; subjectIds?: string[] }[];
+  /** Weekdays this class does not attend (e.g. LKG/UKG = ['SATURDAY']).
+   *  Empty = follows tenant-global Sunday/holiday rules only. */
+  weeklyOffDays?: WeekDay[];
   createdAt?: string;
 }
 

@@ -15,7 +15,7 @@ import { PageHeaderComponent } from '../../../shared/components/page-header/page
 import { scrollToFirstInvalid } from '../../../shared/utils/form-scroll';
 import { ApiService } from '../../../core/services/api.service';
 import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
-import { AcademicYear, Teacher } from '../../../core/models';
+import { AcademicYear, Teacher, WeekDay } from '../../../core/models';
 
 @Component({
   selector: 'app-class-form',
@@ -48,6 +48,17 @@ export class ClassFormComponent implements OnInit {
   academicYears: AcademicYear[] = [];
   teachers: Teacher[] = [];
 
+  /** Sunday is already the tenant-global weekly off, so we only offer
+   *  Mon–Sat here. Order matches how school admins think about a week. */
+  readonly weeklyOffOptions: { value: WeekDay; label: string }[] = [
+    { value: 'MONDAY',    label: 'Mon' },
+    { value: 'TUESDAY',   label: 'Tue' },
+    { value: 'WEDNESDAY', label: 'Wed' },
+    { value: 'THURSDAY',  label: 'Thu' },
+    { value: 'FRIDAY',    label: 'Fri' },
+    { value: 'SATURDAY',  label: 'Sat' },
+  ];
+
   constructor(
     private fb: FormBuilder,
     private apiService: ApiService,
@@ -65,6 +76,10 @@ export class ClassFormComponent implements OnInit {
     this.classForm = this.fb.group({
       name: ['', Validators.required],
       academicYearId: ['', Validators.required],
+      // Empty by default — this class follows the tenant-global Sunday/
+      // holiday rules only. LKG/UKG/Nursery admins tick Saturday here so
+      // auto-absent skips them on Saturday runs.
+      weeklyOffDays: [[] as WeekDay[]],
       sections: this.fb.array([]),
     });
 
@@ -127,6 +142,7 @@ export class ClassFormComponent implements OnInit {
           this.classForm.patchValue({
             name: this.parseClassNumber(cls.name),
             academicYearId: cls.academicYearId,
+            weeklyOffDays: cls.weeklyOffDays || [],
           });
           // Clear and rebuild sections
           this.sections.clear();
@@ -228,6 +244,24 @@ export class ClassFormComponent implements OnInit {
 
       this.customSubject = '';
     }
+  }
+
+  /** Whether the given weekday is currently selected as a weekly off. */
+  isWeeklyOffSelected(day: WeekDay): boolean {
+    const days: WeekDay[] = this.classForm.get('weeklyOffDays')?.value || [];
+    return days.includes(day);
+  }
+
+  /** Chip click — flip the day in/out of weeklyOffDays. */
+  toggleWeeklyOff(day: WeekDay): void {
+    const ctrl = this.classForm.get('weeklyOffDays');
+    if (!ctrl) return;
+    const current: WeekDay[] = ctrl.value || [];
+    const next = current.includes(day)
+      ? current.filter(d => d !== day)
+      : [...current, day];
+    ctrl.setValue(next);
+    ctrl.markAsDirty();
   }
 
   addSection(): void {

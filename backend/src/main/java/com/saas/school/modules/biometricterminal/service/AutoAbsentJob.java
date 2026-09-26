@@ -7,6 +7,8 @@ import com.saas.school.modules.biometricterminal.model.AutoAbsentLog;
 import com.saas.school.modules.biometricterminal.model.BiometricSettings;
 import com.saas.school.modules.biometricterminal.repository.AutoAbsentLogRepository;
 import com.saas.school.modules.biometricterminal.repository.BiometricSettingsRepository;
+import com.saas.school.modules.classes.model.SchoolClass;
+import com.saas.school.modules.classes.repository.SchoolClassRepository;
 import com.saas.school.modules.event.repository.SchoolEventRepository;
 import com.saas.school.modules.notification.model.Notification;
 import com.saas.school.modules.notification.service.NotificationService;
@@ -27,7 +29,11 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Marks students who haven't scanned in by their tenant's configured
@@ -72,6 +78,7 @@ public class AutoAbsentJob {
     @Autowired private AutoAbsentLogRepository logRepository;
     @Autowired private StudentRepository studentRepository;
     @Autowired private StudentsAttendanceRepository attendanceRepository;
+    @Autowired private SchoolClassRepository classRepository;
     @Autowired private NotificationService notificationService;
     @Autowired private SmsService smsService;
     /** SchoolEvent lookups drive the Sunday / holiday skip logic.
@@ -267,12 +274,39 @@ public class AutoAbsentJob {
     /** Scan every active student → for each without a PRESENT day-wise
      *  entry today, upsert an ABSENT entry and fire an in-app parent
      *  notification. Returns the studentIds newly marked absent so the
-     *  caller can fan out the ABSENCE_ALERT SMS in one batched call. */
+     *  caller can fan out the ABSENCE_ALERT SMS in one batched call.
+     *
+     *  <p>Skips any student whose class has today's day-of-week in
+     *  {@link SchoolClass#getWeeklyOffDays()} — e.g. LKG/UKG on a
+     *  Saturday when the main school still runs. No ABSENT stamp, no
+     *  parent SMS for those classes.</p>
+     */
     private List<String> markAbsentees(LocalDate today) {
+        DayOfWeek dow = today.getDayOfWeek();
+        // One classes-collection scan per run → then per-student
+        // lookups are O(1). Empty / null off-day lists become empty
+        // EnumSets so the .contains check is safe without further
+        // null-guards.
+        Map<String, Set<DayOfWeek>> offByClass = new HashMap<>();
+        for (SchoolClass cls : classRepository.findAll()) {
+            if (cls.getClassId() == null) continue;
+            List<DayOfWeek> raw = cls.getWeeklyOffDays();
+            Set<DayOfWeek> off = (raw == null || raw.isEmpty())
+                ? EnumSet.noneOf(DayOfWeek.class)
+                : EnumSet.copyOf(raw);
+            offByClass.put(cls.getClassId(), off);
+        }
+
         List<Student> students = studentRepository.findByDeletedAtIsNull();
         List<String> markedIds = new ArrayList<>();
         for (Student s : students) {
             if (s.getClassId() == null || s.getSectionId() == null) continue;
+
+            // Per-class weekly-off (LKG has Saturday, main school
+            // doesn't). No ABSENT stamp, no SMS. Silent skip — the
+            // right behaviour is "this class isn't in session today."
+            Set<DayOfWeek> off = offByClass.get(s.getClassId());
+            if (off != null && off.contains(dow)) continue;
 
             StudentsAttendance row = attendanceRepository
                 .findByClassIdAndSectionIdAndDateAndPeriodNumberAndSubjectIdAndComponentKeyAndSubPartKey(
