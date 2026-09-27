@@ -106,8 +106,29 @@ public class TenantService {
                 tenant.getTenantId(),
                 tenant.getSchoolName(),
                 tenant.getLogoUrl(),
-                tenant.getStatus().name()
+                tenant.getStatus().name(),
+                formatAddress(tenant),
+                tenant.getContactPhone(),
+                tenant.getContactEmail()
         );
+    }
+
+    /** Comma-joined address line for the receipt / hall-ticket header.
+     *  Empty parts are dropped so a tenant with only city+state doesn't
+     *  render as ", City, State ". */
+    private String formatAddress(com.saas.school.modules.tenant.model.Tenant tenant) {
+        com.saas.school.modules.tenant.model.Tenant.Address a = tenant.getAddress();
+        if (a == null) return null;
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        if (a.getStreet() != null && !a.getStreet().isBlank()) parts.add(a.getStreet().trim());
+        if (a.getCity() != null && !a.getCity().isBlank()) parts.add(a.getCity().trim());
+        String stateZip = "";
+        if (a.getState() != null && !a.getState().isBlank()) stateZip = a.getState().trim();
+        if (a.getZip() != null && !a.getZip().isBlank()) {
+            stateZip = stateZip.isEmpty() ? a.getZip().trim() : stateZip + " " + a.getZip().trim();
+        }
+        if (!stateZip.isEmpty()) parts.add(stateZip);
+        return parts.isEmpty() ? null : String.join(", ", parts);
     }
 
     /**

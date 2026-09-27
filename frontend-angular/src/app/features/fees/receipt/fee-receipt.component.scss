@@ -1,0 +1,293 @@
+$border: #d0d0d0;
+$muted: #6b6b6b;
+$deep: #222;
+$gold: #B8860B;
+
+// ── Shell + toolbar ──────────────────────────────────────────────
+// Standalone-route mode wraps the receipt in a grey page. Dialog
+// mode drops the grey background and inline padding because the
+// MatDialog panel already provides its own frame.
+.receipt-shell {
+  background: #f4f5f7;
+  min-height: 100vh;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+
+  &.in-dialog {
+    background: transparent;
+    min-height: auto;
+    padding: 0;
+  }
+}
+
+.toolbar {
+  width: 100%;
+  max-width: 148mm;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+
+  .toolbar-title {
+    font-size: 13px;
+    color: $muted;
+    letter-spacing: 0.02em;
+  }
+  .toolbar-actions { display: flex; gap: 8px; align-items: center; }
+}
+
+.loading-row { padding: 32px 0; }
+.error-message {
+  display: flex; align-items: center; gap: 8px; color: #b00020;
+}
+
+.receipt-viewport {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+// ── Receipt card — sized in mm so what you see is what prints ──
+.receipt-card {
+  // Fixed A5 physical dimensions.
+  width: 148mm;
+  min-height: 200mm;
+  padding: 8mm 10mm;
+  background: #fff;
+  border: 1px solid $border;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  font-size: 10pt;
+  line-height: 1.35;
+  color: $deep;
+  // Use fonts jsPDF's html→canvas pipeline renders cleanly. Its default
+  // font substitution eats inter-word spaces when narrow sans-serifs
+  // are used (bug that produced "RupeesTwentyFiveThousandOnly" in the
+  // exported PDF). Helvetica / Arial with explicit word-spacing keeps
+  // every space visible in both the browser render and the exported PDF.
+  font-family: Helvetica, Arial, sans-serif;
+  word-spacing: 1px;
+  box-sizing: border-box;
+}
+
+// School header — logo + name + address + contact + label.
+// Centre-aligned so the school identity reads like a proper letterhead:
+// logo on top, name, address, contact, then the "FEE PAYMENT RECEIPT"
+// label — every line horizontally centred inside the card.
+.receipt-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 3px;
+  border-bottom: 2px solid $gold;
+  padding-bottom: 8px;
+
+  .school-logo {
+    height: 16mm;
+    width: 16mm;
+    object-fit: contain;
+    margin-bottom: 2mm;
+  }
+
+  .school-title {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 15pt;
+    color: $deep;
+    line-height: 1.15;
+  }
+
+  .school-tagline {
+    margin-top: 1px;
+    font-size: 8.5pt;
+    color: $gold;
+    font-style: italic;
+  }
+
+  .school-address {
+    margin-top: 2px;
+    font-size: 8.5pt;
+    color: $muted;
+    line-height: 1.3;
+  }
+
+  .school-contact {
+    margin-top: 1px;
+    font-size: 8pt;
+    color: $muted;
+  }
+
+  .receipt-label {
+    margin-top: 4px;
+    font-size: 9pt;
+    color: $gold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+}
+
+.receipt-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4mm;
+  margin-top: 4mm;
+
+  .meta-label {
+    font-size: 7pt;
+    color: $muted;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .meta-value { font-size: 9.5pt; }
+}
+
+.student-block {
+  margin-top: 4mm;
+  padding: 2.5mm 3.5mm;
+  border: 1px dashed $border;
+  border-radius: 2mm;
+
+  .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.8mm 0;
+    font-size: 9pt;
+    .label { color: $muted; }
+  }
+}
+
+.breakdown, .totals {
+  width: 100%;
+  margin-top: 4mm;
+  border-collapse: collapse;
+
+  td {
+    padding: 1.8mm 2.5mm;
+    border-bottom: 1px solid $border;
+    font-size: 9pt;
+  }
+  .right { text-align: right; }
+}
+
+.totals .history-header td {
+  padding-top: 3mm;
+  padding-bottom: 1mm;
+  font-size: 7.5pt;
+  color: $muted;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid $border;
+}
+
+.totals .history-row td {
+  padding: 1.2mm 2.5mm;
+  font-size: 8.5pt;
+  border-bottom: 1px dashed $border;
+
+  code {
+    background: #f5f5f5;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 8pt;
+  }
+
+  .rc-date, .rc-mode { color: $muted; }
+  .rc-this {
+    color: $gold;
+    font-weight: 600;
+    font-style: italic;
+  }
+}
+
+.totals .history-row.this-receipt td {
+  background: rgba(212, 168, 67, 0.08);
+}
+
+.totals .balance-row td {
+  border-top: 2px solid $deep;
+  border-bottom: none;
+  padding-top: 2.5mm;
+  font-size: 10pt;
+}
+
+.hostel-note {
+  color: $gold;
+  font-size: 8pt;
+  font-style: italic;
+}
+
+.words-line {
+  margin-top: 3mm;
+  padding: 2.5mm;
+  background: #fafafa;
+  border: 1px solid $border;
+  border-radius: 1.5mm;
+  font-size: 8.5pt;
+  // Extra word-spacing for the italic amount-in-words line so the PDF
+  // exporter can't glue words together ("RupeesTwentyFive…" bug).
+  word-spacing: 2px;
+
+  .label { color: $muted; margin-right: 6px; }
+  .words { font-style: italic; }
+}
+
+.footer {
+  margin-top: 8mm;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+
+  .collected-by {
+    .label {
+      font-size: 7pt; color: $muted;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .value { font-size: 9pt; margin-top: 1px; }
+  }
+
+  .signature {
+    text-align: center;
+    min-width: 42mm;
+    .sig-line { border-top: 1px solid $deep; height: 8mm; }
+    .sig-label { font-size: 7.5pt; color: $muted; margin-top: 1mm; }
+  }
+}
+
+.thank-you {
+  margin-top: 5mm;
+  text-align: center;
+  font-size: 8pt;
+  color: $muted;
+  letter-spacing: 0.05em;
+}
+
+// ── Print rules ──────────────────────────────────────────────
+// When the parent page prints (not the iframe route in the TS), strip
+// everything except the receipt card and reset A5 layout.
+@media print {
+  .no-print { display: none !important; }
+  .receipt-shell {
+    background: #fff;
+    padding: 0;
+    min-height: auto;
+    gap: 0;
+  }
+  .receipt-card {
+    box-shadow: none;
+    border: none;
+    width: 148mm;
+    min-height: auto;
+  }
+  @page { size: A5; margin: 0; }
+}

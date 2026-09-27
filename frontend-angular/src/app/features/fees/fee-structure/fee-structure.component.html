@@ -47,6 +47,14 @@
         <td mat-cell *matCellDef="let s"><strong>Rs. {{ s.amount | number:'1.0-0' }}</strong></td>
       </ng-container>
 
+      <ng-container matColumnDef="hostelAmount">
+        <th mat-header-cell *matHeaderCellDef>Hostel</th>
+        <td mat-cell *matCellDef="let s">
+          <span *ngIf="s.hostelEnabled; else noHostel">{{ hostelLabel(s) }}</span>
+          <ng-template #noHostel><span class="muted">—</span></ng-template>
+        </td>
+      </ng-container>
+
       <ng-container matColumnDef="dueDate">
         <th mat-header-cell *matHeaderCellDef>Due Date</th>
         <td mat-cell *matCellDef="let s">{{ s.dueDate || '-' }}</td>
@@ -92,7 +100,14 @@
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Class</mat-label>
         <mat-select [(ngModel)]="formData.classId" [disabled]="!!editingId">
-          <mat-option *ngFor="let cls of classes" [value]="cls.classId">{{ cls.name }}</mat-option>
+          <!-- On Add: hide classes that already have a fee structure —
+               admin should EDIT the existing row, not create a duplicate.
+               On Edit: only the class being edited is shown (dropdown is
+               disabled anyway, so a single option is fine). -->
+          <mat-option *ngFor="let cls of classesForFeeForm" [value]="cls.classId">{{ cls.name }}</mat-option>
+          <mat-option *ngIf="classesForFeeForm.length === 0" disabled>
+            All classes already have a fee structure. Edit the existing rows.
+          </mat-option>
         </mat-select>
       </mat-form-field>
 
@@ -100,6 +115,44 @@
         <mat-label>Total Amount (Rs.)</mat-label>
         <input matInput type="number" [(ngModel)]="formData.amount" placeholder="e.g. 50000">
       </mat-form-field>
+
+      <!-- Hostel panel — collapsed by default. Turn on to add a hostel
+           add-on for this class; then optionally split into Boys/Girls
+           fees if the school charges them differently. -->
+      <div class="hostel-panel">
+        <mat-slide-toggle color="primary" [(ngModel)]="formData.hostelEnabled">
+          This class has a hostel option
+        </mat-slide-toggle>
+
+        <div class="hostel-panel-body" *ngIf="formData.hostelEnabled">
+          <mat-slide-toggle color="primary" [(ngModel)]="formData.hostelGenderSplit"
+                            matTooltip="Turn on when Boys and Girls hostel fees differ.">
+            Different fees for Boys and Girls
+          </mat-slide-toggle>
+
+          <mat-form-field appearance="outline" class="full-width"
+                          *ngIf="!formData.hostelGenderSplit">
+            <mat-label>Hostel Amount (Rs.)</mat-label>
+            <input matInput type="number" [(ngModel)]="formData.hostelAmount" placeholder="e.g. 40000">
+          </mat-form-field>
+
+          <div class="hostel-split-grid" *ngIf="formData.hostelGenderSplit">
+            <mat-form-field appearance="outline">
+              <mat-label>Boys Hostel (Rs.)</mat-label>
+              <input matInput type="number" [(ngModel)]="formData.hostelBoysAmount" placeholder="e.g. 40000">
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Girls Hostel (Rs.)</mat-label>
+              <input matInput type="number" [(ngModel)]="formData.hostelGirlsAmount" placeholder="e.g. 35000">
+            </mat-form-field>
+          </div>
+
+          <p class="hostel-hint">
+            Charged only to students marked as hostel residents on the
+            Fee Payments row (or on the Student form).
+          </p>
+        </div>
+      </div>
 
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Due Date</mat-label>

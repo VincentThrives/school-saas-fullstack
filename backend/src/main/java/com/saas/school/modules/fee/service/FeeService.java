@@ -24,6 +24,19 @@ public class FeeService {
     // ── Fee Structures ────────────────────────────────────────────
 
     public FeeStructure createStructure(FeeStructure req) {
+        // Reject a second structure for the same (year, class). The
+        // ledger materialiser SUMS across structures per class, so
+        // creating "1st = ₹40k" + "1st = ₹50k" silently charged
+        // every 1st student ₹90k. One row per class, admin edits it
+        // to change the amount.
+        if (req.getAcademicYearId() != null && req.getClassId() != null) {
+            List<FeeStructure> existingForClass = structureRepo.findByAcademicYearIdAndClassId(
+                    req.getAcademicYearId(), req.getClassId());
+            if (!existingForClass.isEmpty()) {
+                throw new com.saas.school.common.exception.BusinessException(
+                        "A fee structure already exists for this class in the selected academic year. Edit the existing row to change the amount.");
+            }
+        }
         req.setFeeStructureId(UUID.randomUUID().toString());
         FeeStructure saved = structureRepo.save(req);
         // Cascade: any existing ledgers for this (year, class) need their
@@ -35,10 +48,20 @@ public class FeeService {
     public FeeStructure updateStructure(String id, FeeStructure req) {
         FeeStructure existing = structureRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Fee structure not found"));
-        if (req.getAmount() > 0) existing.setAmount(req.getAmount());
+        // Copy fields unconditionally so admins can clear a value (set
+        // amount to 0 for a free class, toggle hostel off, etc.). The
+        // old `if (amount > 0)` gate silently ignored zero-amount edits.
+        existing.setAmount(req.getAmount());
         if (req.getDueDate() != null) existing.setDueDate(req.getDueDate());
         if (req.getDescription() != null) existing.setDescription(req.getDescription());
         if (req.getFeeType() != null) existing.setFeeType(req.getFeeType());
+        // Hostel fields — always copied so toggling hostel off through
+        // the form actually persists (previously they were dropped).
+        existing.setHostelEnabled(req.isHostelEnabled());
+        existing.setHostelGenderSplit(req.isHostelGenderSplit());
+        existing.setHostelAmount(req.getHostelAmount());
+        existing.setHostelBoysAmount(req.getHostelBoysAmount());
+        existing.setHostelGirlsAmount(req.getHostelGirlsAmount());
         FeeStructure saved = structureRepo.save(existing);
         // Cascade: refresh every ledger so balance/status reflect the new amount.
         refreshLedgersFor(saved.getAcademicYearId(), saved.getClassId());
@@ -90,8 +113,27 @@ public class FeeService {
             ledger.setTotalFee(perStudentFee);
             if (firstStructureId != null) ledger.setFeeStructureId(firstStructureId);
             ledger.setDueDate(earliestDue);
-            // recompute() reads totalFee + concession + payments to refresh
-            // totalDue / totalPaid / balance / status atomically.
+            // Also refresh the hostel line — if the structure edit
+            // changed hostel amount, added a gender split, or turned
+            // hostel off, this student's ledger picks up the new
+            // number on the next read. Non-hostel students naturally
+            // resolve to 0.
+            if (ledger.getStudentId() != null) {
+                studentRepo.findByStudentIdAndDeletedAtIsNull(ledger.getStudentId()).ifPresent(student -> {
+                    if (!student.isHostelEnrolled()) {
+                        ledger.setHostelFee(0);
+                        return;
+                    }
+                    String gender = student.getGender() == null ? null : student.getGender().name();
+                    double hostel = 0;
+                    for (FeeStructure fs : structures) {
+                        hostel += fs.resolveHostelAmountFor(gender);
+                    }
+                    ledger.setHostelFee(hostel);
+                });
+            }
+            // recompute() reads totalFee + hostelFee + concession + payments
+            // to refresh totalDue / totalPaid / balance / status atomically.
             ledgerService.recompute(ledger);
             ledgerRepo.save(ledger);
         }

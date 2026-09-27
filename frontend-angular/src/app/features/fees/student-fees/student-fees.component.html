@@ -46,19 +46,47 @@
         </mat-select>
       </mat-form-field>
 
+      <!-- Global student search — spans the whole academic year, not
+           just the currently selected section. Type 2+ chars → hits
+           /students?search=... → pick a suggestion to jump straight
+           into that student's ledger (class + section auto-sync). -->
       <mat-form-field appearance="outline" class="filter-field student-field">
         <mat-label>Search student</mat-label>
         <mat-icon matPrefix>search</mat-icon>
         <input matInput type="text"
-               [(ngModel)]="studentSearch"
-               placeholder="Name, admission or roll no."
-               [disabled]="!selectedSectionId || students.length === 0" />
+               [ngModel]="globalStudentQuery"
+               (ngModelChange)="onGlobalStudentQueryChange($event)"
+               [matAutocomplete]="studentAuto"
+               placeholder="Name, admission or roll no. (any class)"
+               [disabled]="!selectedAcademicYearId" />
+        <mat-spinner matSuffix diameter="18" *ngIf="isSearchingGlobal"></mat-spinner>
         <button mat-icon-button matSuffix
-                *ngIf="studentSearch"
+                *ngIf="globalStudentQuery && !isSearchingGlobal"
                 type="button"
-                (click)="studentSearch = ''">
+                (click)="onGlobalStudentQueryChange('')">
           <mat-icon>close</mat-icon>
         </button>
+
+        <mat-autocomplete #studentAuto="matAutocomplete"
+                          [displayWith]="displayGlobalStudent"
+                          (optionSelected)="onGlobalStudentSelected($event.option.value)">
+          <mat-option *ngFor="let s of globalStudentResults" [value]="s">
+            <div class="global-search-option">
+              <div class="opt-top">
+                <span class="opt-name">{{ getStudentName(s) }}</span>
+                <span class="opt-class" *ngIf="classSectionLabel(s)">{{ classSectionLabel(s) }}</span>
+              </div>
+              <span class="opt-meta">
+                <code>{{ s.admissionNumber }}</code>
+                <span *ngIf="s.rollNumber"> · Roll {{ s.rollNumber }}</span>
+              </span>
+            </div>
+          </mat-option>
+          <mat-option *ngIf="globalStudentQuery.length >= 2 && !isSearchingGlobal && globalStudentResults.length === 0"
+                      disabled>
+            No students found for “{{ globalStudentQuery }}”
+          </mat-option>
+        </mat-autocomplete>
       </mat-form-field>
     </div>
   </mat-card>
@@ -115,6 +143,29 @@
         </td>
       </ng-container>
 
+      <!-- Hostel toggle — flips Student.hostelEnrolled inline so
+           existing schools don't have to open each student profile
+           to change one flag. Server refreshes the ledger's hostel
+           line from the class-level FeeStructure.hostelAmount and
+           returns fresh totals; the row patches in place. -->
+      <ng-container matColumnDef="hostel">
+        <th mat-header-cell *matHeaderCellDef class="actions-col">Hostel</th>
+        <td mat-cell *matCellDef="let s" class="actions-col">
+          <mat-slide-toggle
+            *ngIf="classHasHostelConfigured; else noHostelClass"
+            color="primary"
+            [checked]="isHostelEnrolled(s)"
+            [disabled]="togglingHostelStudentIds.has(s.studentId)"
+            (change)="toggleHostel(s, $event.checked)"
+            (click)="$event.stopPropagation()"
+            matTooltip="Toggle hostel enrollment for this student">
+          </mat-slide-toggle>
+          <ng-template #noHostelClass>
+            <span class="muted" matTooltip="Enable hostel on the Fee Structure for this class first">—</span>
+          </ng-template>
+        </td>
+      </ng-container>
+
       <!-- Bell button — sends an in-app fee-due reminder to the
            student's parents (+ the student account if they have one).
            Disabled when the outstanding balance is 0 (nothing to remind
@@ -159,14 +210,14 @@
         </td>
       </ng-container>
 
-      <tr mat-header-row *matHeaderRowDef="['rollNumber','name','admission','balance','status','notify','adjust','open']"></tr>
+      <tr mat-header-row *matHeaderRowDef="['rollNumber','name','admission','balance','status','hostel','notify','adjust','open']"></tr>
       <tr mat-row
-          *matRowDef="let row; columns: ['rollNumber','name','admission','balance','status','notify','adjust','open'];"
+          *matRowDef="let row; columns: ['rollNumber','name','admission','balance','status','hostel','notify','adjust','open'];"
           class="roster-row"
           (click)="selectStudentRow(row)"></tr>
 
       <tr class="mat-row" *matNoDataRow>
-        <td class="mat-cell no-data-cell" [attr.colspan]="8">
+        <td class="mat-cell no-data-cell" [attr.colspan]="9">
           <ng-container *ngIf="studentSearch">
             No students matching "<strong>{{ studentSearch }}</strong>"
           </ng-container>
@@ -198,32 +249,69 @@
     <mat-spinner diameter="40"></mat-spinner>
   </div>
 
-  <!-- Fee Summary Cards (from ledger) -->
-  <div class="summary-grid" *ngIf="ledger && !isLoading">
-    <mat-card class="summary-card">
-      <mat-card-content>
-        <span class="summary-label">Total Due</span>
-        <span class="summary-value">Rs. {{ ledger.totalDue | number:'1.0-0' }}</span>
-      </mat-card-content>
-    </mat-card>
-    <mat-card class="summary-card paid-card">
-      <mat-card-content>
-        <span class="summary-label">Paid</span>
-        <span class="summary-value">Rs. {{ ledger.totalPaid | number:'1.0-0' }}</span>
-      </mat-card-content>
-    </mat-card>
-    <mat-card class="summary-card pending-card">
-      <mat-card-content>
-        <span class="summary-label">Balance</span>
-        <span class="summary-value">Rs. {{ ledger.balance | number:'1.0-0' }}</span>
-      </mat-card-content>
-    </mat-card>
-    <mat-card class="summary-card status-card">
-      <mat-card-content>
-        <span class="summary-label">Status</span>
-        <span class="summary-status" [ngClass]="getStatusClass(ledger.status)">{{ ledger.status }}</span>
-      </mat-card-content>
-    </mat-card>
+  <!-- Fee breakdown — School / Hostel / adjustments as their own
+       tiles so the parent sees WHY the total is what it is. Hostel
+       tile only appears when this student has a hostel line;
+       surcharge / concession tiles only when adjusted. -->
+  <div class="fee-tiles" *ngIf="ledger && !isLoading">
+    <div class="fee-tile school-tile">
+      <div class="fee-tile-head">
+        <mat-icon>school</mat-icon>
+        <span>School Fees</span>
+      </div>
+      <div class="fee-tile-amount">Rs. {{ ledger.totalFee | number:'1.0-0' }}</div>
+    </div>
+
+    <div class="fee-tile hostel-tile" *ngIf="(ledger.hostelFee || 0) > 0">
+      <div class="fee-tile-head">
+        <mat-icon>hotel</mat-icon>
+        <span>Hostel Fees</span>
+      </div>
+      <div class="fee-tile-amount">Rs. {{ ledger.hostelFee | number:'1.0-0' }}</div>
+    </div>
+
+    <div class="fee-tile surcharge-tile" *ngIf="(ledger.surcharge || 0) > 0">
+      <div class="fee-tile-head">
+        <mat-icon>add_circle</mat-icon>
+        <span>Surcharge</span>
+      </div>
+      <div class="fee-tile-amount">+ Rs. {{ ledger.surcharge | number:'1.0-0' }}</div>
+      <div class="fee-tile-note" *ngIf="ledger.surchargeReason">{{ ledger.surchargeReason }}</div>
+    </div>
+
+    <div class="fee-tile concession-tile" *ngIf="(ledger.concession || 0) > 0">
+      <div class="fee-tile-head">
+        <mat-icon>remove_circle</mat-icon>
+        <span>Concession</span>
+      </div>
+      <div class="fee-tile-amount">− Rs. {{ ledger.concession | number:'1.0-0' }}</div>
+      <div class="fee-tile-note" *ngIf="ledger.concessionReason">{{ ledger.concessionReason }}</div>
+    </div>
+
+    <div class="fee-tile total-tile">
+      <div class="fee-tile-head">
+        <mat-icon>account_balance_wallet</mat-icon>
+        <span>Total Due</span>
+      </div>
+      <div class="fee-tile-amount">Rs. {{ ledger.totalDue | number:'1.0-0' }}</div>
+    </div>
+  </div>
+
+  <!-- Compact KPI tiles — Paid / Balance / Status. Smaller and lighter
+       than the old summary-grid cards so the page has more breathing room. -->
+  <div class="kpi-strip" *ngIf="ledger && !isLoading">
+    <div class="kpi-tile kpi-paid">
+      <span class="kpi-label">Paid</span>
+      <span class="kpi-value">Rs. {{ ledger.totalPaid | number:'1.0-0' }}</span>
+    </div>
+    <div class="kpi-tile kpi-balance">
+      <span class="kpi-label">Balance</span>
+      <span class="kpi-value">Rs. {{ ledger.balance | number:'1.0-0' }}</span>
+    </div>
+    <div class="kpi-tile kpi-status">
+      <span class="kpi-label">Status</span>
+      <span class="kpi-badge" [ngClass]="getStatusClass(ledger.status)">{{ ledger.status }}</span>
+    </div>
   </div>
 
   <!-- Progress Bar (Paid vs Due) -->
@@ -252,22 +340,10 @@
       </div>
     </div>
 
-    <!-- Adjustment banner — shows when a surcharge or concession is set
-         so admins can see at a glance why the totalDue differs from the
-         class fee structure. -->
-    <div class="adjustment-strip"
-         *ngIf="ledger && ((ledger.surcharge || 0) > 0 || (ledger.concession || 0) > 0)">
-      <span class="adj-chip adj-chip--plus" *ngIf="(ledger.surcharge || 0) > 0">
-        <mat-icon>add_circle</mat-icon>
-        Surcharge Rs. {{ ledger.surcharge | number:'1.0-0' }}
-        <em *ngIf="ledger.surchargeReason"> · {{ ledger.surchargeReason }}</em>
-      </span>
-      <span class="adj-chip adj-chip--minus" *ngIf="(ledger.concession || 0) > 0">
-        <mat-icon>remove_circle</mat-icon>
-        Concession Rs. {{ ledger.concession | number:'1.0-0' }}
-        <em *ngIf="ledger.concessionReason"> · {{ ledger.concessionReason }}</em>
-      </span>
-    </div>
+    <!-- Adjustment chips removed — the fee-breakdown card above now
+         shows the same information as full rows (School / Hostel /
+         Surcharge / Concession → Total). Kept the payment history
+         table below unchanged. -->
 
     <table mat-table [dataSource]="visiblePayments" class="payments-table">
       <ng-container matColumnDef="paymentDate">
@@ -307,6 +383,11 @@
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
         <td mat-cell *matCellDef="let p" class="actions-col">
+          <button mat-icon-button matTooltip="Print receipt"
+                  *ngIf="!p.voidedAt"
+                  (click)="openReceipt(p)">
+            <mat-icon>print</mat-icon>
+          </button>
           <button mat-icon-button matTooltip="Correct (supersedes)"
                   *ngIf="!p.voidedAt"
                   (click)="openPaymentForm(p)">

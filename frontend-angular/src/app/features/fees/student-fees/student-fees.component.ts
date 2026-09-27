@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -11,10 +12,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { of, Subject as RxSubject } from 'rxjs';
+import { debounceTime, switchMap } from 'rxjs/operators';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { sortClassesByName } from '../../../shared/utils/class-sort';
 import { ApiService } from '../../../core/services/api.service';
 import { AdjustFeeDialogComponent } from '../adjust-fee/adjust-fee-dialog.component';
 import {
@@ -34,7 +40,7 @@ import {
   imports: [
     CommonModule, FormsModule, MatCardModule, MatTableModule, MatFormFieldModule,
     MatSelectModule, MatInputModule, MatButtonModule, MatIconModule, MatChipsModule,
-    MatProgressSpinnerModule, MatProgressBarModule, MatTooltipModule, MatSnackBarModule, MatDialogModule, PageHeaderComponent,
+    MatProgressSpinnerModule, MatProgressBarModule, MatSlideToggleModule, MatAutocompleteModule, MatTooltipModule, MatSnackBarModule, MatDialogModule, PageHeaderComponent,
   ],
   templateUrl: './student-fees.component.html',
   styleUrl: './student-fees.component.scss',
@@ -74,6 +80,24 @@ export class StudentFeesComponent implements OnInit {
    *  Used to disable the bell + show a spinner so the admin can't
    *  fire the same reminder twice in rapid succession. */
   notifyingStudentIds = new Set<string>();
+  /** Roster rows mid-hostel-toggle — used to disable the switch while
+   *  the PATCH is in flight so a double-click can't fire the endpoint
+   *  twice for the same student. */
+  togglingHostelStudentIds = new Set<string>();
+
+  // ── Global student typeahead ─────────────────────────────────────
+  /** Free-text driving the year-wide student autocomplete above the
+   *  section-scoped roster. Independent of {@link studentSearch}
+   *  (which is a client-side filter on the currently loaded roster). */
+  globalStudentQuery = '';
+  /** Debounced pipeline for the year-wide student lookup — 250 ms
+   *  after the admin stops typing we hit /students?search=... so
+   *  fast typers don't drown the backend. */
+  private globalStudentQuery$ = new RxSubject<string>();
+  /** Results shown in the mat-autocomplete panel. Capped at 15 in
+   *  the request so a common name doesn't blow out the dropdown. */
+  globalStudentResults: Student[] = [];
+  isSearchingGlobal = false;
 
   // Currently-open student's ledger
   ledger: StudentFeeLedger | null = null;
@@ -103,7 +127,12 @@ export class StudentFeesComponent implements OnInit {
 
   paymentModes: LedgerPaymentMode[] = ['CASH', 'ONLINE', 'UPI', 'CHEQUE', 'DD', 'CARD', 'OTHER'];
 
-  constructor(private api: ApiService, private snackBar: MatSnackBar, private dialog: MatDialog) {}
+  constructor(
+    private api: ApiService,
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog,
+    private router: Router,
+  ) {}
 
   ngOnInit(): void {
     this.api.getAcademicYears().subscribe((res) => {
@@ -114,6 +143,106 @@ export class StudentFeesComponent implements OnInit {
         this.loadClasses();
       }
     });
+
+    // Wire the year-wide student typeahead. Debounce keeps a fast
+    // typer from firing one request per keystroke; distinct is
+    // intentionally OMITTED — clearing the input via the X button
+    // and typing the same query again must re-fetch (with distinct,
+    // the second identical query was silently blocked).
+    this.globalStudentQuery$
+      .pipe(
+        debounceTime(250),
+        switchMap((q) => {
+          const trimmed = (q || '').trim();
+          if (!trimmed || trimmed.length < 2 || !this.selectedAcademicYearId) {
+            this.isSearchingGlobal = false;
+            // Emit an empty result via `of` so the subscribe pipeline
+            // still fires and clears any stale suggestion list.
+            return of({ data: { content: [] as Student[] } } as any);
+          }
+          this.isSearchingGlobal = true;
+          return this.api.getStudents(0, 15, {
+            academicYearId: this.selectedAcademicYearId,
+            search: trimmed,
+          });
+        }),
+      )
+      .subscribe({
+        next: (res: any) => {
+          this.globalStudentResults = res?.data?.content || [];
+          this.isSearchingGlobal = false;
+        },
+        error: () => {
+          this.globalStudentResults = [];
+          this.isSearchingGlobal = false;
+        },
+      });
+  }
+
+  /** Fed by (ngModelChange) on the search input — pushes into the
+   *  debounced pipeline. Short-circuits the clear case so the X button
+   *  wipes suggestions instantly instead of waiting 250 ms. */
+  onGlobalStudentQueryChange(value: string): void {
+    this.globalStudentQuery = value || '';
+    if (!this.globalStudentQuery.trim()) {
+      // Cancel any in-flight state immediately on clear so the panel
+      // never keeps a stale "No students found" message glued to it.
+      this.globalStudentResults = [];
+      this.isSearchingGlobal = false;
+    }
+    this.globalStudentQuery$.next(this.globalStudentQuery);
+  }
+
+  /** Optional autocomplete displayWith — hides the raw student object
+   *  after selection and blanks the field so the user can search again. */
+  displayGlobalStudent = (_s: any): string => '';
+
+  /** "1st — A" style label for a student, resolved against the loaded
+   *  classes list. Falls back to raw ids when the class list hasn't
+   *  loaded yet (rare — classes load on AY pick, before any search). */
+  classSectionLabel(student: Student): string {
+    if (!student?.classId) return '';
+    const cls = this.classes.find(c => c.classId === student.classId);
+    if (!cls) return '';
+    const secName = student.sectionId
+      ? cls.sections?.find(s => s.sectionId === student.sectionId)?.name
+      : null;
+    return secName ? `${cls.name} — ${secName}` : cls.name;
+  }
+
+  /** Autocomplete selection handler — jump directly to that student's
+   *  ledger by setting class + section + selectedStudentId and firing
+   *  the same load path the roster row uses. Class sync fills sections;
+   *  section sync loads the roster + ledgers; then we pick the student. */
+  onGlobalStudentSelected(student: Student): void {
+    if (!student?.studentId) return;
+    // Clear the visible input; the ledger opens below.
+    this.globalStudentQuery = '';
+    this.globalStudentResults = [];
+
+    const wantClass = student.classId;
+    const wantSection = student.sectionId;
+    if (!wantClass || !wantSection) {
+      this.snackBar.open('This student has no class/section set — open their profile to fix.',
+        'Close', { duration: 4000 });
+      return;
+    }
+    // Class sync — sections come from cls.sections (already in
+    // this.classes), so no extra fetch needed.
+    if (this.selectedClassId !== wantClass) {
+      this.selectedClassId = wantClass;
+      this.onClassChange();
+    }
+    // onClassChange auto-picks the first section — override it with
+    // the student's actual section.
+    if (this.selectedSectionId !== wantSection) {
+      this.selectedSectionId = wantSection;
+      this.onSectionChange();
+    }
+    // Roster loads async; pick the student now — selectStudentRow
+    // handles the ledger fetch, and the roster panel below just
+    // shows this student's row highlighted once it lands.
+    this.selectStudentRow(student);
   }
 
   onAcademicYearChange(): void {
@@ -138,6 +267,63 @@ export class StudentFeesComponent implements OnInit {
     this.studentSearch = '';
     const cls = this.classes.find(c => c.classId === this.selectedClassId);
     this.sections = cls?.sections || [];
+    // Fetch the fee structure(s) for this class so we know whether the
+    // hostel toggle should be interactive on the roster rows.
+    this.refreshCurrentClassHostelConfig();
+    // Auto-pick the first section so the admin lands on the roster
+    // straight away — matches the load-time auto-pick behaviour and
+    // spares them a click on every class change too.
+    if (this.sections.length > 0) {
+      this.selectedSectionId = this.sections[0].sectionId;
+      this.onSectionChange();
+    }
+  }
+
+  /** Snapshot of the currently-picked class's hostel config, used to
+   *  gate the roster row toggle. Null when nothing's picked; enabled=false
+   *  when the class exists but has no hostel structure. */
+  currentClassHostel: {
+    enabled: boolean;
+    genderSplit: boolean;
+    amount: number;
+    boysAmount: number;
+    girlsAmount: number;
+  } | null = null;
+
+  private refreshCurrentClassHostelConfig(): void {
+    this.currentClassHostel = null;
+    if (!this.selectedClassId || !this.selectedAcademicYearId) return;
+    this.api.getFeeStructures(this.selectedAcademicYearId, this.selectedClassId).subscribe({
+      next: (res) => {
+        const list = res.data || [];
+        // Aggregate across all structure rows for this class — most
+        // schools have one, but if a school splits (say "Tuition"
+        // + "Exam Fee") we still consider hostel enabled if ANY row
+        // has it on. Amount fields sum across rows too (rare).
+        let enabled = false, split = false;
+        let amount = 0, boys = 0, girls = 0;
+        for (const s of list) {
+          if (!s.hostelEnabled) continue;
+          enabled = true;
+          if (s.hostelGenderSplit) split = true;
+          amount += (s.hostelAmount || 0);
+          boys += (s.hostelBoysAmount || 0);
+          girls += (s.hostelGirlsAmount || 0);
+        }
+        this.currentClassHostel = {
+          enabled, genderSplit: split,
+          amount, boysAmount: boys, girlsAmount: girls,
+        };
+      },
+      error: () => { this.currentClassHostel = null; },
+    });
+  }
+
+  /** True when the currently-selected class has hostel configured on
+   *  its Fee Structure. Drives whether the roster row hostel toggle
+   *  is interactive. */
+  get classHasHostelConfigured(): boolean {
+    return !!this.currentClassHostel?.enabled;
   }
 
   onSectionChange(): void {
@@ -194,7 +380,17 @@ export class StudentFeesComponent implements OnInit {
   loadClasses(): void {
     if (!this.selectedAcademicYearId) return;
     this.api.getClasses(this.selectedAcademicYearId).subscribe((res) => {
-      this.classes = res.data || [];
+      // Sort the same way the Classes list does so "1st" lands before
+      // "10th" and the auto-selected first class is the lowest grade,
+      // not a lexicographic accident.
+      this.classes = sortClassesByName(res.data || []);
+      // Auto-pick the first class — onClassChange will chain into the
+      // section auto-pick, so the admin lands on the roster instead
+      // of empty dropdowns. Skip when nothing to pick.
+      if (!this.selectedClassId && this.classes.length > 0) {
+        this.selectedClassId = this.classes[0].classId;
+        this.onClassChange();
+      }
     });
   }
 
@@ -320,6 +516,81 @@ export class StudentFeesComponent implements OnInit {
     });
   }
 
+  /** True when THIS student is currently marked as a hostel resident.
+   *  Read prefers the fresh ledger snapshot flag (patched after a
+   *  toggle) and falls back to Student.hostelEnrolled for rows the
+   *  ledger hasn't materialised yet. */
+  isHostelEnrolled(student: Student): boolean {
+    const l = this.rosterLedgersByStudentId[student.studentId];
+    if (l && (l.hostelFee || 0) > 0) return true;
+    return !!student.hostelEnrolled;
+  }
+
+  /** Class-level hostel amount for the currently selected class — read
+   *  off any ledger already loaded (they all share the same class). Used
+   *  to warn the admin what will get added before they confirm. */
+  currentClassHostelAmount(): number {
+    for (const key of Object.keys(this.rosterLedgersByStudentId)) {
+      const l = this.rosterLedgersByStudentId[key];
+      if ((l.hostelFee || 0) > 0) return l.hostelFee || 0;
+    }
+    return 0;
+  }
+
+  /** Flip hostel enrollment for a student inline from the roster row.
+   *  Confirms before switching OFF a student who already has payments
+   *  against the hostel line — turning it off drops totalDue, which
+   *  can leave a credit balance the clerk needs to be aware of. */
+  toggleHostel(student: Student, next: boolean, event?: Event): void {
+    if (event) event.stopPropagation();
+    if (!student?.studentId || !this.selectedAcademicYearId) return;
+    if (this.togglingHostelStudentIds.has(student.studentId)) return;
+
+    if (!next) {
+      const l = this.rosterLedgersByStudentId[student.studentId];
+      const paid = l?.totalPaid || 0;
+      if (paid > 0) {
+        const ok = window.confirm(
+          `${this.getStudentName(student)} has already paid Rs. ${paid.toLocaleString()}. ` +
+          `Removing hostel will lower the total due — the extra amount will show as a credit. Continue?`);
+        if (!ok) return;
+      }
+    }
+
+    this.togglingHostelStudentIds.add(student.studentId);
+    this.api.setStudentHostelEnrollment({
+      studentId: student.studentId,
+      academicYearId: this.selectedAcademicYearId,
+      hostelEnrolled: next,
+    }).subscribe({
+      next: (res) => {
+        this.togglingHostelStudentIds.delete(student.studentId);
+        const fresh = res.data;
+        if (fresh) {
+          this.rosterLedgersByStudentId = {
+            ...this.rosterLedgersByStudentId,
+            [student.studentId]: fresh,
+          };
+          // Patch the source Student row too so the toggle sticks
+          // even if the ledger later falls out of the map (e.g. AY change).
+          student.hostelEnrolled = next;
+        }
+        const added = fresh?.hostelFee || 0;
+        this.snackBar.open(
+          next
+            ? `${this.getStudentName(student)} marked as hostel resident (Rs. ${added.toLocaleString()} added).`
+            : `Hostel removed for ${this.getStudentName(student)}.`,
+          'Close', { duration: 3500 });
+      },
+      error: (err) => {
+        this.togglingHostelStudentIds.delete(student.studentId);
+        this.snackBar.open(
+          err?.error?.message || 'Failed to update hostel status.',
+          'Close', { duration: 3500 });
+      },
+    });
+  }
+
   /**
    * Opens the "Adjust Fee" dialog for a student — sets a per-student
    * surcharge (extra on top of class default) and/or a concession
@@ -418,6 +689,23 @@ export class StudentFeesComponent implements OnInit {
   get progressPercent(): number {
     if (!this.ledger || this.ledger.totalDue <= 0) return 0;
     return Math.min(100, Math.round((this.ledger.totalPaid / this.ledger.totalDue) * 100));
+  }
+
+  /** Open the printable receipt in a MatDialog on the same page.
+   *  We pass the ledger + payment as dialog data so the receipt
+   *  renders instantly without an extra fetch. Print and Download PDF
+   *  actions live inside the dialog toolbar. */
+  openReceipt(payment: FeeLedgerPayment): void {
+    if (!payment?.paymentId || !this.ledger) return;
+    import('../receipt/fee-receipt.component').then(m => {
+      this.dialog.open(m.FeeReceiptComponent, {
+        data: { ledger: this.ledger, payment },
+        panelClass: 'fee-receipt-dialog-panel',
+        width: 'auto',
+        maxWidth: '95vw',
+        autoFocus: false,
+      });
+    });
   }
 
   // ── Payment form ──────────────────────────────────────────

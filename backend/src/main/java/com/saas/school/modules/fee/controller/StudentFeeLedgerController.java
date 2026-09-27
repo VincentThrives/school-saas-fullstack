@@ -146,6 +146,23 @@ public class StudentFeeLedgerController {
                         : "Reminder sent to " + recipients + " recipient(s)."));
     }
 
+    /**
+     * Flip hostel enrollment for a student from the Fee Payments row —
+     * the primary flow for existing schools that don't want to open each
+     * student profile to change one flag. Refreshes the ledger's hostel
+     * line from the class's FeeStructure.hostelAmount and recomputes
+     * totalDue / balance / status.
+     */
+    @PatchMapping("/hostel-enrollment")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL')")
+    public ResponseEntity<ApiResponse<StudentFeeLedger>> setHostelEnrollment(
+            @RequestBody HostelEnrollmentRequest req) {
+        return ResponseEntity.ok(ApiResponse.success(
+                service.setHostelEnrollment(req.getStudentId(), req.getAcademicYearId(),
+                        req.isHostelEnrolled(), req.getHostelPlan()),
+                req.isHostelEnrolled() ? "Marked as hostel resident" : "Hostel enrollment removed"));
+    }
+
     /** Minimal request body for /notify-due. */
     public static class NotifyFeeDueRequest {
         private String studentId;
@@ -158,5 +175,22 @@ public class StudentFeeLedgerController {
         public void setAcademicYearId(String academicYearId) { this.academicYearId = academicYearId; }
         public double getOutstandingAmount() { return outstandingAmount; }
         public void setOutstandingAmount(double outstandingAmount) { this.outstandingAmount = outstandingAmount; }
+    }
+
+    /** Request body for /hostel-enrollment. */
+    public static class HostelEnrollmentRequest {
+        private String studentId;
+        private String academicYearId;
+        private boolean hostelEnrolled;
+        private String hostelPlan;
+
+        public String getStudentId() { return studentId; }
+        public void setStudentId(String studentId) { this.studentId = studentId; }
+        public String getAcademicYearId() { return academicYearId; }
+        public void setAcademicYearId(String academicYearId) { this.academicYearId = academicYearId; }
+        public boolean isHostelEnrolled() { return hostelEnrolled; }
+        public void setHostelEnrolled(boolean hostelEnrolled) { this.hostelEnrolled = hostelEnrolled; }
+        public String getHostelPlan() { return hostelPlan; }
+        public void setHostelPlan(String hostelPlan) { this.hostelPlan = hostelPlan; }
     }
 }

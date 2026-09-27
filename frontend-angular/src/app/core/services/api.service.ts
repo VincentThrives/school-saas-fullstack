@@ -1823,6 +1823,20 @@ export class ApiService {
     return this.http.post<ApiResponse<number>>(`${this.API}/fee-ledgers/notify-due`, payload);
   }
 
+  /** Flip a student's hostel enrollment inline from the Fee Payments row.
+   *  Server updates Student.hostelEnrolled + refreshes the ledger's
+   *  hostel line from the class-level FeeStructure.hostelAmount.
+   *  Returns the fresh ledger so the row can patch in place. */
+  setStudentHostelEnrollment(payload: {
+    studentId: string;
+    academicYearId: string;
+    hostelEnrolled: boolean;
+    hostelPlan?: string;
+  }): Observable<ApiResponse<StudentFeeLedger>> {
+    return this.http.patch<ApiResponse<StudentFeeLedger>>(
+      `${this.API}/fee-ledgers/hostel-enrollment`, payload);
+  }
+
   // ── Feature Management ───────────────────────────────────────────────
   getFeatureCatalog(): Observable<ApiResponse<any[]>> {
     return this.http.get<ApiResponse<any[]>>(`${this.API}/super/features/catalog`);

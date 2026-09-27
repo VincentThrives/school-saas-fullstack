@@ -109,6 +109,12 @@ export interface TenantPublicInfo {
   schoolName: string;
   logoUrl: string;
   status: string;
+  /** Pre-formatted "street, city, state zip" for single-line rendering
+   *  under the school name on receipts. Optional — tenant may not have
+   *  filled its address yet. */
+  address?: string;
+  contactPhone?: string;
+  contactEmail?: string;
 }
 
 // Per-tenant feature toggles attached to /users/me response.
@@ -181,6 +187,13 @@ export interface Student {
   subjectIds?: string[];
   academicRecords?: AcademicRecord[];
   address?: { street: string; city: string; state: string; zip: string };
+  /** True when the student stays in the hostel — adds the class-level
+   *  hostel amount onto their fee ledger. Editable inline from the
+   *  Fee Payments row or on the Student form. */
+  hostelEnrolled?: boolean;
+  /** Optional free-text plan label ("AC · 2-share", "Non-AC · 4-share").
+   *  Descriptive only — amount always comes from FeeStructure.hostelAmount. */
+  hostelPlan?: string;
   createdAt?: string;
 }
 
@@ -453,6 +466,19 @@ export interface FeeStructure {
   classId: string;
   feeType?: FeeType;
   amount: number;
+  /** True when this class offers a hostel option. Gates the hostel toggle
+   *  on the Fee Payments row + reveals the amount fields in the Fee
+   *  Structure form. */
+  hostelEnabled?: boolean;
+  /** True when boys and girls in this class have different hostel fees.
+   *  Uses hostelBoysAmount / hostelGirlsAmount keyed on student.gender. */
+  hostelGenderSplit?: boolean;
+  /** Single hostel amount — used when hostelEnabled=true AND hostelGenderSplit=false. */
+  hostelAmount?: number;
+  /** Boys hostel amount — used when hostelGenderSplit=true. */
+  hostelBoysAmount?: number;
+  /** Girls hostel amount — used when hostelGenderSplit=true. */
+  hostelGirlsAmount?: number;
   dueDate?: string;
   description?: string;
   createdAt?: string;
@@ -527,6 +553,9 @@ export interface StudentFeeLedger {
   academicYearLabel?: string;
   feeStructureId?: string;
   totalFee: number;
+  /** Hostel add-on for students with {@code hostelEnrolled=true}.
+   *  Snapshot of FeeStructure.hostelAmount at ledger materialization. */
+  hostelFee?: number;
   /** Extra charge on top of the class default — mid-year admission,
    *  late-payment penalty, etc. Zero by default. */
   surcharge?: number;

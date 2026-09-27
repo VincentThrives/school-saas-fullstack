@@ -199,6 +199,26 @@
           </mat-form-field>
         </div>
 
+        <mat-divider class="section-divider"></mat-divider>
+
+        <!-- Hostel — adds the class-level hostel add-on onto this
+             student's fee ledger. Same toggle exists inline on the
+             Fee Payments row for bulk updates; either place works. -->
+        <h3 class="section-title">Hostel</h3>
+        <div class="form-grid">
+          <div class="hostel-toggle-row">
+            <mat-slide-toggle formControlName="hostelEnrolled" color="primary">
+              This student stays in the hostel
+            </mat-slide-toggle>
+          </div>
+
+          <mat-form-field appearance="outline" *ngIf="studentForm.get('hostelEnrolled')?.value">
+            <mat-label>Hostel Plan (optional)</mat-label>
+            <input matInput formControlName="hostelPlan" placeholder="e.g. AC · 2-share, Non-AC · 4-share">
+            <mat-hint>Descriptive only — amount comes from Fee Structure.</mat-hint>
+          </mat-form-field>
+        </div>
+
         <div class="form-actions">
           <button mat-button type="button" (click)="cancel()">
             <mat-icon>arrow_back</mat-icon>

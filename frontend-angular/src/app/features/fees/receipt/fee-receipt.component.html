@@ -1,0 +1,148 @@
+<div class="receipt-shell" [class.in-dialog]="isDialog">
+  <!-- Toolbar — hidden in print via SCSS. -->
+  <div class="toolbar no-print">
+    <div class="toolbar-title">Fee Receipt · {{ payment?.receiptNumber || '—' }}</div>
+    <div class="toolbar-actions">
+      <button mat-stroked-button (click)="printReceipt()" [disabled]="!payment">
+        <mat-icon>print</mat-icon> Print
+      </button>
+      <button mat-flat-button color="primary" (click)="downloadPdf()" [disabled]="!payment">
+        <mat-icon>download</mat-icon> Download PDF
+      </button>
+      <button mat-icon-button *ngIf="isDialog" (click)="close()" aria-label="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <div class="loading-row" *ngIf="isLoading">
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+
+  <div class="error-message no-print" *ngIf="errorMessage && !isLoading">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ errorMessage }}</span>
+  </div>
+
+  <div class="receipt-viewport" *ngIf="payment && ledger && !isLoading">
+    <div id="receipt-card" class="receipt-card">
+
+      <!-- School header — logo + name + tagline + address + contact.
+           Sourced from Settings → School Profile (school-admin editable),
+           with the tenant record as a fallback. -->
+      <div class="receipt-header">
+        <img class="school-logo" *ngIf="headerLogoUrl" [src]="headerLogoUrl" alt="School logo">
+        <div class="school-title">
+          <h1>{{ headerSchoolName }}</h1>
+          <div class="school-tagline" *ngIf="headerTagline">{{ headerTagline }}</div>
+          <div class="school-address" *ngIf="headerAddress">{{ headerAddress }}</div>
+          <div class="school-contact" *ngIf="headerPhone || headerEmail">
+            <span *ngIf="headerPhone">Ph: {{ headerPhone }}</span>
+            <span *ngIf="headerPhone && headerEmail"> · </span>
+            <span *ngIf="headerEmail">{{ headerEmail }}</span>
+          </div>
+          <div class="receipt-label">Fee Payment Receipt</div>
+        </div>
+      </div>
+
+      <div class="receipt-meta">
+        <div>
+          <div class="meta-label">Receipt No.</div>
+          <div class="meta-value"><strong>{{ payment.receiptNumber || '—' }}</strong></div>
+        </div>
+        <div>
+          <div class="meta-label">Date</div>
+          <div class="meta-value">{{ payment.paidAt || (today | date:'yyyy-MM-dd') }}</div>
+        </div>
+      </div>
+
+      <div class="student-block">
+        <div class="row"><span class="label">Student</span>       <span class="value"><strong>{{ ledger.studentName || '—' }}</strong></span></div>
+        <div class="row"><span class="label">Admission No.</span> <span class="value">{{ ledger.admissionNumber || '—' }}</span></div>
+        <div class="row">
+          <span class="label">Class · Section</span>
+          <span class="value">{{ ledger.className || '—' }}<span *ngIf="ledger.sectionName"> — {{ ledger.sectionName }}</span></span>
+        </div>
+        <div class="row"><span class="label">Academic Year</span> <span class="value">{{ ledger.academicYearLabel || '—' }}</span></div>
+      </div>
+
+      <table class="breakdown">
+        <tr>
+          <td>Amount Paid</td>
+          <td class="right"><strong>{{ formatCurrency(payment.amount) }}</strong></td>
+        </tr>
+        <tr>
+          <td>Payment Mode</td>
+          <td class="right">{{ payment.mode }}</td>
+        </tr>
+        <tr *ngIf="payment.notes">
+          <td>Notes</td>
+          <td class="right">{{ payment.notes }}</td>
+        </tr>
+        <tr *ngIf="hostelIncludedNote()">
+          <td colspan="2" class="hostel-note">{{ hostelIncludedNote() }}</td>
+        </tr>
+      </table>
+
+      <div class="words-line">
+        <span class="label">Amount in Words:</span>
+        <span class="words">{{ amountInWords(payment.amount) }}</span>
+      </div>
+
+      <!-- Reconciliation block:
+             Total Fee
+             ────────────────────────
+             REC-…-0006 · 2026-09-24    Rs. 40,000
+             REC-…-0007 · 2026-09-27    Rs. 25,000    ← THIS RECEIPT
+             ────────────────────────
+             Total Paid                 Rs. 65,000
+             Balance Remaining          Rs.  9,982
+           Payment history rows include every non-voided payment up
+           to and including this receipt so the parent gets one
+           document that reconciles the whole year to date. -->
+      <table class="totals">
+        <tr>
+          <td>Total Fee</td>
+          <td class="right">{{ formatCurrency(ledger.totalDue) }}</td>
+        </tr>
+
+        <tr class="history-header">
+          <td colspan="2">Payments received</td>
+        </tr>
+        <tr class="history-row"
+            *ngFor="let p of paymentHistoryUpToNow()"
+            [class.this-receipt]="p.paymentId === payment.paymentId">
+          <td>
+            <span class="rc-no"><code>{{ p.receiptNumber || '—' }}</code></span>
+            <span class="rc-date"> · {{ p.paidAt || '—' }}</span>
+            <span class="rc-mode"> · {{ p.mode }}</span>
+            <span class="rc-this" *ngIf="p.paymentId === payment.paymentId"> (this receipt)</span>
+          </td>
+          <td class="right">{{ formatCurrency(p.amount) }}</td>
+        </tr>
+
+        <tr>
+          <td>Total Paid</td>
+          <td class="right">{{ formatCurrency(paidThroughThisReceipt()) }}</td>
+        </tr>
+        <tr class="balance-row">
+          <td><strong>Balance Remaining</strong></td>
+          <td class="right"><strong>{{ formatCurrency(balanceAfter()) }}</strong></td>
+        </tr>
+      </table>
+
+      <div class="footer">
+        <div class="collected-by">
+          <div class="label">Collected By</div>
+          <div class="value">{{ payment.collectedByName || '—' }}</div>
+        </div>
+        <div class="signature">
+          <div class="sig-line"></div>
+          <div class="sig-label">Authorised Signatory</div>
+        </div>
+      </div>
+
+      <div class="thank-you">Thank you for your payment.</div>
+    </div>
+  </div>
+</div>

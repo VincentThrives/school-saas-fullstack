@@ -207,6 +207,39 @@ public class StudentFeeLedgerService {
     // ── Internals ────────────────────────────────────────────────────
 
     /** Seeds a fresh ledger with class / section / AY / fee structure snapshots. */
+    /**
+     * Toggle {@code Student.hostelEnrolled} + optional plan label, then
+     * refresh the current-year ledger's {@link StudentFeeLedger#getHostelFee()}
+     * from the class-level {@link FeeStructure#getHostelAmount()} and
+     * recompute totals. Idempotent: same call twice leaves everything as-is.
+     *
+     * <p>The Fee Payments row toggle is the primary caller — bypasses
+     * the full Student edit form so clerks can flip hostel status
+     * for existing students without reopening the whole student
+     * profile. Returns the fresh ledger so the UI patches in place.</p>
+     */
+    public StudentFeeLedger setHostelEnrollment(String studentId, String academicYearId,
+                                                boolean enrolled, String plan) {
+        Student student = studentRepo.findByStudentIdAndDeletedAtIsNull(studentId)
+            .orElseThrow(() -> new ResourceNotFoundException("Student not found: " + studentId));
+        student.setHostelEnrolled(enrolled);
+        student.setHostelPlan(enrolled ? plan : null);
+        studentRepo.save(student);
+
+        StudentFeeLedger ledger = getOrCreate(studentId, academicYearId);
+        double hostelAmount = 0;
+        if (enrolled && student.getClassId() != null) {
+            String gender = student.getGender() == null ? null : student.getGender().name();
+            for (FeeStructure fs : feeStructureRepo.findByAcademicYearIdAndClassId(
+                    academicYearId, student.getClassId())) {
+                hostelAmount += fs.resolveHostelAmountFor(gender);
+            }
+        }
+        ledger.setHostelFee(hostelAmount);
+        recompute(ledger);
+        return ledgerRepo.save(ledger);
+    }
+
     private StudentFeeLedger createEmpty(String studentId, String academicYearId) {
         Student student = studentRepo.findByStudentIdAndDeletedAtIsNull(studentId).orElse(null);
         StudentFeeLedger l = new StudentFeeLedger();
@@ -226,16 +259,25 @@ public class StudentFeeLedgerService {
         if (student != null && student.getClassId() != null && academicYearId != null) {
             List<FeeStructure> structures = feeStructureRepo.findByAcademicYearIdAndClassId(academicYearId, student.getClassId());
             double total = 0;
+            double hostel = 0;
             String feeStructureId = null;
             LocalDate dueDate = null;
+            String gender = student.getGender() == null ? null : student.getGender().name();
             for (FeeStructure fs : structures) {
                 total += fs.getAmount();
+                // Resolver returns 0 unless hostelEnabled on this class.
+                // Gender-split cases pick boys/girls from student.gender.
+                hostel += fs.resolveHostelAmountFor(gender);
                 if (feeStructureId == null) feeStructureId = fs.getFeeStructureId();
                 if (dueDate == null || (fs.getDueDate() != null && fs.getDueDate().isBefore(dueDate))) {
                     dueDate = fs.getDueDate();
                 }
             }
             l.setTotalFee(total);
+            // Only apply the hostel line if this specific student stays
+            // in the hostel AND the class has hostel enabled — the
+            // resolver already zeros out the second condition.
+            l.setHostelFee(student.isHostelEnrolled() ? hostel : 0);
             l.setFeeStructureId(feeStructureId);
             l.setDueDate(dueDate);
         }
@@ -259,7 +301,7 @@ public class StudentFeeLedgerService {
             academicYearRepo.findById(academicYearId).ifPresent(ay -> l.setAcademicYearLabel(ay.getLabel()));
         }
 
-        l.setTotalDue(l.getTotalFee() - l.getConcession());
+        l.setTotalDue(l.getTotalFee() + l.getHostelFee() - l.getConcession());
         l.setTotalPaid(0);
         l.setBalance(l.getTotalDue());
         l.setStatus(l.getTotalDue() > 0 ? Status.UNPAID : Status.PAID);
@@ -318,7 +360,8 @@ public class StudentFeeLedgerService {
         for (Payment p : ledger.getPayments()) {
             if (!p.isVoided()) totalPaid += p.getAmount();
         }
-        double totalDue = ledger.getTotalFee() + ledger.getSurcharge() - ledger.getConcession();
+        double totalDue = ledger.getTotalFee() + ledger.getHostelFee()
+                + ledger.getSurcharge() - ledger.getConcession();
         ledger.setTotalDue(totalDue);
         ledger.setTotalPaid(totalPaid);
         ledger.setBalance(totalDue - totalPaid);

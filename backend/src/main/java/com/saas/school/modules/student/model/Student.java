@@ -38,6 +38,18 @@ public class Student {
     private List<AcademicHistory> academicHistory;
     private List<DocumentRef> documents;
 
+    /** True when the student stays in the hostel — flips the hostel
+     *  fee line on the fee ledger. Kept at Student level (not per-year)
+     *  because most schools re-toggle it per academic year via the
+     *  yearly fee-collection cycle rather than tracking history. Old
+     *  rows deserialize as false. */
+    private boolean hostelEnrolled;
+
+    /** Optional free-text plan label (e.g. "AC · 2-share", "Non-AC · 4-share").
+     *  Purely descriptive — the hostel amount comes from the class-level
+     *  FeeStructure.hostelAmount, not from the plan text. */
+    private String hostelPlan;
+
     @CreatedDate
     private Instant createdAt;
     private Instant deletedAt;
@@ -246,6 +258,12 @@ public class Student {
     public void setDeletedAt(Instant deletedAt) {
         this.deletedAt = deletedAt;
     }
+
+    public boolean isHostelEnrolled() { return hostelEnrolled; }
+    public void setHostelEnrolled(boolean hostelEnrolled) { this.hostelEnrolled = hostelEnrolled; }
+
+    public String getHostelPlan() { return hostelPlan; }
+    public void setHostelPlan(String hostelPlan) { this.hostelPlan = hostelPlan; }
 
     // ── Nested types ──────────────────────────────────────────────
 

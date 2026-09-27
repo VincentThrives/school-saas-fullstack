@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
@@ -34,6 +35,7 @@ import { SchoolClass, AcademicYear } from '../../../core/models';
     MatDatepickerModule,
     MatNativeDateModule,
     MatDividerModule,
+    MatSlideToggleModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
     PageHeaderComponent,
@@ -104,6 +106,11 @@ export class StudentFormComponent implements OnInit {
       city: [''],
       state: [''],
       zip: [''],
+      // Hostel — off by default. When ON, the fee ledger auto-adds the
+      // class-level hostelAmount from FeeStructure to totalDue. Plan is
+      // descriptive only (AC / non-AC / room label).
+      hostelEnrolled: [false],
+      hostelPlan: [''],
     });
 
     this.loadAcademicYears();
@@ -178,6 +185,8 @@ export class StudentFormComponent implements OnInit {
             city: s.address?.city || '',
             state: s.address?.state || '',
             zip: s.address?.zip || '',
+            hostelEnrolled: !!s.hostelEnrolled,
+            hostelPlan: s.hostelPlan || '',
           });
           // Load classes for this student's academic year, then set classId/sectionId
           if (s.academicYearId) {

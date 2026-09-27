@@ -48,9 +48,17 @@ public class StudentFeeLedger {
     // Totals (stored, NOT computed on read)
     private double totalFee;          // snapshot of the fee structure amount
     /**
+     * Hostel add-on for students with {@code Student.hostelEnrolled=true}.
+     * Snapshot of {@link com.saas.school.modules.fee.model.FeeStructure#getHostelAmount()}
+     * at materialization time. Zero for non-hostel students so old ledgers
+     * deserialize cleanly and totalDue keeps its original formula.
+     * totalDue = totalFee + hostelFee + surcharge - concession.
+     */
+    private double hostelFee;
+    /**
      * Extra charge added on top of the class default — mid-year admission,
      * late-payment penalty, custom uniform, etc. Zero for most students.
-     * totalDue = totalFee + surcharge - concession.
+     * totalDue = totalFee + hostelFee + surcharge - concession.
      */
     private double surcharge;
     /**
@@ -131,6 +139,9 @@ public class StudentFeeLedger {
 
     public double getTotalFee() { return totalFee; }
     public void setTotalFee(double totalFee) { this.totalFee = totalFee; }
+
+    public double getHostelFee() { return hostelFee; }
+    public void setHostelFee(double hostelFee) { this.hostelFee = hostelFee; }
 
     public double getSurcharge() { return surcharge; }
     public void setSurcharge(double surcharge) { this.surcharge = surcharge; }

@@ -1419,3 +1419,28 @@ body.dark-theme {
     .delete-warning { background: rgba(220, 38, 38, 0.12); color: #fecaca; border-color: rgba(220, 38, 38, 0.35); }
   }
 }
+
+// ── Fee Receipt dialog ──────────────────────────────────────────
+// Strip Material's default dialog padding so the receipt-card's own
+// mm-based sizing lands the A5 layout flush against the panel edge.
+// The receipt component's toolbar handles the header + close button.
+.fee-receipt-dialog-panel .mat-mdc-dialog-container .mdc-dialog__surface {
+  padding: 0 !important;
+  background: #f4f5f7;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.fee-receipt-dialog-panel .mat-mdc-dialog-content {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-height: 90vh;
+}
+// Also hide app chrome globally when printing so a fallback print
+// from the receipt route only captures the receipt card.
+@media print {
+  app-root > * > *:not(router-outlet):not(app-fee-receipt),
+  .sidenav-container .sidenav,
+  .app-header {
+    display: none !important;
+  }
+}

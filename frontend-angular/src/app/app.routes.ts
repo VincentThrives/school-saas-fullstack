@@ -28,6 +28,16 @@ export const routes: Routes = [
       import('./features/auth/forgot-password/forgot-password.component').then(m => m.ForgotPasswordComponent),
   },
 
+  // ── Standalone printable Fee Receipt — auth-guarded but sits
+  //    OUTSIDE the main layout so the print-view is chrome-free.
+  //    Opens in a new tab from the Fee Payments row's print button. ──
+  {
+    path: 'fees/receipt/:ledgerId/:paymentId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/fees/receipt/fee-receipt.component').then(m => m.FeeReceiptComponent),
+  },
+
   // ── Protected Routes (with layout) ─────────────────────
   {
     path: '',
