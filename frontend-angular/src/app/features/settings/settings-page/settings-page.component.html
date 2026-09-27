@@ -239,43 +239,25 @@
       <mat-card class="tab-card" *ngIf="!isLoading && activeTab === 'attendance'">
         <ng-container *ngTemplateOutlet="saveBar; context: {
           title: 'Attendance',
-          sub: 'When attendance can be marked and how late students are flagged.'
+          sub: 'Who is allowed to mark student attendance.'
         }"></ng-container>
 
-        <h3 class="section-title">School hours</h3>
-        <div class="field-grid">
-          <mat-form-field appearance="outline">
-            <mat-label>School starts at</mat-label>
-            <input matInput type="time" [(ngModel)]="attendanceDraft.schoolStartTime" (ngModelChange)="markDirty()" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>School ends at</mat-label>
-            <input matInput type="time" [(ngModel)]="attendanceDraft.schoolEndTime" (ngModelChange)="markDirty()" />
-          </mat-form-field>
-        </div>
+        <!-- School hours / marking window / late threshold were shown here
+             historically but no service consumed them, so they've been
+             removed. Reintroduce when a real enforcement path exists. -->
 
-        <mat-divider></mat-divider>
-        <h3 class="section-title">Marking window</h3>
-        <div class="field-grid">
-          <mat-form-field appearance="outline">
-            <mat-label>Attendance window (hours)</mat-label>
-            <input matInput type="number" min="1" max="24"
-                   [(ngModel)]="attendanceDraft.attendanceWindowHours"
-                   (ngModelChange)="markDirty()" />
-            <mat-hint>Hours after a period ends that attendance can still be marked</mat-hint>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Late threshold (minutes)</mat-label>
-            <input matInput type="number" min="0" max="120"
-                   [(ngModel)]="attendanceDraft.lateThresholdMinutes"
-                   (ngModelChange)="markDirty()" />
-            <mat-hint>Arrivals after this many minutes are marked Late</mat-hint>
-          </mat-form-field>
-        </div>
-
-        <div class="info-chip">
-          <mat-icon>info</mat-icon>
-          <span>Attendance mode (Day-wise vs Subject-wise) is configured at the tenant level. Contact support to change it.</span>
+        <h3 class="section-title">Who can mark attendance</h3>
+        <div class="toggle-row">
+          <mat-slide-toggle color="primary"
+                            [(ngModel)]="attendanceDraft.anySubjectTeacherCanMark"
+                            (ngModelChange)="markDirty()">
+            Any subject teacher can mark attendance for the class they teach
+          </mat-slide-toggle>
+          <p class="toggle-hint">
+            <strong>Off (default):</strong> only the class teacher of a section can mark that section's
+            attendance. <strong>On:</strong> any teacher assigned to teach any subject in that section
+            can mark it too. Admins can always mark, regardless of this setting.
+          </p>
         </div>
       </mat-card>
 

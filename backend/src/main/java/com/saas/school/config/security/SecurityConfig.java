@@ -86,6 +86,12 @@ public class SecurityConfig {
                 // Academic years: any authenticated user may read; writes are restricted at method level
                 .requestMatchers(HttpMethod.GET, "/api/v1/academic-years/**").authenticated()
                 .requestMatchers("/api/v1/academic-years/**").hasAnyRole("SCHOOL_ADMIN", "SUPER_ADMIN")
+                // School settings: reads open to any authenticated user
+                // (teachers need attendanceAccess for the Mark Attendance
+                // dropdown scope; grading scale + school profile are
+                // consumed by other role's pages). Writes stay admin-only
+                // via the method-level @PreAuthorize on the PUT.
+                .requestMatchers(HttpMethod.GET, "/api/v1/settings/**").authenticated()
                 .requestMatchers("/api/v1/settings/**").hasRole("SCHOOL_ADMIN")
 
                 // All authenticated tenant users

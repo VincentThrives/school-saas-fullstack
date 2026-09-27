@@ -12,11 +12,18 @@ import java.util.UUID;
 @Tag(name="School Settings")
 @RestController
 @RequestMapping("/api/v1/settings")
-@PreAuthorize("hasRole('SCHOOL_ADMIN')")
 public class SettingsController {
     @Autowired private SchoolSettingsRepository settingsRepo;
 
+    /**
+     * Read is open to every authenticated user. Teachers need
+     * {@code attendanceAccess} to decide which sections to show in the
+     * Mark Attendance dropdown; the grading scale drives student marks
+     * pages; the school profile powers receipt / report headers. None
+     * of these are sensitive per-user secrets. Writes stay admin-only.
+     */
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<SchoolSettings>> get() {
         String tenantId = TenantContext.getTenantId();
         SchoolSettings settings = settingsRepo.findByTenantId(tenantId)
@@ -43,6 +50,7 @@ public class SettingsController {
     }
 
     @PutMapping
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<SchoolSettings>> update(@RequestBody SchoolSettings req) {
         req.setTenantId(TenantContext.getTenantId());
         if (req.getSettingsId() == null) req.setSettingsId(UUID.randomUUID().toString());

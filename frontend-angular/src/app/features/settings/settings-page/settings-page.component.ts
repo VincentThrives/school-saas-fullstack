@@ -112,10 +112,18 @@ export class SettingsPageComponent implements OnInit {
 
   // Attendance
   attendanceDraft = {
+    // Legacy fields — kept in state so we don't accidentally wipe them
+    // out of stored docs on a Save; UI no longer surfaces them since
+    // nothing consumes them today. Wire them back if a real enforcement
+    // path is added.
     attendanceWindowHours: 2 as number,
     lateThresholdMinutes: 15 as number,
     schoolStartTime: '' as string,
     schoolEndTime: '' as string,
+    /** Broadens "who can mark attendance" beyond the CLASS_TEACHER role.
+     *  When on, any teacher assigned to teach any subject in a section
+     *  may mark that section's attendance. Admins can always mark. */
+    anySubjectTeacherCanMark: false as boolean,
   };
 
   // Fees
@@ -214,6 +222,7 @@ export class SettingsPageComponent implements OnInit {
       lateThresholdMinutes: s.lateThresholdMinutes ?? 15,
       schoolStartTime: s.schoolStartTime ?? '08:30',
       schoolEndTime: s.schoolEndTime ?? '15:30',
+      anySubjectTeacherCanMark: !!(s?.attendanceAccess?.anySubjectTeacherCanMark),
     };
 
     this.feesDraft = {
@@ -305,6 +314,9 @@ export class SettingsPageComponent implements OnInit {
       lateThresholdMinutes: this.attendanceDraft.lateThresholdMinutes,
       schoolStartTime: this.attendanceDraft.schoolStartTime,
       schoolEndTime: this.attendanceDraft.schoolEndTime,
+      attendanceAccess: {
+        anySubjectTeacherCanMark: !!this.attendanceDraft.anySubjectTeacherCanMark,
+      },
 
       // Fees
       currencyCode: this.feesDraft.currencyCode,

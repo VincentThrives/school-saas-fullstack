@@ -85,6 +85,17 @@ export class HeaderComponent implements OnInit, OnDestroy {
     return this.authService.availableRoles;
   }
 
+  /** Settings page is an admin-only editor (school-wide preferences,
+   *  ID formats, etc.). Hide the profile-dropdown link for anyone who
+   *  can't actually use the page, so teachers / parents don't get a
+   *  dead menu item. */
+  get canAccessSettings(): boolean {
+    const role = this.authService.currentRole;
+    return role === UserRole.SCHOOL_ADMIN
+        || role === UserRole.SUPER_ADMIN
+        || role === UserRole.PRINCIPAL;
+  }
+
   /** Friendly label for a role in the switcher dropdown (title case). */
   roleLabel(role: UserRole): string {
     return String(role).replace(/_/g, ' ');

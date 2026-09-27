@@ -51,6 +51,28 @@ public class AttendanceService {
     @Autowired private NotificationRuleEngine ruleEngine;
     @Autowired private SmsService smsService;
     @Autowired private AuditService auditService;
+    @Autowired private com.saas.school.modules.settings.repository.SchoolSettingsRepository settingsRepository;
+
+    /**
+     * Reads the "any subject teacher can mark attendance" toggle from
+     * {@code SchoolSettings.attendanceAccess}. Returns false (today's
+     * class-teacher-only behavior) when the settings doc doesn't exist
+     * or the access bag is null — so pre-existing tenants see no change.
+     */
+    private boolean anySubjectTeacherCanMark() {
+        try {
+            String tenantId = com.saas.school.config.mongodb.TenantContext.getTenantId();
+            if (tenantId == null) return false;
+            var opt = settingsRepository.findByTenantId(tenantId);
+            if (opt.isEmpty()) return false;
+            var access = opt.get().getAttendanceAccess();
+            return access != null && access.isAnySubjectTeacherCanMark();
+        } catch (Exception e) {
+            // Never fail attendance-marking over a settings lookup — the
+            // safest fallback is today's class-teacher-only behavior.
+            return false;
+        }
+    }
 
     // ── Component-key resolution ────────────────────────────────────
 
@@ -691,13 +713,21 @@ public class AttendanceService {
         String teacherId = teacherOpt.get().getTeacherId();
         var assignments = assignmentRepository.findByTeacherIdAndAcademicYearId(teacherId, academicYearId);
         if (assignments == null) return pairs;
+        // When the "any subject teacher can mark" school setting is on,
+        // widen the whitelist to every (class, section) the teacher has
+        // ANY active assignment for — not just the CLASS_TEACHER role.
+        // Default (flag off) preserves today's strict class-teacher scope.
+        boolean anySubjectTeacher = anySubjectTeacherCanMark();
         for (var a : assignments) {
             if (a == null
                     || a.getStatus() != TeacherSubjectAssignment.Status.ACTIVE
                     || a.getRoles() == null
-                    || !a.getRoles().contains(TeacherSubjectAssignment.Role.CLASS_TEACHER)
                     || a.getClassId() == null
                     || a.getSectionId() == null) continue;
+            if (!anySubjectTeacher
+                    && !a.getRoles().contains(TeacherSubjectAssignment.Role.CLASS_TEACHER)) {
+                continue;
+            }
             pairs.add(a.getClassId() + "::" + a.getSectionId());
         }
         return pairs;
@@ -741,6 +771,17 @@ public class AttendanceService {
                         && myTeacherId.equals(a.getTeacherId()));
         if (callerIsClassTeacher) return;
 
+        // Broadened access: when the school setting is on, ANY active
+        // assignment for this section (subject teacher, coordinator role,
+        // etc.) is enough. Class-teacher-only remains the default.
+        if (anySubjectTeacherCanMark()) {
+            boolean callerHasAnyAssignment = sectionAssignments.stream()
+                    .anyMatch(a -> a != null
+                            && a.getStatus() == TeacherSubjectAssignment.Status.ACTIVE
+                            && myTeacherId.equals(a.getTeacherId()));
+            if (callerHasAnyAssignment) return;
+        }
+
         boolean anyClassTeacherAssigned = sectionAssignments.stream()
                 .anyMatch(a -> a != null
                         && a.getStatus() == TeacherSubjectAssignment.Status.ACTIVE
@@ -749,9 +790,12 @@ public class AttendanceService {
         if (!anyClassTeacherAssigned) return;  // Setup mode — no one assigned yet.
 
         throw new IllegalArgumentException(
-                "Only the assigned class teacher can mark day-wise attendance "
-              + "for this section. Ask the school admin to update the class "
-              + "teacher in Teacher Assignment if this is wrong.");
+                anySubjectTeacherCanMark()
+                        ? "Only teachers assigned to this section can mark its attendance. "
+                          + "Ask the school admin to add you in Teacher Assignment."
+                        : "Only the assigned class teacher can mark day-wise attendance "
+                          + "for this section. Ask the school admin to update the class "
+                          + "teacher in Teacher Assignment if this is wrong.");
     }
 
     private String resolveClassLabel(String classId, String sectionId) {

@@ -296,19 +296,37 @@ export class MarkAttendanceComponent implements OnInit {
     }
     this.isTeacherMode = this.auth.currentRole === UserRole.TEACHER;
     if (this.isTeacherMode) {
-      // Pull this teacher's assignments and keep only the CLASS_TEACHER
-      // rows. Year filter is intentionally omitted — the year picker on
-      // this page drives loadClasses; this list is small enough to
-      // filter client-side once.
+      // Two calls in parallel:
+      //   1. This teacher's assignments (drives dropdown scope).
+      //   2. SchoolSettings.attendanceAccess.anySubjectTeacherCanMark —
+      //      when true, widens the scope from CLASS_TEACHER-only to
+      //      "any assigned role" so subject teachers can pick their
+      //      taught sections. Off (default) preserves today's behavior.
       this.api.getMyTeacherAssignments().subscribe({
         next: (res) => {
           const rows = (res?.data || []) as any[];
-          this.myClassTeacherSections = new Set(
-            rows
-              .filter(r => Array.isArray(r?.roles) && r.roles.includes('CLASS_TEACHER'))
-              .map(r => `${r.classId}::${r.sectionId}`)
-          );
-          this.loadAcademicYears();
+          this.api.getSettings().subscribe({
+            next: (sres) => {
+              const anyTeacher = !!(sres as any)?.data?.attendanceAccess?.anySubjectTeacherCanMark;
+              this.myClassTeacherSections = new Set(
+                rows
+                  .filter(r => Array.isArray(r?.roles)
+                          && (anyTeacher || r.roles.includes('CLASS_TEACHER')))
+                  .map(r => `${r.classId}::${r.sectionId}`)
+              );
+              this.loadAcademicYears();
+            },
+            error: () => {
+              // Settings fetch failed — safest default is class-teacher-
+              // only, matching the pre-toggle behavior.
+              this.myClassTeacherSections = new Set(
+                rows
+                  .filter(r => Array.isArray(r?.roles) && r.roles.includes('CLASS_TEACHER'))
+                  .map(r => `${r.classId}::${r.sectionId}`)
+              );
+              this.loadAcademicYears();
+            },
+          });
         },
         error: () => {
           // Profile fetch failed — fall back to no-class state rather than

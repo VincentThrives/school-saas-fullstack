@@ -45,6 +45,13 @@ public class SchoolSettings {
     // Identity
     private SchoolProfile profile;
 
+    /**
+     * Attendance access-control bag. Nested so future permission toggles
+     * (principalOnlyEditsPast, hodApprovesRegularization, …) live together.
+     * Null on pre-existing docs → treated as all-defaults (today's behavior).
+     */
+    private AttendanceAccess attendanceAccess;
+
     public SchoolSettings() {
     }
 
@@ -104,6 +111,9 @@ public class SchoolSettings {
 
     public SchoolProfile getProfile() { return profile; }
     public void setProfile(SchoolProfile profile) { this.profile = profile; }
+
+    public AttendanceAccess getAttendanceAccess() { return attendanceAccess; }
+    public void setAttendanceAccess(AttendanceAccess attendanceAccess) { this.attendanceAccess = attendanceAccess; }
 
     public String getSchoolStartTime() { return schoolStartTime; }
     public void setSchoolStartTime(String schoolStartTime) { this.schoolStartTime = schoolStartTime; }
@@ -190,6 +200,28 @@ public class SchoolSettings {
         public void setCountry(String country) { this.country = country; }
         public String getZip() { return zip; }
         public void setZip(String zip) { this.zip = zip; }
+    }
+
+    /**
+     * Attendance access controls. Nested config bag on SchoolSettings so
+     * new permission toggles can be added without proliferating top-level
+     * settings fields.
+     */
+    public static class AttendanceAccess {
+        /**
+         * When true, any teacher assigned to teach any subject in a
+         * (class, section) may mark that section's attendance — not
+         * just the CLASS_TEACHER. Admins can always mark regardless.
+         * Default false = today's behavior (class-teacher-only).
+         */
+        private boolean anySubjectTeacherCanMark;
+
+        public AttendanceAccess() {}
+
+        public boolean isAnySubjectTeacherCanMark() { return anySubjectTeacherCanMark; }
+        public void setAnySubjectTeacherCanMark(boolean anySubjectTeacherCanMark) {
+            this.anySubjectTeacherCanMark = anySubjectTeacherCanMark;
+        }
     }
 
     public static class PasswordPolicy {
