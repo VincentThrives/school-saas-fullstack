@@ -1,7 +1,6 @@
 <div class="report-view-container">
   <app-page-header
     title="Report Card"
-    [subtitle]="reportCard?.studentName || ''"
     [breadcrumbs]="[
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'Report Cards', link: '/report-cards' },
@@ -20,58 +19,43 @@
   </div>
 
   <div *ngIf="reportCard && !isLoading">
-    <!-- Student Info -->
-    <mat-card class="info-card">
-      <div class="info-grid">
-        <div class="info-item">
-          <span class="info-label">Student Name</span>
-          <span class="info-value">{{ reportCard.studentName }}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Class</span>
-          <span class="info-value">{{ reportCard.className || '-' }}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Academic Year</span>
-          <span class="info-value">{{ reportCard.academicYearLabel || reportCard.academicYearId }}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Exam</span>
-          <span class="info-value">
-            <mat-chip class="exam-chip">{{ reportCard.examType || 'All Exam Types' }}</mat-chip>
-          </span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Rank</span>
-          <span class="info-value highlight">{{ reportCard.rank || '-' }}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Overall Percentage</span>
-          <span class="info-value highlight">{{ reportCard.percentage }}%</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Grade</span>
-          <span class="info-value">
-            <mat-chip class="grade-chip">{{ reportCard.grade }}</mat-chip>
-          </span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Result</span>
-          <span class="info-value">
-            <!-- Overall result respects each subject's pass rule (per-component
-                 vs combined). A subject with a failed Practical fails the
-                 whole card, even if the overall percentage is above 35. -->
-            <mat-chip [class]="reportCard.passed ? 'pass-chip' : 'fail-chip'">
-              {{ reportCard.passed ? 'PASS' : 'FAIL' }}
-            </mat-chip>
-          </span>
-        </div>
-        <div class="info-item" *ngIf="reportCard.attendancePercentage">
-          <span class="info-label">Attendance</span>
-          <span class="info-value">{{ reportCard.attendancePercentage }}%</span>
-        </div>
+    <!-- Meta pill bar — slim row of context chips. Replaces the former
+         wide Student Info card that spread 4 label/value pairs across
+         the viewport before even showing the KPIs. -->
+    <div class="student-meta-bar">
+      <span class="meta-pill meta-pill--primary">{{ reportCard.studentName }}</span>
+      <span class="meta-pill">{{ reportCard.className || '—' }}</span>
+      <span class="meta-pill">{{ reportCard.academicYearLabel || reportCard.academicYearId }}</span>
+      <span class="meta-pill meta-pill--exam" *ngIf="reportCard.examType">{{ reportCard.examType }}</span>
+    </div>
+
+    <!-- KPI strip — compact one-row summary with colored left-edge
+         accents (same visual language as the Exam Results page). -->
+    <div class="kpi-strip">
+      <div class="kpi kpi--rank">
+        <span class="kpi-value">{{ reportCard.rank || '—' }}</span>
+        <span class="kpi-label">Rank</span>
       </div>
-    </mat-card>
+      <div class="kpi kpi--pct">
+        <span class="kpi-value">{{ reportCard.percentage }}<span class="kpi-sub">%</span></span>
+        <span class="kpi-label">Overall</span>
+      </div>
+      <div class="kpi kpi--grade">
+        <span class="kpi-value"><span class="grade-pill" [attr.data-grade]="reportCard.grade">{{ reportCard.grade }}</span></span>
+        <span class="kpi-label">Grade</span>
+      </div>
+      <div class="kpi" [class.kpi--pass]="reportCard.passed" [class.kpi--fail]="!reportCard.passed">
+        <!-- Overall result respects each subject's pass rule (per-component
+             vs combined). A subject with a failed Practical fails the
+             whole card, even if the overall percentage is above 35. -->
+        <span class="kpi-value">{{ reportCard.passed ? 'PASS' : 'FAIL' }}</span>
+        <span class="kpi-label">Result</span>
+      </div>
+      <div class="kpi kpi--attendance" *ngIf="reportCard.attendancePercentage">
+        <span class="kpi-value">{{ reportCard.attendancePercentage }}<span class="kpi-sub">%</span></span>
+        <span class="kpi-label">Attendance</span>
+      </div>
+    </div>
 
     <!-- Marks Table -->
     <mat-card class="marks-card">
@@ -80,13 +64,14 @@
       <!-- Mobile cards (< 600px). For multi-component subjects we list
            each component as its own line under the subject header. -->
       <div class="responsive-cards">
-        <div class="r-card" *ngFor="let mark of (reportCard.subjects || [])">
+        <div class="r-card" *ngFor="let mark of (reportCard.subjects || [])" [class.r-card--muted]="mark.notScheduled">
           <div class="r-card__header">
             <span class="r-card__title">{{ mark.subjectName }}</span>
-            <mat-chip class="grade-chip-sm" *ngIf="!mark.absent">{{ mark.grade }}</mat-chip>
-            <mat-chip class="absent-chip" *ngIf="mark.absent">Absent</mat-chip>
+            <mat-chip class="notscheduled-chip" *ngIf="mark.notScheduled" matTooltip="Teacher hasn't scheduled this exam yet">Not Scheduled</mat-chip>
+            <mat-chip class="absent-chip" *ngIf="mark.absent && !mark.notScheduled">Absent</mat-chip>
+            <mat-chip class="grade-chip-sm" *ngIf="!mark.absent && !mark.notScheduled">{{ mark.grade }}</mat-chip>
           </div>
-          <div class="r-card__inline" *ngIf="!mark.absent && !(mark.components && mark.components.length > 1)">
+          <div class="r-card__inline" *ngIf="!mark.absent && !mark.notScheduled && !(mark.components && mark.components.length > 1)">
             <span><strong>{{ mark.marksObtained }}</strong> / {{ mark.maxMarks }}</span>
           </div>
           <!-- Per-component sub-rows for multi-component subjects -->
@@ -108,55 +93,73 @@
         </div>
       </div>
 
-      <table mat-table [dataSource]="reportCard.subjects || []" class="marks-table responsive-table"
-             multiTemplateDataRows>
+      <table mat-table [dataSource]="reportCard.subjects || []" class="marks-table responsive-table">
+        <!-- Subject + inline component chips (Theory 18/20, Practical 28/30). -->
         <ng-container matColumnDef="subjectName">
           <th mat-header-cell *matHeaderCellDef>Subject</th>
-          <td mat-cell *matCellDef="let mark">
-            <div>{{ mark.subjectName }}</div>
-            <!-- Inline component breakdown when there's more than one component -->
-            <div class="component-breakdown" *ngIf="mark.components && mark.components.length > 1">
-              <div *ngFor="let comp of mark.components" class="component-line">
-                <span class="comp-label">{{ comp.label }}:</span>
-                <strong>{{ comp.marksObtained }}</strong>
-                <span class="muted">/ {{ comp.maxMarks }}</span>
-                <span class="muted" *ngIf="comp.attendancePercentage != null"> · attendance {{ comp.attendancePercentage }}%</span>
-                <mat-icon class="comp-fail" *ngIf="!comp.passed" matTooltip="Below pass marks">warning</mat-icon>
-              </div>
+          <td mat-cell *matCellDef="let mark" class="subject-cell">
+            <div class="subject-name">{{ mark.subjectName }}</div>
+            <div class="component-chips" *ngIf="mark.components && mark.components.length > 1">
+              <span class="comp-chip"
+                    *ngFor="let comp of mark.components"
+                    [class.comp-chip--fail]="!comp.passed"
+                    [title]="comp.attendancePercentage != null ? 'Attendance ' + comp.attendancePercentage + '%' : ''">
+                <span class="comp-chip__label">{{ comp.label }}</span>
+                <span class="comp-chip__val"><strong>{{ comp.marksObtained }}</strong>/{{ comp.maxMarks }}</span>
+                <mat-icon class="comp-chip__warn" *ngIf="!comp.passed" title="Below pass marks">warning</mat-icon>
+              </span>
             </div>
           </td>
         </ng-container>
 
-        <ng-container matColumnDef="marksObtained">
-          <th mat-header-cell *matHeaderCellDef>Marks Obtained</th>
-          <td mat-cell *matCellDef="let mark">
-            <span *ngIf="!mark.absent">{{ mark.marksObtained }}</span>
-            <mat-chip class="absent-chip" *ngIf="mark.absent">Absent</mat-chip>
+        <!-- Score — marks + a mini progress bar colored by grade band. -->
+        <ng-container matColumnDef="score">
+          <th mat-header-cell *matHeaderCellDef>Score</th>
+          <td mat-cell *matCellDef="let mark" class="score-cell">
+            <ng-container *ngIf="mark.notScheduled">
+              <span class="notscheduled-chip">Not Scheduled</span>
+            </ng-container>
+            <ng-container *ngIf="mark.absent && !mark.notScheduled">
+              <span class="absent-chip">Absent</span>
+            </ng-container>
+            <ng-container *ngIf="!mark.absent && !mark.notScheduled">
+              <div class="score-top">
+                <span class="score-main"><strong>{{ mark.marksObtained }}</strong><span class="score-sep">/</span>{{ mark.maxMarks }}</span>
+                <span class="score-pct">{{ pct(mark) }}%</span>
+              </div>
+              <div class="score-bar">
+                <div class="score-bar__fill" [style.width.%]="pct(mark)" [style.background]="pctColor(mark)"></div>
+              </div>
+            </ng-container>
           </td>
-        </ng-container>
-
-        <ng-container matColumnDef="maxMarks">
-          <th mat-header-cell *matHeaderCellDef>Max Marks</th>
-          <td mat-cell *matCellDef="let mark">{{ mark.maxMarks }}</td>
         </ng-container>
 
         <ng-container matColumnDef="grade">
           <th mat-header-cell *matHeaderCellDef>Grade</th>
           <td mat-cell *matCellDef="let mark">
-            <mat-chip class="grade-chip-sm" *ngIf="!mark.absent">{{ mark.grade }}</mat-chip>
-            <span class="muted" *ngIf="mark.absent">—</span>
+            <span class="grade-pill" *ngIf="!mark.absent && !mark.notScheduled" [attr.data-grade]="mark.grade">{{ mark.grade }}</span>
+            <span class="muted" *ngIf="mark.absent || mark.notScheduled">—</span>
           </td>
         </ng-container>
 
         <tr mat-header-row *matHeaderRowDef="marksColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: marksColumns;"></tr>
+        <tr mat-row *matRowDef="let row; columns: marksColumns;" [class.row--muted]="row.notScheduled"></tr>
       </table>
 
-      <!-- Totals Row -->
-      <div class="totals-row">
-        <span><strong>Total:</strong> {{ reportCard.totalMarks }} / {{ reportCard.totalMaxMarks }}</span>
-        <span><strong>Percentage:</strong> {{ reportCard.percentage }}%</span>
-        <span><strong>Grade:</strong> {{ reportCard.grade }}</span>
+      <!-- Slim summary strip — replaces the heavy gold totals block. -->
+      <div class="marks-summary">
+        <div class="marks-summary__cell">
+          <span class="marks-summary__label">Total</span>
+          <span class="marks-summary__value"><strong>{{ reportCard.totalMarks }}</strong> / {{ reportCard.totalMaxMarks }}</span>
+        </div>
+        <div class="marks-summary__cell">
+          <span class="marks-summary__label">Percentage</span>
+          <span class="marks-summary__value marks-summary__value--accent">{{ reportCard.percentage }}%</span>
+        </div>
+        <div class="marks-summary__cell">
+          <span class="marks-summary__label">Grade</span>
+          <span class="marks-summary__value"><span class="grade-pill" [attr.data-grade]="reportCard.grade">{{ reportCard.grade }}</span></span>
+        </div>
       </div>
 
       <p class="marks-footnote" *ngIf="reportCard.examType">

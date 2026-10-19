@@ -63,6 +63,17 @@ export class ClassRankingsComponent implements OnInit {
     private subjectService: SubjectService,
   ) {}
 
+  /** Color band for the percentage mini-bar — same palette as the
+   *  Report Card view's score bar so the brand reads consistent. */
+  pctColor(pct: number): string {
+    const p = pct || 0;
+    if (p >= 85) return '#22c55e';     // A+/A — green
+    if (p >= 70) return '#3b82f6';     // B+/B — blue
+    if (p >= 55) return '#f59e0b';     // C    — amber
+    if (p >= 35) return '#f97316';     // D    — orange
+    return '#ef4444';                   // F    — red
+  }
+
   ngOnInit(): void {
     // forkJoin both lookups so we can default the AY to "current" only
     // ONCE both arrived. Previously these subscribed separately and the
@@ -112,10 +123,23 @@ export class ClassRankingsComponent implements OnInit {
 
     this.api.getClasses(this.selectedAcademicYearId).subscribe((res) => {
       this.classes = res.data || [];
+      // Auto-select the first class so the admin lands on usable data
+      // on first visit. Section → Exam → Subjects then cascade.
+      if (this.classes.length > 0) {
+        this.selectedClassId = this.classes[0].classId;
+        this.onClassChange();
+      }
     });
   }
 
+  /** True until the first cascade completes — the only moment we're
+   *  allowed to pick a default Exam / Subject for the admin. Later
+   *  class/section changes keep whatever the admin picked, as long as
+   *  it's still a valid option for the new scope. */
+  private isFirstLoad = true;
+
   onClassChange(): void {
+    const prevExam = this.selectedExamNames[0];
     this.selectedSectionId = '';
     this.selectedExamNames = [];
     this.selectedSubjectIds = [];
@@ -129,20 +153,49 @@ export class ClassRankingsComponent implements OnInit {
     const selectedClass = this.classes.find(c => c.classId === this.selectedClassId);
     this.sections = selectedClass?.sections || [];
 
-    // Populate Exam list immediately — "All Sections" is the default
-    // section state, so the admin can pick an exam right away without
-    // first opening the Section dropdown.
+    // Auto-select first section so the cascade continues without a click.
+    // Falls back to "All Sections" (empty) if the class has no sections.
+    if (this.sections.length > 0) {
+      this.selectedSectionId = this.sections[0].sectionId;
+    }
     this.populateExamNames();
+    this.resolveExamAfterScopeChange(prevExam);
   }
 
   onSectionChange(): void {
+    const prevExam = this.selectedExamNames[0];
     this.selectedExamNames = [];
     this.selectedSubjectIds = [];
     this.examNames = [];
     this.subjects = [];
     this.rankings = [];
-    // Re-narrow exam list by the new (class, section) pair.
     this.populateExamNames();
+    this.resolveExamAfterScopeChange(prevExam);
+  }
+
+  /**
+   * Called after Class / Section changes repopulate the Exam list.
+   *
+   * - On the very first page load, auto-pick the first exam so the admin
+   *   lands on a populated ranking table.
+   * - On any later manual change, PRESERVE the admin's previously-chosen
+   *   exam if it's still a valid option (same name exists in the new
+   *   scope — e.g. FA2 exists in both 10-B and 10-C). Otherwise the
+   *   dropdown clears so the admin picks fresh — we don't auto-swap
+   *   silently to a different exam.
+   */
+  private resolveExamAfterScopeChange(prevExam: string | undefined): void {
+    if (this.examNames.length === 0) return;
+    if (this.isFirstLoad) {
+      this.isFirstLoad = false;
+      this.selectedExamNames = [this.examNames[0]];
+      this.onExamNameChange();
+      return;
+    }
+    if (prevExam && this.examNames.includes(prevExam)) {
+      this.selectedExamNames = [prevExam];
+      this.onExamNameChange();
+    }
   }
 
   /**
@@ -196,6 +249,7 @@ export class ClassRankingsComponent implements OnInit {
   }
 
   onExamNameChange(): void {
+    const prevSubjectIds = [...this.selectedSubjectIds];
     this.selectedSubjectIds = [];
     this.subjects = [];
     this.rankings = [];
@@ -222,6 +276,25 @@ export class ClassRankingsComponent implements OnInit {
     }
     this.subjectService.getSubjectsByIds(ids).subscribe((subjects: SubjectItem[]) => {
       this.subjects = subjects;
+      if (this.subjects.length === 0) return;
+      // Preserve the admin's previous subject picks that are still
+      // valid for the new exam scope — switching 10-B → 10-C with
+      // "Kannada" selected should keep Kannada if 10-C also has it.
+      // Only on the very first page load do we auto-pick the first
+      // subject so the table lands populated.
+      const stillValid = prevSubjectIds.filter(id =>
+        this.subjects.some(s => s.subjectId === id));
+      if (stillValid.length > 0) {
+        this.selectedSubjectIds = stillValid;
+        this.onSubjectChange();
+      } else if (prevSubjectIds.length === 0) {
+        // No prior selection → fresh first-time cascade. Pick first.
+        this.selectedSubjectIds = [this.subjects[0].subjectId];
+        this.onSubjectChange();
+      }
+      // Otherwise (admin had subjects selected but none survive the
+      // scope change) we leave the picker empty so they consciously
+      // choose fresh — matches the Exam preservation rule above.
     });
   }
 

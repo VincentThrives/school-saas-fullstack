@@ -5,6 +5,12 @@ import java.util.List;
 public interface ExamRepository extends MongoRepository<Exam, String> {
     List<Exam> findByClassIdAndAcademicYearId(String classId, String academicYearId);
     List<Exam> findBySubjectIdAndAcademicYearId(String subjectId, String academicYearId);
+    /** Report card / per-student fetch: scope exams to the student's own
+     *  (class, section, year). Without the section filter a 10-B student
+     *  used to also see 10-A and 10-C's exams, which bled sibling-section
+     *  rows into their report card. */
+    List<Exam> findByClassIdAndSectionIdAndAcademicYearId(
+            String classId, String sectionId, String academicYearId);
     List<Exam> findByAcademicYearIdAndStatus(String academicYearId, Exam.ExamStatus status);
     List<Exam> findByClassId(String classId);
     long countByExamType(String examType);

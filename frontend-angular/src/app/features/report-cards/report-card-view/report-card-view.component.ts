@@ -34,7 +34,27 @@ import { AuthService } from '../../../core/services/auth.service';
 })
 export class ReportCardViewComponent implements OnInit {
   reportCard: any = null;
-  marksColumns = ['subjectName', 'marksObtained', 'maxMarks', 'grade'];
+  marksColumns = ['subjectName', 'score', 'grade'];
+
+  /** Percent of max for a mark row — used by the mini progress-bar in
+   *  the Score column. Null-safe for Absent / Not-Scheduled rows (max=0). */
+  pct(mark: any): number {
+    if (!mark || !mark.maxMarks) return 0;
+    const p = (mark.marksObtained / mark.maxMarks) * 100;
+    return Math.max(0, Math.min(100, Math.round(p)));
+  }
+
+  /** Color band for the progress-bar fill. Mirrors the grade-pill palette
+   *  so the eye catches "red = failing, green = top" at a glance. */
+  pctColor(mark: any): string {
+    if (!mark || mark.absent || mark.notScheduled) return '#e5e7eb';
+    const p = this.pct(mark);
+    if (p >= 85) return '#22c55e';     // A+/A — green
+    if (p >= 70) return '#3b82f6';     // B+/B — blue
+    if (p >= 55) return '#f59e0b';     // C    — amber
+    if (p >= 35) return '#f97316';     // D    — orange
+    return '#ef4444';                   // F    — red
+  }
   isLoading = false;
   selectedExamType = '';
   selectedAcademicYearId = '';

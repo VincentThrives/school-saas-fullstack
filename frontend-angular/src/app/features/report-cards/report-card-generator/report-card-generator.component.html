@@ -51,27 +51,49 @@
         </mat-hint>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" class="filter-field student-filter" *ngIf="students.length > 0">
+      <!-- Student picker always in the grid so the row shape stays
+           stable; disables itself until a section's students load.
+           Includes an inline search that filters by name or admission
+           number — essential once a section has 40+ students. -->
+      <mat-form-field appearance="outline" class="filter-field student-filter">
         <mat-label>Student</mat-label>
-        <mat-select [(ngModel)]="selectedStudentId" (selectionChange)="onStudentChange()">
+        <mat-select #studentSel
+                    [(ngModel)]="selectedStudentId"
+                    (selectionChange)="onStudentChange()"
+                    (openedChange)="$event && studentSearchInput.focus()"
+                    (closed)="studentSearch = ''"
+                    [disabled]="students.length === 0"
+                    panelClass="student-select-panel">
+          <!-- Sticky search box at the top of the open panel. stopPropagation
+               keeps Material's keyboard navigation (arrow keys / Enter)
+               from stealing keystrokes while the admin types. -->
+          <div class="select-search" (click)="$event.stopPropagation()">
+            <mat-icon class="select-search__icon">search</mat-icon>
+            <input #studentSearchInput
+                   type="text"
+                   class="select-search__input"
+                   placeholder="Search by name or admission no."
+                   [(ngModel)]="studentSearch"
+                   (click)="$event.stopPropagation()"
+                   (keydown)="$event.stopPropagation()" />
+            <button type="button"
+                    class="select-search__clear"
+                    *ngIf="studentSearch"
+                    (click)="studentSearch = ''; $event.stopPropagation()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
           <mat-option value="">All Students</mat-option>
-          <mat-option *ngFor="let s of students" [value]="s.studentId">
+          <mat-option *ngFor="let s of filteredStudents" [value]="s.studentId">
             {{ s.firstName }} {{ s.lastName }} ({{ s.admissionNumber }})
+          </mat-option>
+          <mat-option disabled *ngIf="filteredStudents.length === 0 && studentSearch">
+            No students match "{{ studentSearch }}"
           </mat-option>
         </mat-select>
       </mat-form-field>
     </div>
   </mat-card>
-
-  <!-- Context chip — what these report cards are for -->
-  <div class="context-chip-row" *ngIf="filteredReportCards.length > 0 && selectedExamName">
-    <mat-chip-set>
-      <mat-chip class="ctx-chip">
-        <mat-icon>assignment</mat-icon>
-        Showing: {{ selectedExamName }}
-      </mat-chip>
-    </mat-chip-set>
-  </div>
 
   <!-- Actions Bar -->
   <mat-card class="table-card" [class.table-card--loading]="isLoading">
@@ -174,33 +196,40 @@
       <!-- Student Name -->
       <ng-container matColumnDef="studentName">
         <th mat-header-cell *matHeaderCellDef>Student Name</th>
-        <td mat-cell *matCellDef="let rc">{{ rc.studentName }}</td>
+        <td mat-cell *matCellDef="let rc" class="name-cell">{{ rc.studentName }}</td>
       </ng-container>
 
       <!-- Roll Number -->
       <ng-container matColumnDef="rollNumber">
         <th mat-header-cell *matHeaderCellDef>Roll No</th>
-        <td mat-cell *matCellDef="let rc">{{ getRollNumber(rc) }}</td>
+        <td mat-cell *matCellDef="let rc" class="roll-cell">{{ getRollNumber(rc) }}</td>
       </ng-container>
 
       <!-- Percentage -->
       <ng-container matColumnDef="percentage">
         <th mat-header-cell *matHeaderCellDef>Percentage</th>
-        <td mat-cell *matCellDef="let rc">{{ rc.percentage | number:'1.1-1' }}%</td>
-      </ng-container>
-
-      <!-- Grade -->
-      <ng-container matColumnDef="grade">
-        <th mat-header-cell *matHeaderCellDef>Grade</th>
-        <td mat-cell *matCellDef="let rc">
-          <mat-chip class="grade-chip">{{ rc.grade }}</mat-chip>
+        <td mat-cell *matCellDef="let rc" class="pct-cell">
+          <strong>{{ rc.percentage | number:'1.1-1' }}</strong><span class="pct-sign">%</span>
         </td>
       </ng-container>
 
-      <!-- Rank -->
+      <!-- Grade — tinted pill colored by band (A+/A green, B blue, C amber, D orange, F red). -->
+      <ng-container matColumnDef="grade">
+        <th mat-header-cell *matHeaderCellDef>Grade</th>
+        <td mat-cell *matCellDef="let rc">
+          <span class="grade-pill" [attr.data-grade]="rc.grade">{{ rc.grade }}</span>
+        </td>
+      </ng-container>
+
+      <!-- Rank — medal badge for the top 3 so the leaderboard reads at a glance. -->
       <ng-container matColumnDef="rank">
         <th mat-header-cell *matHeaderCellDef>Rank</th>
-        <td mat-cell *matCellDef="let rc">{{ rc.rank || '-' }}</td>
+        <td mat-cell *matCellDef="let rc">
+          <span class="rank-badge" [class.rank-badge--gold]="rc.rank === 1" [class.rank-badge--silver]="rc.rank === 2" [class.rank-badge--bronze]="rc.rank === 3" *ngIf="rc.rank">
+            {{ rc.rank }}
+          </span>
+          <span class="muted" *ngIf="!rc.rank">—</span>
+        </td>
       </ng-container>
 
       <!-- Actions -->

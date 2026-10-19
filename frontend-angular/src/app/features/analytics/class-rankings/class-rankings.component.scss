@@ -5,76 +5,195 @@ $gold-dark: #B8860B;
   padding: 0;
 }
 
+/* Filter card — compact, grid-based, same visual language as the
+   Report Cards page so the two feel like one product. */
 .filter-card {
   border-radius: 12px !important;
-  margin-bottom: 16px;
-  padding: 16px 24px;
+  margin-bottom: 14px;
+  padding: 10px 14px !important;
+
+  ::ng-deep .mat-mdc-card-content { padding: 0 !important; }
 }
 
 .filter-row {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr 0.9fr 1fr 1.6fr;
+  gap: 10px;
+  align-items: start;
+
+  @media (max-width: 1199px) { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 639px)  { grid-template-columns: 1fr; }
 }
 
 .filter-field {
-  min-width: 200px;
-  flex: 1;
+  min-width: 0;
+  width: 100%;
+
+  ::ng-deep .mat-mdc-form-field-infix {
+    min-height: 42px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper { min-height: 0; }
 }
 
+/* Table card + toolbar. */
 .table-card {
   border-radius: 12px !important;
   overflow: hidden;
 }
-
-.rankings-table {
-  width: 100%;
-}
-
-.rank-cell {
+.table-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-}
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 
-.medal-icon {
-  font-size: 24px;
-  width: 24px;
-  height: 24px;
-}
-
-.gold-medal {
-  color: #FFD700;
-}
-
-.silver-medal {
-  color: #C0C0C0;
-}
-
-.bronze-medal {
-  color: #CD7F32;
-}
-
-.rank-number {
-  font-weight: 500;
-
-  &.top-rank {
-    font-weight: 700;
-    font-size: 1.1rem;
+  .total-count {
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: #6b7280;
+  }
+  .scope-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #4b5563;
+    mat-icon { font-size: 16px; width: 16px; height: 16px; line-height: 16px; color: $gold-dark; }
   }
 }
 
-.top-student {
-  font-weight: 600;
+/* Table rows — tight (~44px) with small-caps uppercase headers. */
+.rankings-table {
+  width: 100%;
+
+  ::ng-deep .mat-mdc-header-cell {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #6b7280;
+    padding: 10px 14px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  ::ng-deep .mat-mdc-cell {
+    padding: 8px 14px;
+    font-size: 13.5px;
+    color: #1f2937;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  ::ng-deep .mat-mdc-row { min-height: 46px; }
+  ::ng-deep .mat-mdc-row:hover { background: #fafafa; cursor: default; }
+
+  .name-cell  { font-weight: 500; color: #111827; }
+  .roll-cell  { color: #4b5563; font-variant-numeric: tabular-nums; }
+  .marks-cell {
+    font-variant-numeric: tabular-nums;
+    strong { color: #111827; font-weight: 700; font-size: 14px; }
+    .muted { color: #9ca3af; }
+  }
+  .top-row { background: #fffbeb; }
 }
 
-.top-row {
-  background-color: rgba(212, 168, 67, 0.04);
+/* Rank badge — same medal palette the Report Cards list uses. */
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: #374151;
+  font-weight: 700;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+
+  &--gold   { background: #fef3c7; color: #92400e; box-shadow: inset 0 0 0 1px #fcd34d; }
+  &--silver { background: #e5e7eb; color: #374151; box-shadow: inset 0 0 0 1px #9ca3af; }
+  &--bronze { background: #fde68a; color: #78350f; box-shadow: inset 0 0 0 1px #d97706; }
 }
 
-.percentage-value {
+/* Percentage cell — big number + a mini progress bar colored by band. */
+.pct-cell {
+  min-width: 150px;
+
+  .pct-top {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .pct-value {
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    .pct-sign { color: #9ca3af; margin-left: 1px; font-size: 11.5px; font-weight: 600; }
+  }
+  .pct-bar {
+    position: relative;
+    height: 5px;
+    background: #f1f5f9;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .pct-bar__fill {
+    height: 100%;
+    border-radius: 999px;
+    min-width: 2px;
+    transition: width 0.3s ease;
+  }
+}
+
+.class-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: #eef2ff;
+  color: #4338ca;
+  border-radius: 999px;
+  font-size: 11.5px;
   font-weight: 600;
-  color: $gold-dark;
+  letter-spacing: 0.2px;
+}
+
+/* Mobile cards */
+.r-card {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  &__title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #111827;
+  }
+  &__big {
+    font-size: 15px;
+    font-weight: 700;
+    color: $gold-dark;
+    font-variant-numeric: tabular-nums;
+  }
+  &__inline {
+    display: flex;
+    gap: 16px;
+    margin-top: 4px;
+    font-size: 12.5px;
+    color: #4b5563;
+    strong { color: #6b7280; font-weight: 600; margin-right: 4px; }
+  }
 }
 
 .loading-row {
@@ -88,11 +207,8 @@ $gold-dark: #B8860B;
   padding: 48px;
   color: rgba(0, 0, 0, 0.5);
 
-  p {
-    margin: 8px 0 0;
-  }
+  p { margin: 8px 0 0; }
 }
-
 .empty-icon {
   font-size: 48px;
   width: 48px;

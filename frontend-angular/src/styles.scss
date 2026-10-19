@@ -1419,3 +1419,66 @@ body.dark-theme {
     .delete-warning { background: rgba(220, 38, 38, 0.12); color: #fecaca; border-color: rgba(220, 38, 38, 0.35); }
   }
 }
+
+/* Sticky search box inside a searchable mat-select panel. mat-select
+   renders in a CDK overlay outside the component's view encapsulation,
+   so the styles have to live in this global stylesheet (component SCSS
+   wouldn't match the generated DOM). Opt in by passing
+   panelClass="student-select-panel" on the <mat-select>. */
+.mat-mdc-select-panel.student-select-panel {
+  padding-top: 0 !important;
+
+  .select-search {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+    .select-search__icon {
+      color: #9ca3af;
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      line-height: 18px;
+    }
+    .select-search__input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 13.5px;
+      font-family: inherit;
+      color: #1f2937;
+      padding: 4px 0;
+      &::placeholder { color: #9ca3af; }
+    }
+    .select-search__clear {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 4px;
+      color: #9ca3af;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      &:hover { color: #4b5563; background: #f3f4f6; }
+      mat-icon { font-size: 16px; width: 16px; height: 16px; line-height: 16px; }
+    }
+  }
+}
+:host-context(body.dark-theme) .mat-mdc-select-panel.student-select-panel,
+body.dark-theme .mat-mdc-select-panel.student-select-panel {
+  .select-search {
+    background: #1f2937;
+    border-bottom-color: #374151;
+    .select-search__input { color: #f3f4f6; &::placeholder { color: #6b7280; } }
+    .select-search__clear:hover { background: #374151; color: #f3f4f6; }
+  }
+}

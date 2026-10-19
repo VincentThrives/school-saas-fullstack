@@ -19,6 +19,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { SchoolClass, AcademicYear, ReportCard } from '../../../core/models';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-report-card-generator',
@@ -54,6 +55,22 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
   selectedClassId = '';
   selectedSectionId = '';
   selectedStudentId = '';
+  /** Live search inside the Student picker. Filters by first/last name
+   *  OR admission number so an admin can type "ADM-14" or "bhav" and
+   *  jump to the row. Clears whenever the student list reloads. */
+  studentSearch = '';
+
+  /** Filtered view of {@link students} for the picker. Case-insensitive
+   *  substring match across firstName / lastName / admissionNumber. */
+  get filteredStudents(): any[] {
+    const q = (this.studentSearch || '').trim().toLowerCase();
+    if (!q) return this.students;
+    return this.students.filter((s: any) => {
+      const name = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase();
+      const adm = (s.admissionNumber || '').toLowerCase();
+      return name.includes(q) || adm.includes(q);
+    });
+  }
 
   // Report card data
   reportCards: any[] = [];
@@ -206,26 +223,39 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
       if (!initial) return;
 
       this.selectedAcademicYearId = initial.academicYearId;
-      // Manual cascade — onAcademicYearChange would WIPE the URL picks
-      // before we got to apply them. Inline the bits that load classes
-      // + exams, then replay the rest from the URL.
-      this.api.getClasses(this.selectedAcademicYearId).subscribe((cRes) => {
+      // Classes + exams in PARALLEL via forkJoin, but downstream restore
+      // runs only after BOTH land. The old code fired them as separate
+      // subscribes and the exam-name restore raced the class picker —
+      // when exams returned first the class picker was still empty, so
+      // recomputeExamNames() produced an empty list and the URL-
+      // remembered FA2 silently failed to re-select on back-navigation.
+      forkJoin({
+        classes: this.api.getClasses(this.selectedAcademicYearId),
+        exams: this.api.getExams(),
+      }).subscribe(({ classes: cRes, exams: eRes }) => {
         this.classes = cRes.data || [];
-        if (urlClass && this.classes.find(c => c.classId === urlClass)) {
-          this.selectedClassId = urlClass;
-          const cls = this.classes.find(c => c.classId === urlClass);
-          this.sections = cls?.sections || [];
-          if (urlSection && this.sections.find(s => s.sectionId === urlSection)) {
-            this.selectedSectionId = urlSection;
+        this.allExams = (eRes?.data || []).filter((e: any) => e.academicYearId === this.selectedAcademicYearId);
+
+        // Class → section → students. Prefer the URL (back-nav from a
+        // student report card); otherwise auto-select the FIRST class
+        // and FIRST section so a fresh visit lands with usable
+        // dropdowns and the admin only has to pick the Exam.
+        const fromUrlClass = urlClass && this.classes.find(c => c.classId === urlClass);
+        const chosenClass = fromUrlClass || this.classes[0];
+        if (chosenClass) {
+          this.selectedClassId = chosenClass.classId;
+          this.sections = chosenClass.sections || [];
+
+          const fromUrlSection = urlSection && this.sections.find(s => s.sectionId === urlSection);
+          const chosenSection = fromUrlSection || this.sections[0];
+          if (chosenSection) {
+            this.selectedSectionId = chosenSection.sectionId;
             this.loadStudentsForSection();
           }
         }
-      });
-      this.api.getExams().subscribe((eRes) => {
-        this.allExams = (eRes?.data || []).filter((e: any) => e.academicYearId === this.selectedAcademicYearId);
+
+        // Exam names depend on selectedClassId being set first.
         this.recomputeExamNames();
-        // Once classes + exams + section have settled, replay the exam
-        // from the URL and load report cards if it's still a valid pick.
         if (urlExamType && this.examNames.includes(urlExamType)) {
           this.selectedExamName = urlExamType;
           if (this.selectedClassId) {
@@ -421,6 +451,9 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
       sectionId: this.selectedSectionId,
     }).subscribe((res) => {
       this.students = res.data?.content || [];
+      // Fresh roster — clear any stale search term so the picker opens
+      // on the full list.
+      this.studentSearch = '';
     });
   }
 

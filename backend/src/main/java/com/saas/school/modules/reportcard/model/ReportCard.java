@@ -209,6 +209,16 @@ public class ReportCard {
         private String teacherRemarks;
         private boolean absent;
         /**
+         * True when the subject is on the student's section's roster BUT
+         * the current exam ({@link #examType}) has no exam row for it
+         * yet — i.e. the teacher hasn't scheduled this subject's FA2 /
+         * SA1 / etc. Different from {@link #absent} (student missed a
+         * scheduled exam). Keeps the row visible on the report card with
+         * a "Not Scheduled" marker instead of hiding it, so the admin
+         * can see at a glance which subjects still need to be set up.
+         */
+        private boolean notScheduled;
+        /**
          * Pass / Fail at the subject level, computed from the
          * subject's {@code passRule}:
          *  - PER_COMPONENT: passed iff every component passed
@@ -274,6 +284,9 @@ public class ReportCard {
 
         public boolean isAbsent() { return absent; }
         public void setAbsent(boolean absent) { this.absent = absent; }
+
+        public boolean isNotScheduled() { return notScheduled; }
+        public void setNotScheduled(boolean notScheduled) { this.notScheduled = notScheduled; }
 
         public boolean isPassed() { return passed; }
         public void setPassed(boolean passed) { this.passed = passed; }

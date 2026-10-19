@@ -16,6 +16,7 @@ import com.itextpdf.layout.properties.UnitValue;
 import com.saas.school.common.exception.ResourceNotFoundException;
 import com.saas.school.modules.attendance.model.Attendance;
 import com.saas.school.modules.attendance.repository.AttendanceRepository;
+import com.saas.school.modules.academicyear.model.AcademicYear;
 import com.saas.school.modules.classes.model.SchoolClass;
 import com.saas.school.modules.classes.model.Subject;
 import com.saas.school.modules.classes.repository.SchoolClassRepository;
@@ -158,7 +159,14 @@ public class ReportCardService {
         String sectionName = "";
         String classId = student.getClassId();
         if (classId != null) {
-            SchoolClass schoolClass = schoolClassRepository.findById(classId).orElse(null);
+            // Bulk path has the SchoolClass prefetched (identical for every
+            // student in the sweep); only the single-student path pays the
+            // round trip. Falls back to a direct findById if the prefetched
+            // class doesn't match (e.g. a cross-class call).
+            BulkPrefetch pf = BULK_PREFETCH.get();
+            SchoolClass schoolClass = (pf != null && pf.schoolClass != null && classId.equals(pf.schoolClass.getClassId()))
+                    ? pf.schoolClass
+                    : schoolClassRepository.findById(classId).orElse(null);
             if (schoolClass != null) {
                 className = schoolClass.getName();
                 if (student.getSectionId() != null && schoolClass.getSections() != null) {
@@ -176,13 +184,34 @@ public class ReportCardService {
             }
         }
 
-        // Fetch exams for the student's class and academic year, optionally filtered by exam type.
+        // Fetch exams scoped to (student's class, student's section, year).
+        // Section is part of the scope at the repo level so a 10-B student
+        // never sees 10-A or 10-C's exams in their report card — the only
+        // exams that matter here are the ones the teacher scheduled for
+        // this student's own section.
+        //
         // Bulk path pre-populates a ThreadLocal so we don't re-issue this
         // query 50× for a 50-student class (see generateBulkReportCards).
+        // The prefetched list is still class-wide; we trim it to the
+        // student's section here before filtering by exam name.
+        final String studentSectionId = student.getSectionId();
         BulkPrefetch prefetch = BULK_PREFETCH.get();
-        List<Exam> exams = (prefetch != null)
-                ? prefetch.examsByClassYear
-                : examRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
+        List<Exam> exams;
+        if (prefetch != null) {
+            exams = prefetch.examsByClassYear.stream()
+                    .filter(e -> studentSectionId == null
+                            || studentSectionId.isBlank()
+                            || e.getSectionId() == null
+                            || e.getSectionId().isBlank()
+                            || studentSectionId.equals(e.getSectionId()))
+                    .collect(Collectors.toList());
+        } else if (studentSectionId != null && !studentSectionId.isBlank()) {
+            exams = examRepository.findByClassIdAndSectionIdAndAcademicYearId(
+                    classId, studentSectionId, academicYearId);
+        } else {
+            exams = examRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
+        }
+
         if (examType != null && !examType.isEmpty()) {
             // The {@code examType} parameter now carries the exam NAME prefix
             // ("FA1", "SA1" …) rather than the broad examType ("FA", "SA"),
@@ -217,6 +246,11 @@ public class ReportCardService {
         List<StudentAssessments> batchList = (prefetch != null)
                 ? prefetch.assessmentsByExamIds
                 : assessmentsRepository.findByExamIdIn(examIds);
+        // Track which exams this student was explicitly marked ABSENT in.
+        // An absent entry still carries marksObtained=0 so without this
+        // flag the subject renders as "0 / 50  F" instead of the correct
+        // "Absent" chip.
+        Set<String> absentExamIds = new HashSet<>();
         for (StudentAssessments batch : batchList) {
             if (batch.getEntries() == null) continue;
             for (StudentAssessments.MarkEntry entry : batch.getEntries()) {
@@ -224,6 +258,9 @@ public class ReportCardService {
                     examMarksMap.put(batch.getExamId(), entry.getMarksObtained() != null ? entry.getMarksObtained() : 0.0);
                     if (entry.getComponentMarks() != null && !entry.getComponentMarks().isEmpty()) {
                         componentMarksByExamId.put(batch.getExamId(), entry.getComponentMarks());
+                    }
+                    if (entry.getStatus() == StudentAssessments.AttendanceStatus.ABSENT) {
+                        absentExamIds.add(batch.getExamId());
                     }
                 }
             }
@@ -265,16 +302,22 @@ public class ReportCardService {
 
         if (specificExamType) {
             // ── One exam per subject rule ───────────────────────────
-            // For a specific exam type (e.g. "Sem 1"), pick exactly ONE exam per
-            // subject — the most recent by examDate, falling back to createdAt —
-            // and use that single exam's marks/maxMarks. No summing, no duplicates.
+            // After scoping by (year, class, section, exam-name) there is at
+            // most one exam per subject in this list — nothing to tiebreak.
+            // The map is just a subjectId → Exam groupBy; a second exam for
+            // the same subject would indicate stale data, which we log so
+            // the admin can investigate (and still carry on with the first).
             Map<String, Exam> bestExamBySubject = new HashMap<>();
             for (Exam exam : exams) {
                 String subjectId = exam.getSubjectId();
                 if (subjectId == null) continue;
-                Exam current = bestExamBySubject.get(subjectId);
-                if (current == null || isNewerExam(exam, current)) {
-                    bestExamBySubject.put(subjectId, exam);
+                Exam prior = bestExamBySubject.putIfAbsent(subjectId, exam);
+                if (prior != null) {
+                    logger.warn("ReportCard: more than one exam matched "
+                            + "(year={}, class={}, section={}, subject={}, name={}). "
+                            + "Keeping {} and ignoring {}. Clean this up in Exam Config.",
+                            academicYearId, classId, studentSectionId, subjectId,
+                            examType, prior.getExamId(), exam.getExamId());
                 }
             }
 
@@ -291,12 +334,22 @@ public class ReportCardService {
                 // pushed percentages over 100.
                 subjectMaxMarks.put(subjectId, (double) exam.getEffectiveMaxMarks());
                 Double obtained = examMarksMap.get(exam.getExamId());
-                if (obtained != null) {
-                    subjectMarksObtained.put(subjectId, obtained);
-                } else {
-                    // Student was absent / marks not entered for this subject's exam
+                // Three states to distinguish:
+                //  - no entry at all           → absent (not yet entered)
+                //  - entry with status=ABSENT  → absent (teacher explicitly marked)
+                //  - entry with real marks     → render those marks (even 0)
+                if (obtained == null) {
                     subjectMarksObtained.put(subjectId, 0.0);
                     absentSubjectIds.add(subjectId);
+                } else if (absentExamIds.contains(exam.getExamId())) {
+                    // Teacher clicked the Absent toggle — the student
+                    // sat for the slot but was absent. Flag so the
+                    // subject row shows the Absent chip instead of
+                    // "0 / 50  F", and the overall grade ignores it.
+                    subjectMarksObtained.put(subjectId, 0.0);
+                    absentSubjectIds.add(subjectId);
+                } else {
+                    subjectMarksObtained.put(subjectId, obtained);
                 }
             }
         } else {
@@ -333,7 +386,12 @@ public class ReportCardService {
             double max = subjectMaxMarks.getOrDefault(subjectId, 0.0);
             boolean isAbsent = absentSubjectIds.contains(subjectId);
 
-            Subject subject = subjectRepository.findById(subjectId).orElse(null);
+            // Bulk path has the whole subjects catalog as a hashmap, so
+            // the per-subject lookup is O(1) instead of a Mongo round trip
+            // per subject per student.
+            Subject subject = (prefetch != null && prefetch.subjectById != null)
+                    ? prefetch.subjectById.get(subjectId)
+                    : subjectRepository.findById(subjectId).orElse(null);
 
             // Elective gate — when the subject is marked elective AND
             // its enrolledStudentIds list excludes this student, the
@@ -388,14 +446,67 @@ public class ReportCardService {
             totalMaxMarks += max;
         }
 
+        // Add "Not Scheduled" rows for every subject on the student's own
+        // (class, section) roster that didn't get an exam this period.
+        // Keeps the report card visually complete — admins see every
+        // subject with either marks, Absent, or Not Scheduled, instead
+        // of a one-row card that looks like data is missing. These rows
+        // DON'T contribute to totalMarks / totalMaxMarks (max = 0).
+        if (studentSectionId != null && !studentSectionId.isBlank()) {
+            Set<String> alreadyRendered = subjectGrades.stream()
+                    .map(ReportCard.SubjectGrade::getSubjectId)
+                    .collect(Collectors.toSet());
+            // Bulk path has these prefetched (same for every student in
+            // the sweep). Single-student path still hits the repo once.
+            List<Subject> rosterSubjects = (prefetch != null && prefetch.classSubjects != null)
+                    ? prefetch.classSubjects
+                    : subjectRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
+            for (Subject sub : rosterSubjects) {
+                if (sub == null || sub.getSubjectId() == null) continue;
+                if (alreadyRendered.contains(sub.getSubjectId())) continue;
+                // Section-scoped: only subjects actually assigned to this
+                // student's section count. (Elective + enrolledStudentIds
+                // still gate per-student at the same place as above.)
+                if (!sub.sectionIdsForClass(classId).contains(studentSectionId)) continue;
+                if (sub.isElective()
+                        && sub.getEnrolledStudentIds() != null
+                        && !sub.getEnrolledStudentIds().isEmpty()
+                        && !sub.getEnrolledStudentIds().contains(studentId)) {
+                    continue;
+                }
+                ReportCard.SubjectGrade sg = new ReportCard.SubjectGrade();
+                sg.setSubjectId(sub.getSubjectId());
+                sg.setSubjectName(sub.getName());
+                sg.setMarksObtained(0);
+                sg.setMaxMarks(0);
+                sg.setGrade("—");
+                sg.setPassed(true);     // not fail — exam wasn't held
+                sg.setAbsent(false);
+                sg.setNotScheduled(true);
+                subjectGrades.add(sg);
+            }
+        }
+
         double overallPercentage = totalMaxMarks > 0 ? (totalMarks / totalMaxMarks) * 100 : 0;
-        String overallGrade = calculateGrade(overallPercentage);
+        // No marks ENTERED yet → no grade. "Entered 0" is a valid real
+        // score (shows F) and must stay distinct from "teacher hasn't
+        // filled anything in". We check for at least one subject with an
+        // actual entry (neither Absent nor Not-Scheduled) — that's the
+        // signal that evaluation has started. If none, overall grade
+        // reads "—" so an untouched section doesn't look like a mass
+        // failure. Pass/Fail follows the same rule.
+        boolean anyMarksEntered = subjectGrades.stream()
+                .anyMatch(sg -> !sg.isAbsent() && !sg.isNotScheduled());
+        String overallGrade = anyMarksEntered ? calculateGrade(overallPercentage) : "—";
 
         // Calculate attendance percentage
         double attendancePercentage = calculateAttendancePercentage(studentId, academicYearId);
 
-        // Calculate rank among classmates
-        int rank = calculateRank(studentId, classId, academicYearId, overallPercentage);
+        // Calculate rank among classmates. Bulk path discards this value
+        // and re-ranks in-memory after the whole class is built, so skip
+        // the (expensive) per-student findByClassIdAndAcademicYearId
+        // query when we're inside a bulk sweep.
+        int rank = (prefetch != null) ? 0 : calculateRank(studentId, classId, academicYearId, overallPercentage);
 
         // Build and save report card
         ReportCard reportCard = new ReportCard();
@@ -404,10 +515,16 @@ public class ReportCardService {
         reportCard.setClassId(classId);
         reportCard.setClassName(className);
         reportCard.setAcademicYearId(academicYearId);
-        // Fetch academic year label
-        academicYearRepository.findById(academicYearId).ifPresent(ay ->
-            reportCard.setAcademicYearLabel(ay.getLabel())
-        );
+        // Fetch academic year label — reuse the bulk prefetch when it
+        // matches, so a 50-student class makes one AY lookup, not 50.
+        if (prefetch != null && prefetch.academicYear != null
+                && academicYearId.equals(prefetch.academicYear.getAcademicYearId())) {
+            reportCard.setAcademicYearLabel(prefetch.academicYear.getLabel());
+        } else {
+            academicYearRepository.findById(academicYearId).ifPresent(ay ->
+                reportCard.setAcademicYearLabel(ay.getLabel())
+            );
+        }
         reportCard.setExamType(specificExamType ? examType : null);
         reportCard.setSubjects(subjectGrades);
         reportCard.setTotalMarks(totalMarks);
@@ -721,10 +838,30 @@ public class ReportCardService {
         final List<Exam> examsByClassYear;
         final List<StudentAssessments> assessmentsByExamIds;
         final List<Subject> subjects;
-        BulkPrefetch(List<Exam> exams, List<StudentAssessments> assessments, List<Subject> subjects) {
+        /** Subjects assigned to the bulk's class — prefetched so the per-
+         *  student "Not Scheduled" loop stops doing N identical
+         *  findByClassIdAndAcademicYearId queries for a class of N kids. */
+        final List<Subject> classSubjects;
+        /** Subject lookup map keyed by subjectId — kills the per-subject
+         *  findById() inside the main loop in favour of an O(1) hashmap hit. */
+        final Map<String, Subject> subjectById;
+        /** SchoolClass is identical for every student in the bulk, so we
+         *  look it up once up front instead of 50 times inside the loop. */
+        final SchoolClass schoolClass;
+        /** Academic-year label is identical across the bulk too. */
+        final AcademicYear academicYear;
+        BulkPrefetch(List<Exam> exams, List<StudentAssessments> assessments, List<Subject> subjects,
+                     List<Subject> classSubjects, SchoolClass schoolClass, AcademicYear academicYear) {
             this.examsByClassYear = exams;
             this.assessmentsByExamIds = assessments;
             this.subjects = subjects;
+            this.classSubjects = classSubjects;
+            this.subjectById = new HashMap<>();
+            for (Subject s : subjects) {
+                if (s != null && s.getSubjectId() != null) this.subjectById.put(s.getSubjectId(), s);
+            }
+            this.schoolClass = schoolClass;
+            this.academicYear = academicYear;
         }
     }
 
@@ -753,17 +890,34 @@ public class ReportCardService {
         List<ReportCard> reportCards = new ArrayList<>();
 
         // ── One-shot prefetch of the shared data ──
-        // Without this each per-student call re-runs the same three
-        // queries — for a 50-student class that's 150 extra Mongo
-        // round-trips on the hot path. Set the prefetch BEFORE the
-        // loop; the per-student method reads it via the ThreadLocal.
+        // Without this each per-student call re-runs the same queries —
+        // for a 50-student class that was hundreds of extra Mongo round
+        // trips on the hot path, and showed up as 20–30s to open the
+        // Report Cards page. Set the prefetch BEFORE the loop; the
+        // per-student method reads it via the ThreadLocal.
+        //
+        // What we prefetch (all are identical for every student in the bulk):
+        //  - exams for (class, year)
+        //  - studentassessments for those exam ids
+        //  - every Subject row (we also build a subjectId->Subject map
+        //    so the per-subject findById() in the main loop is O(1))
+        //  - subjects assigned to this class (powers the "Not Scheduled"
+        //    row loop — was running once per student with identical args)
+        //  - SchoolClass doc for the class (identical across the bulk)
+        //  - AcademicYear doc for the label stamp
         List<Exam> prefetchedExams = examRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
         List<String> examIds = prefetchedExams.stream().map(Exam::getExamId).collect(Collectors.toList());
         List<StudentAssessments> prefetchedAssessments = examIds.isEmpty()
                 ? java.util.Collections.emptyList()
                 : assessmentsRepository.findByExamIdIn(examIds);
         List<Subject> prefetchedSubjects = subjectRepository.findAll();
-        BULK_PREFETCH.set(new BulkPrefetch(prefetchedExams, prefetchedAssessments, prefetchedSubjects));
+        List<Subject> prefetchedClassSubjects = subjectRepository
+                .findByClassIdAndAcademicYearId(classId, academicYearId);
+        SchoolClass prefetchedClass = schoolClassRepository.findById(classId).orElse(null);
+        AcademicYear prefetchedYear = academicYearRepository.findById(academicYearId).orElse(null);
+        BULK_PREFETCH.set(new BulkPrefetch(
+                prefetchedExams, prefetchedAssessments, prefetchedSubjects,
+                prefetchedClassSubjects, prefetchedClass, prefetchedYear));
 
         try {
             // Build each report card in memory ONLY — the
@@ -790,9 +944,25 @@ public class ReportCardService {
         // round trip. Previously this loop save()d each card individually,
         // turning 50 students into 50 extra Mongo writes that happened
         // AFTER the 50 writes already done by generateReportCard above.
+        //
+        // Students the teacher hasn't entered ANY marks for don't get a
+        // rank — otherwise a class whose teacher hasn't started grading
+        // would show "#1 … #50 all at 0.0%", which looks like a
+        // leaderboard where there isn't one. "Entered 0" is a valid
+        // real score (ranks normally), so the signal we use is "at
+        // least one subject with an actual entry" via the overall
+        // grade — a fresh "no entries" card has grade "—" (see
+        // generateReportCard above). Rank 0 is interpreted by the UI
+        // as "no rank" and renders as "—".
         reportCards.sort((a, b) -> Double.compare(b.getPercentage(), a.getPercentage()));
-        for (int i = 0; i < reportCards.size(); i++) {
-            reportCards.get(i).setRank(i + 1);
+        int rank = 0;
+        for (ReportCard rc : reportCards) {
+            boolean hasEntry = rc.getGrade() != null && !"—".equals(rc.getGrade());
+            if (hasEntry) {
+                rc.setRank(++rank);
+            } else {
+                rc.setRank(0);
+            }
         }
         if (!reportCards.isEmpty()) {
             reportCardRepository.saveAll(reportCards);
