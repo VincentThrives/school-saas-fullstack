@@ -2,7 +2,9 @@ $gold: #d4a843;
 $gold-dark: #b8860b;
 
 .oa-list {
-  padding: 24px;
+  /* Match Exam Types / Exam Config — breadcrumb hugs the page edge; bottom
+     padding kept for comfortable scroll. */
+  padding: 0 0 24px;
   max-width: 1100px;
   margin: 0 auto;
 }

@@ -25,4 +25,10 @@ public interface ExamRepository extends MongoRepository<Exam, String> {
      * docs. Used by the Configs list, edit, and delete endpoints.
      */
     List<Exam> findByAcademicYearIdAndExamType(String academicYearId, String examType);
+
+    // ── Scheme rollout (Phase 2) ─────────────────────────────────────
+    // Used by ExamTypeService.rolloutSlot to count what's already there and
+    // skip duplicates when the admin re-clicks "Create exams" for a slot.
+    List<Exam> findByExamTypeSchemeIdAndSlotKey(String examTypeSchemeId, String slotKey);
+    List<Exam> findByExamTypeSchemeId(String examTypeSchemeId);
 }

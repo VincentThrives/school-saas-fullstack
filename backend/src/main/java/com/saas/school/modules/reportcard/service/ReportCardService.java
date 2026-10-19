@@ -96,6 +96,27 @@ public class ReportCardService {
     @Autowired
     private com.saas.school.modules.academicyear.repository.AcademicYearRepository academicYearRepository;
 
+    /**
+     * Strip the subject suffix ("· Kannada", "— Math", "- Physics") from
+     * an {@code exam.name} so sibling-subject rows collapse into the same
+     * event name ("FA1 · Kannada" and "FA1 · Math" both become "FA1").
+     * Mirrors {@code ExamService.examNamePrefix} — kept local here to
+     * avoid a cross-service dependency on a private method, and defended
+     * against legacy exams with no name (falls back to examType).
+     */
+    private String examNamePrefix(Exam e) {
+        String name = e == null ? null : e.getName();
+        if (name != null && !name.isBlank()) {
+            int bestSep = -1;
+            for (String sep : new String[] { " · ", " — ", " - " }) {
+                int idx = name.indexOf(sep);
+                if (idx > 0 && (bestSep < 0 || idx < bestSep)) bestSep = idx;
+            }
+            return (bestSep > 0 ? name.substring(0, bestSep) : name).trim();
+        }
+        return e == null ? "" : (e.getExamType() == null ? "" : e.getExamType());
+    }
+
     public ReportCard generateReportCard(String studentId, String academicYearId, String examType) {
         return generateReportCard(studentId, academicYearId, examType, true);
     }
@@ -163,7 +184,15 @@ public class ReportCardService {
                 ? prefetch.examsByClassYear
                 : examRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
         if (examType != null && !examType.isEmpty()) {
-            exams = exams.stream().filter(e -> examType.equals(e.getExamType())).collect(Collectors.toList());
+            // The {@code examType} parameter now carries the exam NAME prefix
+            // ("FA1", "SA1" …) rather than the broad examType ("FA", "SA"),
+            // so a report card for FA1 contains only FA1 marks and never
+            // mixes in FA2's or UT1's rows. Legacy exams (no name) still
+            // match through examNamePrefix()'s fallback to e.getExamType().
+            final String target = examType;
+            exams = exams.stream()
+                    .filter(e -> target.equalsIgnoreCase(examNamePrefix(e)))
+                    .collect(Collectors.toList());
         }
         List<String> examIds = exams.stream().map(Exam::getExamId).collect(Collectors.toList());
 

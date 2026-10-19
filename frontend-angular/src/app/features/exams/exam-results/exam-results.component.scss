@@ -1,7 +1,45 @@
 .exam-results-container {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+  /* Match other list pages — hug the left edge, no horizontal centering. */
+  padding: 0 0 24px;
+  margin: 0;
+}
+
+/* Marks table tightening — rows closer together so the breakdown reads
+   as a compact listing rather than a bloated spreadsheet. */
+.marks-table {
+  width: 100%;
+  ::ng-deep .mat-mdc-cell,
+  ::ng-deep .mat-mdc-header-cell {
+    padding: 6px 10px;
+  }
+  ::ng-deep .mat-mdc-header-cell {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #4b5563;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  ::ng-deep .mat-mdc-row { height: auto; }
+  .piece-cell { text-align: center; font-weight: 500; color: #1f2937; }
+}
+
+/* Mobile card: list the per-piece marks as small pills under the total. */
+.r-card__pieces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  .piece-pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    font-size: 0.8rem;
+    color: #4b5563;
+    strong { color: #1f2937; font-weight: 600; }
+  }
 }
 
 .loading-container {
@@ -10,209 +48,241 @@
   padding: 64px 0;
 }
 
-// Exam Info Card
-.exam-info-card {
-  margin-bottom: 24px;
+/* Exam metadata — single slim row of pill-badges just under the breadcrumb.
+   Replaces the former wide "Exam Info" card that spread six LABEL / VALUE
+   pairs across most of the viewport. */
+.exam-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+
+  &--primary {
+    background: #eef2ff;
+    color: #4338ca;
+    font-weight: 600;
+  }
+  &--muted {
+    background: transparent;
+    border: 1px dashed #e5e7eb;
+    color: #6b7280;
+    font-weight: 500;
+  }
 }
 
-.info-grid {
+/* KPI strip — a single row of tight stat tiles instead of tall cards.
+   Numbers up top, label beneath, no colored block icons. Eight tiles
+   now (added Entered / Not Entered / Absent) so the grid folds to 4-up
+   on tablets and 2-up on phones. */
+.kpi-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
-}
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
 
-.info-item {
+  @media (max-width: 1279px) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  @media (max-width: 899px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (max-width: 479px) {
+    grid-template-columns: 1fr;
+  }
+}
+.kpi {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
+  gap: 2px;
+  /* Shrink horizontal padding so the longest label ("MARKS ENTERED",
+     "NOT ENTERED", "CLASS AVERAGE") has room to sit inside the card
+     when the strip squeezes eight tiles across a desktop viewport. */
+  padding: 10px 10px;
+  min-width: 0;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 
-.info-label {
-  font-size: 12px;
-  color: #666;
+  &--entered { border-left: 3px solid #0ea5e9; }
+  &--pending { border-left: 3px solid #a78bfa; }
+  &--absent  { border-left: 3px solid #64748b; }
+  &--pass    { border-left: 3px solid #22c55e; }
+  &--fail    { border-left: 3px solid #ef4444; }
+  &--pct     { border-left: 3px solid #f59e0b; }
+}
+.kpi-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.1;
+
+  .kpi--entered & { color: #0369a1; }
+  .kpi--pending & { color: #6d28d9; }
+  .kpi--absent  & { color: #475569; }
+  .kpi--pass    & { color: #15803d; }
+  .kpi--fail    & { color: #b91c1c; }
+}
+.kpi-label {
+  /* Tight on space with eight tiles across — any label with a space
+     (TOTAL STUDENTS, MARKS ENTERED, NOT ENTERED, CLASS AVERAGE) was
+     overflowing the right edge of its card. Drop the size + letter-
+     spacing a notch and allow a two-line wrap so the longest label
+     stays inside the card at every breakpoint. */
+  font-size: 10px;
+  color: #6b7280;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
-.info-value {
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-}
-
-// Stats Grid
-.stats-grid {
+/* Analytics strip — Grade Distribution + Top Performers side by side on
+   wide screens, stacked below the tablet breakpoint. */
+.analytics-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
 
-.stat-card {
-  display: flex;
-  align-items: center;
-  padding: 20px;
-  gap: 16px;
-}
-
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  mat-icon {
-    color: white;
-    font-size: 24px;
-    width: 24px;
-    height: 24px;
+  @media (max-width: 899px) {
+    grid-template-columns: 1fr;
   }
 
-  &.total { background: #5c6bc0; }
-  &.passed { background: #4caf50; }
-  &.failed { background: #ef5350; }
-  &.percentage { background: #ff9800; }
-  &.average { background: #42a5f5; }
+  > mat-card { margin-bottom: 0 !important; }
 }
 
-.stat-content {
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #333;
-}
-
-.passed-text { color: #2e7d32; }
-.failed-text { color: #c62828; }
-
-.stat-label {
-  font-size: 13px;
-  color: #666;
-}
-
-// Grade Distribution
+// Grade Distribution — thinner bars, tighter spacing.
 .grade-card {
-  margin-bottom: 24px;
+  margin-bottom: 14px;
+  ::ng-deep .mat-mdc-card-header { padding: 10px 14px 4px; }
+  ::ng-deep .mat-mdc-card-title { font-size: 14px; font-weight: 600; }
+  ::ng-deep .mat-mdc-card-content { padding: 6px 14px 12px; }
 }
 
 .grade-bars {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 8px 0;
+  gap: 6px;
+  padding: 2px 0;
 }
 
 .grade-bar-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .grade-label {
-  width: 32px;
+  width: 24px;
   font-weight: 600;
   text-align: center;
-  font-size: 14px;
+  font-size: 12.5px;
+  color: #374151;
 }
 
 .grade-bar-track {
   flex: 1;
-  height: 24px;
-  background: #f0f0f0;
-  border-radius: 12px;
+  height: 14px;
+  background: #f3f4f6;
+  border-radius: 999px;
   overflow: hidden;
 }
 
 .grade-bar-fill {
   height: 100%;
-  border-radius: 12px;
-  transition: width 0.5s ease;
+  border-radius: 999px;
+  transition: width 0.4s ease;
   min-width: 4px;
 }
 
 .grade-count {
-  width: 32px;
+  width: 28px;
   text-align: right;
-  font-weight: 500;
-  color: #555;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: #4b5563;
 }
 
-// Toppers
+// Toppers — tighten card chrome to match the KPI strip's density.
 .toppers-card {
-  margin-bottom: 24px;
+  margin-bottom: 14px;
+  ::ng-deep .mat-mdc-card-header { padding: 10px 14px 4px; }
+  ::ng-deep .mat-mdc-card-title { font-size: 14px; font-weight: 600; }
+  ::ng-deep .mat-mdc-card-content { padding: 6px 14px 12px; }
 }
 
+/* Top Performers — tight rows, subtle rank accents (medal-tinted left bar),
+   not full-width tinted blocks. Reads as a compact leaderboard. */
 .toppers-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px 0;
+  gap: 4px;
+  padding: 2px 0;
 }
 
 .topper-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border-left: 3px solid transparent;
   background: #fafafa;
-  transition: background 0.2s;
+  font-size: 13px;
 
-  &.gold {
-    background: linear-gradient(135deg, #fff8e1, #ffecb3);
-    border: 1px solid #ffd54f;
-  }
-
-  &.silver {
-    background: linear-gradient(135deg, #f5f5f5, #e0e0e0);
-    border: 1px solid #bdbdbd;
-  }
-
-  &.bronze {
-    background: linear-gradient(135deg, #fff3e0, #ffe0b2);
-    border: 1px solid #ffb74d;
-  }
+  &.gold   { background: #fffbeb; border-left-color: #f59e0b; }
+  &.silver { background: #f8fafc; border-left-color: #94a3b8; }
+  &.bronze { background: #fef3e2; border-left-color: #d97706; }
 }
 
 .topper-medal {
-  font-size: 24px;
-  width: 32px;
+  font-size: 16px;
+  width: 22px;
   text-align: center;
+  line-height: 1;
 }
 
 .topper-rank {
-  width: 32px;
+  width: 26px;
   text-align: center;
   font-weight: 600;
-  color: #888;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .topper-name {
   flex: 1;
   font-weight: 500;
-  font-size: 15px;
+  color: #1f2937;
 }
 
 .topper-marks {
   font-weight: 600;
-  color: #333;
-  font-size: 15px;
+  color: #111827;
+  font-variant-numeric: tabular-nums;
 }
 
-// Table
+// Table — same compact chrome as the Grade / Toppers cards above.
 .table-card {
-  margin-bottom: 24px;
+  margin-bottom: 14px;
+  ::ng-deep .mat-mdc-card-header { padding: 10px 14px 4px; }
+  ::ng-deep .mat-mdc-card-title { font-size: 14px; font-weight: 600; }
+  ::ng-deep .mat-mdc-card-content { padding: 0 0 8px; }
 }
 
-.marks-table {
-  width: 100%;
-}
+.marks-table { width: 100%; }
 
 .pass-chip {
   background-color: #e8f5e9 !important;
@@ -251,6 +321,30 @@
 .grade-F {
   background-color: #ffebee !important;
   color: #b71c1c !important;
+}
+
+/* Absent — slate tone, deliberately NOT red so admin doesn't misread it
+   as a Fail. Shown in the Status column (and in Grade as "AB") for rows
+   the teacher flagged absent in Enter Marks. */
+.absent-chip {
+  background-color: #e2e8f0 !important;
+  color: #475569 !important;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* Absent row — subtle grey wash + dimmed numeric cells so the eye skips
+   over the absents when scanning rankings but can still see who missed. */
+.absent-row {
+  background: #f9fafb;
+}
+.marks-table .muted,
+.r-card .muted {
+  color: #94a3b8;
+}
+.r-card--absent {
+  opacity: 0.9;
+  background: #f9fafb;
 }
 
 // Empty state and actions

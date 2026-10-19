@@ -88,6 +88,12 @@ export interface SubjectItem {
   enrolledStudentIds?: string[];
   /** The (class, sections) pairs this subject is taught in. */
   assignments?: SubjectAssignment[];
+  /**
+   * True = part of the FA/SA grading grid (Kannada, English, Maths…).
+   * Exam Type rollout seeds its per-slot subject roster from
+   * {@code coreSubject: true} subjects. Default true for legacy docs.
+   */
+  coreSubject?: boolean;
 }
 
 /**
@@ -187,6 +193,8 @@ export class SubjectService {
       elective: !!s.elective,
       enrolledStudentIds: Array.isArray(s.enrolledStudentIds) ? s.enrolledStudentIds : undefined,
       assignments,
+      // Null in storage = default true (unmigrated rows).
+      coreSubject: s.coreSubject == null ? true : !!s.coreSubject,
     };
   }
 

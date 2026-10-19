@@ -41,12 +41,12 @@
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="filter-field">
-        <mat-label>Exam Type *</mat-label>
-        <mat-select [(ngModel)]="selectedExamType" (selectionChange)="onExamTypeChange()" [disabled]="!selectedClassId" required>
-          <mat-option *ngFor="let type of examTypes" [value]="type">{{ type }}</mat-option>
+        <mat-label>Exam *</mat-label>
+        <mat-select [(ngModel)]="selectedExamName" (selectionChange)="onExamNameChange()" [disabled]="!selectedClassId" required>
+          <mat-option *ngFor="let name of examNames" [value]="name">{{ name }}</mat-option>
         </mat-select>
         <mat-hint *ngIf="!selectedClassId">Select a class first</mat-hint>
-        <mat-hint *ngIf="selectedClassId && examTypes.length === 0">
+        <mat-hint *ngIf="selectedClassId && examNames.length === 0">
           No exams conducted yet for this {{ selectedSectionId ? 'class & section' : 'class' }}
         </mat-hint>
       </mat-form-field>
@@ -64,17 +64,27 @@
   </mat-card>
 
   <!-- Context chip — what these report cards are for -->
-  <div class="context-chip-row" *ngIf="filteredReportCards.length > 0 && selectedExamType">
+  <div class="context-chip-row" *ngIf="filteredReportCards.length > 0 && selectedExamName">
     <mat-chip-set>
       <mat-chip class="ctx-chip">
         <mat-icon>assignment</mat-icon>
-        Showing: {{ selectedExamType }}
+        Showing: {{ selectedExamName }}
       </mat-chip>
     </mat-chip-set>
   </div>
 
   <!-- Actions Bar -->
-  <mat-card class="table-card">
+  <mat-card class="table-card" [class.table-card--loading]="isLoading">
+    <!-- Loading overlay — centered on the card itself so switching class/
+         section/exam shows an obvious spinner over the current data instead
+         of a tiny indicator tucked under the paginator. Previously admins
+         didn't realise the fetch had re-fired and clicked around on stale
+         rows for 2-3 seconds. -->
+    <div class="loading-overlay" *ngIf="isLoading">
+      <mat-spinner diameter="40"></mat-spinner>
+      <span class="loading-overlay__label">Loading report cards…</span>
+    </div>
+
     <div class="table-header">
       <div class="header-left">
         <span class="selected-count" *ngIf="selection.selected.length > 0">
@@ -222,21 +232,17 @@
                    showFirstLastButtons>
     </mat-paginator>
 
-    <div class="loading-row" *ngIf="isLoading">
-      <mat-spinner diameter="36"></mat-spinner>
-    </div>
-
-    <div class="empty-state" *ngIf="!isLoading && filteredReportCards.length === 0 && selectedClassId && selectedExamType">
+    <div class="empty-state" *ngIf="!isLoading && filteredReportCards.length === 0 && selectedClassId && selectedExamName">
       <mat-icon class="empty-icon">description</mat-icon>
       <p>No report cards found for the selected filters</p>
     </div>
 
-    <div class="empty-state" *ngIf="!selectedExamType && selectedAcademicYearId">
+    <div class="empty-state" *ngIf="!selectedExamName && selectedAcademicYearId">
       <mat-icon class="empty-icon">assignment</mat-icon>
-      <p>Select an <strong>exam type</strong> (e.g. Sem 1, Final) to view report cards</p>
+      <p>Select an <strong>exam</strong> (e.g. FA1, SA1) to view report cards</p>
     </div>
 
-    <div class="empty-state" *ngIf="!selectedClassId && selectedExamType">
+    <div class="empty-state" *ngIf="!selectedClassId && selectedExamName">
       <mat-icon class="empty-icon">filter_list</mat-icon>
       <p>Select a class to view report cards</p>
     </div>

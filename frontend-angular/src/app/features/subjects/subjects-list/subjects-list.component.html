@@ -415,6 +415,20 @@
           </span>
         </div>
 
+        <!-- Core (academic) subject flag — drives whether Exam Type
+             rollout auto-seeds a FA/SA row for this subject. On by default
+             so Kannada, English, Maths, Science, Social, Hindi behave as
+             today. Flip OFF for PE / Music / Art / Library — admins can
+             still add such subjects explicitly to a slot when needed. -->
+        <div class="combined-period-block">
+          <mat-slide-toggle formControlName="coreSubject">
+            Core academic subject
+          </mat-slide-toggle>
+          <span class="toggle-hint">
+            Part of the FA / SA grading grid. When off, Exam Type schemes won't auto-create exams for this subject (you can still add it to a slot manually).
+          </span>
+        </div>
+
         <div class="dialog-actions">
           <button mat-button type="button" (click)="closeCreateDialog()">Cancel</button>
           <button mat-raised-button type="button" class="create-button"

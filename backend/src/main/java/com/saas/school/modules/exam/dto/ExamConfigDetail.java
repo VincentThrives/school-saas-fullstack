@@ -13,7 +13,18 @@ import java.util.List;
  */
 public class ExamConfigDetail {
     private String academicYearId;
+    /** The exam-NAME prefix used for grouping ("FA1"). Stays stable across
+     *  edits so the Config URL / card label don't change out from under the
+     *  admin. */
     private String examType;
+    /** The actual exam TYPE stamped on each exam doc ("FA" from the catalog).
+     *  Drives the "Exam Type" dropdown's pre-selection in edit mode so the
+     *  admin sees "FA1 belongs to FA" at a glance. */
+    private String examTypeKey;
+    /** Scheme + slot provenance, when the group came from a scheme rollout.
+     *  Round-tripped through the Config edit so saving preserves the link. */
+    private String schemeId;
+    private String slotKey;
     private LocalDate examDate;
     private String startTime;
     private String endTime;
@@ -29,6 +40,15 @@ public class ExamConfigDetail {
 
     public String getExamType() { return examType; }
     public void setExamType(String examType) { this.examType = examType; }
+
+    public String getExamTypeKey() { return examTypeKey; }
+    public void setExamTypeKey(String examTypeKey) { this.examTypeKey = examTypeKey; }
+
+    public String getSchemeId() { return schemeId; }
+    public void setSchemeId(String schemeId) { this.schemeId = schemeId; }
+
+    public String getSlotKey() { return slotKey; }
+    public void setSlotKey(String slotKey) { this.slotKey = slotKey; }
 
     public LocalDate getExamDate() { return examDate; }
     public void setExamDate(LocalDate examDate) { this.examDate = examDate; }

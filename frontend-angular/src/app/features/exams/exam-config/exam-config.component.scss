@@ -147,11 +147,20 @@ mat-form-field {
 
 .component-row {
   display: grid;
-  // Include checkbox + label + max + pass.
-  grid-template-columns: auto 1.5fr 1fr 1fr;
+  // Include checkbox + label + max + pass + split button.
+  grid-template-columns: auto 1.5fr 1fr 1fr auto;
   gap: 12px;
   align-items: center;
   margin-bottom: 4px;
+
+  .split-btn {
+    font-size: 11.5px;
+    min-height: 28px;
+    line-height: 28px;
+    padding: 0 8px;
+    color: #4b5563;
+    mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  }
 
   &__include {
     justify-self: center;
@@ -187,8 +196,41 @@ mat-form-field {
   }
 
   .comp-input {
-    margin-bottom: -1.34375em; // align inputs with label baseline
+    margin-bottom: 0;
   }
+}
+
+/* Sub-parts list sits under a component row (Theory → Paper 1 + Paper 2). */
+.sub-parts-list {
+  display: flex; flex-direction: column; gap: 4px;
+  margin: 4px 0 8px 48px;
+  padding: 8px 10px;
+  background: #fafafa;
+  border: 1px dashed #e5e7eb;
+  border-radius: 8px;
+}
+.sub-part-row {
+  display: grid;
+  grid-template-columns: 20px 2fr 1fr 1fr 32px;
+  gap: 6px;
+  align-items: center;
+  .sub-icon { color: #9ca3af; font-size: 18px; width: 18px; height: 18px; }
+}
+.sub-sum {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-left: 26px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #ecfdf5; color: #047857;
+  font-size: 11px; font-weight: 700;
+  width: fit-content;
+  .ok-ic  { color: #047857; font-size: 13px; width: 13px; height: 13px; }
+  .bad-ic { color: #b91c1c; font-size: 13px; width: 13px; height: 13px; }
+  &.bad { background: #fee2e2; color: #991b1b; }
+}
+@media (max-width: 599px) {
+  .sub-parts-list { margin-left: 0; }
+  .sub-part-row { grid-template-columns: 20px 1fr 60px 60px 30px; }
 }
 
 .component-warning {
@@ -228,5 +270,6 @@ mat-form-field {
     grid-template-columns: auto 1fr;
     .component-row__label { margin-bottom: 4px; }
     .excluded-note { grid-column: 1 / -1; }
+    .split-btn { grid-column: 1 / -1; justify-self: start; }
   }
 }

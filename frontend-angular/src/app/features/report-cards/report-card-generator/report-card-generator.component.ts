@@ -35,14 +35,22 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
   // Data sources
   academicYears: AcademicYear[] = [];
   allExams: any[] = [];
-  examTypes: string[] = [];
+  /** Exam NAME prefixes (FA1, FA2, SA1 …) extracted from exam.name. The
+   *  dropdown used to show the raw type ("FA", "SA") which merged every
+   *  FA event together — picking "FA" rendered a card that mixed FA1,
+   *  FA2 and FA3 marks into one impossible-to-read total. */
+  examNames: string[] = [];
   classes: SchoolClass[] = [];
   sections: { sectionId: string; name: string }[] = [];
   students: any[] = [];
 
   // Selected filters
   selectedAcademicYearId = '';
-  selectedExamType = '';
+  /** Picked exam name prefix (e.g. "FA1"). Sent as the `examType` query
+   *  param — the backend's filter was flipped to match by name prefix,
+   *  so the on-wire parameter name stays stable while the semantics now
+   *  address a specific event rather than the broad type. */
+  selectedExamName = '';
   selectedClassId = '';
   selectedSectionId = '';
   selectedStudentId = '';
@@ -124,7 +132,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
         ay: this.selectedAcademicYearId || null,
         classId: this.selectedClassId || null,
         sectionId: this.selectedSectionId || null,
-        examType: this.selectedExamType || null,
+        examType: this.selectedExamName || null,
         studentId: this.selectedStudentId || null,
       },
       queryParamsHandling: 'merge',
@@ -215,11 +223,11 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
       });
       this.api.getExams().subscribe((eRes) => {
         this.allExams = (eRes?.data || []).filter((e: any) => e.academicYearId === this.selectedAcademicYearId);
-        this.recomputeExamTypes();
-        // Once classes + exams + section have settled, replay examType
-        // and load report cards if URL specified it.
-        if (urlExamType && this.examTypes.includes(urlExamType)) {
-          this.selectedExamType = urlExamType;
+        this.recomputeExamNames();
+        // Once classes + exams + section have settled, replay the exam
+        // from the URL and load report cards if it's still a valid pick.
+        if (urlExamType && this.examNames.includes(urlExamType)) {
+          this.selectedExamName = urlExamType;
           if (this.selectedClassId) {
             this.loadReportCards();
           }
@@ -232,26 +240,54 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
   }
 
   /**
-   * Re-derive the list of exam types shown in the dropdown. Only exams that exist
-   * for the currently selected class (and section, if chosen) count. If the admin
-   * hasn't picked a class yet, or the scope has no conducted exams, the list is empty.
+   * Strip the subject suffix ("· Kannada", "— Math", "- Physics") from an
+   * exam.name so sibling-subject rows collapse into the same event name
+   * (e.g. "FA1 · Kannada" and "FA1 · Math" both become "FA1"). Mirrors
+   * the backend's examNamePrefix() helper so both ends agree on what
+   * "FA1" means. Falls back to examType for legacy rows without a name.
    */
-  private recomputeExamTypes(): void {
+  private examNamePrefix(e: any): string {
+    const name = (e?.name || '').toString();
+    if (name) {
+      const seps = [' · ', ' — ', ' - '];
+      let bestIdx = -1;
+      for (const sep of seps) {
+        const idx = name.indexOf(sep);
+        if (idx > 0 && (bestIdx < 0 || idx < bestIdx)) bestIdx = idx;
+      }
+      return (bestIdx > 0 ? name.substring(0, bestIdx) : name).trim();
+    }
+    return (e?.examType || '').toString();
+  }
+
+  /**
+   * Re-derive the list of exam NAMES shown in the dropdown. Only exams that
+   * exist for the currently selected class (and section, if chosen) count.
+   * If the admin hasn't picked a class yet, or the scope has no conducted
+   * exams, the list is empty.
+   */
+  private recomputeExamNames(): void {
     if (!this.selectedClassId) {
-      this.examTypes = [];
+      this.examNames = [];
       return;
     }
     let scoped = this.allExams.filter((e: any) => e.classId === this.selectedClassId);
     if (this.selectedSectionId) {
       scoped = scoped.filter((e: any) => e.sectionId === this.selectedSectionId);
     }
-    const types = new Set<string>();
-    scoped.forEach((e: any) => { if (e.examType) types.add(e.examType); });
-    this.examTypes = Array.from(types).sort();
+    const names = new Set<string>();
+    scoped.forEach((e: any) => {
+      const prefix = this.examNamePrefix(e);
+      if (prefix) names.add(prefix);
+    });
+    // Natural-ish sort so FA1 / FA2 / FA10 land in numeric order rather
+    // than lexicographic (FA1, FA10, FA2 …).
+    this.examNames = Array.from(names).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
   }
 
   onAcademicYearChange(): void {
-    this.selectedExamType = '';
+    this.selectedExamName = '';
     this.selectedClassId = '';
     this.selectedSectionId = '';
     this.selectedStudentId = '';
@@ -261,37 +297,37 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
     this.reportCards = [];
     this.setFilteredCards([]);
     this.allExams = [];
-    this.examTypes = [];
+    this.examNames = [];
     this.selection.clear();
 
     if (!this.selectedAcademicYearId) {
       return;
     }
 
-    // Load classes and exams scoped to this academic year. Exam types are derived
-    // from the loaded exams once class + section are selected.
+    // Load classes and exams scoped to this academic year. Exam names
+    // are derived from the loaded exams once class + section are selected.
     this.api.getClasses(this.selectedAcademicYearId).subscribe((res) => {
       this.classes = res.data || [];
     });
     this.api.getExams().subscribe((res) => {
       this.allExams = (res?.data || []).filter((e: any) => e.academicYearId === this.selectedAcademicYearId);
-      this.recomputeExamTypes();
+      this.recomputeExamNames();
     });
     this.syncFiltersToUrl();
   }
 
-  onExamTypeChange(): void {
-    // Section is part of the cascade ABOVE exam type now (year → class →
-    // section → exam type), so we must NOT clear it here. The earlier
-    // reset made the section dropdown look empty after picking an exam
-    // type and silently broadened the loaded set to the whole class.
+  onExamNameChange(): void {
+    // Section is part of the cascade ABOVE exam name now (year → class →
+    // section → exam), so we must NOT clear it here. The earlier reset
+    // made the section dropdown look empty after picking an exam and
+    // silently broadened the loaded set to the whole class.
     this.selectedStudentId = '';
     this.reportCards = [];
     this.setFilteredCards([]);
     this.selection.clear();
 
-    // Only load when both class + exam type are set. Exam type is mandatory now.
-    if (this.selectedClassId && this.selectedExamType) {
+    // Only load when both class + exam are set. Exam is mandatory now.
+    if (this.selectedClassId && this.selectedExamName) {
       this.loadReportCards();
     }
     this.syncFiltersToUrl();
@@ -300,7 +336,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
   onClassChange(): void {
     this.selectedSectionId = '';
     this.selectedStudentId = '';
-    this.selectedExamType = '';
+    this.selectedExamName = '';
     this.students = [];
     this.reportCards = [];
     this.setFilteredCards([]);
@@ -308,7 +344,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
 
     if (!this.selectedClassId) {
       this.sections = [];
-      this.examTypes = [];
+      this.examNames = [];
       return;
     }
 
@@ -318,27 +354,27 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
     // Auto-pick the FIRST section. The "All Sections" option is
     // commented out in the template, so leaving the picker empty would
     // leave a blank dropdown and no data on screen until the admin
-    // opened it manually. The cascade (onSectionChange + recomputeExamTypes)
+    // opened it manually. The cascade (onSectionChange + recomputeExamNames)
     // runs through the same handler the dropdown would have triggered.
     if (this.sections.length > 0) {
       this.selectedSectionId = this.sections[0].sectionId;
       this.onSectionChange();
     } else {
       // Class has no sections configured — nothing to land on, narrow
-      // exam types against the class-only scope.
-      this.recomputeExamTypes();
+      // exam names against the class-only scope.
+      this.recomputeExamNames();
     }
     this.syncFiltersToUrl();
   }
 
   onSectionChange(): void {
     this.selectedStudentId = '';
-    // Re-derive exam types: section scope may have a different set of conducted exams
-    const previousType = this.selectedExamType;
-    this.recomputeExamTypes();
-    // If the previously-picked type is no longer valid for this section, clear it
-    if (previousType && !this.examTypes.includes(previousType)) {
-      this.selectedExamType = '';
+    // Re-derive exam names: section scope may have a different set of conducted exams
+    const previousName = this.selectedExamName;
+    this.recomputeExamNames();
+    // If the previously-picked exam is no longer valid for this section, clear it
+    if (previousName && !this.examNames.includes(previousName)) {
+      this.selectedExamName = '';
       this.reportCards = [];
       this.setFilteredCards([]);
     }
@@ -356,7 +392,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
     // response in memory would always return zero when switching A→B
     // because reportCards only ever contains the section we last
     // fetched. Re-fire the request when every required filter is set.
-    if (this.selectedClassId && this.selectedExamType) {
+    if (this.selectedClassId && this.selectedExamName) {
       this.loadReportCards();
     } else {
       this.setFilteredCards([]);
@@ -389,7 +425,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
   }
 
   loadReportCards(): void {
-    if (!this.selectedClassId || !this.selectedAcademicYearId || !this.selectedExamType) return;
+    if (!this.selectedClassId || !this.selectedAcademicYearId || !this.selectedExamName) return;
     this.isLoading = true;
     this.selection.clear();
 
@@ -409,7 +445,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
       sectionId: this.selectedSectionId || undefined,
       academicYearId: this.selectedAcademicYearId,
       studentIds: [],
-      examType: this.selectedExamType,
+      examType: this.selectedExamName,
     }).subscribe({
       next: (res) => {
         this.reportCards = res.data || [];
@@ -471,7 +507,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
   viewReportCard(rc: any): void {
     this.router.navigate(['/report-cards', rc.studentId], {
       queryParams: {
-        examType: this.selectedExamType,
+        examType: this.selectedExamName,
         academicYearId: this.selectedAcademicYearId,
       },
     });
@@ -479,7 +515,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
 
   downloadPdf(rc: ReportCard): void {
     const tenantId = this.authService.currentSchoolInfo?.tenantId || '';
-    this.api.downloadReportCardPdf(rc.studentId, this.selectedAcademicYearId, tenantId, this.selectedExamType).subscribe({
+    this.api.downloadReportCardPdf(rc.studentId, this.selectedAcademicYearId, tenantId, this.selectedExamName).subscribe({
       next: (blob) => {
         // Capacitor-safe: anchor-click silently no-ops in the Android
         // WebView; the helper routes via base64 + window.open in that
@@ -513,7 +549,7 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
         return;
       }
       const rc = cards[index];
-      this.api.downloadReportCardPdf(rc.studentId, this.selectedAcademicYearId, tenantId, this.selectedExamType).subscribe({
+      this.api.downloadReportCardPdf(rc.studentId, this.selectedAcademicYearId, tenantId, this.selectedExamName).subscribe({
         next: (blob) => {
           downloadOrOpenBlob(blob, `report-card-${rc.studentName || rc.studentId}.pdf`);
           completed++;

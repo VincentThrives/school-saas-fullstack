@@ -18,6 +18,8 @@ import com.saas.school.modules.classes.repository.SubjectRepository;
 import com.saas.school.modules.exam.repository.ExamMarkRepository;
 import com.saas.school.modules.exam.repository.ExamRepository;
 import com.saas.school.modules.exam.repository.StudentAssessmentsRepository;
+import com.saas.school.modules.examscheme.model.Scheme;
+import com.saas.school.modules.examscheme.repository.SchemeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +36,7 @@ public class ExamService {
     @Autowired private com.saas.school.modules.student.repository.StudentRepository studentRepository;
     @Autowired private SubjectRepository subjectRepository;
     @Autowired private SchoolClassRepository schoolClassRepository;
+    @Autowired private SchemeRepository schemeRepository;
 
     public Exam createExam(Exam req) {
         if (req.getSubjectId() == null || req.getSubjectId().isEmpty()) {
@@ -193,12 +196,26 @@ public class ExamService {
         assessment.setTeacherId(teacherId);
 
         boolean combined = exam.getComponents() != null && !exam.getComponents().isEmpty();
+        // Load the subject once so buildCombinedEntry can honour Subject.passRule
+        // (PER_COMPONENT vs COMBINED). Null-safe: if the subject went missing
+        // (deleted after rollout), fall through to legacy PER_COMPONENT.
+        Subject subject = exam.getSubjectId() == null
+                ? null
+                : subjectRepository.findById(exam.getSubjectId()).orElse(null);
 
         // Build entries
         List<StudentAssessments.MarkEntry> entries = new ArrayList<>();
         for (var e : req.getMarks()) {
+            // Absent short-circuit — skip the normal mark validation and
+            // write a stub MarkEntry so results pages distinguish "absent"
+            // from "not yet entered". Admin clears the toggle and re-enters
+            // real marks later (e.g. after a makeup exam).
+            if (e.isAbsent()) {
+                entries.add(buildAbsentEntry(e));
+                continue;
+            }
             if (combined) {
-                entries.add(buildCombinedEntry(exam, e));
+                entries.add(buildCombinedEntry(exam, subject, e));
             } else {
                 entries.add(buildPerComponentEntry(exam, e));
             }
@@ -224,7 +241,20 @@ public class ExamService {
      *   <li>COMBINED — student passes iff total obtained ≥ sum of pass caps.</li>
      * </ul>
      */
-    private StudentAssessments.MarkEntry buildCombinedEntry(Exam exam, EnterMarksRequest.MarkEntry e) {
+    /** Build a stub MarkEntry for a student the teacher marked absent.
+     *  Carries empty componentMarks + a status of ABSENT; pass/grade are
+     *  deliberately failing / "AB" so legacy readers don't accidentally
+     *  treat the student as passed. */
+    private StudentAssessments.MarkEntry buildAbsentEntry(EnterMarksRequest.MarkEntry e) {
+        StudentAssessments.MarkEntry entry = new StudentAssessments.MarkEntry(
+                e.getStudentId(), 0.0, "AB", e.getRemarks(), false);
+        entry.setComponentMarks(new java.util.LinkedHashMap<>());
+        entry.setStatus(StudentAssessments.AttendanceStatus.ABSENT);
+        return entry;
+    }
+
+    private StudentAssessments.MarkEntry buildCombinedEntry(Exam exam, Subject subject,
+                                                            EnterMarksRequest.MarkEntry e) {
         Map<String, Double> inMap = e.getComponentMarks() == null
                 ? Collections.emptyMap() : e.getComponentMarks();
         Map<String, Double> outMap = new java.util.LinkedHashMap<>();
@@ -236,36 +266,78 @@ public class ExamService {
         for (Exam.ExamComponent ec : exam.getComponents()) {
             int maxMarks = ec.getMaxMarks() == null ? 0 : ec.getMaxMarks();
             int passMarks = ec.getPassingMarks() == null ? 0 : ec.getPassingMarks();
-            Double obtained = inMap.get(ec.getKey());
-            if (obtained == null) {
-                // Component left blank for this student — record nothing, don't
-                // fabricate a 0 (matches per-component-mode behavior of "skip
-                // students with null marks").
-                allComponentsPassed = false;
-                totalMax += maxMarks;
-                totalPass += passMarks;
-                continue;
-            }
-            if (obtained < 0 || obtained > maxMarks) {
-                throw new BusinessException(
-                        "Marks for component '" + ec.getLabel() + "' must be between 0 and " + maxMarks);
-            }
-            outMap.put(ec.getKey(), obtained);
-            total += obtained;
             totalMax += maxMarks;
             totalPass += passMarks;
-            if (obtained < passMarks) allComponentsPassed = false;
+
+            Double componentObtained;
+            if (ec.getSubComponents() != null && !ec.getSubComponents().isEmpty()) {
+                // Component is split into sub-parts → teacher enters one mark per
+                // sub-part at key "<component.key>.<sub.key>". Component total =
+                // sum of sub-part marks; sub-part values are preserved in outMap
+                // so the Enter Marks screen can round-trip them.
+                double subSum = 0;
+                boolean anySubEntry = false;
+                for (Exam.ExamSubComponent sub : ec.getSubComponents()) {
+                    // Separator is "__" (not ".") — MongoDB rejects map keys
+                    // with dots. StudentAssessments.componentMarks is persisted
+                    // as a BSON map, so dotted keys would throw MappingException.
+                    String subKey = ec.getKey() + "__" + sub.getKey();
+                    Double subVal = inMap.get(subKey);
+                    if (subVal == null) continue;
+                    int subMax = sub.getMaxMarks() == null ? 0 : sub.getMaxMarks();
+                    if (subVal < 0 || subVal > subMax) {
+                        throw new BusinessException(
+                                "Marks for '" + ec.getLabel() + " / " + sub.getLabel()
+                                + "' must be between 0 and " + subMax);
+                    }
+                    outMap.put(subKey, subVal);
+                    subSum += subVal;
+                    anySubEntry = true;
+                }
+                componentObtained = anySubEntry ? subSum : null;
+            } else {
+                componentObtained = inMap.get(ec.getKey());
+                if (componentObtained != null) {
+                    if (componentObtained < 0 || componentObtained > maxMarks) {
+                        throw new BusinessException(
+                                "Marks for component '" + ec.getLabel() + "' must be between 0 and " + maxMarks);
+                    }
+                }
+            }
+
+            if (componentObtained == null) {
+                // Nothing entered for this component — can't be "passed".
+                allComponentsPassed = false;
+                continue;
+            }
+            // Store the aggregated component total alongside any sub-part keys.
+            outMap.put(ec.getKey(), componentObtained);
+            total += componentObtained;
+            if (componentObtained < passMarks) allComponentsPassed = false;
         }
 
-        // Default pass rule = PER_COMPONENT (CBSE/ICSE style). Without
-        // loading the Subject doc here we approximate; the report card
-        // aggregator does the authoritative per-subject roll-up.
-        boolean passed = allComponentsPassed;
+        // Honour Subject.passRule for the stored isPassed flag. Null-safe for
+        // orphan subjects. Report-card aggregator still does its own authoritative
+        // roll-up — this is just the per-exam convenience flag used by the Enter
+        // Marks / Exam Results pages.
+        Subject.PassRule rule = subject == null || subject.getPassRule() == null
+                ? Subject.PassRule.PER_COMPONENT
+                : subject.getPassRule();
+        boolean passed;
+        if (rule == Subject.PassRule.COMBINED) {
+            // Prefer the exam's own pass bar (stamped from the slot) when set;
+            // fall back to the sum of component pass bars otherwise.
+            int effTotalPass = exam.getPassingMarks() > 0 ? exam.getPassingMarks() : totalPass;
+            passed = totalMax > 0 && total >= effTotalPass;
+        } else {
+            passed = allComponentsPassed;
+        }
         String grade = totalMax > 0 ? computeGrade(total, totalMax) : "-";
 
         StudentAssessments.MarkEntry entry = new StudentAssessments.MarkEntry(
                 e.getStudentId(), total, grade, e.getRemarks(), passed);
         entry.setComponentMarks(outMap);
+        entry.setStatus(StudentAssessments.AttendanceStatus.PRESENT);
         return entry;
     }
 
@@ -291,8 +363,10 @@ public class ExamService {
         }
         boolean passed = e.getMarksObtained() >= effPass;
         String grade = computeGrade(e.getMarksObtained(), effMax);
-        return new StudentAssessments.MarkEntry(
+        StudentAssessments.MarkEntry entry = new StudentAssessments.MarkEntry(
                 e.getStudentId(), e.getMarksObtained(), grade, e.getRemarks(), passed);
+        entry.setStatus(StudentAssessments.AttendanceStatus.PRESENT);
+        return entry;
     }
 
     // ── Get marks for an exam (from batch) ──
@@ -348,7 +422,9 @@ public class ExamService {
                     return t;
                 }).toList();
 
-        // Convert entries to allMarks format for frontend compat
+        // Convert entries to allMarks format for frontend compat. componentMarks
+        // is included so the Exam Results page can read per-sub-part values and
+        // trust the backend's isPassed flag without recomputing.
         List<Map<String, Object>> allMarks = entries.stream().map(e -> {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("studentId", e.getStudentId());
@@ -356,6 +432,8 @@ public class ExamService {
             m.put("grade", e.getGrade());
             m.put("remarks", e.getRemarks());
             m.put("isPassed", e.isPassed());
+            m.put("componentMarks", e.getComponentMarks());
+            m.put("status", e.getStatus() == null ? null : e.getStatus().name());
             return m;
         }).toList();
 
@@ -562,9 +640,21 @@ public class ExamService {
                     List<Exam.ExamComponent> ecs = new ArrayList<>();
                     for (var cc : compCfgs) {
                         if (cc == null || cc.getKey() == null) continue;
-                        ecs.add(new Exam.ExamComponent(
+                        Exam.ExamComponent ec = new Exam.ExamComponent(
                                 cc.getKey(), cc.getLabel(),
-                                cc.getMaxMarks(), cc.getPassingMarks()));
+                                cc.getMaxMarks(), cc.getPassingMarks());
+                        // Stamp sub-parts when the Config form split this component.
+                        if (cc.getSubComponents() != null && !cc.getSubComponents().isEmpty()) {
+                            List<Exam.ExamSubComponent> subs = new ArrayList<>();
+                            for (var scc : cc.getSubComponents()) {
+                                if (scc == null || scc.getKey() == null) continue;
+                                subs.add(new Exam.ExamSubComponent(
+                                        scc.getKey(), scc.getLabel(),
+                                        scc.getMaxMarks(), scc.getPassingMarks()));
+                            }
+                            ec.setSubComponents(subs);
+                        }
+                        ecs.add(ec);
                     }
                     exam.setComponents(ecs);
                     // Primary fields mirror first component for legacy readers
@@ -619,13 +709,36 @@ public class ExamService {
      */
     public List<ExamConfigSummary> listConfigs() {
         List<Exam> all = examRepository.findAll();
-        // Group key: yearId::examType
+        // Group key: yearId::schemeId::slotKey::name-prefix. The scheme fields
+        // keep two schemes' same-named slots on separate cards ("FA1" from
+        // Karnataka 1–8 vs "FA1" from Karnataka 9–10); for direct Exam Config
+        // creations schemeId/slotKey are empty and the key collapses to the
+        // old (year, prefix) shape.
         Map<String, List<Exam>> grouped = new java.util.LinkedHashMap<>();
         for (Exam e : all) {
-            if (e.getExamType() == null || e.getExamType().isBlank()) continue;
+            String prefix = examNamePrefix(e);
+            if (prefix == null || prefix.isBlank()) continue;
             String key = (e.getAcademicYearId() == null ? "" : e.getAcademicYearId())
-                    + "::" + e.getExamType();
+                    + "::" + (e.getExamTypeSchemeId() == null ? "" : e.getExamTypeSchemeId())
+                    + "::" + (e.getSlotKey() == null ? "" : e.getSlotKey())
+                    + "::" + prefix;
             grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(e);
+        }
+
+        // Bulk-load scheme names so the UI can show "FA1 · Karnataka 9–10" and
+        // "FA1 · Karnataka 1–8" to disambiguate same-slot cards. One trip
+        // instead of N — distinct schemeIds across the whole exam set.
+        Set<String> schemeIds = new HashSet<>();
+        for (Exam e : all) {
+            if (e.getExamTypeSchemeId() != null && !e.getExamTypeSchemeId().isBlank()) {
+                schemeIds.add(e.getExamTypeSchemeId());
+            }
+        }
+        Map<String, String> schemeNameById = new HashMap<>();
+        if (!schemeIds.isEmpty()) {
+            for (Scheme s : schemeRepository.findAllById(schemeIds)) {
+                schemeNameById.put(s.getId(), s.getName());
+            }
         }
 
         // Marks check: which of these exam ids have a StudentAssessments doc
@@ -641,8 +754,18 @@ public class ExamService {
         for (var entry : grouped.entrySet()) {
             List<Exam> exams = entry.getValue();
             ExamConfigSummary s = new ExamConfigSummary();
-            s.setAcademicYearId(exams.get(0).getAcademicYearId());
-            s.setExamType(exams.get(0).getExamType());
+            Exam first = exams.get(0);
+            s.setAcademicYearId(first.getAcademicYearId());
+            // The "examType" field here is actually the group's exam-name prefix
+            // (e.g. "FA1"), which is what the frontend displays and uses as the
+            // identifier for edit/delete. The underlying exam.examType stays as
+            // "FA" (the catalog key) on each exam doc.
+            s.setExamType(examNamePrefix(first));
+            s.setSchemeId(first.getExamTypeSchemeId());
+            s.setSlotKey(first.getSlotKey());
+            if (first.getExamTypeSchemeId() != null) {
+                s.setSchemeName(schemeNameById.get(first.getExamTypeSchemeId()));
+            }
             s.setExamCount(exams.size());
 
             // Distinct class+section labels (e.g. "1st - A").
@@ -680,24 +803,41 @@ public class ExamService {
      * exams contribute one component each, grouped by subjectId.
      */
     public ExamConfigDetail getConfigDetail(String academicYearId, String examType) {
-        List<Exam> exams = examRepository
-                .findByAcademicYearIdAndExamType(academicYearId, examType);
+        return getConfigDetail(academicYearId, examType, null, null);
+    }
+
+    public ExamConfigDetail getConfigDetail(String academicYearId, String examType,
+                                            String schemeId, String slotKey) {
+        // `examType` here is actually the exam-name prefix (e.g. "FA1"), kept
+        // on the parameter name for backwards compatibility with the frontend
+        // route. Scheme + slot narrow the group when the same prefix comes
+        // from more than one scheme.
+        List<Exam> exams = findExamsByNamePrefix(academicYearId, examType, schemeId, slotKey);
         if (exams.isEmpty()) {
             throw new ResourceNotFoundException(
-                    "No exams found for type='" + examType + "' in this academic year.");
+                    "No exams found for name='" + examType + "' in this academic year.");
         }
 
         ExamConfigDetail out = new ExamConfigDetail();
+        Exam sampleExam = exams.get(0);
         out.setAcademicYearId(academicYearId);
         out.setExamType(examType);
+        // The dropdown pre-fill wants the actual TYPE (e.g. "FA") that these
+        // exams were stamped with, not the name-prefix group key ("FA1").
+        // Grab it off the first exam doc — all exams in this group carry the
+        // same exam.examType.
+        out.setExamTypeKey(sampleExam.getExamType());
+        // Scheme + slot provenance — round-trip these to the save payload so
+        // edits keep the exams linked to the originating scheme/slot.
+        out.setSchemeId(sampleExam.getExamTypeSchemeId());
+        out.setSlotKey(sampleExam.getSlotKey());
         // Carry the first exam's schedule fields as a default (admin can
         // override on save). Different exams in the group may legitimately
         // have different dates after manual editing — we surface one.
-        Exam sample = exams.get(0);
-        out.setExamDate(sample.getExamDate());
-        out.setStartTime(sample.getStartTime());
-        out.setEndTime(sample.getEndTime());
-        out.setDescription(sample.getDescription());
+        out.setExamDate(sampleExam.getExamDate());
+        out.setStartTime(sampleExam.getStartTime());
+        out.setEndTime(sampleExam.getEndTime());
+        out.setDescription(sampleExam.getDescription());
 
         // Distinct (classId, sectionId) pairs.
         java.util.LinkedHashMap<String, BulkCreateExamRequest.ClassSection> pairs =
@@ -729,7 +869,9 @@ public class ExamService {
                 sc.setCombined(true);
                 // Replace components from this combined exam — last write wins,
                 // safe because every combined exam for the same subject in the
-                // same config carries the same component config.
+                // same config carries the same component config. Sub-parts
+                // (stamped by scheme rollout or a prior Config save) are
+                // carried through so the edit form shows them.
                 List<BulkCreateExamRequest.ComponentConfig> ccs = new ArrayList<>();
                 for (Exam.ExamComponent ec : e.getComponents()) {
                     BulkCreateExamRequest.ComponentConfig cc = new BulkCreateExamRequest.ComponentConfig();
@@ -737,6 +879,19 @@ public class ExamService {
                     cc.setLabel(ec.getLabel());
                     cc.setMaxMarks(ec.getMaxMarks());
                     cc.setPassingMarks(ec.getPassingMarks());
+                    if (ec.getSubComponents() != null && !ec.getSubComponents().isEmpty()) {
+                        List<BulkCreateExamRequest.SubComponentConfig> subs = new ArrayList<>();
+                        for (Exam.ExamSubComponent esc : ec.getSubComponents()) {
+                            BulkCreateExamRequest.SubComponentConfig scc =
+                                    new BulkCreateExamRequest.SubComponentConfig();
+                            scc.setKey(esc.getKey());
+                            scc.setLabel(esc.getLabel());
+                            scc.setMaxMarks(esc.getMaxMarks());
+                            scc.setPassingMarks(esc.getPassingMarks());
+                            subs.add(scc);
+                        }
+                        cc.setSubComponents(subs);
+                    }
                     ccs.add(cc);
                 }
                 sc.setComponents(ccs);
@@ -783,8 +938,14 @@ public class ExamService {
      * clean restart.
      */
     public Map<String, Object> deleteConfig(String academicYearId, String examType) {
-        List<Exam> exams = examRepository
-                .findByAcademicYearIdAndExamType(academicYearId, examType);
+        return deleteConfig(academicYearId, examType, null, null);
+    }
+
+    public Map<String, Object> deleteConfig(String academicYearId, String examType,
+                                            String schemeId, String slotKey) {
+        // Same note as getConfigDetail: this is an exam-name prefix, not the
+        // stored examType field. Scheme + slot narrow the group when needed.
+        List<Exam> exams = findExamsByNamePrefix(academicYearId, examType, schemeId, slotKey);
         int deletedExams = 0;
         int deletedMarkDocs = 0;
         for (Exam e : exams) {
@@ -814,12 +975,62 @@ public class ExamService {
 
     /** True when any exam in this config group has at least one mark entry. */
     public boolean hasMarksForConfig(String academicYearId, String examType) {
-        List<Exam> exams = examRepository
-                .findByAcademicYearIdAndExamType(academicYearId, examType);
+        return hasMarksForConfig(academicYearId, examType, null, null);
+    }
+
+    public boolean hasMarksForConfig(String academicYearId, String examType,
+                                     String schemeId, String slotKey) {
+        List<Exam> exams = findExamsByNamePrefix(academicYearId, examType, schemeId, slotKey);
         if (exams.isEmpty()) return false;
         List<String> ids = exams.stream().map(Exam::getExamId).toList();
         return assessmentsRepository.findByExamIdIn(ids).stream()
                 .anyMatch(a -> a.getEntries() != null && !a.getEntries().isEmpty());
+    }
+
+    /**
+     * Exam name prefix used as the Exam Config group identifier — strips the
+     * "· Subject" or "— Subject" tail so sibling subjects land in the same
+     * group. Scheme rollout formats names as "FA1 · Kannada"; the Exam Config
+     * bulk-create path uses "FA — Kannada". Both strip to the same prefix.
+     * Blank name falls back to the stored examType.
+     */
+    private String examNamePrefix(Exam e) {
+        String name = e.getName();
+        if (name != null && !name.isBlank()) {
+            int bestSep = -1;
+            for (String sep : new String[] { " · ", " — ", " - " }) {
+                int idx = name.indexOf(sep);
+                if (idx > 0 && (bestSep < 0 || idx < bestSep)) bestSep = idx;
+            }
+            return (bestSep > 0 ? name.substring(0, bestSep) : name).trim();
+        }
+        return e.getExamType();
+    }
+
+    /** Finds every exam in the given year whose name prefix + (optional)
+     *  scheme + slot match. Pass null/blank schemeId or slotKey to match any
+     *  value for that field — supports both direct Exam Config lookups (no
+     *  scheme) and per-scheme lookups (two schemes' FA1 stay distinct). */
+    private List<Exam> findExamsByNamePrefix(String academicYearId, String namePrefix,
+                                             String schemeId, String slotKey) {
+        if (academicYearId == null || namePrefix == null) return List.of();
+        String prefix = namePrefix.trim();
+        boolean filterScheme = schemeId != null && !schemeId.isBlank();
+        boolean filterSlot = slotKey != null && !slotKey.isBlank();
+        List<Exam> out = new ArrayList<>();
+        for (Exam e : examRepository.findAll()) {
+            if (!academicYearId.equals(e.getAcademicYearId())) continue;
+            if (!prefix.equalsIgnoreCase(examNamePrefix(e))) continue;
+            if (filterScheme && !schemeId.equals(e.getExamTypeSchemeId())) continue;
+            if (filterSlot && !slotKey.equals(e.getSlotKey())) continue;
+            out.add(e);
+        }
+        return out;
+    }
+
+    /** Overload for callers that don't disambiguate by scheme + slot. */
+    private List<Exam> findExamsByNamePrefix(String academicYearId, String namePrefix) {
+        return findExamsByNamePrefix(academicYearId, namePrefix, null, null);
     }
 
     /** "internal_assessment" → "Internal Assessment"; "theory" → "Theory". */
@@ -854,6 +1065,11 @@ public class ExamService {
         exam.setStartTime(req.getStartTime());
         exam.setEndTime(req.getEndTime());
         exam.setDescription(req.getDescription());
+        // Carry the scheme + slot provenance from the request when the caller
+        // is editing a scheme-rolled Config (frontend round-trips these from
+        // ExamConfigDetail.schemeId / slotKey). Both null for direct creations.
+        exam.setExamTypeSchemeId(req.getSchemeId());
+        exam.setSlotKey(req.getSlotKey());
         exam.setStatus(Exam.ExamStatus.SCHEDULED);
         return exam;
     }

@@ -10,6 +10,9 @@
     actionLabel="New Config"
     actionIcon="add"
     actionLink="/exams/config/new"
+    secondaryActionLabel="Single Exam"
+    secondaryActionIcon="add"
+    (secondaryActionClick)="goToSingleExam()"
   ></app-page-header>
 
   <!-- Loading -->
@@ -36,7 +39,10 @@
       <div class="config-card__top">
         <div class="config-card__title">
           <mat-icon>label</mat-icon>
-          <span class="type-name">{{ c.examType }}</span>
+          <span class="type-name">{{ typeKeyFor(c.examType) }}</span>
+          <span class="scheme-badge" *ngIf="c.schemeName" [matTooltip]="'From scheme: ' + c.schemeName">
+            {{ c.schemeName }}
+          </span>
           <span class="muted">· {{ yearLabel(c.academicYearId) }}</span>
         </div>
         <div class="config-card__meta">
@@ -99,10 +105,10 @@
       </div>
 
       <h3 *ngIf="pendingAction === 'edit'">
-        Edit "{{ pendingConfig.examType }}"?
+        Edit "{{ typeKeyFor(pendingConfig.examType) }}"?
       </h3>
       <h3 *ngIf="pendingAction === 'delete'">
-        Delete "{{ pendingConfig.examType }}"?
+        Delete "{{ typeKeyFor(pendingConfig.examType) }}"?
       </h3>
 
       <!-- Edit + marks already entered -->

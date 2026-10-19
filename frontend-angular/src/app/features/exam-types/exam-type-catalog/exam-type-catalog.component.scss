@@ -1,0 +1,97 @@
+.etc-container { padding: 8px 4px; }
+
+.etc-card {
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+}
+
+.etc-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
+}
+
+.loading-row { display: flex; justify-content: center; padding: 28px 0; }
+
+.empty-state {
+  text-align: center; padding: 36px 20px;
+  .empty-icon { font-size: 48px; width: 48px; height: 48px; color: #c7962f; margin-bottom: 8px; }
+  h3 { margin: 0 0 6px; font-weight: 700; color: #1f2937; }
+  p  { margin: 0 0 12px; color: #6b7280; font-size: 13px; }
+}
+
+.etc-table {
+  width: 100%;
+
+  .color-swatch {
+    display: inline-block; width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,.08);
+  }
+  .color-swatch.big { width: 24px; height: 24px; margin-left: 8px; }
+
+  .key-chip {
+    background: #f3f4f6; color: #374151;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 700;
+  }
+  .desc { color: #6b7280; font-size: 13px; }
+  .actions-col { width: 180px; text-align: right; }
+}
+
+.chip-active {
+  background: #ecfdf5 !important; color: #065f46 !important;
+  font-weight: 700; font-size: 11px !important; min-height: 24px !important;
+}
+.chip-archived {
+  background: #f3f4f6 !important; color: #6b7280 !important;
+  font-weight: 700; font-size: 11px !important; min-height: 24px !important;
+}
+
+/* Dialog */
+.etc-modal-card {
+  background: #fff;
+  display: flex; flex-direction: column;
+  max-height: 85vh;
+  overflow: hidden;
+
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #f1f1f1;
+    h3 {
+      margin: 0; display: flex; align-items: center; gap: 6px;
+      font-size: 16px; font-weight: 700;
+      mat-icon { color: #c7962f; }
+    }
+  }
+  .modal-body {
+    padding: 16px 18px;
+    overflow-y: auto;
+
+    .full { width: 100%; }
+    .side-by-side {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .color-row {
+      display: flex; align-items: center; gap: 10px;
+      margin: 6px 0 10px;
+      label { font-size: 13px; color: #374151; font-weight: 600; }
+      input[type="color"] { width: 48px; height: 32px; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; }
+    }
+  }
+  .modal-actions {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid #f1f1f1;
+    background: #fafafa;
+  }
+}
+
+::ng-deep .cdk-overlay-container .mat-mdc-dialog-surface:has(.etc-modal-card) {
+  padding: 0 !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+}

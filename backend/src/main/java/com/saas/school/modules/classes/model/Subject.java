@@ -125,6 +125,17 @@ public class Subject {
      */
     private List<String> enrolledStudentIds;
 
+    /**
+     * True = part of the school's core academic subjects (Kannada, English,
+     * Maths, Science, Social, Hindi, …). False = co-curricular (PE, Music,
+     * Art, Library). Exam Type rollout seeds its per-slot subject table from
+     * {@code coreSubject == true} subjects; schools can still explicitly add
+     * a non-core subject to a specific slot. Defaults to {@code true} so
+     * existing data behaves unchanged — admins can opt specific subjects
+     * out after rollout ships.
+     */
+    private Boolean coreSubject = Boolean.TRUE;
+
     @CreatedDate
     private Instant createdAt;
 
@@ -223,6 +234,11 @@ public class Subject {
 
     public List<String> getEnrolledStudentIds() { return enrolledStudentIds; }
     public void setEnrolledStudentIds(List<String> enrolledStudentIds) { this.enrolledStudentIds = enrolledStudentIds; }
+
+    /** True by default so existing data stays core; null is treated as true. */
+    public boolean isCoreSubject() { return coreSubject == null || coreSubject; }
+    public Boolean getCoreSubject() { return coreSubject; }
+    public void setCoreSubject(Boolean coreSubject) { this.coreSubject = coreSubject; }
 
     /** True when the subject has at least one sub-part. */
     public boolean hasSubParts() { return subParts != null && !subParts.isEmpty(); }

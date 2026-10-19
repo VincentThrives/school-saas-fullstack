@@ -1,5 +1,6 @@
 .terminals-page {
-  padding: 24px;
+  /* Match other list pages — breadcrumb hugs the page edge. */
+  padding: 0 0 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;

@@ -81,6 +81,12 @@ public class StudentAssessments {
         private String grade;
         private String remarks;
         private boolean isPassed;
+        /** Whether the student was present at the exam. Null = legacy data
+         *  (treat as PRESENT). ABSENT entries carry empty componentMarks,
+         *  isPassed=false, grade="AB" and are excluded from pass-% denominators
+         *  in results. Admin can later clear the Absent toggle and enter
+         *  real marks when a makeup is conducted. */
+        private AttendanceStatus status;
 
         public MarkEntry() {}
 
@@ -109,5 +115,13 @@ public class StudentAssessments {
 
         public boolean isPassed() { return isPassed; }
         public void setPassed(boolean passed) { isPassed = passed; }
+
+        public AttendanceStatus getStatus() { return status; }
+        public void setStatus(AttendanceStatus status) { this.status = status; }
+    }
+
+    public enum AttendanceStatus {
+        PRESENT,
+        ABSENT
     }
 }

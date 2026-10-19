@@ -25,11 +25,12 @@
           <mat-form-field appearance="outline">
             <mat-label>Exam Type *</mat-label>
             <mat-select formControlName="examType">
-              <mat-option *ngFor="let t of examTypes" [value]="t.name" [matTooltip]="t.description || ''">
-                {{ t.name }}
+              <mat-option *ngFor="let t of examTypes" [value]="t.key || t.name" [matTooltip]="t.description || ''">
+                {{ t.name }} <span class="muted-small" *ngIf="t.key && t.key !== t.name">({{ t.key }})</span>
               </mat-option>
             </mat-select>
-            <mat-hint *ngIf="examTypes.length === 0">
+            <mat-hint *ngIf="editingExamType">Editing: {{ editingExamType }}</mat-hint>
+            <mat-hint *ngIf="examTypes.length === 0 && !editingExamType">
               No exam types yet — add one under Exam Types
             </mat-hint>
             <mat-error>Exam type is required</mat-error>
@@ -171,38 +172,76 @@
             </button>
           </div>
 
-          <div class="component-row"
-               *ngFor="let c of row.components"
-               [class.component-row--excluded]="!c.include">
-            <!-- Untick to exclude this component from THIS exam (e.g. Theory-
-                 only UT for a Theory + Practical subject). The component
-                 stays on the subject definition; it just doesn't get an
-                 Exam doc this time around. -->
-            <mat-checkbox
-              [(ngModel)]="c.include"
-              [ngModelOptions]="{ standalone: true }"
-              class="component-row__include"
-              matTooltip="Include this component in this exam"
-            ></mat-checkbox>
-            <div class="component-row__label">
-              <mat-icon class="comp-icon">{{ c.assessmentMode === 'INTERNAL' ? 'assignment' : 'edit_note' }}</mat-icon>
-              <span>{{ c.label }}</span>
-              <span class="muted" *ngIf="c.assessmentMode === 'INTERNAL'">· Internal</span>
+          <!-- One block per component — component row + its optional sub-parts
+               list. Wrapped together so `c` is in scope for the sub-parts markup. -->
+          <ng-container *ngFor="let c of row.components">
+            <div class="component-row"
+                 [class.component-row--excluded]="!c.include">
+              <!-- Untick to exclude this component from THIS exam (e.g. Theory-
+                   only UT for a Theory + Practical subject). The component
+                   stays on the subject definition; it just doesn't get an
+                   Exam doc this time around. -->
+              <mat-checkbox
+                [(ngModel)]="c.include"
+                [ngModelOptions]="{ standalone: true }"
+                class="component-row__include"
+                matTooltip="Include this component in this exam"
+              ></mat-checkbox>
+              <div class="component-row__label">
+                <mat-icon class="comp-icon">{{ c.assessmentMode === 'INTERNAL' ? 'assignment' : 'edit_note' }}</mat-icon>
+                <span>{{ c.label }}</span>
+                <span class="muted" *ngIf="c.assessmentMode === 'INTERNAL'">· Internal</span>
+              </div>
+              <ng-container *ngIf="c.include; else excludedNote">
+                <mat-form-field appearance="outline" class="comp-input" subscriptSizing="dynamic">
+                  <mat-label>Max Marks *</mat-label>
+                  <input matInput type="number" [(ngModel)]="c.maxMarks" [ngModelOptions]="{ standalone: true }" min="1">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="comp-input" subscriptSizing="dynamic">
+                  <mat-label>Pass Marks *</mat-label>
+                  <input matInput type="number" [(ngModel)]="c.passingMarks" [ngModelOptions]="{ standalone: true }" min="0">
+                </mat-form-field>
+                <button mat-button type="button" class="split-btn"
+                        (click)="addSubPart(c)"
+                        matTooltip="Split this component into sub-parts (Paper 1 + Paper 2)">
+                  <mat-icon>add</mat-icon> Split into parts
+                </button>
+              </ng-container>
+              <ng-template #excludedNote>
+                <span class="muted excluded-note">Excluded from this exam</span>
+              </ng-template>
             </div>
-            <ng-container *ngIf="c.include; else excludedNote">
-              <mat-form-field appearance="outline" class="comp-input">
-                <mat-label>Max Marks *</mat-label>
-                <input matInput type="number" [(ngModel)]="c.maxMarks" [ngModelOptions]="{ standalone: true }" min="1">
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="comp-input">
-                <mat-label>Pass Marks *</mat-label>
-                <input matInput type="number" [(ngModel)]="c.passingMarks" [ngModelOptions]="{ standalone: true }" min="0">
-              </mat-form-field>
-            </ng-container>
-            <ng-template #excludedNote>
-              <span class="muted excluded-note">Excluded from this exam</span>
-            </ng-template>
-          </div>
+
+            <!-- Sub-parts for this component (optional). Teacher enters one
+                 mark per sub-part at marks entry; component total = sum. -->
+            <div class="sub-parts-list" *ngIf="c.include && hasSubParts(c)">
+              <div class="sub-part-row" *ngFor="let sc of c.subComponents; let si = index">
+                <mat-icon class="sub-icon">subdirectory_arrow_right</mat-icon>
+                <mat-form-field appearance="outline" class="sub-label" subscriptSizing="dynamic">
+                  <mat-label>Label</mat-label>
+                  <input matInput [(ngModel)]="sc.label" [ngModelOptions]="{ standalone: true }"
+                         maxlength="40" placeholder="e.g. Paper 1">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="sub-input" subscriptSizing="dynamic">
+                  <mat-label>Max</mat-label>
+                  <input matInput type="number" [(ngModel)]="sc.maxMarks" [ngModelOptions]="{ standalone: true }" min="1">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="sub-input" subscriptSizing="dynamic">
+                  <mat-label>Pass</mat-label>
+                  <input matInput type="number" [(ngModel)]="sc.passingMarks" [ngModelOptions]="{ standalone: true }" min="0">
+                </mat-form-field>
+                <button mat-icon-button type="button" (click)="removeSubPart(c, si)"
+                        matTooltip="Remove sub-part">
+                  <mat-icon color="warn">close</mat-icon>
+                </button>
+              </div>
+              <div class="sub-sum" [class.bad]="!subPartsMatchComponent(c)">
+                Sub-parts: {{ subPartsSum(c) }} / {{ c.maxMarks || 0 }}
+                <mat-icon *ngIf="subPartsMatchComponent(c)" class="ok-ic">check_circle</mat-icon>
+                <mat-icon *ngIf="!subPartsMatchComponent(c)" class="bad-ic">error</mat-icon>
+              </div>
+            </div>
+          </ng-container>
 
           <div class="component-warning" *ngIf="!rowHasIncludedComponent(row)">
             <mat-icon>warning</mat-icon>

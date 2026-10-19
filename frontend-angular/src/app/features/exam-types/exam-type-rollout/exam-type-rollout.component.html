@@ -1,0 +1,115 @@
+<div class="etr-container">
+  <app-page-header
+    [title]="scheme ? 'Rollout: ' + scheme.name : 'Rollout'"
+    subtitle="Create concrete Exam docs from this scheme's slots — one exam per subject × class × section"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Exam Types', link: '/exam-types' },
+      { label: 'Rollout' }
+    ]">
+  </app-page-header>
+
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <ng-container *ngIf="!isLoading && scheme">
+    <mat-card class="etr-card scope-card">
+      <div class="scope-row">
+        <mat-icon class="ic">school</mat-icon>
+        <span class="k">Applies to:</span>
+        <mat-chip *ngIf="!scheme.applicableClassIds?.length">All classes in the year</mat-chip>
+        <mat-chip *ngFor="let c of scheme.applicableClassIds" class="class-chip">{{ classChipLabel(c) }}</mat-chip>
+      </div>
+      <p class="desc" *ngIf="scheme.description">{{ scheme.description }}</p>
+    </mat-card>
+
+    <mat-card class="etr-card">
+      <h4 class="section-hd">Slots</h4>
+      <div class="empty" *ngIf="!scheme.slots.length">
+        This scheme has no slots. Edit the scheme and add slots before rolling out.
+      </div>
+
+      <div class="slot-list" *ngIf="scheme.slots.length">
+        <div class="slot-row" *ngFor="let s of scheme.slots">
+          <div class="slot-chip-group">
+            <span class="slot-kind" [style.background]="kindColor(s.kind)">{{ s.kind }}</span>
+            <span class="slot-label">{{ s.label }}</span>
+            <span class="slot-marks">{{ s.rawMax }} → {{ s.weightMax }}</span>
+          </div>
+
+          <div class="status-chip"
+               [class.full]="statusFor(s.key).created > 0 && statusFor(s.key).created >= statusFor(s.key).totalExpected"
+               [class.partial]="statusFor(s.key).created > 0 && statusFor(s.key).created < statusFor(s.key).totalExpected"
+               [class.empty]="statusFor(s.key).created === 0"
+               [matTooltip]="'= ' + applicableClassCount + ' classes × ' + totalSectionCount + ' sections × subjects per section'">
+            <mat-icon *ngIf="statusFor(s.key).created >= statusFor(s.key).totalExpected && statusFor(s.key).created > 0">
+              check_circle
+            </mat-icon>
+            <mat-icon *ngIf="statusFor(s.key).created === 0">pending</mat-icon>
+            <span>
+              {{ statusFor(s.key).created }} / {{ statusFor(s.key).totalExpected }} exams
+            </span>
+          </div>
+
+          <button mat-flat-button color="primary"
+                  (click)="openRolloutPrompt(s.key, s.label)"
+                  [disabled]="rollingSlotKey !== null">
+            <mat-spinner diameter="18" *ngIf="rollingSlotKey === s.key"></mat-spinner>
+            <mat-icon *ngIf="rollingSlotKey !== s.key">
+              {{ statusFor(s.key).created > 0 ? 'refresh' : 'add' }}
+            </mat-icon>
+            {{ rollingSlotKey === s.key ? 'Working…'
+               : (statusFor(s.key).created > 0 ? 'Create missing' : 'Create exams') }}
+          </button>
+        </div>
+      </div>
+    </mat-card>
+
+    <div class="form-actions">
+      <button mat-button type="button" (click)="cancel()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to Exam Types
+      </button>
+    </div>
+  </ng-container>
+
+  <!-- Exam-name prompt — opens before firing a slot rollout.
+       Default = slot label (FA1, SA1, …); admin can override to disambiguate
+       (e.g. "Primary FA1" vs "Middle FA1"). -->
+  <div class="rp-overlay" *ngIf="promptOpen" (click)="closeRolloutPrompt()">
+    <div class="rp-dialog" (click)="$event.stopPropagation()">
+      <h3>Create exams for {{ promptSlotLabel }}</h3>
+      <p class="rp-sub">
+        One exam per subject × section will be created in the system.
+        The name below becomes the <strong>Exam Type</strong> label on every created exam
+        (shown in the Exams list and Exam Config).
+      </p>
+
+      <mat-form-field appearance="outline" class="rp-input">
+        <mat-label>Exam name *</mat-label>
+        <input matInput [(ngModel)]="promptExamName" maxlength="40"
+               (keydown.enter)="confirmRollout()"
+               [disabled]="rollingSlotKey !== null" />
+        <mat-hint>Short label like "FA1", "SA1", or "Primary FA1" to disambiguate across schemes.</mat-hint>
+      </mat-form-field>
+
+      <div class="rp-note" *ngIf="promptIsExisting">
+        <mat-icon>info</mat-icon>
+        Some exams for this slot already exist — only the missing ones will be created.
+        Renaming does <strong>not</strong> rename the existing exams.
+      </div>
+
+      <div class="rp-actions">
+        <button mat-stroked-button (click)="closeRolloutPrompt()"
+                [disabled]="rollingSlotKey !== null">Cancel</button>
+        <button mat-raised-button color="primary" (click)="confirmRollout()"
+                [disabled]="rollingSlotKey !== null || !promptExamName.trim()">
+          <mat-spinner diameter="18" *ngIf="rollingSlotKey === promptSlotKey"></mat-spinner>
+          <mat-icon *ngIf="rollingSlotKey !== promptSlotKey">play_arrow</mat-icon>
+          {{ rollingSlotKey === promptSlotKey ? 'Working…' : 'Create exams' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

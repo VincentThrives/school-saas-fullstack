@@ -76,6 +76,16 @@ interface SubjectComponentRow {
   include: boolean;
   maxMarks: number | null;
   passingMarks: number | null;
+  /** Optional per-exam split of this component (Paper 1 + Paper 2 under
+   *  Theory). Null/empty means a single mark cell for the component. */
+  subComponents: SubjectSubComponentRow[] | null;
+}
+
+interface SubjectSubComponentRow {
+  key: string;
+  label: string;
+  maxMarks: number | null;
+  passingMarks: number | null;
 }
 
 @Component({
@@ -134,6 +144,11 @@ export class ExamConfigComponent implements OnInit {
   editMode = false;
   editingExamType: string | null = null;
   editingAcademicYearId: string | null = null;
+  /** Scheme + slot provenance from the URL query — carried through to the
+   *  detail fetch (narrows the group when two schemes share a slot name) and
+   *  the save payload (so the recreated exams keep the scheme link). */
+  editingSchemeId: string | null = null;
+  editingSlotKey: string | null = null;
   /** Pending detail from the backend — applied after classes + subjects load. */
   private pendingDetail: ExamConfigDetail | null = null;
 
@@ -156,13 +171,17 @@ export class ExamConfigComponent implements OnInit {
       description: [''],
     });
 
-    // Edit mode? URL param :examType + ?academicYearId query.
+    // Edit mode? URL param :examType + ?academicYearId query. schemeId +
+    // slotKey are optional — present when the Config came from a scheme
+    // rollout so edits can be scoped to that scheme's slot.
     const typeParam = this.route.snapshot.paramMap.get('examType');
     const yearParam = this.route.snapshot.queryParamMap.get('academicYearId');
     if (typeParam && yearParam) {
       this.editMode = true;
       this.editingExamType = decodeURIComponent(typeParam);
       this.editingAcademicYearId = yearParam;
+      this.editingSchemeId = this.route.snapshot.queryParamMap.get('schemeId');
+      this.editingSlotKey = this.route.snapshot.queryParamMap.get('slotKey');
     }
 
     this.api.getExamTypes().subscribe({
@@ -197,14 +216,21 @@ export class ExamConfigComponent implements OnInit {
   private loadConfigDetail(): void {
     if (!this.editingAcademicYearId || !this.editingExamType) return;
     this.isLoading = true;
+    // Fetch the catalog alongside detail + classes so resolveExamTypeOptionValue
+    // has entries to match against when applyPendingDetail runs — otherwise
+    // the dropdown ends up blank because the catalog subscription is racing
+    // this one.
     forkJoin({
-      detail: this.api.getExamConfigDetail(this.editingAcademicYearId, this.editingExamType),
+      detail: this.api.getExamConfigDetail(this.editingAcademicYearId, this.editingExamType,
+                                            this.editingSchemeId, this.editingSlotKey),
       classes: this.api.getClasses(this.editingAcademicYearId),
+      types: this.api.getExamTypes(),
     }).subscribe({
       next: (res) => {
         // Classes ready first — populate the pair grid before applying ticks.
         this.classes = Array.isArray(res.classes.data) ? res.classes.data : [];
         this.buildPairOptions();
+        this.examTypes = (res.types as any)?.data || [];
         // Then apply the saved detail.
         this.pendingDetail = res.detail?.data || null;
         this.applyPendingDetail();
@@ -217,6 +243,40 @@ export class ExamConfigComponent implements OnInit {
     });
   }
 
+  /** True when the given string matches a catalog ExamType key or name.
+   *  Used by the template to decide whether to render the current stored
+   *  exam name as a fallback <mat-option>. */
+  isCatalogExamType(stored: string | null | undefined): boolean {
+    const s = (stored || '').trim();
+    if (!s || !this.examTypes?.length) return false;
+    const needle = s.toLowerCase();
+    return this.examTypes.some(t =>
+      (t.key || '').toLowerCase() === needle ||
+      (t.name || '').toLowerCase() === needle
+    );
+  }
+
+  /**
+   * Maps whatever the backend stamped on exam.examType ("FA", "Formative",
+   * "FA1", ...) back to the dropdown option value (catalog key when the
+   * entry has one, otherwise the catalog name). Falls back to the raw
+   * stored value — the <mat-select> will quietly not pre-select, but the
+   * admin can repick a type.
+   */
+  private resolveExamTypeOptionValue(stored: string | null | undefined): string {
+    const s = (stored || '').trim();
+    if (!s || !this.examTypes?.length) return s;
+    const needle = s.toLowerCase();
+    for (const t of this.examTypes) {
+      const key = (t.key || '').trim();
+      const name = (t.name || '').trim();
+      if (key.toLowerCase() === needle || name.toLowerCase() === needle) {
+        return key || name;
+      }
+    }
+    return s;
+  }
+
   /**
    * Apply the pre-fill detail: tick the (class, section) checkboxes and
    * pre-populate picked subject rows with the saved max/pass values.
@@ -225,7 +285,11 @@ export class ExamConfigComponent implements OnInit {
     const d = this.pendingDetail;
     if (!d) return;
     this.form.patchValue({
-      examType: d.examType,
+      // Pre-fill the Exam Type dropdown with the actual stamped TYPE (e.g.
+      // "FA") from the exam docs — not the group's name prefix ("FA1") which
+      // belongs to the URL / breadcrumb, not this dropdown. Normalize to the
+      // catalog's canonical option value so <mat-select> finds a match.
+      examType: this.resolveExamTypeOptionValue(d.examTypeKey ?? d.examType),
       academicYearId: d.academicYearId,
       examDate: d.examDate ? new Date(d.examDate) : null,
       startTime: d.startTime || '',
@@ -477,7 +541,7 @@ export class ExamConfigComponent implements OnInit {
               const hasMultiple = (cfg.components?.length ?? 0) > 1
                                 || (allSubjectComps.length > 1);
               // Build a key → saved-component lookup for O(1) hydration.
-              const savedByKey = new Map<string, { maxMarks?: number | null; passingMarks?: number | null; label?: string }>();
+              const savedByKey = new Map<string, any>();
               (cfg.components || []).forEach(c => savedByKey.set(c.key, c));
               // Components ordered: ticked (saved) first, then unticked
               // (subject extras). Within each group, preserve subject
@@ -497,6 +561,7 @@ export class ExamConfigComponent implements OnInit {
                   passingMarks: saved
                     ? (saved.passingMarks ?? null)
                     : ((sc.passMarks ?? null) as number | null),
+                  subComponents: this.mapSavedSubParts(saved?.subComponents),
                 };
                 (saved ? ticked : unticked).push(row);
               }
@@ -513,6 +578,7 @@ export class ExamConfigComponent implements OnInit {
                     include: true,
                     maxMarks: c.maxMarks ?? null,
                     passingMarks: c.passingMarks ?? null,
+                    subComponents: this.mapSavedSubParts((c as any).subComponents),
                   });
                 }
               }
@@ -553,6 +619,7 @@ export class ExamConfigComponent implements OnInit {
         // override per exam. Schools running UT1 at 40+10 just type fresh.
         maxMarks: (c.maxMarks ?? null) as number | null,
         passingMarks: (c.passMarks ?? null) as number | null,
+        subComponents: null,
       } as SubjectComponentRow));
       const hasMultiple = comps.length > 1;
       this.pickedSubjectRows.push({
@@ -572,6 +639,51 @@ export class ExamConfigComponent implements OnInit {
     this.pickedSubjectRows = this.pickedSubjectRows.filter(r => r.subjectId !== subjectId);
   }
 
+  // ── Sub-parts (per-component split under THIS exam) ─────────────────
+
+  /** Shape raw backend subComponents array into the form's internal row shape.
+   *  Null-safe so flat components (no sub-parts) stay flat. */
+  private mapSavedSubParts(saved: any[] | null | undefined): SubjectSubComponentRow[] | null {
+    if (!Array.isArray(saved) || saved.length === 0) return null;
+    return saved.map(sc => ({
+      key: sc.key || '',
+      label: sc.label || '',
+      maxMarks: sc.maxMarks == null ? null : Number(sc.maxMarks),
+      passingMarks: sc.passingMarks == null ? null : Number(sc.passingMarks),
+    }));
+  }
+
+  hasSubParts(c: SubjectComponentRow): boolean {
+    return !!(c.subComponents && c.subComponents.length > 0);
+  }
+
+  addSubPart(c: SubjectComponentRow): void {
+    const list = c.subComponents || [];
+    const idx = list.length + 1;
+    c.subComponents = [...list, {
+      key: `sc${idx}`,
+      label: `Part ${idx}`,
+      maxMarks: 0,
+      passingMarks: 0,
+    }];
+  }
+
+  removeSubPart(c: SubjectComponentRow, idx: number): void {
+    if (!c.subComponents) return;
+    c.subComponents = c.subComponents.filter((_, i) => i !== idx);
+    if (c.subComponents.length === 0) c.subComponents = null;
+  }
+
+  subPartsSum(c: SubjectComponentRow): number {
+    if (!c.subComponents) return 0;
+    return c.subComponents.reduce((s, sc) => s + (Number(sc.maxMarks) || 0), 0);
+  }
+
+  subPartsMatchComponent(c: SubjectComponentRow): boolean {
+    if (!this.hasSubParts(c)) return true;
+    return Math.abs(this.subPartsSum(c) - (Number(c.maxMarks) || 0)) < 0.0001;
+  }
+
   // ── Submit ───────────────────────────────────────────────────────────
 
   get isSubmitDisabled(): boolean {
@@ -589,6 +701,17 @@ export class ExamConfigComponent implements OnInit {
         const pass = Number(c.passingMarks);
         if (!isFinite(max) || max <= 0) return true;
         if (!isFinite(pass) || pass < 0 || pass > max) return true;
+        if (this.hasSubParts(c)) {
+          // Sub-parts must sum to the parent component's max, each must have
+          // a valid max and a pass ≤ that max.
+          if (!this.subPartsMatchComponent(c)) return true;
+          for (const sc of c.subComponents!) {
+            const smax = Number(sc.maxMarks);
+            const spass = Number(sc.passingMarks);
+            if (!isFinite(smax) || smax <= 0) return true;
+            if (!isFinite(spass) || spass < 0 || spass > smax) return true;
+          }
+        }
       }
     }
     return this.isSaving;
@@ -645,12 +768,23 @@ export class ExamConfigComponent implements OnInit {
           label: c.label,
           maxMarks: Number(c.maxMarks),
           passingMarks: Number(c.passingMarks),
+          subComponents: !this.hasSubParts(c) ? null : c.subComponents!.map(sc => ({
+            key: sc.key,
+            label: sc.label,
+            maxMarks: Number(sc.maxMarks),
+            passingMarks: Number(sc.passingMarks),
+          })),
         } as BulkCreateExamComponentConfig)),
       };
     });
 
     const payload: BulkCreateExamRequest = {
-      examType: formVal.examType,
+      // Preserve the original name prefix on edit (e.g. "FA1") — the Exam
+      // Type dropdown now holds the catalog key like "FA", which would
+      // re-key the exams and change their group. The dropdown value flows
+      // through newExam → exam.examType, while editingExamType stays as the
+      // exam.name prefix.
+      examType: this.editMode && this.editingExamType ? this.editingExamType : formVal.examType,
       academicYearId: formVal.academicYearId,
       examDate: examDate || null,
       startTime: formVal.startTime || null,
@@ -658,6 +792,10 @@ export class ExamConfigComponent implements OnInit {
       description: formVal.description || null,
       pairs,
       subjectConfigs,
+      // Round-trip the scheme provenance so the recreated exams stay linked
+      // to the originating scheme/slot (keeps them on the right card).
+      schemeId: this.editingSchemeId || null,
+      slotKey: this.editingSlotKey || null,
     };
 
     this.isSaving = true;
@@ -665,7 +803,8 @@ export class ExamConfigComponent implements OnInit {
     // Edit mode = delete + recreate so changes apply to a clean slate
     // (and any "edit will reset marks" warning the admin saw is honoured).
     if (this.editMode && this.editingExamType && this.editingAcademicYearId) {
-      this.api.deleteExamConfig(this.editingAcademicYearId, this.editingExamType).subscribe({
+      this.api.deleteExamConfig(this.editingAcademicYearId, this.editingExamType,
+                                 this.editingSchemeId, this.editingSlotKey).subscribe({
         next: () => this.runBulkCreate(payload, true),
         error: (err) => {
           this.isSaving = false;

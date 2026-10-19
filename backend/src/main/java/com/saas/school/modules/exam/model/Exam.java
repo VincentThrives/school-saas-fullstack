@@ -57,6 +57,16 @@ public class Exam {
     private String className;
     private String sectionName;
 
+    /**
+     * Set when this Exam was generated from an ExamType scheme's slot
+     * (Phase 2 "Rollout" flow). Null for exams created the legacy way
+     * through the free-form Exam Config wizard. Together with
+     * {@link #slotKey} these let the report-card renderer group exams
+     * by slot and apply pull-forward / weighting from the scheme.
+     */
+    private String examTypeSchemeId;
+    private String slotKey;
+
     @CreatedDate
     private Instant createdAt;
 
@@ -252,6 +262,12 @@ public class Exam {
         this.components = components;
     }
 
+    public String getExamTypeSchemeId() { return examTypeSchemeId; }
+    public void setExamTypeSchemeId(String examTypeSchemeId) { this.examTypeSchemeId = examTypeSchemeId; }
+
+    public String getSlotKey() { return slotKey; }
+    public void setSlotKey(String slotKey) { this.slotKey = slotKey; }
+
     /** True when this exam carries 2+ components in one doc (combined-mode). */
     public boolean isCombined() {
         return components != null && components.size() > 1;
@@ -320,10 +336,59 @@ public class Exam {
         private String label;
         private Integer maxMarks;
         private Integer passingMarks;
+        /** Optional finer split for THIS exam (stamped from the scheme slot's
+         *  Component.subComponents at rollout). Null/empty → marks are entered
+         *  at component level; non-empty → one mark column per sub-part and the
+         *  component total is the sum. */
+        private List<ExamSubComponent> subComponents;
 
         public ExamComponent() {}
 
         public ExamComponent(String key, String label, Integer maxMarks, Integer passingMarks) {
+            this.key = key;
+            this.label = label;
+            this.maxMarks = maxMarks;
+            this.passingMarks = passingMarks;
+        }
+
+        public ExamComponent(String key, String label, Integer maxMarks, Integer passingMarks,
+                             List<ExamSubComponent> subComponents) {
+            this(key, label, maxMarks, passingMarks);
+            this.subComponents = subComponents;
+        }
+
+        public String getKey() { return key; }
+        public void setKey(String key) { this.key = key; }
+
+        public String getLabel() { return label; }
+        public void setLabel(String label) { this.label = label; }
+
+        public Integer getMaxMarks() { return maxMarks; }
+        public void setMaxMarks(Integer maxMarks) { this.maxMarks = maxMarks; }
+
+        public Integer getPassingMarks() { return passingMarks; }
+        public void setPassingMarks(Integer passingMarks) { this.passingMarks = passingMarks; }
+
+        public List<ExamSubComponent> getSubComponents() { return subComponents; }
+        public void setSubComponents(List<ExamSubComponent> subComponents) { this.subComponents = subComponents; }
+    }
+
+    /**
+     * One sub-part of an {@link ExamComponent} (e.g. Paper 1 under Theory).
+     * Lives only on the exam / scheme side — never referenced by Subject.
+     * Rolled-out marks for a sub-part are stored at {@code componentMarks}
+     * key {@code "<component.key>__<subComponent.key>"} to keep the map flat.
+     * The separator is "__" (not ".") — MongoDB rejects map keys with dots.
+     */
+    public static class ExamSubComponent {
+        private String key;
+        private String label;
+        private Integer maxMarks;
+        private Integer passingMarks;
+
+        public ExamSubComponent() {}
+
+        public ExamSubComponent(String key, String label, Integer maxMarks, Integer passingMarks) {
             this.key = key;
             this.label = label;
             this.maxMarks = maxMarks;

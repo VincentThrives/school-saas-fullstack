@@ -342,6 +342,16 @@ export interface BulkCreateExamComponentConfig {
   label: string;
   maxMarks: number;
   passingMarks: number;
+  /** Optional sub-parts for THIS exam (Theory → Paper 1 + Paper 2). Null or
+   *  empty → single mark cell for the component. */
+  subComponents?: BulkCreateExamSubComponentConfig[] | null;
+}
+
+export interface BulkCreateExamSubComponentConfig {
+  key: string;
+  label: string;
+  maxMarks: number;
+  passingMarks: number;
 }
 
 export interface BulkCreateExamSubjectConfig {
@@ -369,6 +379,10 @@ export interface BulkCreateExamRequest {
   description?: string | null;
   pairs: BulkCreateExamPair[];
   subjectConfigs: BulkCreateExamSubjectConfig[];
+  /** Scheme + slot provenance to preserve across edits — populated by the
+   *  Config edit form when the group came from a scheme rollout. */
+  schemeId?: string | null;
+  slotKey?: string | null;
 }
 
 export interface BulkCreateExamResponse {
@@ -477,12 +491,26 @@ export interface ExamConfigSummary {
   examsWithMarks: number;
   examDate?: string | null;
   examIds: string[];
+  /** Scheme + slot that produced this group — null for direct creations.
+   *  Lets two schemes' same-named slots ("FA1") stay on separate cards. */
+  schemeId?: string | null;
+  schemeName?: string | null;
+  slotKey?: string | null;
 }
 
 /** Full pre-fill payload for the Exam Config edit form. */
 export interface ExamConfigDetail {
   academicYearId: string;
+  /** Group-key (exam-name prefix like "FA1"). Stays stable across edits. */
   examType: string;
+  /** Scheme + slot provenance, when applicable. Round-tripped on save so the
+   *  recreated Exam docs keep their scheme link. */
+  schemeId?: string | null;
+  slotKey?: string | null;
+  /** The actual type (e.g. "FA") the exams in this group were stamped with
+   *  — pre-fills the Exam Type dropdown so the admin sees that FA1 belongs
+   *  to FA. */
+  examTypeKey?: string;
   examDate?: string | null;
   startTime?: string | null;
   endTime?: string | null;
@@ -1162,29 +1190,40 @@ export class ApiService {
     return this.http.get<ApiResponse<ExamConfigSummary[]>>(`${this.API}/exams/configs`);
   }
 
-  /** Full pre-fill payload for the edit form. */
-  getExamConfigDetail(academicYearId: string, examType: string): Observable<ApiResponse<ExamConfigDetail>> {
+  /** Full pre-fill payload for the edit form. schemeId + slotKey narrow the
+   *  group when two schemes share the same name prefix ("FA1"). */
+  getExamConfigDetail(academicYearId: string, examType: string,
+                      schemeId?: string | null, slotKey?: string | null): Observable<ApiResponse<ExamConfigDetail>> {
     let params = new HttpParams()
       .set('academicYearId', academicYearId)
       .set('examType', examType);
+    if (schemeId) params = params.set('schemeId', schemeId);
+    if (slotKey) params = params.set('slotKey', slotKey);
     return this.http.get<ApiResponse<ExamConfigDetail>>(`${this.API}/exams/configs/detail`, { params });
   }
 
   /** Light marks-status probe — drives the edit/delete warning popup. */
-  getExamConfigMarksStatus(academicYearId: string, examType: string): Observable<ApiResponse<{ anyMarksEntered: boolean }>> {
+  getExamConfigMarksStatus(academicYearId: string, examType: string,
+                           schemeId?: string | null, slotKey?: string | null): Observable<ApiResponse<{ anyMarksEntered: boolean }>> {
     let params = new HttpParams()
       .set('academicYearId', academicYearId)
       .set('examType', examType);
+    if (schemeId) params = params.set('schemeId', schemeId);
+    if (slotKey) params = params.set('slotKey', slotKey);
     return this.http.get<ApiResponse<{ anyMarksEntered: boolean }>>(`${this.API}/exams/configs/marks-status`, { params });
   }
 
   /** Wipe every exam + marks doc tied to this config. */
-  deleteExamConfig(academicYearId: string, examType: string): Observable<ApiResponse<{ deletedExams: number; deletedMarkDocs: number }>> {
+  deleteExamConfig(academicYearId: string, examType: string,
+                   schemeId?: string | null, slotKey?: string | null): Observable<ApiResponse<{ deletedExams: number; deletedMarkDocs: number }>> {
     let params = new HttpParams()
       .set('academicYearId', academicYearId)
       .set('examType', examType);
+    if (schemeId) params = params.set('schemeId', schemeId);
+    if (slotKey) params = params.set('slotKey', slotKey);
     return this.http.delete<ApiResponse<{ deletedExams: number; deletedMarkDocs: number }>>(`${this.API}/exams/configs`, { params });
   }
+
 
   // ── MCQ ────────────────────────────────────────────────────────────────
 
@@ -1357,7 +1396,7 @@ export class ApiService {
     return this.http.get<ApiResponse<number>>(`${this.API}/notifications/unread-count`);
   }
 
-  // ── Exam Types catalog ────────────────────────────────────────────────
+  // ── Exam Types catalog (FA / SA / OTHER + user-defined) ───────────────
 
   getExamTypes(includeArchived = false): Observable<ApiResponse<any[]>> {
     const params = new HttpParams().set('includeArchived', includeArchived);
@@ -1382,6 +1421,55 @@ export class ApiService {
 
   deleteExamType(id: string): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${this.API}/exam-types/${id}`);
+  }
+
+  // ── Exam Schemes (slot-based scheme + rollout) ────────────────────────
+
+  getExamSchemes(includeArchived = false, academicYearId?: string): Observable<ApiResponse<any[]>> {
+    let params = new HttpParams().set('includeArchived', includeArchived);
+    if (academicYearId) params = params.set('academicYearId', academicYearId);
+    return this.http.get<ApiResponse<any[]>>(`${this.API}/exam-schemes`, { params });
+  }
+
+  createExamScheme(e: any): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.API}/exam-schemes`, e);
+  }
+
+  updateExamScheme(id: string, e: any): Observable<ApiResponse<any>> {
+    return this.http.put<ApiResponse<any>>(`${this.API}/exam-schemes/${id}`, e);
+  }
+
+  archiveExamScheme(id: string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.API}/exam-schemes/${id}/archive`, null);
+  }
+
+  restoreExamScheme(id: string): Observable<ApiResponse<any>> {
+    return this.http.patch<ApiResponse<any>>(`${this.API}/exam-schemes/${id}/restore`, null);
+  }
+
+  deleteExamScheme(id: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${this.API}/exam-schemes/${id}`);
+  }
+
+  getExamSchemeRolloutStatus(id: string): Observable<ApiResponse<Array<{
+    slotKey: string; slotLabel: string; created: number; totalExpected: number;
+  }>>> {
+    return this.http.get<ApiResponse<any>>(`${this.API}/exam-schemes/${id}/rollout/status`);
+  }
+
+  getSubjectsForScheme(id: string): Observable<ApiResponse<Array<{
+    subjectId: string; name: string; coreSubject: boolean; classNames: string[];
+  }>>> {
+    return this.http.get<ApiResponse<any>>(`${this.API}/exam-schemes/${id}/subjects`);
+  }
+
+  rolloutExamSchemeSlot(id: string, slotKey: string, examName?: string): Observable<ApiResponse<{
+    created: number; skippedExisting: number; skippedNoSubjects: number;
+  }>> {
+    let params = new HttpParams();
+    if (examName && examName.trim()) params = params.set('examName', examName.trim());
+    return this.http.post<ApiResponse<any>>(
+      `${this.API}/exam-schemes/${id}/slots/${slotKey}/rollout`, null, { params });
   }
 
   // ── Notification Templates ────────────────────────────────────────────

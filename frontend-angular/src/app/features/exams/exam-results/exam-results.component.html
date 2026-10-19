@@ -13,125 +13,91 @@
   </div>
 
   <div *ngIf="!isLoading && exam">
-    <!-- Exam Info Card -->
-    <mat-card class="exam-info-card">
-      <mat-card-content>
-        <div class="info-grid">
-          <div class="info-item">
-            <span class="info-label">Exam Name</span>
-            <span class="info-value">{{ exam.name }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Class</span>
-            <span class="info-value">{{ getClassName() }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Subject</span>
-            <span class="info-value">{{ getSubjectName() }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Date</span>
-            <span class="info-value">{{ exam.examDate || '-' }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Max Marks</span>
-            <span class="info-value">{{ effectiveMax }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Passing Marks</span>
-            <span class="info-value">{{ effectivePass }}</span>
-          </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <!-- Summary Stats -->
-    <div class="stats-grid">
-      <mat-card class="stat-card">
-        <div class="stat-icon total">
-          <mat-icon>people</mat-icon>
-        </div>
-        <div class="stat-content">
-          <span class="stat-value">{{ totalStudents }}</span>
-          <span class="stat-label">Total Students</span>
-        </div>
-      </mat-card>
-
-      <mat-card class="stat-card">
-        <div class="stat-icon passed">
-          <mat-icon>check_circle</mat-icon>
-        </div>
-        <div class="stat-content">
-          <span class="stat-value passed-text">{{ passedCount }}</span>
-          <span class="stat-label">Passed</span>
-        </div>
-      </mat-card>
-
-      <mat-card class="stat-card">
-        <div class="stat-icon failed">
-          <mat-icon>cancel</mat-icon>
-        </div>
-        <div class="stat-content">
-          <span class="stat-value failed-text">{{ failedCount }}</span>
-          <span class="stat-label">Failed</span>
-        </div>
-      </mat-card>
-
-      <mat-card class="stat-card">
-        <div class="stat-icon percentage">
-          <mat-icon>percent</mat-icon>
-        </div>
-        <div class="stat-content">
-          <span class="stat-value">{{ passPercentage }}%</span>
-          <span class="stat-label">Pass %</span>
-        </div>
-      </mat-card>
-
-      <mat-card class="stat-card">
-        <div class="stat-icon average">
-          <mat-icon>analytics</mat-icon>
-        </div>
-        <div class="stat-content">
-          <span class="stat-value">{{ classAverage }}</span>
-          <span class="stat-label">Class Average</span>
-        </div>
-      </mat-card>
+    <!-- Exam metadata — slim bar of pill-badges instead of a tall card. -->
+    <div class="exam-meta-bar">
+      <span class="meta-pill meta-pill--primary">{{ exam.name }}</span>
+      <span class="meta-pill">{{ getClassName() }}</span>
+      <span class="meta-pill">{{ getSubjectName() }}</span>
+      <span class="meta-pill" *ngIf="exam.examDate">{{ exam.examDate }}</span>
+      <span class="meta-pill meta-pill--muted">Max {{ effectiveMax }}</span>
+      <span class="meta-pill meta-pill--muted">Pass {{ effectivePass }}</span>
     </div>
 
-    <!-- Grade Distribution -->
-    <mat-card class="grade-card" *ngIf="gradeDistribution.length > 0">
-      <mat-card-header>
-        <mat-card-title>Grade Distribution</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="grade-bars">
-          <div class="grade-bar-row" *ngFor="let g of gradeDistribution">
-            <span class="grade-label">{{ g.grade }}</span>
-            <div class="grade-bar-track">
-              <div class="grade-bar-fill" [style.width]="getGradeBarWidth(g.count)" [style.background-color]="g.color"></div>
-            </div>
-            <span class="grade-count">{{ g.count }}</span>
-          </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
+    <!-- KPI strip — compact one-row summary. Added Marks Entered / Not
+         Entered / Absent so admin can see roster coverage at a glance
+         (e.g. "22 of 24 entered, 1 absent, 1 pending"). -->
+    <div class="kpi-strip">
+      <div class="kpi">
+        <span class="kpi-value">{{ totalStudents }}</span>
+        <span class="kpi-label">Total Students</span>
+      </div>
+      <div class="kpi kpi--entered">
+        <span class="kpi-value">{{ enteredCount }}</span>
+        <span class="kpi-label">Marks Entered</span>
+      </div>
+      <div class="kpi kpi--pending">
+        <span class="kpi-value">{{ notEnteredCount }}</span>
+        <span class="kpi-label">Not Entered</span>
+      </div>
+      <div class="kpi kpi--absent">
+        <span class="kpi-value">{{ absentCount }}</span>
+        <span class="kpi-label">Absent</span>
+      </div>
+      <div class="kpi kpi--pass">
+        <span class="kpi-value">{{ passedCount }}</span>
+        <span class="kpi-label">Passed</span>
+      </div>
+      <div class="kpi kpi--fail">
+        <span class="kpi-value">{{ failedCount }}</span>
+        <span class="kpi-label">Failed</span>
+      </div>
+      <div class="kpi kpi--pct">
+        <span class="kpi-value">{{ passPercentage }}%</span>
+        <span class="kpi-label">Pass %</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-value">{{ classAverage }}</span>
+        <span class="kpi-label">Class Average</span>
+      </div>
+    </div>
 
-    <!-- Toppers -->
-    <mat-card class="toppers-card" *ngIf="toppers.length > 0">
-      <mat-card-header>
-        <mat-card-title>Top Performers</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="toppers-list">
-          <div class="topper-item" *ngFor="let t of toppers" [class.gold]="t.rank === 1" [class.silver]="t.rank === 2" [class.bronze]="t.rank === 3">
-            <span class="topper-medal">{{ getMedalIcon(t.rank) }}</span>
-            <span class="topper-rank" *ngIf="t.rank > 3">#{{ t.rank }}</span>
-            <span class="topper-name">{{ t.name }}</span>
-            <span class="topper-marks">{{ t.marks }} / {{ effectiveMax }}</span>
+    <!-- Grade Distribution + Top Performers side by side (col-6 / col-6 on
+         wide screens, stacked on tablets/mobile). Saves vertical space and
+         reads as a single analytics strip. -->
+    <div class="analytics-row">
+      <mat-card class="grade-card" *ngIf="gradeDistribution.length > 0">
+        <mat-card-header>
+          <mat-card-title>Grade Distribution</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="grade-bars">
+            <div class="grade-bar-row" *ngFor="let g of gradeDistribution">
+              <span class="grade-label">{{ g.grade }}</span>
+              <div class="grade-bar-track">
+                <div class="grade-bar-fill" [style.width]="getGradeBarWidth(g.count)" [style.background-color]="g.color"></div>
+              </div>
+              <span class="grade-count">{{ g.count }}</span>
+            </div>
           </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="toppers-card" *ngIf="toppers.length > 0">
+        <mat-card-header>
+          <mat-card-title>Top Performers</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="toppers-list">
+            <div class="topper-item" *ngFor="let t of toppers" [class.gold]="t.rank === 1" [class.silver]="t.rank === 2" [class.bronze]="t.rank === 3">
+              <span class="topper-medal">{{ getMedalIcon(t.rank) }}</span>
+              <span class="topper-rank" *ngIf="t.rank > 3">#{{ t.rank }}</span>
+              <span class="topper-name">{{ t.name }}</span>
+              <span class="topper-marks">{{ t.marks }} / {{ effectiveMax }}</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
 
     <!-- Full Marks Table -->
     <mat-card class="table-card">
@@ -140,16 +106,26 @@
       </mat-card-header>
       <!-- Mobile cards (< 600px) -->
       <div class="responsive-cards">
-        <div class="r-card" *ngFor="let row of rankedMarks">
+        <div class="r-card" *ngFor="let row of rankedMarks" [class.r-card--absent]="row.absent">
           <div class="r-card__header">
             <span class="r-card__title">
-              <strong>#{{ row.rank }}</strong> &nbsp; {{ row.name }}
+              <strong *ngIf="!row.absent">#{{ row.rank }}</strong>
+              <strong *ngIf="row.absent">—</strong> &nbsp; {{ row.name }}
             </span>
-            <mat-chip [class]="'grade-chip grade-' + row.grade.replace('+', '-plus')">{{ row.grade }}</mat-chip>
+            <mat-chip *ngIf="!row.absent" [class]="'grade-chip grade-' + row.grade.replace('+', '-plus')">{{ row.grade }}</mat-chip>
+            <mat-chip *ngIf="row.absent" class="absent-chip">AB</mat-chip>
           </div>
           <div class="r-card__inline">
-            <span><strong>{{ row.marks }}</strong> / {{ effectiveMax }}</span>
-            <mat-chip [class]="row.passed ? 'pass-chip' : 'fail-chip'">{{ row.passed ? 'Pass' : 'Fail' }}</mat-chip>
+            <span *ngIf="!row.absent"><strong>{{ row.marks }}</strong> / {{ effectiveMax }}</span>
+            <span *ngIf="row.absent" class="muted">— / {{ effectiveMax }}</span>
+            <mat-chip *ngIf="!row.absent" [class]="row.passed ? 'pass-chip' : 'fail-chip'">{{ row.passed ? 'Pass' : 'Fail' }}</mat-chip>
+            <mat-chip *ngIf="row.absent" class="absent-chip">Absent</mat-chip>
+          </div>
+          <!-- Per-piece breakdown on the mobile card view. -->
+          <div class="r-card__pieces" *ngIf="resultInputs.length > 0 && !row.absent">
+            <span class="piece-pill" *ngFor="let piece of resultInputs">
+              <strong>{{ piece.label }}</strong> {{ getPieceMark(row, piece.key) }} / {{ piece.maxMarks }}
+            </span>
           </div>
           <div class="r-card__inline" *ngIf="row.remarks">
             <span><strong>Remarks</strong> {{ row.remarks }}</span>
@@ -160,7 +136,10 @@
       <table mat-table [dataSource]="rankedMarks" class="marks-table responsive-table">
         <ng-container matColumnDef="rank">
           <th mat-header-cell *matHeaderCellDef>Rank</th>
-          <td mat-cell *matCellDef="let row">#{{ row.rank }}</td>
+          <td mat-cell *matCellDef="let row">
+            <span *ngIf="!row.absent">#{{ row.rank }}</span>
+            <span *ngIf="row.absent" class="muted">—</span>
+          </td>
         </ng-container>
 
         <ng-container matColumnDef="name">
@@ -168,24 +147,39 @@
           <td mat-cell *matCellDef="let row">{{ row.name }}</td>
         </ng-container>
 
+        <!-- One column per exam piece (bare component or sub-part). Appears
+             between Name and total Marks so the breakdown reads naturally.
+             Absent rows show a dash so the eye doesn't read a "0" as "got 0". -->
+        <ng-container *ngFor="let piece of resultInputs" [matColumnDef]="'piece_' + piece.key">
+          <th mat-header-cell *matHeaderCellDef>{{ piece.label }} <small>/ {{ piece.maxMarks }}</small></th>
+          <td mat-cell *matCellDef="let row" class="piece-cell" [class.muted]="row.absent">
+            {{ row.absent ? '—' : getPieceMark(row, piece.key) }}
+          </td>
+        </ng-container>
+
         <ng-container matColumnDef="marks">
-          <th mat-header-cell *matHeaderCellDef>Marks</th>
+          <th mat-header-cell *matHeaderCellDef>Total</th>
           <td mat-cell *matCellDef="let row">
-            <strong>{{ row.marks }}</strong> / {{ effectiveMax }}
+            <ng-container *ngIf="!row.absent">
+              <strong>{{ row.marks }}</strong> / {{ effectiveMax }}
+            </ng-container>
+            <span *ngIf="row.absent" class="muted">— / {{ effectiveMax }}</span>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="grade">
           <th mat-header-cell *matHeaderCellDef>Grade</th>
           <td mat-cell *matCellDef="let row">
-            <mat-chip [class]="'grade-chip grade-' + row.grade.replace('+', '-plus')">{{ row.grade }}</mat-chip>
+            <mat-chip *ngIf="!row.absent" [class]="'grade-chip grade-' + row.grade.replace('+', '-plus')">{{ row.grade }}</mat-chip>
+            <mat-chip *ngIf="row.absent" class="absent-chip">AB</mat-chip>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="status">
           <th mat-header-cell *matHeaderCellDef>Status</th>
           <td mat-cell *matCellDef="let row">
-            <mat-chip [class]="row.passed ? 'pass-chip' : 'fail-chip'">
+            <mat-chip *ngIf="row.absent" class="absent-chip">Absent</mat-chip>
+            <mat-chip *ngIf="!row.absent" [class]="row.passed ? 'pass-chip' : 'fail-chip'">
               {{ row.passed ? 'Pass' : 'Fail' }}
             </mat-chip>
           </td>
@@ -197,7 +191,7 @@
         </ng-container>
 
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.absent-row]="row.absent"></tr>
       </table>
 
       <div class="empty-state" *ngIf="rankedMarks.length === 0">

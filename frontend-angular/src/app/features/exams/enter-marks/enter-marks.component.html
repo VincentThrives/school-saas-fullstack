@@ -35,14 +35,24 @@
         <span class="info-value">{{ exam.passingMarks }}</span>
       </mat-card-content>
     </mat-card>
-    <mat-card class="info-card" *ngIf="isCombined">
+    <mat-card class="info-card info-card--wide" *ngIf="isCombined">
       <mat-card-content>
         <span class="info-label">Components</span>
-        <span class="info-value">
-          <span *ngFor="let c of examComponents; let last = last">
-            {{ c.label }} ({{ c.maxMarks }}/{{ c.passingMarks }}){{ last ? '' : ', ' }}
-          </span>
-        </span>
+        <div class="component-chips">
+          <ng-container *ngFor="let c of examComponents">
+            <span class="component-chip">
+              <strong>{{ c.label }}</strong>
+              <!-- pass / max reads like a marksheet ("5 out of 15"). -->
+              <span class="chip-nums"><em>{{ c.passingMarks }}</em> / {{ c.maxMarks }}</span>
+            </span>
+            <!-- Sub-parts listed as muted chips under their parent component. -->
+            <span class="component-chip component-chip--sub"
+                  *ngFor="let sc of c.subComponents">
+              <strong>↳ {{ sc.label }}</strong>
+              <span class="chip-nums"><em>{{ sc.passingMarks }}</em> / {{ sc.maxMarks }}</span>
+            </span>
+          </ng-container>
+        </div>
       </mat-card-content>
     </mat-card>
   </div>
@@ -83,23 +93,48 @@
           </div>
           <span class="r-card__pill">#{{ student.rollNumber }}</span>
         </div>
+        <!-- Absent toggle on the mobile card — same inline-slide-toggle as
+             the desktop table so the two layouts stay in sync. -->
+        <mat-slide-toggle
+          class="r-card__absent"
+          [checked]="student.absent"
+          (change)="toggleAbsent(student, $event.checked)">
+          Absent
+        </mat-slide-toggle>
 
-        <!-- Combined-mode: per-component inputs stacked vertically -->
+        <!-- Combined-mode: one input per leaf (sub-part when a component has
+             sub-parts, else the component itself). Component-with-sub-parts
+             shows a read-only auto-sum underneath its sub-part inputs. -->
         <ng-container *ngIf="isCombined">
-          <mat-form-field appearance="outline" class="marks-field"
-                          *ngFor="let comp of examComponents" style="width:100%;">
-            <mat-label>{{ comp.label }} (/{{ comp.maxMarks }})</mat-label>
-            <input
-              matInput
-              type="number"
-              [value]="student.componentMarks[comp.key]"
-              (input)="onComponentMarksChange(student, comp, $any($event.target).value, $event)"
-              (wheel)="$any($event.target).blur()"
-              [min]="0"
-              [max]="comp.maxMarks"
-              placeholder="--"
-            >
-          </mat-form-field>
+          <ng-container *ngFor="let comp of examComponents">
+            <!-- Bare component: single input -->
+            <mat-form-field appearance="outline" class="marks-field" subscriptSizing="dynamic"
+                            *ngIf="!comp.subComponents?.length" style="width:100%;">
+              <mat-label>{{ comp.label }} ({{ comp.passingMarks }}/{{ comp.maxMarks }})</mat-label>
+              <input matInput type="number"
+                     [value]="student.componentMarks[comp.key]"
+                     (input)="onComponentMarksChange(student, comp, $any($event.target).value, $event)"
+                     (wheel)="$any($event.target).blur()"
+                     [min]="0" [max]="comp.maxMarks" [disabled]="student.absent" placeholder="--">
+            </mat-form-field>
+
+            <!-- Split component: one input per sub-part + auto-sum chip -->
+            <ng-container *ngIf="comp.subComponents?.length">
+              <mat-form-field appearance="outline" class="marks-field" subscriptSizing="dynamic"
+                              *ngFor="let sub of comp.subComponents" style="width:100%;">
+                <mat-label>{{ comp.label }} / {{ sub.label }} ({{ sub.passingMarks }}/{{ sub.maxMarks }})</mat-label>
+                <input matInput type="number"
+                       [value]="student.componentMarks[sub.fullKey]"
+                       (input)="onSubComponentMarksChange(student, sub, $any($event.target).value, $event)"
+                       (wheel)="$any($event.target).blur()"
+                       [min]="0" [max]="sub.maxMarks" [disabled]="student.absent" placeholder="--">
+              </mat-form-field>
+              <div class="r-card__inline" *ngIf="hasComponentEntry(student, comp)">
+                <strong>{{ comp.label }}:</strong>&nbsp;{{ componentSumFor(student, comp) }} / {{ comp.maxMarks }}
+              </div>
+            </ng-container>
+          </ng-container>
+
           <div class="r-card__inline" *ngIf="hasAnyCombinedEntry(student)">
             <strong>Total: {{ totalFor(student) }} / {{ maxMarks }}</strong>
             &nbsp;
@@ -111,7 +146,7 @@
 
         <!-- Per-component-mode: single marks input -->
         <ng-container *ngIf="!isCombined">
-          <mat-form-field appearance="outline" class="marks-field" style="width:100%;">
+          <mat-form-field appearance="outline" class="marks-field" subscriptSizing="dynamic" style="width:100%;">
             <mat-label>Marks (/{{ maxMarks }})</mat-label>
             <input
               matInput
@@ -120,7 +155,7 @@
               (input)="onMarksChange(student, $any($event.target).value, $event)"
               (wheel)="$any($event.target).blur()"
               [min]="0"
-              [max]="maxMarks"
+              [max]="maxMarks" [disabled]="student.absent"
               placeholder="--"
             >
           </mat-form-field>
@@ -131,7 +166,7 @@
           </div>
         </ng-container>
 
-        <mat-form-field appearance="outline" class="remarks-field" style="width:100%;">
+        <mat-form-field appearance="outline" class="remarks-field" subscriptSizing="dynamic" style="width:100%;">
           <mat-label>Remarks</mat-label>
           <input matInput [(ngModel)]="student.remarks" placeholder="Remarks...">
         </mat-form-field>
@@ -141,10 +176,14 @@
     <!-- Grid-style keyboard navigation across the mark inputs.
          Down/Enter move to the next student in the same column,
          Right/Left walk neighbour columns in DOM order. Column count =
-         marks input(s) + remarks input per row. -->
+         marks input(s) + remarks input per row.
+         Wrapped so horizontal overflow scrolls the TABLE and not the whole
+         card — the Remarks column was being clipped off the right edge
+         when sub-parts stretched the row beyond the viewport. -->
+    <div class="marks-table-scroll">
     <table mat-table [dataSource]="students" class="marks-table responsive-table"
            appGridNav
-           [gridNavCols]="(isCombined ? examComponents.length : 1) + 1">
+           [gridNavCols]="(isCombined ? flatInputDefs.length : 1) + 1">
       <ng-container matColumnDef="rollNumber">
         <th mat-header-cell *matHeaderCellDef>Roll No</th>
         <td mat-cell *matCellDef="let student">{{ student.rollNumber }}</td>
@@ -155,7 +194,16 @@
         <td mat-cell *matCellDef="let student">
           <div class="student-name">
             <div class="student-avatar">{{ student.firstName?.charAt(0) || 'S' }}</div>
-            {{ student.firstName }} {{ student.lastName }}
+            <span class="student-name__text">{{ student.firstName }} {{ student.lastName }}</span>
+            <!-- Inline Absent pill — custom button, tiny. ON = absent (inputs
+                 disabled, AB chip, save sends absent=true). Click to toggle. -->
+            <button type="button"
+                    class="absent-pill"
+                    [class.absent-pill--on]="student.absent"
+                    (click)="toggleAbsent(student, !student.absent)"
+                    [title]="student.absent ? 'Marked absent — click to clear' : 'Mark absent'">
+              <span class="absent-pill__dot"></span>
+            </button>
           </div>
         </td>
       </ng-container>
@@ -164,7 +212,7 @@
       <ng-container matColumnDef="marksObtained">
         <th mat-header-cell *matHeaderCellDef>Marks (/{{ maxMarks }})</th>
         <td mat-cell *matCellDef="let student">
-          <mat-form-field appearance="outline" class="marks-field">
+          <mat-form-field appearance="outline" class="marks-field" subscriptSizing="dynamic">
             <input
               matInput
               type="number"
@@ -172,18 +220,20 @@
               (input)="onMarksChange(student, $any($event.target).value, $event)"
               (wheel)="$any($event.target).blur()"
               [min]="0"
-              [max]="maxMarks"
+              [max]="maxMarks" [disabled]="student.absent"
               placeholder="--"
             >
           </mat-form-field>
         </td>
       </ng-container>
 
-      <!-- One column per component (combined-mode exams) -->
+      <!-- One column per component WITHOUT sub-parts (combined-mode exams).
+           Header reads "Label (pass/max)" — matches the pass-first convention
+           used across the marksheet (Project1 5/15 means "5 to pass, out of 15"). -->
       <ng-container *ngFor="let comp of examComponents" [matColumnDef]="'comp_' + comp.key">
-        <th mat-header-cell *matHeaderCellDef>{{ comp.label }} (/{{ comp.maxMarks }})</th>
+        <th mat-header-cell *matHeaderCellDef>{{ comp.label }} ({{ comp.passingMarks }}/{{ comp.maxMarks }})</th>
         <td mat-cell *matCellDef="let student">
-          <mat-form-field appearance="outline" class="marks-field">
+          <mat-form-field appearance="outline" class="marks-field" subscriptSizing="dynamic">
             <input
               matInput
               type="number"
@@ -192,14 +242,52 @@
               (wheel)="$any($event.target).blur()"
               [min]="0"
               [max]="comp.maxMarks"
+              [disabled]="student.absent"
               placeholder="--"
             >
           </mat-form-field>
         </td>
       </ng-container>
 
+      <!-- One column per sub-part (components with sub-parts). The outer
+           ngFor + inner ngFor flattens sub-parts to one column each; the
+           dotted {parentKey}.{subKey} id matches displayedColumns. -->
+      <ng-container *ngFor="let sub of flatInputDefs">
+        <ng-container *ngIf="sub.parentKey !== sub.key" [matColumnDef]="'subcomp_' + sub.fullKey">
+          <th mat-header-cell *matHeaderCellDef>{{ sub.label }} ({{ sub.passingMarks }}/{{ sub.maxMarks }})</th>
+          <td mat-cell *matCellDef="let student">
+            <mat-form-field appearance="outline" class="marks-field" subscriptSizing="dynamic">
+              <input
+                matInput
+                type="number"
+                [value]="student.componentMarks[sub.fullKey]"
+                (input)="onSubComponentMarksChange(student, sub, $any($event.target).value, $event)"
+                (wheel)="$any($event.target).blur()"
+                [min]="0"
+                [max]="sub.maxMarks" [disabled]="student.absent"
+                placeholder="--"
+              >
+            </mat-form-field>
+          </td>
+        </ng-container>
+      </ng-container>
+
+      <!-- Read-only auto-sum column per component WITH sub-parts.
+           Shows the live sum of the student's sub-part marks for this component. -->
+      <ng-container *ngFor="let comp of examComponents">
+        <ng-container *ngIf="comp.subComponents?.length" [matColumnDef]="'compsum_' + comp.key">
+          <th mat-header-cell *matHeaderCellDef>
+            {{ comp.label }} ({{ comp.passingMarks }}/{{ comp.maxMarks }})
+          </th>
+          <td mat-cell *matCellDef="let student" class="comp-sum-cell">
+            <strong *ngIf="hasComponentEntry(student, comp)">{{ componentSumFor(student, comp) }}</strong>
+            <span *ngIf="!hasComponentEntry(student, comp)" class="no-marks">-</span>
+          </td>
+        </ng-container>
+      </ng-container>
+
       <ng-container matColumnDef="total">
-        <th mat-header-cell *matHeaderCellDef>Total (/{{ maxMarks }})</th>
+        <th mat-header-cell *matHeaderCellDef>Total ({{ passingMarks }}/{{ maxMarks }})</th>
         <td mat-cell *matCellDef="let student" class="total-cell">
           <strong *ngIf="hasAnyCombinedEntry(student)">{{ totalFor(student) }}</strong>
           <span *ngIf="!hasAnyCombinedEntry(student)" class="no-marks">-</span>
@@ -209,30 +297,35 @@
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef>Pass/Fail</th>
         <td mat-cell *matCellDef="let student">
-          <ng-container *ngIf="isCombined; else perComponentStatus">
-            <ng-container *ngIf="hasAnyCombinedEntry(student)">
-              <mat-chip [class]="isCombinedPassing(student) ? 'chip-pass' : 'chip-fail'">
-                {{ isCombinedPassing(student) ? 'Pass' : 'Fail' }}
-              </mat-chip>
+          <!-- Absent takes precedence over the usual Pass/Fail chip so the
+               teacher sees at a glance which rows are "exam missed". -->
+          <mat-chip *ngIf="student.absent" class="chip-absent">AB</mat-chip>
+          <ng-container *ngIf="!student.absent">
+            <ng-container *ngIf="isCombined; else perComponentStatus">
+              <ng-container *ngIf="hasAnyCombinedEntry(student)">
+                <mat-chip [class]="isCombinedPassing(student) ? 'chip-pass' : 'chip-fail'">
+                  {{ isCombinedPassing(student) ? 'Pass' : 'Fail' }}
+                </mat-chip>
+              </ng-container>
+              <span *ngIf="!hasAnyCombinedEntry(student)" class="no-marks">-</span>
             </ng-container>
-            <span *ngIf="!hasAnyCombinedEntry(student)" class="no-marks">-</span>
+            <ng-template #perComponentStatus>
+              <ng-container *ngIf="student.marksObtained !== null">
+                <mat-chip [class]="isPassing(student.marksObtained) ? 'chip-pass' : 'chip-fail'">
+                  {{ isPassing(student.marksObtained) ? 'Pass' : 'Fail' }}
+                  ({{ getGrade(student.marksObtained) }})
+                </mat-chip>
+              </ng-container>
+              <span *ngIf="student.marksObtained === null" class="no-marks">-</span>
+            </ng-template>
           </ng-container>
-          <ng-template #perComponentStatus>
-            <ng-container *ngIf="student.marksObtained !== null">
-              <mat-chip [class]="isPassing(student.marksObtained) ? 'chip-pass' : 'chip-fail'">
-                {{ isPassing(student.marksObtained) ? 'Pass' : 'Fail' }}
-                ({{ getGrade(student.marksObtained) }})
-              </mat-chip>
-            </ng-container>
-            <span *ngIf="student.marksObtained === null" class="no-marks">-</span>
-          </ng-template>
         </td>
       </ng-container>
 
       <ng-container matColumnDef="remarks">
         <th mat-header-cell *matHeaderCellDef>Remarks</th>
         <td mat-cell *matCellDef="let student">
-          <mat-form-field appearance="outline" class="remarks-field">
+          <mat-form-field appearance="outline" class="remarks-field" subscriptSizing="dynamic">
             <input matInput [(ngModel)]="student.remarks" placeholder="Remarks...">
           </mat-form-field>
         </td>
@@ -241,6 +334,7 @@
       <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
       <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
     </table>
+    </div>
 
     <div class="empty-state" *ngIf="students.length === 0">
       No students found

@@ -254,6 +254,10 @@ public class ClassController {
         // alone here so saving an unrelated edit on an elective
         // subject doesn't wipe the picked roster.
         existing.setElective(req.isElective());
+        // Mirror the core/co-curricular flag onto the saved doc so Exam Type
+        // rollout honours admin edits (null in the request → keep existing
+        // value, don't flip to default-true on every save).
+        if (req.getCoreSubject() != null) existing.setCoreSubject(req.getCoreSubject());
         defaultComponentValues(existing);
 
         // Compute the diff between the OLD assignments (what the

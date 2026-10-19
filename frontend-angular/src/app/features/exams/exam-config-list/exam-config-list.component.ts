@@ -35,6 +35,11 @@ export class ExamConfigListComponent implements OnInit {
   academicYearLabels: Record<string, string> = {};
   isLoading = false;
 
+  /** Map of catalog name/key (lowercased) → the short key to display on chips.
+   *  Lets the "Exam Type" chip read "FA" instead of the stored "Formative"
+   *  (or whatever free-text value the old rollout stamped). */
+  private examTypeKeyMap: Record<string, string> = {};
+
   /** Dialog state for the Edit/Delete warning popup. */
   pendingAction: 'edit' | 'delete' | null = null;
   pendingConfig: ExamConfigSummary | null = null;
@@ -49,7 +54,37 @@ export class ExamConfigListComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadAcademicYears();
+    this.loadExamTypeCatalog();
     this.loadConfigs();
+  }
+
+  /** Pulls the ExamType catalog once so the chip in each card can show the
+   *  short `key` ("FA") in place of whatever free-text name was baked onto
+   *  `exam.examType` at rollout time ("Formative"). Falls back to the stored
+   *  string when nothing matches (custom types never added to the catalog). */
+  private loadExamTypeCatalog(): void {
+    this.api.getExamTypes(true).subscribe({
+      next: (res: any) => {
+        const rows = (res?.data || []) as any[];
+        const map: Record<string, string> = {};
+        for (const r of rows) {
+          const key = (r.key || '').trim();
+          const name = (r.name || '').trim();
+          const display = key || name;
+          if (!display) continue;
+          if (name) map[name.toLowerCase()] = display;
+          if (key) map[key.toLowerCase()] = display;
+        }
+        this.examTypeKeyMap = map;
+      },
+    });
+  }
+
+  /** Chip label for an exam config card — catalog key when known, raw otherwise. */
+  typeKeyFor(stored: string | null | undefined): string {
+    const s = (stored || '').trim();
+    if (!s) return '-';
+    return this.examTypeKeyMap[s.toLowerCase()] || s;
   }
 
   private loadAcademicYears(): void {
@@ -89,6 +124,13 @@ export class ExamConfigListComponent implements OnInit {
     this.router.navigate(['/exams/config/new']);
   }
 
+  /** Secondary header action — jumps to the single-exam form (one-off
+   *  retests / makeup exams that don't fit the bulk Config flow). */
+  goToSingleExam(): void {
+    this.router.navigate(['/exams/new']);
+  }
+
+
   // ── Edit ─────────────────────────────────────────────────────────────
 
   /**
@@ -98,7 +140,7 @@ export class ExamConfigListComponent implements OnInit {
    */
   startEdit(cfg: ExamConfigSummary): void {
     this.isProcessing = true;
-    this.api.getExamConfigMarksStatus(cfg.academicYearId, cfg.examType).subscribe({
+    this.api.getExamConfigMarksStatus(cfg.academicYearId, cfg.examType, cfg.schemeId, cfg.slotKey).subscribe({
       next: (res) => {
         this.isProcessing = false;
         const hasMarks = !!res?.data?.anyMarksEntered;
@@ -126,16 +168,17 @@ export class ExamConfigListComponent implements OnInit {
     // Encode the type once — exam types are admin-typed strings and may
     // contain spaces, slashes, etc.
     const enc = encodeURIComponent(cfg.examType);
-    this.router.navigate(['/exams/config', enc, 'edit'], {
-      queryParams: { academicYearId: cfg.academicYearId },
-    });
+    const qp: any = { academicYearId: cfg.academicYearId };
+    if (cfg.schemeId) qp.schemeId = cfg.schemeId;
+    if (cfg.slotKey) qp.slotKey = cfg.slotKey;
+    this.router.navigate(['/exams/config', enc, 'edit'], { queryParams: qp });
   }
 
   // ── Delete ───────────────────────────────────────────────────────────
 
   startDelete(cfg: ExamConfigSummary): void {
     this.isProcessing = true;
-    this.api.getExamConfigMarksStatus(cfg.academicYearId, cfg.examType).subscribe({
+    this.api.getExamConfigMarksStatus(cfg.academicYearId, cfg.examType, cfg.schemeId, cfg.slotKey).subscribe({
       next: (res) => {
         this.isProcessing = false;
         // Always show a confirm dialog — copy varies by marks-status.
@@ -169,7 +212,7 @@ export class ExamConfigListComponent implements OnInit {
     // Delete path.
     this.isProcessing = true;
     const cfg = this.pendingConfig;
-    this.api.deleteExamConfig(cfg.academicYearId, cfg.examType).subscribe({
+    this.api.deleteExamConfig(cfg.academicYearId, cfg.examType, cfg.schemeId, cfg.slotKey).subscribe({
       next: (res) => {
         this.isProcessing = false;
         const d = res?.data;

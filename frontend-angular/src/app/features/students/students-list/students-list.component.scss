@@ -3,7 +3,9 @@ $gold-light: rgba(212, 168, 67, 0.1);
 $gold-dark: #B8860B;
 
 .students-list-container {
-  padding: 24px;
+  /* Match Exam Types / Config / Other Assessments — breadcrumb hugs the
+     page edge; bottom padding kept for comfortable scroll. */
+  padding: 0 0 24px;
 }
 
 .filters-card {

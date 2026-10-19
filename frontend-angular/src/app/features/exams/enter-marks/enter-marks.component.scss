@@ -70,6 +70,56 @@ $gold-dark: #B8860B;
     font-weight: 700;
     color: #1a1a1a;
   }
+
+  /* Combined-mode exams list every component here, which overflows a
+     single-column card. Let the Components card span two columns of the
+     4-wide grid so names + marks fit on one row. */
+  &.info-card--wide {
+    grid-column: span 2;
+    text-align: left;
+    @media (max-width: 599px) { grid-column: span 1; }
+  }
+
+  .component-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+    justify-content: center;
+  }
+
+  .component-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 4px 10px;
+    background: #f3f4f6;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    line-height: 1.2;
+
+    strong { color: #1f2937; font-weight: 600; }
+    .chip-nums { color: #6b7280; font-size: 0.8rem; }
+    em { font-style: normal; color: #065f46; font-weight: 600; }
+
+    &.component-chip--sub {
+      background: #fafafa;
+      border: 1px dashed #e5e7eb;
+      font-size: 0.78rem;
+      padding: 3px 8px;
+      strong { color: #4b5563; font-weight: 500; }
+    }
+  }
+}
+
+/* Read-only auto-sum cell for the Component total column (when sub-parts
+   drive the entry). Different look so it reads as "derived", not an input. */
+.comp-sum-cell {
+  text-align: center;
+  background: #f0fdf4;
+  color: #065f46;
+  font-weight: 700;
+  border-radius: 4px;
 }
 
 .loading-container {
@@ -85,6 +135,35 @@ $gold-dark: #B8860B;
 
 .marks-table {
   width: 100%;
+  table-layout: auto;
+
+  /* Shrink each row to the input's height instead of mat-table's default
+     ~56px. The cell padding was eating 24-32px of vertical space on top
+     of the compact input — this brings each row closer to 44px. */
+  ::ng-deep .mat-mdc-cell,
+  ::ng-deep .mat-mdc-header-cell {
+    padding: 6px 8px;
+  }
+  ::ng-deep .mat-mdc-header-cell {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #4b5563;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  ::ng-deep .mat-mdc-row { height: auto; }
+
+  /* Fixed-ish column widths — the mark inputs stay compact, name takes
+     150px, and Remarks grows to fill whatever is left. Combined these keep
+     every column visible inside the viewport without horizontal scroll. */
+  ::ng-deep .cdk-column-rollNumber   { width: 60px;  }
+  ::ng-deep .cdk-column-studentName  { width: 150px; }
+  ::ng-deep [class^="cdk-column-comp_"],
+  ::ng-deep [class^="cdk-column-subcomp_"],
+  ::ng-deep [class^="cdk-column-compsum_"] { width: 70px; }
+  ::ng-deep .cdk-column-total        { width: 60px;  text-align: center; }
+  ::ng-deep .cdk-column-status       { width: 70px;  }
+  ::ng-deep .cdk-column-remarks      { width: auto;  min-width: 120px; }
 }
 
 .student-name {
@@ -107,10 +186,23 @@ $gold-dark: #B8860B;
 }
 
 .marks-field {
-  width: 100px;
+  width: 60px;
 
-  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
-    display: none;
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
+
+  /* Shrink mat-form-field's vertical padding so each cell is ~38px tall
+     instead of ~56px — the row density goes from "spreadsheet" to "list". */
+  ::ng-deep .mat-mdc-text-field-wrapper { padding: 0 8px; }
+  ::ng-deep .mat-mdc-form-field-infix {
+    min-height: 34px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    width: auto;
+  }
+  ::ng-deep input.mat-mdc-input-element {
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 0;
   }
 
   // Hide the browser's native up/down spinner arrows on type="number"
@@ -131,11 +223,31 @@ $gold-dark: #B8860B;
 }
 
 .remarks-field {
+  /* Fluid so the last column absorbs whatever width the table has left over
+     after the fixed columns, instead of fighting with a hardcoded width.
+     Combined with .remarks-cell { width: 100% } on the <td>, this makes the
+     field grow or shrink to fit the viewport without horizontal scroll. */
   width: 100%;
+  min-width: 120px;
 
-  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
-    display: none;
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
+  ::ng-deep .mat-mdc-text-field-wrapper { padding: 0 8px; }
+  ::ng-deep .mat-mdc-form-field-infix {
+    min-height: 34px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    width: auto;
   }
+  ::ng-deep input.mat-mdc-input-element { font-size: 0.85rem; padding: 0; }
+}
+
+/* Container around the table. Columns are sized to fit the viewport so
+   overflow is rare; when a scheme has many sub-parts and overflow still
+   happens, scroll horizontally rather than clipping. */
+.marks-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .chip-pass {
@@ -148,6 +260,81 @@ $gold-dark: #B8860B;
   background-color: rgba(244, 67, 54, 0.12) !important;
   color: #c62828 !important;
   font-weight: 600;
+}
+
+/* "AB" chip for absent students — slate tone so it doesn't look like a Fail. */
+.chip-absent {
+  background-color: #e2e8f0 !important;
+  color: #475569 !important;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* Absent toggle on the mobile card view. */
+.r-card__absent {
+  margin: 2px 0 6px;
+  font-size: 12px;
+  color: #475569;
+}
+
+/* Inline Absent toggle in the Student Name cell — small, sits to the right
+   of the name so there's no separate column eating width. */
+.student-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .student-name__text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+}
+
+/* Tiny custom Absent pill — kept OUTSIDE .student-name so global button
+ *  styles (mat-button, host theme) don't balloon it via higher specificity.
+ *  Bare 20x10 switch with an 8px dot — about a quarter of a Material
+ *  slide-toggle's footprint. */
+button.absent-pill {
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+  box-sizing: content-box !important;
+  width: 14px !important;
+  height: 8px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background: #cbd5e1;
+  position: relative;
+  cursor: pointer;
+  line-height: 8px !important;
+  font-size: 0 !important;
+  transition: background 0.15s ease;
+  vertical-align: middle;
+
+  .absent-pill__dot {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    transition: left 0.15s ease;
+  }
+  &.absent-pill--on {
+    background: #475569;
+    .absent-pill__dot { left: 7px; }
+  }
+  &:hover { opacity: 0.9; }
+  &:focus-visible { outline: 2px solid #94a3b8; outline-offset: 1px; }
 }
 
 .no-marks {

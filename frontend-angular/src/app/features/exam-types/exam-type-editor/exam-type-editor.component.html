@@ -1,0 +1,558 @@
+<div class="ete-container">
+  <app-page-header
+    [title]="pageTitle"
+    subtitle="Design the assessment slots (FA1..FA4, SA1, SA2, …), raw → weighted marks, and per-subject overrides"
+    [breadcrumbs]="[
+      { label: 'Dashboard', link: '/dashboard' },
+      { label: 'Exam Types', link: '/exam-types' },
+      { label: isEditing ? 'Edit' : 'New' }
+    ]">
+  </app-page-header>
+
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <ng-container *ngIf="!isLoading">
+    <!-- Presets (shown first — one click fills name + description + slots) -->
+    <mat-card class="ete-card presets-card" *ngIf="!form.slots.length && !isEditing">
+      <div class="presets-head">
+        <mat-icon class="ic">bolt</mat-icon>
+        <div>
+          <strong>Start from a preset</strong>
+          <span class="sub">One click fills the scheme name, description, and all slots — tweak after.</span>
+        </div>
+      </div>
+      <div class="presets-row">
+        <button *ngFor="let p of presets" mat-stroked-button (click)="applyPreset(p)" [matTooltip]="p.description">
+          <mat-icon>auto_awesome</mat-icon> {{ p.name }}
+        </button>
+      </div>
+    </mat-card>
+
+    <!-- Basics ─────────────────────────────────────────────── -->
+    <mat-card class="ete-card">
+      <h4 class="section-hd">Basics</h4>
+      <div class="field-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Academic year *</mat-label>
+          <mat-select [(ngModel)]="form.academicYearId" (selectionChange)="onYearChange()">
+            <mat-option *ngFor="let y of academicYears" [value]="y.academicYearId">
+              {{ y.label }} {{ y.current ? '(current)' : '' }}
+            </mat-option>
+          </mat-select>
+          <mat-hint>Scopes this scheme to one year — next year make a fresh one</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Scheme name *</mat-label>
+          <input matInput [(ngModel)]="form.name" maxlength="60" placeholder="e.g. Karnataka Pattern" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Display order *</mat-label>
+          <input matInput type="number" [(ngModel)]="form.displayOrder" min="1" max="99" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="span-2">
+          <mat-label>Description</mat-label>
+          <input matInput [(ngModel)]="form.description" maxlength="200"
+                 placeholder="Shown in Exam Config picker" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="span-3">
+          <mat-label>Applicable classes *</mat-label>
+          <mat-select [(ngModel)]="form.applicableClassIds" multiple
+                      [disabled]="!!allClassesTakenBy"
+                      (selectionChange)="onApplicableClassesChange()">
+            <mat-option *ngFor="let c of classes"
+                        [value]="c.classId"
+                        [disabled]="classDisabled(c.classId)">
+              {{ c.name }}
+              <span class="opt-taken" *ngIf="classConflictLabel(c.classId)">
+                — {{ classConflictLabel(c.classId) }}
+              </span>
+            </mat-option>
+          </mat-select>
+          <mat-hint *ngIf="!allClassesTakenBy">
+            Leave empty → applies to every class for the chosen year.
+            Classes already covered by another scheme in this year are disabled.
+          </mat-hint>
+          <mat-hint *ngIf="allClassesTakenBy" class="warn-hint">
+            An "all classes" scheme ({{ allClassesTakenBy }}) already covers this year — pick a different year or edit that scheme.
+          </mat-hint>
+        </mat-form-field>
+
+        <!-- Scheme-wide pass bar — drives every slot / subject-row / component
+             pass default. Admin edits and clicks Sync to propagate. -->
+        <mat-form-field appearance="outline" class="span-3 pass-pct-field">
+          <mat-label>Passing marks %</mat-label>
+          <input matInput type="number" min="0" max="100"
+                 [(ngModel)]="form.passingPercent" />
+          <mat-hint>
+            Default pass bar across the scheme — click Sync to apply to existing slots & subjects
+          </mat-hint>
+        </mat-form-field>
+        <div class="pass-pct-sync">
+          <button mat-stroked-button type="button" (click)="syncPassingMarks()">
+            <mat-icon>sync</mat-icon> Sync pass marks
+          </button>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Slots ──────────────────────────────────────────────── -->
+    <mat-card class="ete-card">
+      <div class="slots-hd-row">
+        <h4 class="section-hd">Slots ({{ form.slots.length }})</h4>
+        <div class="slot-add-btns">
+          <button mat-stroked-button (click)="addSlotFrom('FA')"
+                  [disabled]="!typeCatalogLoaded"
+                  [matTooltip]="!typeCatalogLoaded ? 'Loading exam types…' : ''">
+            <mat-icon>add</mat-icon> Add FA slot
+          </button>
+          <button mat-stroked-button (click)="addSlotFrom('SA')"
+                  [disabled]="!typeCatalogLoaded"
+                  [matTooltip]="!typeCatalogLoaded ? 'Loading exam types…' : ''">
+            <mat-icon>add</mat-icon> Add SA slot
+          </button>
+          <button mat-stroked-button (click)="addSlot()"
+                  [disabled]="!typeCatalogLoaded"
+                  [matTooltip]="!typeCatalogLoaded ? 'Loading exam types…' : ''">
+            <mat-icon>add</mat-icon> Add other
+          </button>
+        </div>
+      </div>
+
+      <!-- Grand-total scope — one-click bulk toggle of per-slot count flags -->
+      <div class="scope-row" *ngIf="form.slots.length > 1">
+        <mat-icon class="ic">functions</mat-icon>
+        <span class="scope-label">Grand total counts:</span>
+        <div class="scope-chips">
+          <button *ngFor="let opt of scopeOptions"
+                  mat-stroked-button
+                  class="scope-chip"
+                  [class.active]="currentScope === opt.key"
+                  [matTooltip]="opt.hint"
+                  (click)="applyScope(opt.key)">
+            {{ opt.label }}
+          </button>
+        </div>
+      </div>
+
+      <div class="slots-empty" *ngIf="!form.slots.length">
+        <mat-icon>science</mat-icon>
+        <p>No slots yet — pick a preset above or click <strong>Add FA / SA slot</strong>.</p>
+      </div>
+
+      <mat-accordion multi *ngIf="form.slots.length" class="slots-accordion">
+        <mat-expansion-panel *ngFor="let s of form.slots; let i = index" class="slot-panel">
+          <mat-expansion-panel-header collapsedHeight="60px" expandedHeight="60px">
+            <mat-panel-title class="slot-panel-title">
+              <span class="slot-kind" [style.background]="typeColorFor(s.typeId)">{{ typeNameFor(s.typeId) }}</span>
+              <span class="slot-name">{{ s.label || 'Untitled slot' }}</span>
+              <span class="slot-marks" *ngIf="!hasPullForward(s)">{{ s.rawMax }} → {{ s.weightMax }}</span>
+              <span class="slot-marks" *ngIf="hasPullForward(s)">
+                {{ s.rawMax }}→{{ s.weightMax }} + {{ s.pullForward!.contributionMax || 0 }} = {{ slotContribution(s) }}
+              </span>
+              <span class="slot-badge comp-badge" *ngIf="s.components?.length">
+                {{ s.components!.length }} comp.
+              </span>
+              <span class="slot-badge pull-badge" *ngIf="s.pullForward">
+                pulls {{ s.pullForward.contributionMax }}
+              </span>
+              <span class="slot-badge off-badge" *ngIf="s.includeInGrandTotal === false"
+                    matTooltip="Still conducted, but not counted in the grand total (e.g. feeds another slot via pull-forward)">
+                off-total
+              </span>
+              <span class="slot-badge subj-badge" *ngIf="s.subjectConfigs?.length">
+                {{ s.subjectConfigs!.length }} subj.
+              </span>
+            </mat-panel-title>
+            <mat-panel-description>
+              <span class="term-hint" *ngIf="s.term">{{ s.term }}</span>
+              <div class="row-actions" (click)="$event.stopPropagation()">
+                <button mat-icon-button matTooltip="Move up" (click)="moveSlot(i, -1)"
+                        [disabled]="i === 0">
+                  <mat-icon>arrow_upward</mat-icon>
+                </button>
+                <button mat-icon-button matTooltip="Move down" (click)="moveSlot(i, 1)"
+                        [disabled]="i === form.slots.length - 1">
+                  <mat-icon>arrow_downward</mat-icon>
+                </button>
+                <button mat-icon-button matTooltip="Remove slot" (click)="removeSlot(i)">
+                  <mat-icon color="warn">delete</mat-icon>
+                </button>
+              </div>
+            </mat-panel-description>
+          </mat-expansion-panel-header>
+
+          <div class="slot-body">
+            <div class="field-grid">
+              <mat-form-field appearance="outline" class="span-2">
+                <mat-label>Exam Name *</mat-label>
+                <input matInput [(ngModel)]="s.label" maxlength="20" placeholder="FA1, SA1, Mid-Term…" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Exam Type *</mat-label>
+                <mat-select [(ngModel)]="s.typeId">
+                  <mat-option *ngFor="let t of typeCatalog" [value]="t.id">
+                    <span class="type-dot" [style.background]="t.color || '#6b7280'"></span>
+                    {{ t.name }}
+                  </mat-option>
+                </mat-select>
+                <mat-hint>Add more types in the Exam Types tab</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Term / group</mat-label>
+                <input matInput [(ngModel)]="s.term" maxlength="20" placeholder="Term 1" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Raw max *</mat-label>
+                <input matInput type="number" min="1"
+                       [(ngModel)]="s.rawMax"
+                       (ngModelChange)="onSlotRawChanged(s)" />
+                <mat-hint>What the paper is conducted out of (teachers enter marks against this)</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Weighted max *</mat-label>
+                <input matInput type="number" min="1" [(ngModel)]="s.weightMax" />
+                <mat-hint *ngIf="!hasPullForward(s)">Reduced to this in grand total</mat-hint>
+                <mat-hint *ngIf="hasPullForward(s)">Paper's reduced share (pulled adds on top)</mat-hint>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Passing marks</mat-label>
+                <input matInput type="number" min="0" [(ngModel)]="s.passingMarks" placeholder="Optional" />
+                <mat-hint>Defaults to {{ form.passingPercent }}% of raw — adjust the scheme-wide % above to change</mat-hint>
+              </mat-form-field>
+            </div>
+
+            <!-- Include-in-grand-total toggle ─────────────── -->
+            <div class="grand-toggle-row">
+              <mat-slide-toggle
+                [checked]="s.includeInGrandTotal !== false"
+                (change)="s.includeInGrandTotal = $event.checked">
+                Count this slot in the grand total
+              </mat-slide-toggle>
+              <span class="hint" *ngIf="s.includeInGrandTotal === false">
+                Marks still appear on the report card, but don't add to the final grade (e.g. an FA that feeds an SA).
+              </span>
+            </div>
+
+            <mat-divider class="slot-divider"></mat-divider>
+
+            <!-- Components (picked from subject's components) ─────────── -->
+            <div class="feature-hd">
+              <div>
+                <strong>Components</strong>
+                <span class="hint">
+                  Pick each from the subject's own components (Theory, Project, …).
+                  Optionally split a component into sub-parts (Paper 1 + Paper 2) for finer mark entry.
+                </span>
+              </div>
+              <mat-slide-toggle
+                [checked]="hasComponents(s)"
+                (change)="toggleComponents(s, $event.checked)">
+                {{ hasComponents(s) ? 'On' : 'Off' }}
+              </mat-slide-toggle>
+            </div>
+
+            <ng-container *ngIf="hasComponents(s)">
+              <div class="comp-list">
+                <div class="comp-group" *ngFor="let c of s.components; let ci = index">
+                  <!-- Component header row -->
+                  <div class="comp-row">
+                    <mat-form-field appearance="outline" class="comp-label" subscriptSizing="dynamic">
+                      <mat-label>Component</mat-label>
+                      <mat-select [(ngModel)]="c.key"
+                                  (ngModelChange)="onComponentKeyChanged(c)">
+                        <mat-option *ngIf="c.key && !allComponentDefsForScheme().length"
+                                    [value]="c.key">
+                          {{ c.label || c.key }} (not in any subject)
+                        </mat-option>
+                        <mat-option *ngFor="let def of allComponentDefsForScheme()"
+                                    [value]="def.key">
+                          {{ def.label }}
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="comp-num" subscriptSizing="dynamic">
+                      <mat-label>Max</mat-label>
+                      <input matInput type="number" min="1"
+                             [(ngModel)]="c.maxMarks"
+                             (ngModelChange)="onComponentMaxChanged(c)" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="comp-num" subscriptSizing="dynamic">
+                      <mat-label>Pass</mat-label>
+                      <input matInput type="number" min="0" [(ngModel)]="c.passingMarks" />
+                    </mat-form-field>
+                    <button mat-icon-button matTooltip="Remove component" (click)="removeComponent(s, ci)">
+                      <mat-icon color="warn">close</mat-icon>
+                    </button>
+                  </div>
+
+                  <!-- Sub-parts (optional, under this component) -->
+                  <div class="sub-comp-section">
+                    <div class="sub-comp-header">
+                      <span class="hint-small" *ngIf="hasSubComponents(c)">
+                        Sub-parts of {{ c.label || 'this component' }}
+                      </span>
+                      <button mat-button class="sub-add-btn" (click)="addSubComponent(c)">
+                        <mat-icon>add</mat-icon> Split into parts
+                      </button>
+                    </div>
+                    <div class="sub-comp-list" *ngIf="hasSubComponents(c)">
+                      <div class="sub-comp-row" *ngFor="let sc of c.subComponents; let si = index">
+                        <mat-form-field appearance="outline" class="sub-label" subscriptSizing="dynamic">
+                          <mat-label>Label</mat-label>
+                          <input matInput [(ngModel)]="sc.label" maxlength="40"
+                                 placeholder="e.g. Paper 1" />
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="sub-num" subscriptSizing="dynamic">
+                          <mat-label>Max</mat-label>
+                          <input matInput type="number" min="1"
+                                 [(ngModel)]="sc.maxMarks"
+                                 (ngModelChange)="onSubComponentMaxChanged(sc)" />
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="sub-num" subscriptSizing="dynamic">
+                          <mat-label>Pass</mat-label>
+                          <input matInput type="number" min="0" [(ngModel)]="sc.passingMarks" />
+                        </mat-form-field>
+                        <button mat-icon-button matTooltip="Remove sub-part"
+                                (click)="removeSubComponent(c, si)">
+                          <mat-icon color="warn">close</mat-icon>
+                        </button>
+                      </div>
+                      <div class="sub-sum-chip" [class.bad]="!subComponentsMatchComponent(c)">
+                        Sub-parts: {{ subComponentsSum(c) }} / {{ c.maxMarks }}
+                        <mat-icon *ngIf="subComponentsMatchComponent(c)" class="ok-icon">check_circle</mat-icon>
+                        <mat-icon *ngIf="!subComponentsMatchComponent(c)" class="bad-icon">error</mat-icon>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="comp-footer">
+                <button mat-stroked-button (click)="addComponent(s)"
+                        [disabled]="!availableComponentDefsForSlot(s).length">
+                  <mat-icon>add</mat-icon> Add component
+                </button>
+                <span class="hint-small" *ngIf="!availableComponentDefsForSlot(s).length && schemeSubjectsLoaded">
+                  All subject components already added, or subjects have no components defined.
+                </span>
+                <span class="sum-chip" [class.bad]="!componentsMatchRaw(s)">
+                  Sum: {{ componentsSum(s) }} / Raw: {{ s.rawMax }}
+                  <mat-icon *ngIf="componentsMatchRaw(s)" class="ok-icon">check_circle</mat-icon>
+                  <mat-icon *ngIf="!componentsMatchRaw(s)" class="bad-icon">error</mat-icon>
+                </span>
+              </div>
+            </ng-container>
+
+            <mat-divider class="slot-divider"></mat-divider>
+
+            <!-- Pull-forward (take marks from earlier slots) ─ -->
+            <div class="feature-hd">
+              <div>
+                <strong>Pull marks from earlier slots</strong>
+                <span class="hint">
+                  SSLC-style: SA1 = own paper + a scaled share of FA1 + FA2. Only available after at least one earlier slot exists.
+                </span>
+              </div>
+              <mat-slide-toggle
+                [checked]="hasPullForward(s)"
+                (change)="togglePullForward(s, $event.checked)"
+                [disabled]="earlierSlotsFor(i).length === 0">
+                {{ hasPullForward(s) ? 'On' : 'Off' }}
+              </mat-slide-toggle>
+            </div>
+
+            <ng-container *ngIf="hasPullForward(s) && s.pullForward">
+              <div class="pull-grid">
+                <mat-form-field appearance="outline" class="span-2">
+                  <mat-label>Pull from earlier slots</mat-label>
+                  <mat-select [(ngModel)]="s.pullForward.fromSlotKeys" multiple>
+                    <mat-option *ngFor="let e of earlierSlotsFor(i)" [value]="e.key">
+                      {{ e.label }} ({{ e.weightMax }} wtd)
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Pulled contribution (+)</mat-label>
+                  <input matInput type="number" min="1" [(ngModel)]="s.pullForward.contributionMax" />
+                  <mat-hint>e.g. 20 (added on top of the weighted paper)</mat-hint>
+                </mat-form-field>
+              </div>
+
+              <div class="pull-formula" [class.bad]="!pullMathOk(s)">
+                <mat-icon class="ic" *ngIf="pullMathOk(s)">check_circle</mat-icon>
+                <mat-icon class="ic bad-icon" *ngIf="!pullMathOk(s)">error</mat-icon>
+                <span>
+                  Paper <strong>{{ s.rawMax }}</strong>
+                  → Weighted <strong>{{ s.weightMax }}</strong>
+                  + Pulled <strong>{{ s.pullForward.contributionMax || 0 }}</strong>
+                  = Grand total <strong>{{ slotContribution(s) }}</strong>
+                </span>
+                <span class="src-chips" *ngIf="s.pullForward.fromSlotKeys.length">
+                  <mat-chip *ngFor="let k of s.pullForward.fromSlotKeys">{{ slotLabelByKey(k) }}</mat-chip>
+                </span>
+              </div>
+            </ng-container>
+
+            <mat-divider class="slot-divider"></mat-divider>
+
+            <!-- Subjects for this slot — primary roster. Seeded from the
+                 scheme's core subjects; admin can add/remove or edit per row.
+                 When this list is non-empty rollout uses it directly; when
+                 empty, rollout falls back to the slot defaults + overrides. -->
+            <div class="subjects-hd">
+              <div>
+                <strong>Subjects for this slot * ({{ s.subjectConfigs?.length || 0 }})</strong>
+                <span class="hint">
+                  Pick your applicable classes first, then click "Seed core subjects" — add non-core or remove any as needed.
+                </span>
+              </div>
+              <div class="subjects-actions">
+                <mat-form-field appearance="outline" class="add-subject">
+                  <mat-label>+ Add subject</mat-label>
+                  <mat-select [value]="''" (selectionChange)="addSubjectToSlot(s, $event.value); $event.source.value = ''">
+                    <mat-option *ngIf="!availableSubjectsForSlot(s).length" disabled>
+                      No more subjects to add
+                    </mat-option>
+                    <mat-option *ngFor="let sub of availableSubjectsForSlot(s)" [value]="sub.subjectId">
+                      {{ sub.name }}
+                      <span class="opt-scope" *ngIf="sub.classNames?.length">({{ sub.classNames.join(', ') }})</span>
+                      <span class="opt-tag" *ngIf="!sub.coreSubject">(non-core)</span>
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <button mat-stroked-button color="primary" (click)="seedSubjectsForSlot(s)"
+                        matTooltip="Add every core subject with the slot's default marks"
+                        [disabled]="!schemeSubjectsLoaded">
+                  <mat-icon>auto_awesome</mat-icon> Seed core subjects
+                </button>
+                <button mat-stroked-button (click)="resetSubjectRowsForSlot(s)"
+                        matTooltip="Reset raw/weighted/pass on every row to the slot defaults"
+                        [disabled]="!s.subjectConfigs?.length">
+                  <mat-icon>restart_alt</mat-icon> Reset rows to defaults
+                </button>
+                <button mat-stroked-button (click)="clearSubjectsForSlot(s)"
+                        matTooltip="Clear the list — rollout then falls back to slot defaults for every core subject"
+                        [disabled]="!s.subjectConfigs?.length">
+                  <mat-icon>clear</mat-icon> Clear
+                </button>
+              </div>
+            </div>
+
+            <div class="subject-list" *ngIf="s.subjectConfigs?.length"
+                 [class.with-pull]="hasPullForward(s)">
+              <div class="subject-row header-row">
+                <span class="col-name">Subject</span>
+                <span class="col-num">Raw</span>
+                <span class="col-num">Weighted</span>
+                <span class="col-num" *ngIf="hasPullForward(s)">Pulled</span>
+                <span class="col-num" *ngIf="hasPullForward(s)">Total</span>
+                <span class="col-num">Pass</span>
+                <span class="col-x"></span>
+              </div>
+              <div class="subject-row" *ngFor="let c of s.subjectConfigs; let ci = index">
+                <span class="col-name">
+                  {{ subjectDisplayName(c.subjectId) }}
+                  <span class="row-tag" *ngIf="!isSubjectCore(c.subjectId)">non-core</span>
+                </span>
+                <mat-form-field appearance="outline" class="col-num">
+                  <input matInput type="number" min="1"
+                         [(ngModel)]="c.rawMax"
+                         (ngModelChange)="onRowRawChanged(c)" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="col-num">
+                  <input matInput type="number" min="1" [(ngModel)]="c.weightMax" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="col-num" *ngIf="hasPullForward(s)">
+                  <input matInput type="number" min="1" [(ngModel)]="c.pulledContributionMax" />
+                </mat-form-field>
+                <!-- Read-only Total column — weighted + pulled, updates live. -->
+                <span class="col-num col-total" *ngIf="hasPullForward(s)">
+                  {{ rowTotal(c, s) }}
+                </span>
+                <mat-form-field appearance="outline" class="col-num">
+                  <input matInput type="number" min="0" [(ngModel)]="c.passingMarks" />
+                </mat-form-field>
+                <button mat-icon-button class="col-x" matTooltip="Remove this subject from the slot"
+                        (click)="removeSubjectFromSlot(s, ci)">
+                  <mat-icon color="warn">close</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <div class="subject-empty" *ngIf="!s.subjectConfigs?.length">
+              <mat-icon>info</mat-icon>
+              <span>
+                No per-subject rows — rollout will apply the slot defaults ({{ s.rawMax }} → {{ s.weightMax }})
+                to every core subject in the applicable classes.
+              </span>
+            </div>
+
+            <!-- Clone to same-kind siblings — placed last so admin configures
+                 the slot in full, then one click propagates it to FA2/FA3/FA4
+                 (keeps each target's label, term and pull-source list intact). -->
+            <mat-divider class="slot-divider" *ngIf="sameKindCount(s) > 0"></mat-divider>
+            <div class="clone-row" *ngIf="sameKindCount(s) > 0">
+              <button mat-stroked-button color="primary" (click)="cloneToSameKind(s)">
+                <mat-icon>content_copy</mat-icon>
+                Apply this config to all other {{ typeNameFor(s.typeId) }} slots ({{ sameKindCount(s) }})
+              </button>
+              <span class="clone-hint">
+                Copies raw / weighted / passing / components / count flag / subject rows / pulled amount.
+                Each slot keeps its own label, term &amp; pull-forward source list.
+              </span>
+            </div>
+
+          </div>
+        </mat-expansion-panel>
+      </mat-accordion>
+    </mat-card>
+
+    <!-- Totals + actions ──────────────────────────────────── -->
+    <mat-card class="ete-card totals-card" *ngIf="form.slots.length">
+      <div class="totals-strip">
+        <div class="t-cell">
+          <span class="k">Slots</span>
+          <strong class="v">{{ form.slots.length }}</strong>
+          <span class="sub" *ngIf="excludedCount > 0">
+            ({{ excludedCount }} off-total)
+          </span>
+        </div>
+        <div class="t-cell">
+          <span class="k">Papers conducted</span>
+          <strong class="v">{{ grandRaw }}</strong>
+          <span class="sub">across all slots</span>
+        </div>
+        <div class="t-cell">
+          <span class="k">Grand total</span>
+          <strong class="v grand">{{ grandWeight }}</strong>
+          <span class="sub" *ngIf="excludedCount > 0">
+            counted slots only ({{ excludedCount }} off-total)
+          </span>
+        </div>
+      </div>
+    </mat-card>
+
+    <div class="form-actions">
+      <button mat-button type="button" (click)="cancel()">
+        <mat-icon>arrow_back</mat-icon>
+        Cancel
+      </button>
+      <button mat-raised-button class="save-button" (click)="save()" [disabled]="isSaving">
+        <mat-spinner diameter="18" *ngIf="isSaving"></mat-spinner>
+        <mat-icon *ngIf="!isSaving">save</mat-icon>
+        {{ isSaving ? 'Saving…' : (isEditing ? 'Update scheme' : 'Create scheme') }}
+      </button>
+    </div>
+  </ng-container>
+</div>

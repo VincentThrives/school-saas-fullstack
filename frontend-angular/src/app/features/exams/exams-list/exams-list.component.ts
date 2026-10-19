@@ -61,6 +61,10 @@ export class ExamsListComponent implements OnInit {
   classFilter = '';
   sectionFilter = '';
   subjectFilter = '';
+  /** "FA1", "SA2", "Mid Term" — the name prefix stripped off exam.name
+   *  (everything before " · " or " — "). Independent of the other filters,
+   *  so admin can scope to "every FA1 across all classes" quickly. */
+  examNameFilter = '';
   sections: { sectionId: string; name: string }[] = [];
   subjectsList: { subjectId: string; name: string }[] = [];
 
@@ -71,6 +75,11 @@ export class ExamsListComponent implements OnInit {
 
   deleteDialogOpen = false;
   selectedExam: any = null;
+
+  /** Catalog name/key (lowercased) → short key to render on the Exam Type chip.
+   *  Lets each row read "FA" instead of the stored "Formative" (or whatever
+   *  free-text label a legacy rollout stamped onto `exam.examType`). */
+  private examTypeKeyMap: Record<string, string> = {};
 
   // Teacher-mode scoping: when a teacher is logged in, only exams that match
   // one of their (classId, sectionId, subjectId) assignment tuples are shown.
@@ -110,6 +119,7 @@ export class ExamsListComponent implements OnInit {
         classId: this.classFilter || null,
         sectionId: this.sectionFilter || null,
         subjectId: this.subjectFilter || null,
+        examName: this.examNameFilter || null,
       },
       queryParamsHandling: 'merge',
       replaceUrl: true,
@@ -128,6 +138,7 @@ export class ExamsListComponent implements OnInit {
     const urlClass = qp.get('classId') || '';
     const urlSection = qp.get('sectionId') || '';
     const urlSubject = qp.get('subjectId') || '';
+    this.examNameFilter = qp.get('examName') || '';
 
     this.api.getAcademicYears().subscribe({
       next: (res) => {
@@ -187,7 +198,36 @@ export class ExamsListComponent implements OnInit {
       });
     }
 
+    this.loadExamTypeCatalog();
     this.loadExams();
+  }
+
+  /** Pulls the ExamType catalog once so the Exam Type chip on each row can
+   *  show the short `key` ("FA") in place of the free-text name baked onto
+   *  `exam.examType` at rollout. Nothing matched → fall back to the raw. */
+  private loadExamTypeCatalog(): void {
+    this.api.getExamTypes(true).subscribe({
+      next: (res: any) => {
+        const rows = (res?.data || []) as any[];
+        const map: Record<string, string> = {};
+        for (const r of rows) {
+          const key = (r.key || '').trim();
+          const name = (r.name || '').trim();
+          const display = key || name;
+          if (!display) continue;
+          if (name) map[name.toLowerCase()] = display;
+          if (key) map[key.toLowerCase()] = display;
+        }
+        this.examTypeKeyMap = map;
+      },
+    });
+  }
+
+  /** Chip label for the Exam Type column — catalog key when known, raw otherwise. */
+  typeKeyFor(stored: string | null | undefined): string {
+    const s = (stored || '').trim();
+    if (!s) return '-';
+    return this.examTypeKeyMap[s.toLowerCase()] || s;
   }
 
   onAcademicYearFilterChange(): void {
@@ -234,6 +274,45 @@ export class ExamsListComponent implements OnInit {
   onSubjectFilterChange(): void {
     this.resetPagination();
     this.syncFiltersToUrl();
+  }
+
+  onExamNameFilterChange(): void {
+    this.resetPagination();
+    this.syncFiltersToUrl();
+  }
+
+  /** Distinct exam name prefixes across the loaded exams. Used by the Exam
+   *  Name filter dropdown so admins see every FA1/FA2/SA1/etc. that exists
+   *  in the current year scope. Sorted alphabetically. */
+  get examNameOptions(): string[] {
+    const seen = new Set<string>();
+    for (const e of this.exams || []) {
+      const name = (e?.name || '').trim();
+      if (!name) continue;
+      let prefix = name;
+      for (const sep of [' · ', ' — ', ' - ']) {
+        const idx = name.indexOf(sep);
+        if (idx > 0 && (prefix === name || idx < prefix.length)) {
+          prefix = name.substring(0, idx);
+        }
+      }
+      seen.add(prefix.trim());
+    }
+    return Array.from(seen).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+  }
+
+  /** Returns the exam-name prefix for filter matching (same split rule as
+   *  the backend's examNamePrefix). */
+  private examNamePrefixOf(exam: any): string {
+    const name = (exam?.name || '').trim();
+    if (!name) return '';
+    let best = -1;
+    for (const sep of [' · ', ' — ', ' - ']) {
+      const idx = name.indexOf(sep);
+      if (idx > 0 && (best < 0 || idx < best)) best = idx;
+    }
+    return (best > 0 ? name.substring(0, best) : name).trim();
   }
 
   /**
@@ -371,6 +450,9 @@ export class ExamsListComponent implements OnInit {
     }
     if (this.subjectFilter) {
       result = result.filter(e => e.subjectId === this.subjectFilter);
+    }
+    if (this.examNameFilter) {
+      result = result.filter(e => this.examNamePrefixOf(e) === this.examNameFilter);
     }
     return result;
   }

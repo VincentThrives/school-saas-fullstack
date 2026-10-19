@@ -45,6 +45,10 @@ public class EnterMarksRequest {
          */
         private Map<String, Double> componentMarks;
         private String remarks;
+        /** True → student was absent for this exam. The service writes an
+         *  ABSENT MarkEntry (empty componentMarks, isPassed=false, grade=AB)
+         *  and skips the usual max-marks validation. */
+        private boolean absent;
 
         public MarkEntry() {
         }
@@ -80,5 +84,8 @@ public class EnterMarksRequest {
         public void setRemarks(String remarks) {
             this.remarks = remarks;
         }
+
+        public boolean isAbsent() { return absent; }
+        public void setAbsent(boolean absent) { this.absent = absent; }
     }
 }

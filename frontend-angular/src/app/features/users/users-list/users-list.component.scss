@@ -3,7 +3,8 @@ $gold-light: rgba(212, 168, 67, 0.1);
 $gold-dark: #B8860B;
 
 .users-list-container {
-  padding: 24px;
+  /* Match other list pages — breadcrumb hugs the page edge. */
+  padding: 0 0 24px;
 }
 
 .filters-card {

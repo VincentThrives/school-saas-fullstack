@@ -389,6 +389,30 @@ export const routes: Routes = [
         canActivate: [roleGuard, featureGuard],
         data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL], feature: 'exams' },
       },
+      {
+        path: 'exam-types/new',
+        loadComponent: () =>
+          import('./features/exam-types/exam-type-editor/exam-type-editor.component')
+            .then(m => m.ExamTypeEditorComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL], feature: 'exams' },
+      },
+      {
+        path: 'exam-types/:id/edit',
+        loadComponent: () =>
+          import('./features/exam-types/exam-type-editor/exam-type-editor.component')
+            .then(m => m.ExamTypeEditorComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL], feature: 'exams' },
+      },
+      {
+        path: 'exam-types/:id/rollout',
+        loadComponent: () =>
+          import('./features/exam-types/exam-type-rollout/exam-type-rollout.component')
+            .then(m => m.ExamTypeRolloutComponent),
+        canActivate: [roleGuard, featureGuard],
+        data: { roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL], feature: 'exams' },
+      },
 
       // ── MCQ (feature-gated) ──────────────────────────────
       {

@@ -72,14 +72,17 @@ public class ExamController {
         return ResponseEntity.ok(ApiResponse.success(examService.listConfigs()));
     }
 
-    /** Pre-fill payload for the edit form. */
+    /** Pre-fill payload for the edit form. Optional schemeId + slotKey narrow
+     *  the group when two schemes share the same name prefix ("FA1"). */
     @GetMapping("/configs/detail")
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<ExamConfigDetail>> getConfigDetail(
             @RequestParam String academicYearId,
-            @RequestParam String examType) {
+            @RequestParam String examType,
+            @RequestParam(required = false) String schemeId,
+            @RequestParam(required = false) String slotKey) {
         return ResponseEntity.ok(ApiResponse.success(
-                examService.getConfigDetail(academicYearId, examType)));
+                examService.getConfigDetail(academicYearId, examType, schemeId, slotKey)));
     }
 
     /** Light marks-status probe — drives the warning popup before edit/delete. */
@@ -87,8 +90,10 @@ public class ExamController {
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Boolean>>> getConfigMarksStatus(
             @RequestParam String academicYearId,
-            @RequestParam String examType) {
-        boolean has = examService.hasMarksForConfig(academicYearId, examType);
+            @RequestParam String examType,
+            @RequestParam(required = false) String schemeId,
+            @RequestParam(required = false) String slotKey) {
+        boolean has = examService.hasMarksForConfig(academicYearId, examType, schemeId, slotKey);
         return ResponseEntity.ok(ApiResponse.success(Map.of("anyMarksEntered", has)));
     }
 
@@ -97,10 +102,13 @@ public class ExamController {
     @PreAuthorize("hasRole('SCHOOL_ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> deleteConfig(
             @RequestParam String academicYearId,
-            @RequestParam String examType) {
-        Map<String, Object> out = examService.deleteConfig(academicYearId, examType);
+            @RequestParam String examType,
+            @RequestParam(required = false) String schemeId,
+            @RequestParam(required = false) String slotKey) {
+        Map<String, Object> out = examService.deleteConfig(academicYearId, examType, schemeId, slotKey);
         return ResponseEntity.ok(ApiResponse.success(out, "Config deleted"));
     }
+
 
     @PutMapping("/{examId}")
     @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','TEACHER')")

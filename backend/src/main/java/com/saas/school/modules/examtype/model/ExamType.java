@@ -8,8 +8,17 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.Instant;
 
 /**
- * Catalog of exam types a school runs (Unit Test, Sem 1, Final, …).
- * School Admins manage this list; every exam-type dropdown in the app pulls from it.
+ * Catalog entry for one assessment TYPE a school uses — FA (Formative),
+ * SA (Summative), OTHER, or anything a school adds like "Monthly Test" /
+ * "Portfolio" / "Lab Practical". Each {@link com.saas.school.modules.examscheme.model.Scheme.Slot}
+ * references one of these entries by {@link #id} via its {@code typeId}
+ * field; when a slot is rolled out, the generated {@code Exam} doc stamps
+ * {@link #name} onto {@code exam.examType}.
+ *
+ * <p>School Admins manage this list from the "Exam Type" tab on the Exam
+ * Types page. The three defaults (FA / SA / OTHER) are seeded on first
+ * access so legacy data and the slot editor's colour map have something
+ * to anchor to.
  */
 @Document(collection = "exam_types")
 public class ExamType {
@@ -17,10 +26,23 @@ public class ExamType {
     @Id
     private String id;
 
-    private String name;              // e.g. "Sem 1" — unique per tenant (case-insensitive)
-    private int displayOrder;         // used to sort dropdowns
-    private Integer defaultMaxMarks;  // optional — pre-fills Exam form
-    private String description;       // optional — tooltip text
+    private String name;              // Display label — "FA", "SA", "Monthly Test", ...
+    /**
+     * Stable short key used by other collections to reference a type across
+     * renames. Defaults to a slug of {@link #name} on create. The seeded
+     * defaults use keys {@code "FA"}, {@code "SA"}, {@code "OTHER"} so the
+     * frontend's colour map keeps working regardless of how an admin
+     * renames the labels.
+     */
+    private String key;
+    /**
+     * Optional CSS colour (hex) used by the editor's slot pill and the
+     * scheme card to tint entries belonging to this type. Falls back to a
+     * neutral grey when null.
+     */
+    private String color;
+    private int displayOrder;
+    private String description;
     private Status status;
 
     @CreatedDate  private Instant createdAt;
@@ -34,11 +56,14 @@ public class ExamType {
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
+    public String getKey() { return key; }
+    public void setKey(String key) { this.key = key; }
+
+    public String getColor() { return color; }
+    public void setColor(String color) { this.color = color; }
+
     public int getDisplayOrder() { return displayOrder; }
     public void setDisplayOrder(int displayOrder) { this.displayOrder = displayOrder; }
-
-    public Integer getDefaultMaxMarks() { return defaultMaxMarks; }
-    public void setDefaultMaxMarks(Integer defaultMaxMarks) { this.defaultMaxMarks = defaultMaxMarks; }
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }

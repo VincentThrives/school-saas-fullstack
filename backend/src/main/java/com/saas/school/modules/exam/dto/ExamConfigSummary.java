@@ -10,13 +10,19 @@ import java.util.List;
  */
 public class ExamConfigSummary {
     private String academicYearId;
-    private String examType;
+    private String examType;                   // name prefix (e.g. "FA1") — the card title
     private int examCount;
     private List<String> classSectionLabels;   // ["1st - A", "2nd - B", ...]
     private List<String> subjectNames;         // distinct subject names
     private int examsWithMarks;                // how many exams already have student entries
     private String examDate;                   // ISO date string, may be null
     private List<String> examIds;              // ids of all exams in this group
+    /** Scheme + slot identifiers for scheme-rolled groups. Null for direct
+     *  Exam Config creations. Lets two schemes' same-named slots ("FA1")
+     *  stay on separate cards. */
+    private String schemeId;
+    private String schemeName;
+    private String slotKey;
 
     public ExamConfigSummary() {}
 
@@ -43,4 +49,13 @@ public class ExamConfigSummary {
 
     public List<String> getExamIds() { return examIds; }
     public void setExamIds(List<String> examIds) { this.examIds = examIds; }
+
+    public String getSchemeId() { return schemeId; }
+    public void setSchemeId(String schemeId) { this.schemeId = schemeId; }
+
+    public String getSchemeName() { return schemeName; }
+    public void setSchemeName(String schemeName) { this.schemeName = schemeName; }
+
+    public String getSlotKey() { return slotKey; }
+    public void setSlotKey(String slotKey) { this.slotKey = slotKey; }
 }

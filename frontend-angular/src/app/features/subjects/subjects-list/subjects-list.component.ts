@@ -282,6 +282,11 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       // OFF by default keeps every existing subject behaving as
       // "every student in the section takes it".
       elective: [false],
+      // Core subject = part of the FA/SA grading grid. Default true so every
+      // existing subject behaves exactly as before. Flip off on PE / Music /
+      // Art / Library — Exam Type rollout then skips the subject by default
+      // (admin can still add it explicitly to a slot).
+      coreSubject: [true],
     });
     // Keep components array in sync whenever the admin picks a different preset.
     this.form.get('subjectType')?.valueChanges.subscribe(v => this.applyPreset(v));
@@ -710,6 +715,9 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       passRule: subject.passRule || 'PER_COMPONENT',
       groupPeriodAllowed: !!subject.groupPeriodAllowed,
       elective: !!subject.elective,
+      // Null in storage = default true (unmigrated rows). Treat it as core
+      // so flipping off is an explicit admin action.
+      coreSubject: (subject as any).coreSubject == null ? true : !!(subject as any).coreSubject,
     });
     // Re-create the components FormArray to match the existing subject.
     const comps = this.form.get('components') as any;
@@ -883,7 +891,8 @@ export class SubjectsListComponent implements OnInit, AfterViewChecked, OnDestro
       subParts,
       groupPeriodAllowed: !!raw.groupPeriodAllowed,
       elective: !!raw.elective,
-    };
+      coreSubject: raw.coreSubject !== false,
+    } as any;
 
     this.isCreating = true;
     const call$ = this.editingSubjectId

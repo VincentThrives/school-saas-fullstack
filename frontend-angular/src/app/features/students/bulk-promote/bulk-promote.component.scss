@@ -3,7 +3,8 @@ $gold-dark: #B8860B;
 $gold-light: rgba(212, 168, 67, 0.08);
 
 .bulk-promote-container {
-  padding: 0 24px 24px;
+  /* Match the other list pages — breadcrumb hugs the page edge. */
+  padding: 0 0 24px;
 }
 
 // FROM → TO layout

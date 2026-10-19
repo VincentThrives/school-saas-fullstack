@@ -51,7 +51,24 @@ $gold-dark: #B8860B;
 
 .table-card {
   border-radius: 12px !important;
+  /* Needed so the absolute-positioned .loading-overlay anchors to the
+     card instead of climbing to the body — otherwise the spinner lands
+     at the top of the viewport and the admin can't see it at all. */
+  position: relative;
   overflow: hidden;
+
+  /* Dim the stale data under the overlay so it reads as "being
+     replaced" rather than "current". Removes the illusion that the
+     paginator numbers below still describe what you're seeing. */
+  &--loading {
+    .mat-mdc-paginator,
+    .report-table,
+    .responsive-cards,
+    .table-header {
+      opacity: 0.55;
+      pointer-events: none;
+    }
+  }
 }
 
 .table-header {
@@ -94,10 +111,27 @@ $gold-dark: #B8860B;
   cursor: pointer;
 }
 
-.loading-row {
+/* Centered loading overlay — sits on top of the table card while a new
+   class/section/exam is being fetched. Backdrop-free so the dimmed
+   data under it still peeks through, which signals "replacing" rather
+   than "fresh page". */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 32px;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  pointer-events: all;
+}
+.loading-overlay__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: $gold-dark;
+  letter-spacing: 0.2px;
 }
 
 .empty-state {

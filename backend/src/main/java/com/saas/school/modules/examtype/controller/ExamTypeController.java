@@ -18,7 +18,7 @@ public class ExamTypeController {
 
     @Autowired private ExamTypeService service;
 
-    /** Any authenticated tenant user may read — dropdowns need this on teacher/student pages. */
+    /** Any authenticated tenant user may read — slot editor needs this for the Type dropdown. */
     @GetMapping
     public ResponseEntity<ApiResponse<List<ExamType>>> list(
             @RequestParam(required = false, defaultValue = "false") boolean includeArchived) {

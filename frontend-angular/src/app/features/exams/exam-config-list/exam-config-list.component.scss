@@ -1,12 +1,16 @@
 .config-list-container {
-  padding: 16px 20px 60px;
+  /* Match other list pages — drop the top/left inset so the breadcrumb
+     aligns with the page edge; keep bottom padding for scroll comfort. */
+  padding: 0 0 60px;
 }
+
 
 .loading-row {
   display: flex;
   justify-content: center;
   padding: 32px;
 }
+
 
 .empty-card {
   border-radius: 12px;
@@ -42,6 +46,15 @@
       color: #1f2937;
     }
     .muted { color: #9ca3af; font-size: 13px; font-weight: 400; }
+    .scheme-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #4338ca;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 4px;
+    }
   }
 
   &__meta { display: flex; gap: 8px; }

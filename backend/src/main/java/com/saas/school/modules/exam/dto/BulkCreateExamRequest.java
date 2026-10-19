@@ -42,6 +42,12 @@ public class BulkCreateExamRequest {
     @NotNull
     private List<SubjectConfig> subjectConfigs;
 
+    /** Optional scheme + slot provenance — set when the admin edits a
+     *  scheme-rolled Exam Config so the re-created Exam docs keep the same
+     *  scheme link (otherwise they'd merge back into a schemeless group). */
+    private String schemeId;
+    private String slotKey;
+
     public String getExamType() { return examType; }
     public void setExamType(String examType) { this.examType = examType; }
 
@@ -65,6 +71,12 @@ public class BulkCreateExamRequest {
 
     public List<SubjectConfig> getSubjectConfigs() { return subjectConfigs; }
     public void setSubjectConfigs(List<SubjectConfig> subjectConfigs) { this.subjectConfigs = subjectConfigs; }
+
+    public String getSchemeId() { return schemeId; }
+    public void setSchemeId(String schemeId) { this.schemeId = schemeId; }
+
+    public String getSlotKey() { return slotKey; }
+    public void setSlotKey(String slotKey) { this.slotKey = slotKey; }
 
     public static class ClassSection {
         private String classId;
@@ -116,8 +128,39 @@ public class BulkCreateExamRequest {
         private String label;
         private Integer maxMarks;
         private Integer passingMarks;
+        /** Optional per-exam split of this component (Theory → Paper 1 + Paper 2).
+         *  Null/empty means a single mark cell for the component. When
+         *  populated, the exam doc stores one Exam.ExamSubComponent per entry
+         *  and the Enter Marks screen renders one column per sub-part. */
+        private List<SubComponentConfig> subComponents;
 
         public ComponentConfig() {}
+
+        public String getKey() { return key; }
+        public void setKey(String key) { this.key = key; }
+
+        public String getLabel() { return label; }
+        public void setLabel(String label) { this.label = label; }
+
+        public Integer getMaxMarks() { return maxMarks; }
+        public void setMaxMarks(Integer maxMarks) { this.maxMarks = maxMarks; }
+
+        public Integer getPassingMarks() { return passingMarks; }
+        public void setPassingMarks(Integer passingMarks) { this.passingMarks = passingMarks; }
+
+        public List<SubComponentConfig> getSubComponents() { return subComponents; }
+        public void setSubComponents(List<SubComponentConfig> subComponents) {
+            this.subComponents = subComponents;
+        }
+    }
+
+    public static class SubComponentConfig {
+        private String key;
+        private String label;
+        private Integer maxMarks;
+        private Integer passingMarks;
+
+        public SubComponentConfig() {}
 
         public String getKey() { return key; }
         public void setKey(String key) { this.key = key; }

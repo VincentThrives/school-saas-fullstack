@@ -2,30 +2,37 @@ package com.saas.school.modules.examtype.service;
 
 import com.saas.school.common.exception.BusinessException;
 import com.saas.school.common.exception.ResourceNotFoundException;
-import com.saas.school.modules.exam.repository.ExamRepository;
 import com.saas.school.modules.examtype.model.ExamType;
 import com.saas.school.modules.examtype.repository.ExamTypeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
+/**
+ * CRUD + seed logic for the ExamType catalog — the small list of "FA / SA /
+ * OTHER / Monthly Test / Portfolio …" entries that schemes reference via
+ * {@code Slot.typeId}. The heavy scheme logic (slots, rollout, etc.) moved
+ * out to {@code modules/examscheme}.
+ */
 @Service
 public class ExamTypeService {
 
-    private static final String[] DEFAULTS = {
-            "Unit Test 1", "Unit Test 2", "Mid Term", "Half Yearly", "Pre Board", "Final", "Annual"
+    /** Seeded on first access so the slot editor's dropdown always has FA/SA. */
+    private static final Default[] DEFAULTS = {
+            new Default("FA", "Formative", "#0369a1", 1),
+            new Default("SA", "Summative", "#7c3aed", 2),
     };
 
     @Autowired private ExamTypeRepository repo;
-    @Autowired private ExamRepository examRepository;
 
-    /** Returns all exam types (optionally including archived). Seeds defaults on first call. */
     public List<ExamType> list(boolean includeArchived) {
-        if (repo.count() == 0) {
-            seedDefaults();
-        }
+        // Seed FA + SA only on an empty catalog (first-ever load for a tenant).
+        // Once the admin starts curating the catalog, their deletes stick —
+        // we never re-add anything they intentionally removed.
+        if (repo.count() == 0) seedDefaults();
         return includeArchived
                 ? repo.findAllByOrderByDisplayOrderAscNameAsc()
                 : repo.findByStatusOrderByDisplayOrderAscNameAsc(ExamType.Status.ACTIVE);
@@ -39,8 +46,9 @@ public class ExamTypeService {
         }
         req.setId(UUID.randomUUID().toString());
         req.setName(name);
+        if (req.getKey() == null || req.getKey().isBlank()) req.setKey(slugify(name).toUpperCase(Locale.ROOT));
         if (req.getStatus() == null) req.setStatus(ExamType.Status.ACTIVE);
-        if (req.getDisplayOrder() <= 0) req.setDisplayOrder(nextOrder());
+        if (req.getDisplayOrder() <= 0) req.setDisplayOrder((int) (repo.count() + 1));
         return repo.save(req);
     }
 
@@ -55,54 +63,62 @@ public class ExamTypeService {
             }
             existing.setName(newName);
         }
+        // Key is immutable once set — renames should re-slug if the admin asks,
+        // but that risks orphaning slot.typeId references, so keep it stable.
+        if ((existing.getKey() == null || existing.getKey().isBlank())
+                && req.getKey() != null && !req.getKey().isBlank()) {
+            existing.setKey(req.getKey());
+        }
         if (req.getDisplayOrder() > 0) existing.setDisplayOrder(req.getDisplayOrder());
-        existing.setDefaultMaxMarks(req.getDefaultMaxMarks());
         existing.setDescription(req.getDescription());
+        existing.setColor(req.getColor());
         return repo.save(existing);
     }
 
     public ExamType archive(String id) {
-        ExamType e = repo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("ExamType", id));
+        ExamType e = repo.findById(id).orElseThrow(() -> new ResourceNotFoundException("ExamType", id));
         e.setStatus(ExamType.Status.ARCHIVED);
         return repo.save(e);
     }
 
     public ExamType restore(String id) {
-        ExamType e = repo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("ExamType", id));
+        ExamType e = repo.findById(id).orElseThrow(() -> new ResourceNotFoundException("ExamType", id));
         e.setStatus(ExamType.Status.ACTIVE);
         return repo.save(e);
     }
 
     public void delete(String id) {
-        ExamType e = repo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("ExamType", id));
-        long inUse = examRepository.countByExamType(e.getName());
-        if (inUse > 0) {
-            throw new BusinessException(
-                    "This exam type is used by " + inUse + " exam(s). Archive it instead of deleting.");
-        }
+        if (!repo.existsById(id)) throw new ResourceNotFoundException("ExamType", id);
+        // No cascade on Exam docs — exams carry a free-text examType string, not an id.
         repo.deleteById(id);
     }
 
-    private int nextOrder() {
-        return (int) (repo.count() + 1);
+    public ExamType get(String id) {
+        return repo.findById(id).orElseThrow(() -> new ResourceNotFoundException("ExamType", id));
     }
 
+    /** Idempotent — adds any missing default (keyed by name) without touching
+     *  existing rows. Safe to call on every list request. */
     private void seedDefaults() {
-        for (int i = 0; i < DEFAULTS.length; i++) {
-            if (repo.existsByNameIgnoreCase(DEFAULTS[i])) continue;
+        for (Default d : DEFAULTS) {
+            if (repo.existsByNameIgnoreCase(d.name)) continue;
             ExamType e = new ExamType();
             e.setId(UUID.randomUUID().toString());
-            e.setName(DEFAULTS[i]);
-            e.setDisplayOrder(i + 1);
+            e.setName(d.name);
+            e.setKey(d.key);
+            e.setColor(d.color);
+            e.setDisplayOrder(d.order);
             e.setStatus(ExamType.Status.ACTIVE);
             repo.save(e);
         }
     }
 
-    private static String trim(String s) {
-        return s == null ? "" : s.trim();
+    private static String trim(String s) { return s == null ? "" : s.trim(); }
+
+    private static String slugify(String s) {
+        String base = s == null ? "" : s.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_");
+        return base.replaceAll("^_+|_+$", "");
     }
+
+    private record Default(String key, String name, String color, int order) {}
 }

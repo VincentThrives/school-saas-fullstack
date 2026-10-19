@@ -12,13 +12,21 @@ $gold-dark: #B8860B;
 
 .filters-row {
   display: flex;
-  gap: 16px;
+  gap: 10px;
   align-items: center;
+  /* Always allow wrapping — at normal zoom the five dropdowns + the refresh
+     button fit on one row, and at 110%+ zoom (or narrower screens) they
+     wrap gracefully instead of overflowing. The flex-basis is kept small
+     so a typical 1366-wide laptop at 100% zoom stays single-row. */
   flex-wrap: wrap;
 
   .filter-field {
-    min-width: 180px;
+    flex: 1 1 150px;
+    min-width: 130px;
   }
+
+  /* Spacer must not eat width — it's purely a visual separator. */
+  .spacer { flex: 0 1 auto; min-width: 0; }
 }
 
 .spacer {

@@ -1,23 +1,40 @@
 <div class="et-container">
   <app-page-header
     title="Exam Types"
-    subtitle="Manage the exam types used across Exams, Report Cards, and dropdowns"
+    subtitle="Catalog of exam types (FA/SA/Monthly/…) and the schemes that use them"
     [breadcrumbs]="[
       { label: 'Dashboard', link: '/dashboard' },
       { label: 'Exam Types' }
     ]">
   </app-page-header>
 
-  <mat-card class="et-card">
+  <mat-tab-group mat-stretch-tabs="false" class="et-tabs" animationDuration="0ms">
+    <!-- Tab 1 ─ Exam Types catalog (FA / SA / Monthly / …) ────────── -->
+    <mat-tab label="Exam Types">
+      <app-exam-type-catalog></app-exam-type-catalog>
+    </mat-tab>
+
+    <!-- Tab 2 ─ Schemes (slot-based, with rollout) ─────────────────── -->
+    <mat-tab label="Exam Schemes">
+      <mat-card class="et-card">
     <div class="et-toolbar">
       <div class="left">
+        <mat-form-field appearance="outline" class="year-filter">
+          <mat-label>Academic year</mat-label>
+          <mat-select [(ngModel)]="selectedYearId" (selectionChange)="onYearFilterChange()">
+            <mat-option value="">All years</mat-option>
+            <mat-option *ngFor="let y of academicYears" [value]="y.academicYearId">
+              {{ y.label }} {{ y.current ? '(current)' : '' }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
         <mat-slide-toggle [(ngModel)]="showArchived" (change)="onToggleArchived()">
           Show archived
         </mat-slide-toggle>
       </div>
       <div class="right">
         <button mat-flat-button color="primary" (click)="openCreate()">
-          <mat-icon>add</mat-icon> Add Exam Type
+          <mat-icon>add</mat-icon> New Scheme
         </button>
       </div>
     </div>
@@ -29,114 +46,83 @@
     <div class="empty-state" *ngIf="!isLoading && types.length === 0">
       <mat-icon class="empty-icon">assignment</mat-icon>
       <h3>No exam types yet</h3>
-      <p>Create the first exam type (e.g. Sem 1, Final) to make it available in every exam-type dropdown.</p>
+      <p>Create your assessment scheme — for example FA1..FA4 + SA1/SA2 — and reuse it across Exam Config.</p>
       <button mat-stroked-button (click)="openCreate()">
-        <mat-icon>add</mat-icon> Add Exam Type
+        <mat-icon>add</mat-icon> New Scheme
       </button>
     </div>
 
-    <table mat-table [dataSource]="types" class="et-table" *ngIf="!isLoading && types.length > 0">
-      <ng-container matColumnDef="displayOrder">
-        <th mat-header-cell *matHeaderCellDef>Order</th>
-        <td mat-cell *matCellDef="let t">{{ t.displayOrder }}</td>
-      </ng-container>
+    <div class="scheme-grid" *ngIf="!isLoading && types.length > 0">
+      <div class="scheme-card" *ngFor="let t of types" [class.archived]="t.status === 'ARCHIVED'">
+        <div class="scheme-head">
+          <div class="scheme-title-block">
+            <div class="scheme-name">
+              <span class="order-tag">#{{ t.displayOrder }}</span>
+              <span class="scheme-title-text">{{ t.name }}</span>
+            </div>
+            <div class="scheme-meta-row">
+              <mat-chip class="chip-year" *ngIf="t.academicYearId">{{ yearLabel(t.academicYearId) }}</mat-chip>
+              <mat-chip class="chip-archived" *ngIf="t.status === 'ARCHIVED'">Archived</mat-chip>
+            </div>
+            <div class="scheme-desc" *ngIf="t.description">{{ t.description }}</div>
+          </div>
+          <div class="scheme-actions">
+            <button mat-icon-button matTooltip="Rollout — create exams from this scheme"
+                    *ngIf="t.slots?.length" (click)="openRollout(t)">
+              <mat-icon>playlist_add</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Edit" (click)="openEdit(t)">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Archive" *ngIf="t.status !== 'ARCHIVED'" (click)="archive(t)">
+              <mat-icon>archive</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Restore" *ngIf="t.status === 'ARCHIVED'" (click)="restore(t)">
+              <mat-icon>unarchive</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Delete" (click)="remove(t)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
 
-      <ng-container matColumnDef="name">
-        <th mat-header-cell *matHeaderCellDef>Name</th>
-        <td mat-cell *matCellDef="let t">
-          <span class="et-name">{{ t.name }}</span>
-        </td>
-      </ng-container>
+        <div class="scheme-classes">
+          <mat-icon class="ic">school</mat-icon>
+          <mat-chip *ngFor="let c of classChipLabels(t)" class="class-chip">{{ c }}</mat-chip>
+        </div>
 
-      <ng-container matColumnDef="defaultMaxMarks">
-        <th mat-header-cell *matHeaderCellDef>Default Max Marks</th>
-        <td mat-cell *matCellDef="let t">{{ t.defaultMaxMarks ?? '—' }}</td>
-      </ng-container>
+        <div class="scheme-slots" *ngIf="t.slots?.length">
+          <div class="slot-pill" *ngFor="let s of t.slots"
+               [style.borderColor]="kindMeta(s.kind).color"
+               [style.color]="kindMeta(s.kind).color"
+               [class.off-total]="s.includeInGrandTotal === false">
+            <span class="slot-kind" [style.background]="kindMeta(s.kind).color">{{ s.kind }}</span>
+            <span class="slot-label">{{ s.label }}</span>
+            <span class="slot-marks" *ngIf="!s.pulledContributionMax">{{ s.rawMax }}→{{ s.weightMax }}</span>
+            <span class="slot-marks" *ngIf="s.pulledContributionMax">
+              {{ s.rawMax }}→{{ s.weightMax }}+{{ s.pulledContributionMax }}
+            </span>
+          </div>
+        </div>
+        <div class="scheme-slots legacy" *ngIf="!t.slots?.length">
+          <mat-icon class="ic">info</mat-icon>
+          <span>Legacy flat exam type — edit to add slots (FA/SA).</span>
+        </div>
 
-      <ng-container matColumnDef="description">
-        <th mat-header-cell *matHeaderCellDef>Description</th>
-        <td mat-cell *matCellDef="let t" class="desc">{{ t.description || '—' }}</td>
-      </ng-container>
-
-      <ng-container matColumnDef="status">
-        <th mat-header-cell *matHeaderCellDef>Status</th>
-        <td mat-cell *matCellDef="let t">
-          <mat-chip class="chip-active" *ngIf="t.status === 'ACTIVE'">Active</mat-chip>
-          <mat-chip class="chip-archived" *ngIf="t.status === 'ARCHIVED'">Archived</mat-chip>
-        </td>
-      </ng-container>
-
-      <ng-container matColumnDef="actions">
-        <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
-        <td mat-cell *matCellDef="let t" class="actions-col">
-          <button mat-icon-button matTooltip="Edit" (click)="openEdit(t)">
-            <mat-icon>edit</mat-icon>
-          </button>
-          <button mat-icon-button matTooltip="Archive" *ngIf="t.status !== 'ARCHIVED'" (click)="archive(t)">
-            <mat-icon>archive</mat-icon>
-          </button>
-          <button mat-icon-button matTooltip="Restore" *ngIf="t.status === 'ARCHIVED'" (click)="restore(t)">
-            <mat-icon>unarchive</mat-icon>
-          </button>
-          <button mat-icon-button matTooltip="Delete" (click)="remove(t)">
-            <mat-icon>delete</mat-icon>
-          </button>
-        </td>
-      </ng-container>
-
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-    </table>
-  </mat-card>
-
-  <!-- Editor modal -->
-  <div class="et-modal" *ngIf="editorOpen">
-    <div class="et-modal-backdrop" (click)="closeEditor()"></div>
-    <mat-card class="et-modal-card">
-      <h3 class="modal-title">
-        <mat-icon>{{ editing ? 'edit' : 'add_circle' }}</mat-icon>
-        {{ editing ? 'Edit exam type' : 'New exam type' }}
-      </h3>
-
-      <div class="field-grid">
-        <mat-form-field appearance="outline" class="span-2">
-          <mat-label>Name *</mat-label>
-          <input matInput [(ngModel)]="form.name" maxlength="40" placeholder="e.g. Sem 1" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Display order *</mat-label>
-          <input matInput type="number" [(ngModel)]="form.displayOrder" min="1" max="99" />
-          <mat-hint>Lower numbers appear first</mat-hint>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Default max marks</mat-label>
-          <input matInput type="number" [(ngModel)]="form.defaultMaxMarks" min="1" max="999" placeholder="e.g. 100" />
-          <mat-hint>Auto-fills on new exams</mat-hint>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="span-2">
-          <mat-label>Description</mat-label>
-          <input matInput [(ngModel)]="form.description" maxlength="200" placeholder="Shown as a tooltip in pickers" />
-        </mat-form-field>
+        <div class="scheme-total" *ngIf="t.slots?.length">
+          <span class="k">Grand total (weighted)</span>
+          <strong class="v">{{ rowWeightTotal(t) }}</strong>
+        </div>
       </div>
+    </div>
+      </mat-card>
+    </mat-tab>
+  </mat-tab-group>
 
-      <div class="modal-actions">
-        <button mat-stroked-button (click)="closeEditor()" [disabled]="isSaving">Cancel</button>
-        <button mat-flat-button color="primary" (click)="save()" [disabled]="isSaving">
-          <mat-spinner diameter="18" *ngIf="isSaving"></mat-spinner>
-          <mat-icon *ngIf="!isSaving">save</mat-icon>
-          {{ isSaving ? 'Saving…' : (editing ? 'Update' : 'Create') }}
-        </button>
-      </div>
-    </mat-card>
-  </div>
-
-  <!-- Delete Confirmation Dialog (uses shared global styles) -->
+  <!-- Delete confirmation ──────────────────────────────────────── -->
   <div class="delete-overlay" *ngIf="deleteDialogOpen" (click)="cancelDelete()">
     <div class="delete-dialog" (click)="$event.stopPropagation()">
-      <h3>Delete exam type</h3>
+      <h3>Delete scheme</h3>
       <p>
         Are you sure you want to delete <strong>{{ rowToDelete?.name }}</strong>?
         This action cannot be undone.
@@ -145,8 +131,7 @@
       <div class="delete-warning">
         <mat-icon>info</mat-icon>
         <span>
-          If any exam already uses this type, the server will block deletion —
-          archive it instead from the actions column.
+          If any exam already uses this scheme, the server will block deletion — archive it instead.
         </span>
       </div>
 

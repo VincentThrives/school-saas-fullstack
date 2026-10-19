@@ -1,10 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -12,9 +12,27 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../core/services/api.service';
+import { AcademicYear, SchoolClass } from '../../core/models';
+import { ExamTypeCatalogComponent } from './exam-type-catalog/exam-type-catalog.component';
+
+type SlotKind = 'FA' | 'SA' | 'OTHER';
+
+interface SlotLite {
+  key?: string;
+  label: string;
+  kind: SlotKind;
+  rawMax: number;
+  weightMax: number;
+  // Pulled-forward contribution (added on top of the paper's weighted) and
+  // whether the slot's marks reach the grand total. Preserved from the API
+  // so the list card shows the right chips and total.
+  pulledContributionMax: number;
+  includeInGrandTotal: boolean;
+}
 
 interface Row {
   id?: string;
@@ -23,6 +41,9 @@ interface Row {
   defaultMaxMarks?: number | null;
   description?: string;
   status?: 'ACTIVE' | 'ARCHIVED';
+  applicableClassIds?: string[];
+  slots?: SlotLite[] | null;
+  academicYearId?: string | null;
   createdAt?: string;
 }
 
@@ -31,10 +52,11 @@ interface Row {
   standalone: true,
   imports: [
     CommonModule, FormsModule,
-    MatCardModule, MatButtonModule, MatIconModule, MatTableModule,
+    MatCardModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule,
-    MatProgressSpinnerModule, MatTooltipModule, MatChipsModule, MatSnackBarModule,
+    MatProgressSpinnerModule, MatTooltipModule, MatChipsModule, MatTabsModule, MatSnackBarModule,
     PageHeaderComponent,
+    ExamTypeCatalogComponent,
   ],
   templateUrl: './exam-types-page.component.html',
   styleUrl: './exam-types-page.component.scss',
@@ -44,30 +66,40 @@ export class ExamTypesPageComponent implements OnInit {
   isLoading = false;
   showArchived = false;
 
-  // Editor dialog state
-  editorOpen = false;
-  editing: Row | null = null;
-  form: Row = this.blankForm();
-  isSaving = false;
-
   // Delete confirmation
   deleteDialogOpen = false;
   rowToDelete: Row | null = null;
   isDeleting = false;
 
-  displayedColumns = ['displayOrder', 'name', 'defaultMaxMarks', 'description', 'status', 'actions'];
+  // Class catalog for chip labels
+  classes: SchoolClass[] = [];
 
-  constructor(private api: ApiService, private snackBar: MatSnackBar) {}
+  // Academic-year filter — defaults to current, "" means "all years".
+  academicYears: AcademicYear[] = [];
+  selectedYearId = '';
+
+  readonly slotKinds: { value: SlotKind; label: string; color: string }[] = [
+    { value: 'FA', label: 'Formative (FA)', color: '#0369a1' },
+    { value: 'SA', label: 'Summative (SA)', color: '#7c3aed' },
+    { value: 'OTHER', label: 'Other', color: '#6b7280' },
+  ];
+
+  constructor(
+    private api: ApiService,
+    private router: Router,
+    private snackBar: MatSnackBar,
+  ) {}
 
   ngOnInit(): void {
     this.load();
+    this.loadClasses();
   }
 
   load(): void {
     this.isLoading = true;
-    this.api.getExamTypes(this.showArchived).subscribe({
-      next: (res) => {
-        this.types = res?.data || [];
+    this.api.getExamSchemes(this.showArchived, this.selectedYearId || undefined).subscribe({
+      next: (res: any) => {
+        this.types = (res?.data || []).map((r: any) => this.normalizeIncoming(r));
         this.isLoading = false;
       },
       error: () => {
@@ -77,76 +109,98 @@ export class ExamTypesPageComponent implements OnInit {
     });
   }
 
-  onToggleArchived(): void {
-    this.load();
-  }
-
-  blankForm(): Row {
-    return { name: '', displayOrder: 1, defaultMaxMarks: null, description: '' };
-  }
-
-  openCreate(): void {
-    this.editing = null;
-    // Next sensible display order = max+1
-    const maxOrder = this.types.reduce((m, t) => Math.max(m, t.displayOrder || 0), 0);
-    this.form = { ...this.blankForm(), displayOrder: maxOrder + 1 };
-    this.editorOpen = true;
-  }
-
-  openEdit(row: Row): void {
-    this.editing = row;
-    this.form = {
-      id: row.id,
-      name: row.name || '',
-      displayOrder: row.displayOrder || 1,
-      defaultMaxMarks: row.defaultMaxMarks ?? null,
-      description: row.description || '',
-    };
-    this.editorOpen = true;
-  }
-
-  closeEditor(): void {
-    if (this.isSaving) return;
-    this.editorOpen = false;
-    this.editing = null;
-  }
-
-  save(): void {
-    const name = (this.form.name || '').trim();
-    if (!name) {
-      this.snackBar.open('Name is required', 'Close', { duration: 2500 });
-      return;
-    }
-    this.isSaving = true;
-    const payload: any = {
-      name,
-      displayOrder: Number(this.form.displayOrder) || 1,
-      defaultMaxMarks: this.form.defaultMaxMarks == null || this.form.defaultMaxMarks === ('' as any)
-        ? null
-        : Number(this.form.defaultMaxMarks),
-      description: (this.form.description || '').trim() || null,
-    };
-    const req$ = this.editing?.id
-      ? this.api.updateExamType(this.editing.id, payload)
-      : this.api.createExamType(payload);
-    req$.subscribe({
-      next: () => {
-        this.isSaving = false;
-        this.editorOpen = false;
-        this.editing = null;
-        this.snackBar.open('Saved', 'Close', { duration: 2500 });
-        this.load();
-      },
-      error: (err) => {
-        this.isSaving = false;
-        this.snackBar.open(err?.error?.message || 'Failed to save', 'Close', { duration: 4000 });
+  private loadClasses(): void {
+    this.api.getAcademicYears().subscribe({
+      next: (res: any) => {
+        const years: AcademicYear[] = Array.isArray(res?.data) ? res.data : [];
+        this.academicYears = years;
+        const current = years.find(y => (y as any).current) || years[0];
+        if (current?.academicYearId) {
+          // Default the filter to the current year on first load.
+          if (!this.selectedYearId) {
+            this.selectedYearId = current.academicYearId;
+            this.load();
+          }
+          this.api.getClasses(current.academicYearId).subscribe({
+            next: (r: any) => this.classes = Array.isArray(r?.data) ? r.data : [],
+          });
+        }
       },
     });
   }
 
+  onToggleArchived(): void { this.load(); }
+  onYearFilterChange(): void { this.load(); }
+
+  yearLabel(id?: string | null): string {
+    if (!id) return 'Any year';
+    const y = this.academicYears.find(y => y.academicYearId === id);
+    return y ? y.label : id;
+  }
+
+  private normalizeIncoming(r: any): Row {
+    return {
+      id: r.id,
+      name: r.name,
+      displayOrder: r.displayOrder,
+      defaultMaxMarks: r.defaultMaxMarks ?? null,
+      description: r.description,
+      status: r.status,
+      applicableClassIds: Array.isArray(r.applicableClassIds) ? r.applicableClassIds : [],
+      academicYearId: r.academicYearId || null,
+      slots: Array.isArray(r.slots) ? r.slots.map((s: any) => ({
+        key: s.key,
+        label: s.label,
+        kind: (s.kind as SlotKind) || 'FA',
+        rawMax: Number(s.rawMax) || 0,
+        weightMax: Number(s.weightMax) || 0,
+        pulledContributionMax: s.pullForward
+          ? (Number(s.pullForward.contributionMax) || 0)
+          : 0,
+        includeInGrandTotal: s.includeInGrandTotal == null ? true : !!s.includeInGrandTotal,
+      })) : null,
+    };
+  }
+
+  /**
+   * Grand total = sum of (weighted + pulled) for slots the admin flagged as
+   * counted. Mirrors the editor's own grandWeight so the list card and the
+   * editor's totals strip always agree.
+   */
+  rowWeightTotal(row: Row): number {
+    return (row.slots || [])
+      .filter(s => s.includeInGrandTotal !== false)
+      .reduce((sum, s) => sum + (Number(s.weightMax) || 0) + (Number(s.pulledContributionMax) || 0), 0);
+  }
+
+  classChipLabels(row: Row): string[] {
+    if (!row.applicableClassIds?.length) return ['All classes'];
+    return row.applicableClassIds
+      .map(id => this.classes.find(c => c.classId === id)?.name || id)
+      .slice(0, 6);
+  }
+
+  kindMeta(k: SlotKind): { label: string; color: string } {
+    return this.slotKinds.find(x => x.value === k) || this.slotKinds[0];
+  }
+
+  openCreate(): void {
+    this.router.navigate(['/exam-types', 'new']);
+  }
+
+  openEdit(row: Row): void {
+    if (!row.id) return;
+    this.router.navigate(['/exam-types', row.id, 'edit']);
+  }
+
+  openRollout(row: Row): void {
+    if (!row.id) return;
+    this.router.navigate(['/exam-types', row.id, 'rollout']);
+  }
+
   archive(row: Row): void {
     if (!row.id) return;
-    this.api.archiveExamType(row.id).subscribe({
+    this.api.archiveExamScheme(row.id).subscribe({
       next: () => { this.snackBar.open('Archived', 'Close', { duration: 2500 }); this.load(); },
       error: () => this.snackBar.open('Failed to archive', 'Close', { duration: 3000 }),
     });
@@ -154,13 +208,12 @@ export class ExamTypesPageComponent implements OnInit {
 
   restore(row: Row): void {
     if (!row.id) return;
-    this.api.restoreExamType(row.id).subscribe({
+    this.api.restoreExamScheme(row.id).subscribe({
       next: () => { this.snackBar.open('Restored', 'Close', { duration: 2500 }); this.load(); },
       error: () => this.snackBar.open('Failed to restore', 'Close', { duration: 3000 }),
     });
   }
 
-  // ── Delete flow (uses the shared global .delete-overlay / .delete-dialog styles) ──
   remove(row: Row): void {
     if (!row?.id) return;
     this.rowToDelete = row;
@@ -177,7 +230,7 @@ export class ExamTypesPageComponent implements OnInit {
     const row = this.rowToDelete;
     if (!row?.id) return;
     this.isDeleting = true;
-    this.api.deleteExamType(row.id).subscribe({
+    this.api.deleteExamScheme(row.id).subscribe({
       next: () => {
         this.isDeleting = false;
         this.deleteDialogOpen = false;

@@ -313,15 +313,19 @@ export class SidebarComponent implements OnInit, OnDestroy {
             // Bulk-create entry — admin picks exam type + class/sections +
             // subjects and the backend fans out into many Exam docs in one
             // save. Lives next to the regular Exams list. Admin-only.
+            // Order: Types → Config → Exams → Other Assessments → Calendar.
+            // The flow mirrors how admins set the system up (define types first,
+            // then build configs, then view scheduled exams, then weekly
+            // assessments, then the calendar overview).
+            { title: 'Exam Types', path: '/exam-types', icon: 'category', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
             { title: 'Exam Config', path: '/exams/config', icon: 'playlist_add_check', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN] },
             { title: 'Exams', path: '/exams', icon: 'assignment', feature: 'exams', coordinatorModule: 'EXAMS' },
-            { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams', coordinatorModule: 'EXAMS' },
-            { title: 'Exam Types', path: '/exam-types', icon: 'category', feature: 'exams', roles: [UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL] },
             // Non-academic assessments (weekly CET, mock exams). Admin
             // only; kept separate from Exams so week-wise CET tests
             // don't drown the regular exam list. Stored in a distinct
             // Mongo collection and doesn't touch report cards.
             { title: 'Other Assessments', path: '/other-assessments', icon: 'assignment', roles: [UserRole.SCHOOL_ADMIN] },
+            { title: 'Exam Calendar', path: '/exams/calendar', icon: 'calendar_month', feature: 'exams', coordinatorModule: 'EXAMS' },
             // { title: 'MCQ Exams', path: '/mcq', icon: 'quiz', feature: 'mcq' },
           ],
         },

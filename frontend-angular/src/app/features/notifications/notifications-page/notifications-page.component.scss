@@ -1,7 +1,7 @@
 .notif-container {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
+  /* Match other list pages — hug the left edge, no horizontal centering. */
+  padding: 0 0 24px;
+  margin: 0;
 }
 
 .notif-layout {

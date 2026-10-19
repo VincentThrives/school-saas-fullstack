@@ -42,18 +42,19 @@
         </mat-select>
       </mat-form-field>
 
-      <!-- Exam Type (Multi-select) — populated from exams matching AY + class + section -->
+      <!-- Exam (Multi-select) — exam NAME prefixes (FA1, FA2, SA1 …), not
+           broad types. Populated from exams matching AY + class + section. -->
       <mat-form-field appearance="outline" class="filter-field">
-        <mat-label>Exam Type</mat-label>
-        <mat-select [(ngModel)]="selectedExamTypes" (selectionChange)="onExamTypeChange()" [disabled]="!selectedClassId" multiple>
-          <mat-option *ngFor="let type of examTypes" [value]="type">{{ type }}</mat-option>
+        <mat-label>Exam</mat-label>
+        <mat-select [(ngModel)]="selectedExamNames" (selectionChange)="onExamNameChange()" [disabled]="!selectedClassId" multiple>
+          <mat-option *ngFor="let name of examNames" [value]="name">{{ name }}</mat-option>
         </mat-select>
       </mat-form-field>
 
       <!-- Subject (Multi-select) — populated from exams matching everything above -->
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Subjects</mat-label>
-        <mat-select [(ngModel)]="selectedSubjectIds" (selectionChange)="onSubjectChange()" [disabled]="selectedExamTypes.length === 0" multiple>
+        <mat-select [(ngModel)]="selectedSubjectIds" (selectionChange)="onSubjectChange()" [disabled]="selectedExamNames.length === 0" multiple>
           <mat-option *ngFor="let sub of subjects" [value]="sub.subjectId">{{ sub.name }}</mat-option>
         </mat-select>
       </mat-form-field>

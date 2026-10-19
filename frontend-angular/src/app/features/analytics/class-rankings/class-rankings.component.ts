@@ -35,14 +35,19 @@ import { forkJoin } from 'rxjs';
 export class ClassRankingsComponent implements OnInit {
   // Data sources
   allExams: any[] = [];
-  examTypes: string[] = [];
+  /** Exam name prefixes (FA1, FA2, SA1 …) extracted from exam.name. The
+   *  dropdown used to show the raw type ("FA", "SA") which merged every
+   *  FA event together — picking "FA" would score FA1 + FA2 as one bucket.
+   *  Prefix-level grouping lets the admin rank a specific FA1 alone. */
+  examNames: string[] = [];
   academicYears: AcademicYear[] = [];
   classes: SchoolClass[] = [];
   sections: { sectionId: string; name: string; subjectIds?: string[] }[] = [];
   subjects: SubjectItem[] = [];
 
   // Selected filters
-  selectedExamTypes: string[] = [];
+  /** Picked exam names (e.g. ["FA1"], or ["FA1","FA2"] to aggregate). */
+  selectedExamNames: string[] = [];
   selectedAcademicYearId = '';
   selectedClassId = '';
   selectedSectionId = '';
@@ -95,11 +100,11 @@ export class ClassRankingsComponent implements OnInit {
   onAcademicYearChange(): void {
     this.selectedClassId = '';
     this.selectedSectionId = '';
-    this.selectedExamTypes = [];
+    this.selectedExamNames = [];
     this.selectedSubjectIds = [];
     this.classes = [];
     this.sections = [];
-    this.examTypes = [];
+    this.examNames = [];
     this.subjects = [];
     this.rankings = [];
 
@@ -112,10 +117,10 @@ export class ClassRankingsComponent implements OnInit {
 
   onClassChange(): void {
     this.selectedSectionId = '';
-    this.selectedExamTypes = [];
+    this.selectedExamNames = [];
     this.selectedSubjectIds = [];
     this.sections = [];
-    this.examTypes = [];
+    this.examNames = [];
     this.subjects = [];
     this.rankings = [];
 
@@ -124,31 +129,53 @@ export class ClassRankingsComponent implements OnInit {
     const selectedClass = this.classes.find(c => c.classId === this.selectedClassId);
     this.sections = selectedClass?.sections || [];
 
-    // Populate Exam Type immediately — "All Sections" is the default
-    // section state, so the admin can pick an exam type right away
-    // without first opening the Section dropdown.
-    this.populateExamTypes();
+    // Populate Exam list immediately — "All Sections" is the default
+    // section state, so the admin can pick an exam right away without
+    // first opening the Section dropdown.
+    this.populateExamNames();
   }
 
   onSectionChange(): void {
-    this.selectedExamTypes = [];
+    this.selectedExamNames = [];
     this.selectedSubjectIds = [];
-    this.examTypes = [];
+    this.examNames = [];
     this.subjects = [];
     this.rankings = [];
-    // Re-narrow exam types by the new (class, section) pair.
-    this.populateExamTypes();
+    // Re-narrow exam list by the new (class, section) pair.
+    this.populateExamNames();
   }
 
   /**
-   * Compute the Exam Type options from {@link allExams} filtered by the
+   * Strip the subject suffix ("· Kannada", "— Math", "- Physics") from an
+   * exam.name so sibling-subject rows collapse into the same event name
+   * (e.g. "FA1 · Kannada" and "FA1 · Math" both become "FA1"). Mirrors the
+   * backend's examNamePrefix() helper so the admin sees the same labels
+   * the rollout + Exam Config pages show. Falls back to examType when
+   * the exam has no name (legacy / imported rows).
+   */
+  private examNamePrefix(e: any): string {
+    const name = (e?.name || '').toString();
+    if (name) {
+      const seps = [' · ', ' — ', ' - '];
+      let bestIdx = -1;
+      for (const sep of seps) {
+        const idx = name.indexOf(sep);
+        if (idx > 0 && (bestIdx < 0 || idx < bestIdx)) bestIdx = idx;
+      }
+      return (bestIdx > 0 ? name.substring(0, bestIdx) : name).trim();
+    }
+    return (e?.examType || '').toString();
+  }
+
+  /**
+   * Compute the Exam options from {@link allExams} filtered by the
    * currently-picked Academic Year + Class + (optional) Section. Schools
    * with section-specific exams (rare but happens — half-day grades that
    * skip a paper) will see a narrower list when a section is chosen.
    */
-  private populateExamTypes(): void {
+  private populateExamNames(): void {
     if (!this.selectedAcademicYearId || !this.selectedClassId) {
-      this.examTypes = [];
+      this.examNames = [];
       return;
     }
     const matching = this.allExams.filter((e: any) => {
@@ -158,19 +185,22 @@ export class ClassRankingsComponent implements OnInit {
       // wasn't tagged with one, treat it as a match. Avoids hiding exams
       // that were scheduled at the class level rather than per-section.
       if (this.selectedSectionId && e.sectionId && e.sectionId !== this.selectedSectionId) return false;
-      return !!e.examType;
+      return !!this.examNamePrefix(e);
     });
-    const types = new Set<string>();
-    matching.forEach((e: any) => { types.add(e.examType); });
-    this.examTypes = Array.from(types).sort();
+    const names = new Set<string>();
+    matching.forEach((e: any) => { names.add(this.examNamePrefix(e)); });
+    // Natural-ish sort so FA1 / FA2 / FA10 land in numeric order rather
+    // than lexicographic (FA1, FA10, FA2 …).
+    this.examNames = Array.from(names).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
   }
 
-  onExamTypeChange(): void {
+  onExamNameChange(): void {
     this.selectedSubjectIds = [];
     this.subjects = [];
     this.rankings = [];
 
-    if (this.selectedExamTypes.length === 0) return;
+    if (this.selectedExamNames.length === 0) return;
 
     // Subjects come from the exams matching every upstream filter, so
     // the list never offers a subject without rank data behind it. This
@@ -180,7 +210,7 @@ export class ClassRankingsComponent implements OnInit {
       if (e.academicYearId !== this.selectedAcademicYearId) return false;
       if (e.classId !== this.selectedClassId) return false;
       if (this.selectedSectionId && e.sectionId && e.sectionId !== this.selectedSectionId) return false;
-      if (!this.selectedExamTypes.includes(e.examType)) return false;
+      if (!this.selectedExamNames.includes(this.examNamePrefix(e))) return false;
       return !!e.subjectId;
     });
     const subjectIds = new Set<string>();
@@ -202,15 +232,18 @@ export class ClassRankingsComponent implements OnInit {
   }
 
   loadRankings(): void {
-    // Find matching exams based on all filters
+    // Find matching exams based on all filters. Exam filter is now by
+    // name prefix (FA1, SA2 …) rather than the broad type (FA, SA) so
+    // picking "FA1" only aggregates FA1 subject rows, not everything
+    // the school ever labelled FA.
     const matchingExams = this.allExams.filter((e: any) => {
-      const typeMatch = this.selectedExamTypes.includes(e.examType);
+      const nameMatch = this.selectedExamNames.includes(this.examNamePrefix(e));
       const yearMatch = e.academicYearId === this.selectedAcademicYearId;
       const classMatch = e.classId === this.selectedClassId;
       const subjectMatch = this.selectedSubjectIds.includes(e.subjectId);
       // Section is optional — if not selected, match all sections
       const sectionMatch = !this.selectedSectionId || !e.sectionId || e.sectionId === this.selectedSectionId;
-      return typeMatch && yearMatch && classMatch && subjectMatch && sectionMatch;
+      return nameMatch && yearMatch && classMatch && subjectMatch && sectionMatch;
     });
 
     if (matchingExams.length === 0) {

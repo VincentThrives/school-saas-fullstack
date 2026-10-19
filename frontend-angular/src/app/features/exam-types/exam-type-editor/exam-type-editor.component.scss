@@ -1,0 +1,574 @@
+.ete-container {
+  padding: 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.loading-container {
+  display: flex; justify-content: center;
+  padding: 60px 0;
+}
+
+.ete-card {
+  padding: 18px 20px;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+  margin-bottom: 14px;
+}
+
+.section-hd {
+  margin: 0 0 10px;
+  font-size: 13px; font-weight: 700; color: #374151;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 14px;
+
+  .span-2 { grid-column: span 2; }
+  .span-3 { grid-column: span 3; }
+  .pass-pct-field { grid-column: span 1; }
+  .pass-pct-sync {
+    grid-column: span 2;
+    display: flex;
+    align-items: flex-start;
+    padding-top: 4px;
+  }
+}
+
+@media (max-width: 720px) {
+  .field-grid { grid-template-columns: 1fr; }
+  .field-grid .span-2, .field-grid .span-3 { grid-column: span 1; }
+}
+
+/* ── Presets ─────────────────────────────────────────────────── */
+.presets-card {
+  padding: 14px 18px;
+  background: linear-gradient(90deg, #fffaf0, #fff);
+  border: 1px dashed #f59e0b;
+}
+
+.presets-head {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-bottom: 10px;
+
+  .ic { color: #c7962f; font-size: 22px; width: 22px; height: 22px; margin-top: 2px; }
+  strong { display: block; font-size: 14px; color: #92400e; }
+  .sub   { display: block; font-size: 12.5px; color: #6b7280; margin-top: 2px; }
+}
+
+.presets-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  button mat-icon { margin-right: 4px; color: #c7962f; }
+}
+
+/* ── Slots ───────────────────────────────────────────────────── */
+.slots-hd-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 8px;
+  .slot-add-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .slot-add-btns button { font-size: 12.5px; }
+}
+
+/* ── Grand-total scope picker ────────────────────────────────── */
+.scope-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  margin: 10px 0 12px;
+  padding: 10px 14px;
+  background: #f5f3ff;
+  border: 1px dashed #c4b5fd;
+  border-radius: 10px;
+
+  .ic { color: #7c3aed; font-size: 20px; width: 20px; height: 20px; }
+  .scope-label {
+    font-size: 12.5px; font-weight: 700; color: #5b21b6;
+    letter-spacing: .3px; text-transform: uppercase;
+  }
+
+  .scope-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .scope-chip {
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 4px 12px;
+    min-height: 30px;
+
+    &.active {
+      background: #7c3aed !important;
+      color: #fff !important;
+      border-color: #7c3aed !important;
+    }
+  }
+}
+
+.slots-empty {
+  text-align: center;
+  padding: 24px;
+  border: 1px dashed #e5e7eb;
+  border-radius: 10px;
+  color: #6b7280;
+
+  mat-icon { font-size: 40px; width: 40px; height: 40px; color: #d1d5db; }
+  p { margin: 6px 0 0; font-size: 13px; }
+}
+
+.slots-accordion {
+  display: block;
+}
+
+.slot-panel {
+  border: 1px solid #e5e7eb !important;
+  border-radius: 10px !important;
+  margin-bottom: 8px !important;
+  box-shadow: none !important;
+
+  ::ng-deep .mat-expansion-panel-header { padding: 0 14px; }
+}
+
+.slot-panel-title {
+  display: flex; align-items: center; gap: 8px;
+  overflow: hidden;
+  flex-wrap: nowrap;
+  min-width: 0;
+
+  > * { flex-shrink: 0; }
+
+  .slot-kind {
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px; font-weight: 800; letter-spacing: .3px;
+    line-height: 1.4;
+  }
+  .slot-name {
+    font-weight: 700; color: #111827;
+    font-size: 13.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .slot-marks {
+    background: #f3f4f6; color: #4b5563;
+    padding: 2px 8px; border-radius: 6px;
+    font-size: 12px; font-weight: 700;
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+  .slot-badge {
+    background: #eef2ff; color: #4338ca;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 700;
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+}
+
+/* Reallocate the panel header's internal flex so the title area (which holds
+   the kind + name + marks + badges) grows to fit instead of defaulting to
+   Material's 3:2 split that squeezes everything into 60 % of the row. */
+::ng-deep .slot-panel .mat-expansion-panel-header {
+  padding-right: 8px;
+}
+::ng-deep .slot-panel .mat-expansion-panel-header-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: 12px;
+}
+::ng-deep .slot-panel .mat-expansion-panel-header-description {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  align-items: center;
+  margin-right: 0;
+}
+
+.term-hint { color: #9ca3af; font-size: 12px; }
+
+.row-actions {
+  display: flex; gap: 0; margin-left: auto;
+  button { width: 34px; height: 34px; line-height: 34px; }
+  mat-icon { font-size: 18px; }
+}
+
+.slot-body { padding: 8px 4px 4px; }
+.slot-divider { margin: 12px 0 !important; }
+
+/* ── Phase 2 badges on slot title ─────────────────────────────── */
+.comp-badge { background: #ecfdf5 !important; color: #047857 !important; }
+.pull-badge { background: #fef3c7 !important; color: #92400e !important; }
+.off-badge  { background: #fee2e2 !important; color: #991b1b !important; }
+
+/* ── Clone-to-siblings row ───────────────────────────────────── */
+.clone-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 10px 0;
+  padding: 10px 14px;
+  background: #f0f9ff;
+  border: 1px dashed #93c5fd;
+  border-radius: 8px;
+
+  button { font-size: 12.5px; font-weight: 600; }
+  button mat-icon { margin-right: 4px; color: #0369a1; }
+  .clone-hint { font-size: 12px; color: #6b7280; }
+}
+
+/* ── Grand-total toggle row ──────────────────────────────────── */
+.grand-toggle-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 6px 0 2px;
+  .hint { font-size: 12px; color: #92400e; }
+}
+
+/* ── Feature section header (components / pull) ──────────────── */
+.feature-hd {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 12px; margin-bottom: 8px;
+  strong { display: block; font-size: 13px; color: #111827; }
+  .hint { display: block; font-size: 12px; color: #6b7280; margin-top: 2px; }
+}
+
+/* ── Components editor ───────────────────────────────────────── */
+.comp-list { display: flex; flex-direction: column; gap: 6px; }
+
+/* Each component owns a compact group — header row + an inline "Add sub-part"
+   affordance. Only expands when actual sub-parts are present. */
+.comp-group {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: #fafafa;
+}
+.comp-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 32px;
+  gap: 6px;
+  align-items: center;
+}
+.comp-footer {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* Sub-part affordance — inline next to the component row when collapsed,
+   expands into a list when sub-parts exist. */
+.sub-comp-section {
+  margin-top: 2px;
+}
+.sub-comp-header {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 8px; margin: 0;
+  .hint-small { font-size: 11px; color: #9ca3af; margin-right: auto; padding-left: 4px; }
+  .sub-add-btn {
+    font-size: 11px; min-height: 24px; line-height: 24px; padding: 0 8px;
+    color: #4b5563;
+  }
+  .sub-add-btn mat-icon { font-size: 14px; width: 14px; height: 14px; }
+}
+.sub-comp-list {
+  display: flex; flex-direction: column; gap: 3px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed #e5e7eb;
+}
+.sub-comp-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 28px;
+  gap: 4px;
+  align-items: center;
+  padding-left: 12px;
+}
+.sub-sum-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin: 2px 0 0 12px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #ecfdf5; color: #047857;
+  font-size: 10.5px; font-weight: 700;
+
+  .ok-icon  { color: #047857; font-size: 13px; width: 13px; height: 13px; }
+  .bad-icon { color: #b91c1c; font-size: 13px; width: 13px; height: 13px; }
+
+  &.bad { background: #fee2e2; color: #991b1b; }
+}
+.hint-small { font-size: 11px; color: #9ca3af; }
+
+/* Compact comp-row + sub-comp-row. Only tweaks the INFIX vertical padding
+   (safe — the outlined fieldset's label notch is in .mdc-notched-outline
+   which sits outside the infix). The horizontal padding on
+   .mat-mdc-text-field-wrapper stays at the Material default so the notch
+   lines up with the label text and the border no longer runs through
+   "Component" / "Label". */
+::ng-deep .comp-row .mat-mdc-form-field,
+::ng-deep .sub-comp-row .mat-mdc-form-field {
+  width: 100%;
+  .mat-mdc-form-field-infix {
+    min-height: 36px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    width: auto;
+  }
+  input.mat-mdc-input-element { font-size: 13px; padding: 0; }
+  .mat-mdc-select-value { font-size: 13px; }
+  .mat-mdc-select-arrow-wrapper { height: 20px; }
+}
+.sum-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #ecfdf5; color: #047857;
+  font-size: 12px; font-weight: 700;
+
+  .ok-icon  { color: #047857; font-size: 16px; width: 16px; height: 16px; }
+  .bad-icon { color: #b91c1c; font-size: 16px; width: 16px; height: 16px; }
+
+  &.bad { background: #fee2e2; color: #991b1b; }
+}
+
+/* ── Pull-forward read-only "Grand total contribution" tile ──── */
+.pull-total-stat {
+  display: flex; flex-direction: column; align-items: flex-start;
+  justify-content: center;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+
+  .k { font-size: 11px; color: #047857; letter-spacing: .3px; text-transform: uppercase; font-weight: 700; }
+  .v { font-size: 24px; color: #065f46; margin-top: 2px; }
+  .sub { font-size: 11.5px; color: #065f46; opacity: .75; margin-top: 2px; }
+}
+
+/* ── Pull-forward editor ─────────────────────────────────────── */
+.pull-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px 12px;
+
+  .span-2 { grid-column: span 2; }
+}
+@media (max-width: 720px) {
+  .pull-grid { grid-template-columns: 1fr; .span-2 { grid-column: span 1; } }
+}
+
+.pull-formula {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 12px;
+  background: #f0fdf4; border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  font-size: 13px; color: #065f46;
+
+  .ic { color: #047857; font-size: 18px; width: 18px; height: 18px; }
+  strong { color: #065f46; }
+
+  .src-chips {
+    display: inline-flex; gap: 4px; margin-left: 6px;
+    mat-chip {
+      background: #e0f2fe !important; color: #0369a1 !important;
+      font-size: 11px !important; min-height: 22px !important;
+    }
+  }
+
+  &.bad {
+    background: #fef2f2; border-color: #fecaca; color: #991b1b;
+    .ic.bad-icon { color: #b91c1c; }
+    strong { color: #991b1b; }
+  }
+}
+
+/* ── Per-slot subject table ──────────────────────────────────── */
+.subjects-hd {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
+
+  strong { display: block; font-size: 13px; color: #111827; }
+  .hint { display: block; font-size: 12px; color: #6b7280; margin-top: 2px; }
+
+  .subjects-actions {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    .add-subject { width: 180px; margin: 0; }
+    button { font-size: 12.5px; }
+    button mat-icon { font-size: 18px; margin-right: 2px; }
+  }
+
+  /* Compact the "+ Add subject" dropdown so it matches the subject-row
+     inputs (~34px tall instead of mat-form-field's default ~56px). */
+  ::ng-deep .add-subject.mat-mdc-form-field {
+    .mat-mdc-form-field-infix {
+      min-height: 32px;
+      padding-top: 6px;
+      padding-bottom: 6px;
+    }
+    .mat-mdc-form-field-subscript-wrapper { display: none; }
+    .mdc-floating-label { top: 18px; }
+    .mat-mdc-select-value { font-size: 13px; }
+    .mat-mdc-select-arrow-wrapper { height: 20px; }
+  }
+}
+
+.subject-list {
+  display: flex; flex-direction: column; gap: 0;
+  margin-top: 4px;
+
+  .subject-row {
+    display: grid;
+    grid-template-columns: 2fr 68px 68px 68px 36px;
+    gap: 6px;
+    align-items: center;
+    padding: 0;
+
+    &.header-row {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      padding: 4px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .col-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #111827;
+      display: flex; align-items: center; gap: 6px;
+      line-height: 1.2;
+
+      .row-tag {
+        background: #fef3c7;
+        color: #92400e;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 999px;
+      }
+    }
+    .col-num { margin: 0; }
+
+    .col-x button {
+      width: 32px; height: 32px; line-height: 32px;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    }
+  }
+
+  /* Pull is on → one extra editable Pulled column + a read-only Total
+     column, so six slots in the grid (name, raw, weighted, pulled, total,
+     pass, remove). */
+  &.with-pull .subject-row {
+    grid-template-columns: 2fr 68px 68px 68px 60px 68px 36px;
+  }
+
+  /* Read-only Total cell — same baseline as the inputs but no border. */
+  .col-total {
+    font-size: 13px;
+    font-weight: 600;
+    color: #065f46;
+    background: #ecfdf5;
+    border-radius: 6px;
+    padding: 6px 4px;
+    text-align: center;
+    line-height: 20px;
+  }
+
+  /* Compact mat-form-field for the subject table — strips the vertical
+     padding + the subscript line so each row sits in ~36px instead of
+     ~56px. Only scoped to .subject-list so other form fields on the
+     page stay at their default density. */
+  ::ng-deep .subject-row .mat-mdc-form-field {
+    width: 100%;
+    .mat-mdc-form-field-infix {
+      min-height: 32px;
+      padding-top: 6px;
+      padding-bottom: 6px;
+    }
+    .mat-mdc-form-field-subscript-wrapper { display: none; }
+    .mdc-notched-outline__notch { border-width: 1px; }
+    input.mat-mdc-input-element {
+      font-size: 13px;
+      padding: 0;
+    }
+  }
+}
+
+/* Strip the up/down spinner arrows from every number input in the editor —
+   they chew ~16px off narrow cells and the user usually types the value
+   directly. Firefox needs the field appearance override; WebKit/Blink
+   needs the pseudo-element rule. */
+::ng-deep input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+}
+
+.subject-empty {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #f9fafb;
+  border: 1px dashed #e5e7eb;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: #6b7280;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; color: #9ca3af; margin-top: 1px; }
+}
+
+.opt-tag {
+  color: #92400e;
+  font-size: 11px;
+  margin-left: 6px;
+}
+.type-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.opt-scope {
+  color: #6b7280;
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+/* (Subject-level overrides styles removed — the overrides UI collapsed
+   into the per-slot subject roster above.) */
+
+/* ── Totals ──────────────────────────────────────────────────── */
+.totals-card { padding: 14px; }
+.totals-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+
+  .t-cell {
+    display: flex; flex-direction: column; align-items: center;
+    .k { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .4px; }
+    .v { font-size: 22px; font-weight: 800; color: #111827; }
+    .v.grand { color: #c7962f; }
+    .sub { font-size: 11px; color: #92400e; margin-top: 2px; }
+  }
+}
+
+/* ── Footer action buttons ───────────────────────────────────── */
+.form-actions {
+  display: flex; justify-content: flex-end; gap: 10px;
+  margin-top: 8px;
+
+  .save-button {
+    background: #c7962f;
+    color: #fff;
+    font-weight: 700;
+    padding: 0 20px;
+
+    mat-icon { margin-right: 6px; }
+  }
+}
