@@ -478,6 +478,144 @@ public class ExamService {
         auditService.log("UNLOCK_MARKS", "Exam", examId, "Marks unlocked for exam: " + exam.getName());
     }
 
+    // ── Publish / Unpublish ──
+    //
+    // The Publish gate separates "teacher is still entering marks" from
+    // "results are final and visible to admins / parents". Report Cards
+    // and Class Rankings only read published=true exams, so an unfinished
+    // FA2 can't leak partial data onto a student's report card.
+
+    /**
+     * Returns the roster coverage for an exam — how many of the enrolled
+     * students have a MarkEntry (real marks OR an explicit Absent flag)
+     * vs. how many are missing. The admin's publish-confirm dialog uses
+     * these counts to decide whether to enable the Publish button.
+     *
+     * <p>Enrolled = students in (class, section) who have {@code subjectId}
+     * on their section's roster. For non-elective subjects this is just
+     * the section roster.</p>
+     */
+    public Map<String, Object> getPublishCheck(String examId) {
+        Exam exam = getExamById(examId);
+
+        // Build the enrolled roster.
+        List<com.saas.school.modules.student.model.Student> roster;
+        if (exam.getSectionId() != null && !exam.getSectionId().isBlank()) {
+            roster = studentRepository
+                    .findByClassIdAndSectionIdAndDeletedAtIsNull(exam.getClassId(), exam.getSectionId());
+        } else {
+            roster = studentRepository
+                    .findByClassIdAndDeletedAtIsNull(exam.getClassId(), org.springframework.data.domain.Pageable.unpaged())
+                    .getContent();
+        }
+        // Elective gate — a subject whose enrolledStudentIds list excludes
+        // some students shouldn't require those students to be marked.
+        if (exam.getSubjectId() != null) {
+            Subject subject = subjectRepository.findById(exam.getSubjectId()).orElse(null);
+            if (subject != null
+                    && subject.isElective()
+                    && subject.getEnrolledStudentIds() != null
+                    && !subject.getEnrolledStudentIds().isEmpty()) {
+                Set<String> allowed = new HashSet<>(subject.getEnrolledStudentIds());
+                roster = roster.stream()
+                        .filter(s -> allowed.contains(s.getStudentId()))
+                        .toList();
+            }
+        }
+        int enrolledCount = roster.size();
+
+        // Who has an entry on this exam?
+        Set<String> enteredStudentIds = new HashSet<>();
+        Set<String> absentStudentIds = new HashSet<>();
+        var batchOpt = assessmentsRepository.findByExamId(examId);
+        if (batchOpt.isPresent() && batchOpt.get().getEntries() != null) {
+            for (var entry : batchOpt.get().getEntries()) {
+                if (entry.getStudentId() == null) continue;
+                if (entry.getStatus() == StudentAssessments.AttendanceStatus.ABSENT) {
+                    absentStudentIds.add(entry.getStudentId());
+                } else {
+                    enteredStudentIds.add(entry.getStudentId());
+                }
+            }
+        }
+        // Legacy ExamMark fallback — pre-StudentAssessments data lives here.
+        for (ExamMark m : markRepository.findByExamId(examId)) {
+            if (m != null && m.getStudentId() != null) enteredStudentIds.add(m.getStudentId());
+        }
+
+        int enteredCount = 0;
+        int absentCount = 0;
+        int missingCount = 0;
+        List<String> missingStudentNames = new ArrayList<>();
+        for (var s : roster) {
+            if (enteredStudentIds.contains(s.getStudentId())) {
+                enteredCount++;
+            } else if (absentStudentIds.contains(s.getStudentId())) {
+                absentCount++;
+            } else {
+                missingCount++;
+                String fn = s.getFirstName() == null ? "" : s.getFirstName();
+                String ln = s.getLastName() == null ? "" : s.getLastName();
+                String full = (fn + " " + ln).trim();
+                if (full.isEmpty()) full = s.getAdmissionNumber() == null ? s.getStudentId() : s.getAdmissionNumber();
+                if (missingStudentNames.size() < 10) missingStudentNames.add(full);
+            }
+        }
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("examId", examId);
+        out.put("examName", exam.getName());
+        out.put("published", exam.isPublished());
+        out.put("enrolledCount", enrolledCount);
+        out.put("enteredCount", enteredCount);
+        out.put("absentCount", absentCount);
+        out.put("missingCount", missingCount);
+        out.put("canPublish", missingCount == 0 && enrolledCount > 0);
+        out.put("missingStudentNames", missingStudentNames);
+        return out;
+    }
+
+    /**
+     * Flip the Publish gate. Enforces the same coverage check as
+     * {@link #getPublishCheck} so the UI can't bypass the dialog by
+     * calling the endpoint directly. Idempotent — publishing an already-
+     * published exam is a no-op.
+     */
+    public Map<String, Object> publishExam(String examId, String userId) {
+        Exam exam = getExamById(examId);
+        if (exam.isPublished()) {
+            return getPublishCheck(examId);
+        }
+        Map<String, Object> check = getPublishCheck(examId);
+        if (!Boolean.TRUE.equals(check.get("canPublish"))) {
+            throw new BusinessException(
+                    "Cannot publish: " + check.get("missingCount")
+                    + " enrolled student(s) have no marks yet. Enter all marks (or mark Absent) first.");
+        }
+        exam.setPublished(true);
+        exam.setPublishedAt(java.time.Instant.now());
+        exam.setPublishedBy(userId);
+        examRepository.save(exam);
+        auditService.log("PUBLISH_EXAM", "Exam", examId,
+                "Published exam: " + exam.getName() + " (" + check.get("enteredCount")
+                + " entered, " + check.get("absentCount") + " absent).");
+        return getPublishCheck(examId);
+    }
+
+    public Map<String, Object> unpublishExam(String examId, String userId) {
+        Exam exam = getExamById(examId);
+        if (!exam.isPublished()) {
+            return getPublishCheck(examId);
+        }
+        exam.setPublished(false);
+        exam.setPublishedAt(null);
+        exam.setPublishedBy(null);
+        examRepository.save(exam);
+        auditService.log("UNPUBLISH_EXAM", "Exam", examId,
+                "Unpublished exam: " + exam.getName() + " (by " + userId + ").");
+        return getPublishCheck(examId);
+    }
+
     // ── Legacy ──
 
     public List<ExamMark> getStudentMarks(String studentIdOrUserId) {

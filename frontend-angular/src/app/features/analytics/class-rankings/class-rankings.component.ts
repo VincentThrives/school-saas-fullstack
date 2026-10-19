@@ -75,6 +75,19 @@ export class ClassRankingsComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Read the Publish workflow setting first — determines whether the
+    // Exam dropdown decorates Draft-only names with a tag and whether
+    // selecting one shows the "Not Published" empty state. Default off
+    // → every exam is treated as publishable, no decoration.
+    this.api.getSettings().subscribe({
+      next: (res) => {
+        this.publishWorkflowEnabled = !!(res?.data as any)?.examPublishWorkflowEnabled;
+        // Recompute if names were already derived under the default-off
+        // assumption, now that we know the real setting.
+        if (this.selectedClassId) this.populateExamNames();
+      },
+    });
+
     // forkJoin both lookups so we can default the AY to "current" only
     // ONCE both arrived. Previously these subscribed separately and the
     // page sat with empty Exam Type / Class / Section / Subjects
@@ -188,7 +201,12 @@ export class ClassRankingsComponent implements OnInit {
     if (this.examNames.length === 0) return;
     if (this.isFirstLoad) {
       this.isFirstLoad = false;
-      this.selectedExamNames = [this.examNames[0]];
+      // Prefer the first PUBLISHED name on first load so the rankings
+      // table lands populated. Falls back to the first available name
+      // (including Drafts) when nothing is published yet — the UI will
+      // show the "Not Published" empty state.
+      const firstPublished = this.examNames.find(n => !this.draftOnlyExamNames.has(n));
+      this.selectedExamNames = [firstPublished || this.examNames[0]];
       this.onExamNameChange();
       return;
     }
@@ -226,26 +244,60 @@ export class ClassRankingsComponent implements OnInit {
    * with section-specific exams (rare but happens — half-day grades that
    * skip a paper) will see a narrower list when a section is chosen.
    */
+  /** Names in the dropdown that have ZERO published exams in the current
+   *  scope. Rendered with a "Draft" tag so admins see "yes FA2 exists
+   *  but it isn't published yet" instead of silently missing from the
+   *  list and wondering where it went. Only populated when the school
+   *  opted in to the Publish workflow. */
+  draftOnlyExamNames = new Set<string>();
+  /** True when the school opted in to the Publish gate in Settings →
+   *  Exams. Off by default. */
+  publishWorkflowEnabled = false;
+
   private populateExamNames(): void {
     if (!this.selectedAcademicYearId || !this.selectedClassId) {
       this.examNames = [];
+      this.draftOnlyExamNames = new Set();
       return;
     }
+    // Match ALL exams in scope (published OR draft) so unpublished names
+    // still appear in the dropdown — hiding them silently confused admins
+    // who wondered why an exam they just created wasn't selectable.
     const matching = this.allExams.filter((e: any) => {
       if (e.academicYearId !== this.selectedAcademicYearId) return false;
       if (e.classId !== this.selectedClassId) return false;
-      // Section filter is permissive: if no section is picked OR the exam
-      // wasn't tagged with one, treat it as a match. Avoids hiding exams
-      // that were scheduled at the class level rather than per-section.
       if (this.selectedSectionId && e.sectionId && e.sectionId !== this.selectedSectionId) return false;
       return !!this.examNamePrefix(e);
     });
-    const names = new Set<string>();
-    matching.forEach((e: any) => { names.add(this.examNamePrefix(e)); });
-    // Natural-ish sort so FA1 / FA2 / FA10 land in numeric order rather
-    // than lexicographic (FA1, FA10, FA2 …).
-    this.examNames = Array.from(names).sort((a, b) =>
+    const publishedNames = new Set<string>();
+    const allNames = new Set<string>();
+    matching.forEach((e: any) => {
+      const n = this.examNamePrefix(e);
+      allNames.add(n);
+      if (e.published) publishedNames.add(n);
+    });
+    // Draft-only = name exists but no exam under that name is published.
+    // Suppress when the school hasn't opted in to the Publish gate —
+    // every exam is treated as publishable in that mode so the tag
+    // would be noise.
+    this.draftOnlyExamNames = this.publishWorkflowEnabled
+      ? new Set(Array.from(allNames).filter(n => !publishedNames.has(n)))
+      : new Set();
+    this.examNames = Array.from(allNames).sort((a, b) =>
       a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+  }
+
+  /** True when every exam under this name in the current scope is a Draft. */
+  isExamNameDraftOnly(name: string): boolean {
+    return this.draftOnlyExamNames.has(name);
+  }
+
+  /** True when the admin picked an exam whose data is all Draft — the
+   *  rankings table shows a "not published" empty state instead of
+   *  silently nothing. */
+  get selectedIsDraftOnly(): boolean {
+    return this.selectedExamNames.length > 0
+      && this.selectedExamNames.every(n => this.draftOnlyExamNames.has(n));
   }
 
   onExamNameChange(): void {
@@ -310,6 +362,10 @@ export class ClassRankingsComponent implements OnInit {
     // picking "FA1" only aggregates FA1 subject rows, not everything
     // the school ever labelled FA.
     const matchingExams = this.allExams.filter((e: any) => {
+      // Published gate — only honor when the school opted in to the
+      // Publish workflow. With the setting off (default) every exam
+      // contributes immediately, matching pre-publish behavior.
+      if (this.publishWorkflowEnabled && !e.published) return false;
       const nameMatch = this.selectedExamNames.includes(this.examNamePrefix(e));
       const yearMatch = e.academicYearId === this.selectedAcademicYearId;
       const classMatch = e.classId === this.selectedClassId;

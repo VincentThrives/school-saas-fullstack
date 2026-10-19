@@ -85,6 +85,11 @@ export class ExamsListComponent implements OnInit {
   // one of their (classId, sectionId, subjectId) assignment tuples are shown.
   // If no precise tuples are available, fall back to a subjectId-only match.
   isTeacherMode = false;
+  /** True when the school opted in to the Publish workflow in Settings
+   *  → Exams. Hides Publish/Draft chips and the Publish/Unpublish menu
+   *  items when off so schools that don't want the gate see the lean
+   *  pre-publish UI. */
+  publishWorkflowEnabled = false;
   private teacherTuples = new Set<string>();
   private teacherSubjectIds = new Set<string>();
   private teacherProfileLoaded = false;
@@ -128,6 +133,14 @@ export class ExamsListComponent implements OnInit {
 
   ngOnInit(): void {
     this.isTeacherMode = this.auth.currentRole === UserRole.TEACHER;
+
+    // One-shot read of the school's Exam settings so Publish/Draft UI
+    // and the Publish menu item only appear for schools that opted in.
+    this.api.getSettings().subscribe({
+      next: (res) => {
+        this.publishWorkflowEnabled = !!(res?.data as any)?.examPublishWorkflowEnabled;
+      },
+    });
 
     // Restore prior filter selection from URL query params if the
     // admin is returning from Enter Marks / Results. Snapshot is fine
@@ -533,6 +546,76 @@ export class ExamsListComponent implements OnInit {
       },
       error: () => {
         this.snackBar.open('Failed to unlock marks', 'Close', { duration: 3000 });
+      },
+    });
+  }
+
+  // ── Publish dialog state ───────────────────────────────────────
+  // The exam-row Publish action fetches roster coverage first and shows
+  // a dialog with the numbers. If every enrolled student has an entry
+  // (marks OR Absent), the Publish button goes live. Otherwise it's
+  // disabled and the dialog lists up to 10 missing names so the admin
+  // knows where to go back to Enter Marks.
+  publishDialogOpen = false;
+  publishDialogLoading = false;
+  publishDialogExam: any = null;
+  publishDialogCheck: any = null;
+
+  openPublishDialog(exam: any): void {
+    const examId = exam.examId || exam.id;
+    this.publishDialogExam = exam;
+    this.publishDialogCheck = null;
+    this.publishDialogLoading = true;
+    this.publishDialogOpen = true;
+    this.api.publishCheck(examId).subscribe({
+      next: (res) => {
+        this.publishDialogCheck = res.data;
+        this.publishDialogLoading = false;
+      },
+      error: (err) => {
+        this.publishDialogLoading = false;
+        this.publishDialogOpen = false;
+        this.snackBar.open(err?.error?.message || 'Failed to check roster coverage', 'Close', { duration: 3000 });
+      },
+    });
+  }
+
+  closePublishDialog(): void {
+    this.publishDialogOpen = false;
+    this.publishDialogExam = null;
+    this.publishDialogCheck = null;
+  }
+
+  confirmPublish(): void {
+    if (!this.publishDialogExam || !this.publishDialogCheck?.canPublish) return;
+    const examId = this.publishDialogExam.examId || this.publishDialogExam.id;
+    this.publishDialogLoading = true;
+    this.api.publishExam(examId).subscribe({
+      next: () => {
+        this.publishDialogLoading = false;
+        this.closePublishDialog();
+        this.snackBar.open('Exam published — now visible on Report Cards + Class Rankings', 'Close', { duration: 4000 });
+        this.loadExams();
+      },
+      error: (err) => {
+        this.publishDialogLoading = false;
+        this.snackBar.open(err?.error?.message || 'Failed to publish exam', 'Close', { duration: 4000 });
+      },
+    });
+  }
+
+  unpublishExam(exam: any): void {
+    const examId = exam.examId || exam.id;
+    if (!confirm('Unpublish this exam?\n\nResults will disappear from Report Cards and Class Rankings until you publish again.')) {
+      return;
+    }
+    this.api.unpublishExam(examId).subscribe({
+      next: () => {
+        this.snackBar.open('Exam unpublished — hidden from reports', 'Close', { duration: 3000 });
+        this.loadExams();
+      },
+      error: (err) => {
+        this.snackBar.open(err?.error?.message || 'Failed to unpublish', 'Close', { duration: 3000 });
       },
     });
   }

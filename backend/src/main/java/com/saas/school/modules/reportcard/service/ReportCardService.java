@@ -97,6 +97,22 @@ public class ReportCardService {
     @Autowired
     private com.saas.school.modules.academicyear.repository.AcademicYearRepository academicYearRepository;
 
+    @Autowired
+    private com.saas.school.modules.settings.repository.SchoolSettingsRepository schoolSettingsRepository;
+
+    /** True when the current tenant has turned ON the per-exam Publish
+     *  gate in Settings → Exams. Default (and legacy / no-settings-row)
+     *  is false, which bypasses the published filter entirely so results
+     *  appear on reports as soon as marks are entered — matches the
+     *  pre-publish-workflow behavior schools are used to. */
+    private boolean isPublishWorkflowEnabled() {
+        String tenantId = com.saas.school.config.mongodb.TenantContext.getTenantId();
+        if (tenantId == null || tenantId.isBlank()) return false;
+        return schoolSettingsRepository.findByTenantId(tenantId)
+                .map(s -> s.isExamPublishWorkflowEnabled())
+                .orElse(false);
+    }
+
     /**
      * Strip the subject suffix ("· Kannada", "— Math", "- Physics") from
      * an {@code exam.name} so sibling-subject rows collapse into the same
@@ -210,6 +226,14 @@ public class ReportCardService {
                     classId, studentSectionId, academicYearId);
         } else {
             exams = examRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
+        }
+
+        // Publish-gate — only honor when the school turned it ON in
+        // Settings → Exams. Schools that don't want the formal publish
+        // step see every exam immediately (every exam is treated as
+        // published). This is the default.
+        if (isPublishWorkflowEnabled()) {
+            exams = exams.stream().filter(Exam::isPublished).collect(Collectors.toList());
         }
 
         if (examType != null && !examType.isEmpty()) {

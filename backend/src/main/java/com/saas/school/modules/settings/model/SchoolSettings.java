@@ -34,6 +34,20 @@ public class SchoolSettings {
     private Integer sessionEndMonth;          // 1..12
     private List<GradingBand> gradingScale = new ArrayList<>();
 
+    /**
+     * Exams — per-tenant Publish gate.
+     *
+     * <p>When true, Report Cards and Class Rankings only read exams
+     * marked {@code published == true}. Admins must click Publish from
+     * the Exams page after they've entered marks for everyone.</p>
+     *
+     * <p>When false (default), every exam is treated as published —
+     * results appear on reports as soon as marks are entered. Keeps
+     * schools that don't want a formal "ready to share" step from
+     * seeing extra Draft/Publish UI they'll never use.</p>
+     */
+    private boolean examPublishWorkflowEnabled;
+
     // Fees
     private int feeGracePeriodDays;
     private String currencyCode;              // e.g. INR, USD
@@ -92,6 +106,9 @@ public class SchoolSettings {
 
     public int getDefaultPassingMarksPercent() { return defaultPassingMarksPercent; }
     public void setDefaultPassingMarksPercent(int defaultPassingMarksPercent) { this.defaultPassingMarksPercent = defaultPassingMarksPercent; }
+
+    public boolean isExamPublishWorkflowEnabled() { return examPublishWorkflowEnabled; }
+    public void setExamPublishWorkflowEnabled(boolean examPublishWorkflowEnabled) { this.examPublishWorkflowEnabled = examPublishWorkflowEnabled; }
 
     public int getFeeGracePeriodDays() { return feeGracePeriodDays; }
     public void setFeeGracePeriodDays(int feeGracePeriodDays) { this.feeGracePeriodDays = feeGracePeriodDays; }

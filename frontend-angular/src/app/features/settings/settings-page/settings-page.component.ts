@@ -62,6 +62,7 @@ export class SettingsPageComponent implements OnInit {
     { key: 'profile',    label: 'School Profile',    icon: 'apartment'   },
     { key: 'academic',   label: 'Academic',          icon: 'school'      },
     { key: 'attendance', label: 'Attendance',        icon: 'event_note'  },
+    { key: 'exams',      label: 'Exams',             icon: 'assignment'  },
     { key: 'fees',       label: 'Fees',              icon: 'payments'    },
     { key: 'ids',        label: 'ID Formats',        icon: 'badge'       },
     { key: 'security',   label: 'Security',          icon: 'security'    },
@@ -116,6 +117,16 @@ export class SettingsPageComponent implements OnInit {
     lateThresholdMinutes: 15 as number,
     schoolStartTime: '' as string,
     schoolEndTime: '' as string,
+  };
+
+  // Exams
+  //   publishWorkflowEnabled — turn on the per-exam Publish gate so marks
+  //   stay hidden from Report Cards + Class Rankings until an admin
+  //   explicitly publishes. Default OFF so existing schools keep the old
+  //   "marks appear as soon as they're entered" behavior; schools that
+  //   want the gate opt in.
+  examsDraft = {
+    publishWorkflowEnabled: false as boolean,
   };
 
   // Fees
@@ -216,6 +227,10 @@ export class SettingsPageComponent implements OnInit {
       schoolEndTime: s.schoolEndTime ?? '15:30',
     };
 
+    this.examsDraft = {
+      publishWorkflowEnabled: !!s.examPublishWorkflowEnabled,
+    };
+
     this.feesDraft = {
       currencyCode: s.currencyCode ?? 'INR',
       currencySymbol: s.currencySymbol ?? '₹',
@@ -305,6 +320,9 @@ export class SettingsPageComponent implements OnInit {
       lateThresholdMinutes: this.attendanceDraft.lateThresholdMinutes,
       schoolStartTime: this.attendanceDraft.schoolStartTime,
       schoolEndTime: this.attendanceDraft.schoolEndTime,
+
+      // Exams
+      examPublishWorkflowEnabled: this.examsDraft.publishWorkflowEnabled,
 
       // Fees
       currencyCode: this.feesDraft.currencyCode,

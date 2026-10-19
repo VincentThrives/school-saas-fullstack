@@ -200,6 +200,20 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
+    // One-shot read of the Publish workflow setting. Determines whether
+    // we filter the Exam dropdown by published-only and show the "Not
+    // Published" empty state, or just show every exam like the pre-
+    // publish-workflow behavior.
+    this.api.getSettings().subscribe({
+      next: (res) => {
+        this.publishWorkflowEnabled = !!(res?.data as any)?.examPublishWorkflowEnabled;
+        // If the settings load lands AFTER a scope-change already fired
+        // (unlikely but possible on fast nav), recompute so the Draft
+        // tags appear.
+        if (this.selectedClassId) this.recomputeExamNames();
+      },
+    });
+
     // Restore prior filter selection from URL query params if the
     // admin is returning from an individual student's report card.
     // Snapshot is fine — we only care about the values present the
@@ -296,20 +310,54 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
    * If the admin hasn't picked a class yet, or the scope has no conducted
    * exams, the list is empty.
    */
+  /** Exam names in the dropdown whose data is still Draft (no exam under
+   *  that name is published). Rendered with a "Draft" tag so admins see
+   *  the exam exists but needs publishing, instead of it silently
+   *  missing from the list. Only populated when the school opted in to
+   *  the Publish workflow (otherwise every exam is treated as published
+   *  and this set stays empty). */
+  draftOnlyExamNames = new Set<string>();
+  /** True when the school opted in to the Publish gate in Settings →
+   *  Exams. Off by default — the Report Cards page then treats every
+   *  exam as publishable (no Draft tags, no "Not Published" state). */
+  publishWorkflowEnabled = false;
+
+  isExamNameDraftOnly(name: string): boolean {
+    return this.draftOnlyExamNames.has(name);
+  }
+
+  get selectedIsDraftOnly(): boolean {
+    return !!this.selectedExamName && this.draftOnlyExamNames.has(this.selectedExamName);
+  }
+
   private recomputeExamNames(): void {
     if (!this.selectedClassId) {
       this.examNames = [];
+      this.draftOnlyExamNames = new Set();
       return;
     }
+    // Match ALL exams in scope (published OR draft) so unpublished names
+    // still appear in the dropdown — hiding them silently confused
+    // admins ("where did my FA2 go?"). Draft ones get a visible tag.
     let scoped = this.allExams.filter((e: any) => e.classId === this.selectedClassId);
     if (this.selectedSectionId) {
       scoped = scoped.filter((e: any) => e.sectionId === this.selectedSectionId);
     }
-    const names = new Set<string>();
+    const publishedNames = new Set<string>();
+    const allNames = new Set<string>();
     scoped.forEach((e: any) => {
       const prefix = this.examNamePrefix(e);
-      if (prefix) names.add(prefix);
+      if (!prefix) return;
+      allNames.add(prefix);
+      if (e.published) publishedNames.add(prefix);
     });
+    // Only flag Draft-only names when the school opted in to the gate.
+    // If the setting is off, every exam is treated as publishable, so
+    // the Draft tag + Not-Published state would be noise.
+    this.draftOnlyExamNames = this.publishWorkflowEnabled
+      ? new Set(Array.from(allNames).filter(n => !publishedNames.has(n)))
+      : new Set();
+    const names = allNames;
     // Natural-ish sort so FA1 / FA2 / FA10 land in numeric order rather
     // than lexicographic (FA1, FA10, FA2 …).
     this.examNames = Array.from(names).sort((a, b) =>
@@ -459,6 +507,17 @@ export class ReportCardGeneratorComponent implements OnInit, AfterViewInit {
 
   loadReportCards(): void {
     if (!this.selectedClassId || !this.selectedAcademicYearId || !this.selectedExamName) return;
+    // Skip the backend call entirely for Draft-only exams — the bulk
+    // endpoint would still return a row per student (with empty subject
+    // data because the exam is unpublished), and the table would read
+    // as "every student scored 0 / —". Clearing the list here lets the
+    // "Not Published" empty state render in place of a confusing table.
+    if (this.selectedIsDraftOnly) {
+      this.reportCards = [];
+      this.setFilteredCards([]);
+      this.isLoading = false;
+      return;
+    }
     this.isLoading = true;
     this.selection.clear();
 

@@ -1153,6 +1153,30 @@ export class ApiService {
     return this.http.patch<ApiResponse<any>>(`${this.API}/exams/${examId}/unlock-marks`, null);
   }
 
+  /** Roster coverage for the Publish dialog — enrolled vs entered vs
+   *  absent vs missing counts, plus a canPublish flag. */
+  publishCheck(examId: string): Observable<ApiResponse<{
+    examId: string;
+    examName: string;
+    published: boolean;
+    enrolledCount: number;
+    enteredCount: number;
+    absentCount: number;
+    missingCount: number;
+    canPublish: boolean;
+    missingStudentNames: string[];
+  }>> {
+    return this.http.get<ApiResponse<any>>(`${this.API}/exams/${examId}/publish-check`);
+  }
+
+  publishExam(examId: string): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.API}/exams/${examId}/publish`, null);
+  }
+
+  unpublishExam(examId: string): Observable<ApiResponse<any>> {
+    return this.http.post<ApiResponse<any>>(`${this.API}/exams/${examId}/unpublish`, null);
+  }
+
   // Student marks
   getMyMarks(academicYearId?: string): Observable<ApiResponse<any[]>> {
     let params = new HttpParams();

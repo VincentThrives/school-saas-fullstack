@@ -181,4 +181,32 @@ public class ExamController {
         examService.unlockMarks(examId);
         return ResponseEntity.ok(ApiResponse.success(null, "Marks unlocked"));
     }
+
+    /** Roster-coverage report for the Publish dialog — how many of the
+     *  enrolled students have marks entered, how many are flagged Absent,
+     *  how many are still missing, and whether the exam can be published. */
+    @GetMapping("/{examId}/publish-check")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','TEACHER')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> publishCheck(@PathVariable String examId) {
+        return ResponseEntity.ok(ApiResponse.success(examService.getPublishCheck(examId)));
+    }
+
+    /** Publish the exam — results become visible on Report Cards + Class
+     *  Rankings. Rejects with 400 if any enrolled student still has no
+     *  entry (either marks or Absent). */
+    @PostMapping("/{examId}/publish")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> publish(
+            @PathVariable String examId,
+            @AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(ApiResponse.success(examService.publishExam(examId, userId), "Exam published"));
+    }
+
+    @PostMapping("/{examId}/unpublish")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> unpublish(
+            @PathVariable String examId,
+            @AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(ApiResponse.success(examService.unpublishExam(examId, userId), "Exam unpublished"));
+    }
 }

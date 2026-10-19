@@ -67,6 +67,20 @@ public class Exam {
     private String examTypeSchemeId;
     private String slotKey;
 
+    /**
+     * Publish gate. Report Cards + Class Rankings only consider exams
+     * where {@code published == true}. Default false means a newly
+     * created exam stays "draft" — the admin enters marks, confirms the
+     * roster is covered (every student has a row, marks or Absent), then
+     * explicitly clicks Publish to make the results visible on the
+     * reporting surfaces. Keeps partially-graded data from leaking into
+     * student report cards and the class leaderboard.
+     */
+    private boolean published;
+    private Instant publishedAt;
+    /** User id of the admin / teacher who flipped the Publish gate. */
+    private String publishedBy;
+
     @CreatedDate
     private Instant createdAt;
 
@@ -267,6 +281,15 @@ public class Exam {
 
     public String getSlotKey() { return slotKey; }
     public void setSlotKey(String slotKey) { this.slotKey = slotKey; }
+
+    public boolean isPublished() { return published; }
+    public void setPublished(boolean published) { this.published = published; }
+
+    public Instant getPublishedAt() { return publishedAt; }
+    public void setPublishedAt(Instant publishedAt) { this.publishedAt = publishedAt; }
+
+    public String getPublishedBy() { return publishedBy; }
+    public void setPublishedBy(String publishedBy) { this.publishedBy = publishedBy; }
 
     /** True when this exam carries 2+ components in one doc (combined-mode). */
     public boolean isCombined() {

@@ -43,7 +43,10 @@
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Exam *</mat-label>
         <mat-select [(ngModel)]="selectedExamName" (selectionChange)="onExamNameChange()" [disabled]="!selectedClassId" required>
-          <mat-option *ngFor="let name of examNames" [value]="name">{{ name }}</mat-option>
+          <mat-option *ngFor="let name of examNames" [value]="name">
+            {{ name }}
+            <span class="opt-draft" *ngIf="isExamNameDraftOnly(name)">· Draft</span>
+          </mat-option>
         </mat-select>
         <mat-hint *ngIf="!selectedClassId">Select a class first</mat-hint>
         <mat-hint *ngIf="selectedClassId && examNames.length === 0">
@@ -107,7 +110,7 @@
       <span class="loading-overlay__label">Loading report cards…</span>
     </div>
 
-    <div class="table-header">
+    <div class="table-header" *ngIf="!selectedIsDraftOnly">
       <div class="header-left">
         <span class="selected-count" *ngIf="selection.selected.length > 0">
           {{ selection.selected.length }} selected
@@ -127,7 +130,7 @@
     </div>
 
     <!-- Mobile cards (< 600px) -->
-    <div class="responsive-cards">
+    <div class="responsive-cards" *ngIf="!selectedIsDraftOnly">
       <!-- Select-all bar mirrors the desktop table header checkbox so admins
            can bulk-select on phones too. -->
       <div class="r-select-all" *ngIf="filteredReportCards.length > 0">
@@ -173,8 +176,10 @@
     </div>
 
     <!-- Table — data + pagination driven by MatTableDataSource so only
-         the current page actually renders. -->
-    <table mat-table [dataSource]="dataSource" class="report-table responsive-table">
+         the current page actually renders. Hidden when the selected
+         exam is Draft-only so the "Not Published" empty state has the
+         card to itself. -->
+    <table mat-table [dataSource]="dataSource" class="report-table responsive-table" *ngIf="!selectedIsDraftOnly">
       <!-- Checkbox -->
       <ng-container matColumnDef="select">
         <th mat-header-cell *matHeaderCellDef>
@@ -253,7 +258,7 @@
          table (via dataSource.paginator) and the mobile cards (via
          pagedRows). Select-all and Download All still operate on the
          FULL filtered set across every page. -->
-    <mat-paginator *ngIf="filteredReportCards.length > 0"
+    <mat-paginator *ngIf="filteredReportCards.length > 0 && !selectedIsDraftOnly"
                    [length]="filteredReportCards.length"
                    [pageSize]="pageSize"
                    [pageSizeOptions]="pageSizeOptions"
@@ -261,7 +266,15 @@
                    showFirstLastButtons>
     </mat-paginator>
 
-    <div class="empty-state" *ngIf="!isLoading && filteredReportCards.length === 0 && selectedClassId && selectedExamName">
+    <!-- "Not Published" state — admin picked an exam whose data is still
+         Draft. Clear path forward: go publish it from the Exams page. -->
+    <div class="empty-state empty-state--pending" *ngIf="!isLoading && filteredReportCards.length === 0 && selectedIsDraftOnly">
+      <mat-icon class="empty-icon">publish</mat-icon>
+      <p><strong>{{ selectedExamName }}</strong> isn't published yet.</p>
+      <p class="empty-sub">Open the Exams page and click <strong>Publish</strong> on the exam to see report cards here.</p>
+    </div>
+
+    <div class="empty-state" *ngIf="!isLoading && filteredReportCards.length === 0 && selectedClassId && selectedExamName && !selectedIsDraftOnly">
       <mat-icon class="empty-icon">description</mat-icon>
       <p>No report cards found for the selected filters</p>
     </div>

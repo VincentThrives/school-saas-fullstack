@@ -279,6 +279,37 @@
         </div>
       </mat-card>
 
+      <!-- ═══════════ EXAMS ═══════════ -->
+      <mat-card class="tab-card" *ngIf="!isLoading && activeTab === 'exams'">
+        <ng-container *ngTemplateOutlet="saveBar; context: {
+          title: 'Exams',
+          sub: 'Workflow rules that apply to every exam your school runs.'
+        }"></ng-container>
+
+        <h3 class="section-title">Publish workflow</h3>
+        <div class="field-grid field-grid--toggle">
+          <div class="toggle-row">
+            <mat-slide-toggle
+              [checked]="examsDraft.publishWorkflowEnabled"
+              (change)="examsDraft.publishWorkflowEnabled = $event.checked; markDirty()">
+              Require Publish before results appear
+            </mat-slide-toggle>
+            <p class="toggle-sub">
+              When ON, exams stay as <strong>Draft</strong> until an admin
+              clicks <strong>Publish</strong> from the Exams page. Report
+              Cards and Class Rankings only show results from published
+              exams, so partial / mid-grading data can't leak out.
+            </p>
+            <p class="toggle-sub">
+              When OFF, every exam is treated as published automatically
+              — results appear on reports as soon as marks are entered.
+              This is the default; turn the gate on when your school wants
+              a formal "ready to share" step.
+            </p>
+          </div>
+        </div>
+      </mat-card>
+
       <!-- ═══════════ FEES ═══════════ -->
       <mat-card class="tab-card" *ngIf="!isLoading && activeTab === 'fees'">
         <ng-container *ngTemplateOutlet="saveBar; context: {

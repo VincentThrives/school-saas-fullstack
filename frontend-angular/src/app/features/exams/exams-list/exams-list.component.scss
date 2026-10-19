@@ -111,6 +111,66 @@ $gold-dark: #B8860B;
   &:disabled { opacity: 0.4; }
 }
 
+/* Status cell — a horizontal row of compact custom pills instead of
+   bulky stacked mat-chips. Published/Draft is the primary signal (color
+   coded with a leading dot); SCHEDULED/ONGOING/etc is a smaller mini
+   pill alongside; Lock icon is a tiny tail chip. Wrap only if the cell
+   is genuinely narrow. */
+.status-stack {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  line-height: 1.5;
+  white-space: nowrap;
+
+  &__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  &--published {
+    background: #dcfce7;
+    color: #166534;
+  }
+  &--draft {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  &--locked {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 2px 6px;
+    mat-icon { font-size: 13px; width: 13px; height: 13px; line-height: 13px; }
+  }
+
+  /* Low-signal SCHEDULED / ONGOING / COMPLETED / CANCELLED badge. */
+  &--mini {
+    background: #f3f4f6;
+    color: #4b5563;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    padding: 1px 8px;
+
+    &[data-state="ongoing"]   { background: #dbeafe; color: #1e40af; }
+    &[data-state="completed"] { background: #dcfce7; color: #166534; }
+    &[data-state="cancelled"] { background: #fee2e2; color: #991b1b; }
+  }
+}
+
 .locked-chip {
   background-color: rgba(158, 158, 158, 0.12) !important;
   color: #616161 !important;
@@ -224,5 +284,199 @@ $gold-dark: #B8860B;
     flex: 0 0 40px;
     width: 40px;
     height: 40px;
+  }
+}
+
+/* Publish overlay — pin the dialog near the top of the viewport with
+   enough breathing room above for the app header (approx 64px tall),
+   so a tall dialog is never physically overlapped by the header. */
+.publish-overlay {
+  align-items: flex-start !important;
+  padding-top: 88px !important;
+  padding-bottom: 24px !important;
+}
+
+/* Publish dialog — reuses the global .delete-overlay / .delete-dialog
+   modal shell (backdrop, animations all inherited). These overrides
+   swap the red delete tint for a green publish tint, cap the dialog's
+   height so a long missing-students list doesn't push the modal past
+   the viewport, and add the stat-tile grid + ready/block message that
+   are unique to this dialog. */
+.publish-dialog {
+  width: min(560px, calc(100vw - 40px)) !important;
+  /* Overlay already pads 88 top + 24 bottom; subtract that so the
+     dialog fits inside the remaining vertical space. */
+  max-height: calc(100vh - 112px);
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  overflow: hidden !important;
+
+  /* Rewrite the shared h3::before "warning" icon → "publish" + green.
+     Also shrink the icon circle a notch so the title area isn't
+     ~130px tall before the body even starts rendering. */
+  &::before { display: none; }
+  h3 {
+    text-align: center;
+    padding-top: 66px !important;
+    font-size: 18px !important;
+    margin-bottom: 8px !important;
+    &::before {
+      content: 'publish' !important;
+      background: #dcfce7 !important;
+      color: #15803d !important;
+      width: 54px !important;
+      height: 54px !important;
+      font-size: 28px !important;
+    }
+  }
+
+  /* Everything between the title and actions scrolls when there are
+     too many missing-student chips to fit on one screen. */
+  .pub-scroll {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 2px;
+    min-height: 0;
+  }
+
+  .dialog-exam-name {
+    margin: 0 0 12px;
+    font-size: 14px;
+    color: #374151;
+    text-align: center;
+    strong { color: #111827; font-weight: 700; }
+  }
+  .pub-loading-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    margin: 0;
+    color: #6b7280;
+  }
+  .dialog-actions {
+    flex: 0 0 auto;
+    margin-top: 10px;
+
+    /* Dim the Publish button when it's disabled so the admin reads
+       "I can't click this yet" at a glance. Material's default disabled
+       state is subtle enough to miss on a colored primary button. */
+    .mat-mdc-raised-button[disabled],
+    .mat-mdc-raised-button.mat-mdc-button-disabled {
+      background-color: #e5e7eb !important;
+      color: #9ca3af !important;
+      box-shadow: none !important;
+      opacity: 0.75;
+      cursor: not-allowed;
+      mat-icon { color: #9ca3af !important; }
+    }
+  }
+}
+
+.pub-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.pub-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  min-width: 0;
+
+  &--ok     { border-left: 3px solid #22c55e; }
+  &--absent { border-left: 3px solid #64748b; }
+  &--warn   { border-left: 3px solid #ef4444; background: #fef2f2; }
+
+  &__value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  &__label {
+    font-size: 10.5px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+  }
+  &--ok   .pub-stat__value { color: #15803d; }
+  &--warn .pub-stat__value { color: #b91c1c; }
+}
+
+.pub-ready {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  mat-icon { color: #15803d; }
+}
+
+.pub-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #7f1d1d;
+  font-size: 13px;
+  margin-bottom: 10px;
+  mat-icon { color: #dc2626; margin-top: 1px; }
+  strong { font-weight: 700; }
+}
+
+.pub-missing {
+  margin-top: 4px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+
+  &__label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 6px;
+  }
+  &__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    font-size: 11.5px;
+    color: #374151;
+  }
+  &__more {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #6b7280;
+    padding: 2px 4px;
   }
 }

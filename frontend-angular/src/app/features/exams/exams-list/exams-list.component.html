@@ -125,6 +125,14 @@
               <mat-icon>edit</mat-icon>
               <span>Edit</span>
             </button>
+            <button mat-menu-item (click)="openPublishDialog(exam)" *ngIf="publishWorkflowEnabled && !exam.published">
+              <mat-icon>publish</mat-icon>
+              <span>Publish</span>
+            </button>
+            <button mat-menu-item (click)="unpublishExam(exam)" *ngIf="publishWorkflowEnabled && exam.published">
+              <mat-icon>unpublished</mat-icon>
+              <span>Unpublish</span>
+            </button>
             <button mat-menu-item (click)="lockMarks(exam)" *ngIf="!exam.marksLocked">
               <mat-icon>lock</mat-icon>
               <span>Lock Marks</span>
@@ -201,12 +209,24 @@
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef>Status</th>
         <td mat-cell *matCellDef="let exam">
-          <mat-chip [class]="'status-chip status-' + (exam.status || 'SCHEDULED').toLowerCase()">
-            {{ exam.status || 'SCHEDULED' }}
-          </mat-chip>
-          <mat-chip class="locked-chip" *ngIf="exam.marksLocked">
-            <mat-icon>lock</mat-icon> Locked
-          </mat-chip>
+          <div class="status-stack">
+            <!-- Primary chip = Publish state (Published / Draft). This is
+                 the more actionable signal than SCHEDULED (every exam
+                 starts SCHEDULED anyway). SCHEDULED/ONGOING/COMPLETED
+                 becomes a small secondary dot pill alongside it. -->
+            <span class="pill pill--published" *ngIf="publishWorkflowEnabled && exam.published" title="Visible on Report Cards + Class Rankings">
+              <span class="pill__dot"></span> Published
+            </span>
+            <span class="pill pill--draft" *ngIf="publishWorkflowEnabled && !exam.published" title="Not yet published — hidden from reports">
+              <span class="pill__dot"></span> Draft
+            </span>
+            <span class="pill pill--mini" [attr.data-state]="(exam.status || 'SCHEDULED').toLowerCase()">
+              {{ exam.status || 'SCHEDULED' }}
+            </span>
+            <span class="pill pill--locked" *ngIf="exam.marksLocked" title="Marks are locked — cannot be edited">
+              <mat-icon>lock</mat-icon>
+            </span>
+          </div>
         </td>
       </ng-container>
 
@@ -240,6 +260,14 @@
             <button mat-menu-item (click)="editExam(exam)" [disabled]="exam.marksLocked">
               <mat-icon>edit</mat-icon>
               <span>Edit</span>
+            </button>
+            <button mat-menu-item (click)="openPublishDialog(exam)" *ngIf="publishWorkflowEnabled && !exam.published">
+              <mat-icon>publish</mat-icon>
+              <span>Publish</span>
+            </button>
+            <button mat-menu-item (click)="unpublishExam(exam)" *ngIf="publishWorkflowEnabled && exam.published">
+              <mat-icon>unpublished</mat-icon>
+              <span>Unpublish</span>
             </button>
             <button mat-menu-item (click)="lockMarks(exam)" *ngIf="!exam.marksLocked">
               <mat-icon>lock</mat-icon>
@@ -293,6 +321,79 @@
       <div class="dialog-actions">
         <button mat-button (click)="cancelDelete()">Cancel</button>
         <button mat-raised-button color="warn" (click)="confirmDelete()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Publish confirmation dialog — reuses the global .delete-overlay /
+       .delete-dialog modal shell (same shell every delete dialog uses
+       across the app). The Publish button stays disabled until every
+       enrolled student has an entry (marks or Absent). -->
+  <div class="delete-overlay publish-overlay" *ngIf="publishDialogOpen" (click)="closePublishDialog()">
+    <div class="delete-dialog publish-dialog" (click)="$event.stopPropagation()">
+      <h3>Publish Exam</h3>
+
+      <div class="pub-scroll">
+      <ng-container *ngIf="publishDialogLoading && !publishDialogCheck">
+        <p class="pub-loading-row"><mat-spinner diameter="22"></mat-spinner> Checking roster coverage…</p>
+      </ng-container>
+
+      <ng-container *ngIf="publishDialogCheck">
+        <p class="dialog-exam-name"><strong>{{ publishDialogCheck.examName }}</strong></p>
+
+        <!-- 4-tile coverage summary -->
+        <div class="pub-stats">
+          <div class="pub-stat">
+            <span class="pub-stat__value">{{ publishDialogCheck.enrolledCount }}</span>
+            <span class="pub-stat__label">Enrolled</span>
+          </div>
+          <div class="pub-stat pub-stat--ok">
+            <span class="pub-stat__value">{{ publishDialogCheck.enteredCount }}</span>
+            <span class="pub-stat__label">Marks Entered</span>
+          </div>
+          <div class="pub-stat pub-stat--absent">
+            <span class="pub-stat__value">{{ publishDialogCheck.absentCount }}</span>
+            <span class="pub-stat__label">Absent</span>
+          </div>
+          <div class="pub-stat" [class.pub-stat--warn]="publishDialogCheck.missingCount > 0">
+            <span class="pub-stat__value">{{ publishDialogCheck.missingCount }}</span>
+            <span class="pub-stat__label">Missing</span>
+          </div>
+        </div>
+
+        <div class="pub-ready" *ngIf="publishDialogCheck.canPublish">
+          <mat-icon>check_circle</mat-icon>
+          Ready to publish — every enrolled student is accounted for.
+        </div>
+
+        <div class="pub-block" *ngIf="!publishDialogCheck.canPublish">
+          <mat-icon>warning</mat-icon>
+          <div>
+            <strong>{{ publishDialogCheck.missingCount }} student(s)</strong> have no marks entered yet.
+            Enter their marks (or mark them Absent) before publishing.
+          </div>
+        </div>
+
+        <div class="pub-missing" *ngIf="(publishDialogCheck.missingStudentNames || []).length > 0">
+          <div class="pub-missing__label">Missing</div>
+          <div class="pub-missing__list">
+            <span class="pub-missing__chip" *ngFor="let n of publishDialogCheck.missingStudentNames">{{ n }}</span>
+            <span class="pub-missing__more" *ngIf="publishDialogCheck.missingCount > publishDialogCheck.missingStudentNames.length">
+              + {{ publishDialogCheck.missingCount - publishDialogCheck.missingStudentNames.length }} more
+            </span>
+          </div>
+        </div>
+      </ng-container>
+      </div>
+
+      <div class="dialog-actions">
+        <button mat-button (click)="closePublishDialog()" [disabled]="publishDialogLoading">Cancel</button>
+        <button mat-raised-button color="primary"
+                [disabled]="!publishDialogCheck?.canPublish || publishDialogLoading"
+                (click)="confirmPublish()">
+          <mat-icon>publish</mat-icon>
+          Publish
+        </button>
       </div>
     </div>
   </div>
