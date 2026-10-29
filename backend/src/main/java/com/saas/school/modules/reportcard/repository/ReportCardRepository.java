@@ -11,4 +11,9 @@ public interface ReportCardRepository extends MongoRepository<ReportCard, String
     Optional<ReportCard> findByStudentIdAndAcademicYearId(String studentId, String academicYearId);
 
     List<ReportCard> findByClassIdAndAcademicYearId(String classId, String academicYearId);
+
+    /** Every stored card for (student, year, exam). Historically a UPSERT
+     *  was missing, so this can return 20+ duplicate rows per student per
+     *  exam; we use the first and clean up the rest. */
+    List<ReportCard> findByStudentIdAndAcademicYearIdAndExamType(String studentId, String academicYearId, String examType);
 }

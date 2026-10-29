@@ -41,6 +41,9 @@ public class PerformanceAnalyticsService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private com.saas.school.modules.reportcard.service.ReportCardService reportCardService;
+
     public List<PerformanceTrendDto> getStudentTrend(String studentId) {
         logger.info("Fetching performance trend for student {}", studentId);
 
@@ -328,6 +331,13 @@ public class PerformanceAnalyticsService {
         }
 
         return comparison;
+    }
+
+    /** Thin pass-through to the ReportCardService — keeps the admin's
+     *  Class Rankings endpoint shape consistent while the actual scheme
+     *  weighting lives in one place. */
+    public List<ClassRankingDto> getFinalRankings(String classId, String sectionId, String academicYearId) {
+        return reportCardService.getFinalRankings(classId, sectionId, academicYearId);
     }
 
     public List<ClassRankingDto> getTopPerformers(String classId, int count) {

@@ -1116,6 +1116,46 @@ export class ApiService {
     return this.http.get(url, { responseType: 'blob' });
   }
 
+  // ── FINAL (scheme-weighted) report cards ───────────────────────────────
+
+  /** Logged-in student's scheme-weighted Final report card (null when no scheme). */
+  getMyFinalReportCard(academicYearId: string): Observable<ApiResponse<any>> {
+    const url = `${this.API}/report-cards/student/me/final?academicYearId=${academicYearId}`;
+    return this.http.get<ApiResponse<any>>(url);
+  }
+
+  /** Admin — one student's Final report card. */
+  getStudentFinalReportCard(studentId: string, academicYearId: string): Observable<ApiResponse<any>> {
+    const url = `${this.API}/report-cards/student/${studentId}/final?academicYearId=${academicYearId}`;
+    return this.http.get<ApiResponse<any>>(url);
+  }
+
+  /** Admin bulk Final generation for a class (optionally one section). */
+  generateBulkFinalReportCards(classId: string, academicYearId: string, sectionId?: string): Observable<ApiResponse<any[]>> {
+    let url = `${this.API}/report-cards/class/${classId}/final/generate?academicYearId=${academicYearId}`;
+    if (sectionId) url += `&sectionId=${encodeURIComponent(sectionId)}`;
+    return this.http.post<ApiResponse<any[]>>(url, null);
+  }
+
+  /** Student PDF download for the Final report card. */
+  downloadMyFinalReportCardPdf(academicYearId: string, tenantId: string): Observable<Blob> {
+    const url = `${this.API}/report-cards/student/me/final/pdf?academicYearId=${academicYearId}&tenantId=${tenantId}`;
+    return this.http.get(url, { responseType: 'blob' });
+  }
+
+  /** Admin PDF download for one student's Final report card. */
+  downloadFinalReportCardPdf(studentId: string, academicYearId: string, tenantId: string): Observable<Blob> {
+    const url = `${this.API}/report-cards/student/${studentId}/final/pdf?academicYearId=${academicYearId}&tenantId=${tenantId}`;
+    return this.http.get(url, { responseType: 'blob' });
+  }
+
+  /** Admin — Final (scheme Grand Total %) class rankings. */
+  getFinalClassRankings(classId: string, academicYearId: string, sectionId?: string): Observable<ApiResponse<any[]>> {
+    let url = `${this.API}/analytics/class/${classId}/final-rankings?academicYearId=${academicYearId}`;
+    if (sectionId) url += `&sectionId=${encodeURIComponent(sectionId)}`;
+    return this.http.get<ApiResponse<any[]>>(url);
+  }
+
   // ── Exams ──────────────────────────────────────────────────────────────
 
   getExams(params?: { classId?: string; academicYearId?: string }): Observable<ApiResponse<any[]>> {

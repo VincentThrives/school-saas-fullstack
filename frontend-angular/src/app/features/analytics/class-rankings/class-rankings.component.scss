@@ -228,7 +228,42 @@ $gold-dark: #B8860B;
 /* "FA2 · Draft" tag inside a mat-option — subtle so it doesn't shout
    over the exam name. Admins can still pick the option; selecting a
    Draft one triggers the empty-state message above. */
-::ng-deep .mat-mdc-option .opt-draft {
+::ng-deep .mat-mdc-option .mode-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 2px 2px;
+}
+.mode-switch {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  ::ng-deep .mat-button-toggle { border: none; background: transparent; }
+  ::ng-deep .mat-button-toggle-label-content {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    height: 36px;
+    line-height: 36px;
+  }
+  ::ng-deep .mat-button-toggle-checked {
+    background: linear-gradient(135deg, #fff7e6 0%, #fde68a 100%);
+    color: #7a5a14;
+  }
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+}
+.mode-hint {
+  color: #6b7280;
+  font-size: 12.5px;
+}
+
+.opt-draft {
   margin-left: 6px;
   font-size: 11px;
   font-weight: 600;

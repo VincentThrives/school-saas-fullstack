@@ -5,43 +5,79 @@ $gold-dark: #B8860B;
   padding: 0;
 }
 
-.summary-cards {
+/* Compact filter card — same shape + density as the Report Cards list
+   page so the two feel like one product. */
+.filter-card {
+  border-radius: 12px !important;
+  margin-bottom: 14px;
+  padding: 10px 14px !important;
+  ::ng-deep .mat-mdc-card-content { padding: 0 !important; }
+}
+.filter-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: 1.1fr 0.8fr 2fr auto;
+  gap: 10px;
+  align-items: start;
+
+  @media (max-width: 1199px) { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 639px)  { grid-template-columns: 1fr; }
+}
+.filter-field {
+  min-width: 0;
+  width: 100%;
+  ::ng-deep .mat-mdc-form-field-infix {
+    min-height: 42px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper { min-height: 0; }
+}
+.filter-clear {
+  height: 42px;
+  align-self: center;
+  mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
 }
 
-.stat-card {
+/* KPI strip — matches the Report Cards list / view language. */
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+
+  @media (max-width: 899px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 479px) { grid-template-columns: 1fr; }
+}
+.kpi {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px !important;
-  border-radius: 12px !important;
-  border-left: 4px solid $gold;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  min-width: 0;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 
-  .stat-icon {
-    color: $gold;
-    font-size: 32px;
-    width: 32px;
-    height: 32px;
-  }
-
-  .stat-content {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .stat-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #1a1a1a;
-  }
-
-  .stat-label {
-    font-size: 0.8125rem;
-    color: rgba(0, 0, 0, 0.5);
-  }
+  &--pct   { border-left: 3px solid $gold; }
+  &--best  { border-left: 3px solid #0ea5e9; }
+  &--grade { border-left: 3px solid #22c55e; }
+}
+.kpi-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  .kpi-sub { font-size: 13px; color: #9ca3af; margin-left: 1px; font-weight: 600; }
+  &--text { font-size: 16px; font-weight: 600; color: #0369a1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+.kpi-label {
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 
 .table-card {
@@ -49,62 +85,140 @@ $gold-dark: #B8860B;
   overflow: hidden;
 }
 
+/* Table — tight 44px rows, small-caps uppercase headers. */
 .marks-table {
   width: 100%;
+  ::ng-deep .mat-mdc-header-cell {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #6b7280;
+    padding: 10px 14px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  ::ng-deep .mat-mdc-cell {
+    padding: 8px 14px;
+    font-size: 13.5px;
+    color: #1f2937;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  ::ng-deep .mat-mdc-row { min-height: 46px; }
+  ::ng-deep .mat-mdc-row:hover { background: #fafafa; }
+
+  .subject-cell { font-weight: 500; color: #111827; }
+  .date-cell    { color: #6b7280; font-variant-numeric: tabular-nums; }
 }
 
-.exam-name {
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.subject-chip {
-  background-color: rgba(212, 168, 67, 0.12) !important;
-  color: $gold-dark !important;
-  font-size: 0.8125rem;
-}
-
-.grade-chip {
-  font-size: 0.75rem;
+/* "FA2" exam pill — gold-tinted so it reads as the "which exam" badge. */
+.exam-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fff7e6 0%, #fde68a 100%);
+  color: #7a5a14;
+  font-size: 12px;
   font-weight: 700;
+  letter-spacing: 0.2px;
 }
 
-.grade-green {
-  background-color: rgba(76, 175, 80, 0.12) !important;
-  color: #2e7d32 !important;
+/* Score cell — big number + mini progress bar colored by grade band. */
+.score-cell {
+  min-width: 150px;
+  .score-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .score-main {
+    font-variant-numeric: tabular-nums;
+    color: #1f2937;
+    strong { color: #111827; font-weight: 700; font-size: 14px; }
+    .score-sep { color: #d1d5db; margin: 0 2px; }
+  }
+  .score-pct {
+    font-variant-numeric: tabular-nums;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #6b7280;
+  }
+  .score-bar {
+    position: relative;
+    height: 5px;
+    background: #f1f5f9;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .score-bar__fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.3s ease;
+    min-width: 2px;
+  }
 }
 
-.grade-blue {
-  background-color: rgba(33, 150, 243, 0.12) !important;
-  color: #1565c0 !important;
+/* Grade pill — tinted per band, same palette as the Report Cards list. */
+.grade-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  background: #e5e7eb;
+  color: #374151;
+
+  &[data-grade="A+"], &[data-grade="A"]  { background: #dcfce7; color: #166534; }
+  &[data-grade="B+"], &[data-grade="B"]  { background: #dbeafe; color: #1e40af; }
+  &[data-grade="C"]                      { background: #fef3c7; color: #92400e; }
+  &[data-grade="D"]                      { background: #fed7aa; color: #9a3412; }
+  &[data-grade="F"]                      { background: #fee2e2; color: #991b1b; }
 }
 
-.grade-orange {
-  background-color: rgba(255, 152, 0, 0.12) !important;
-  color: #e65100 !important;
+/* Status pill — Pass / Fail, same color tokens as grade bands. */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  background: #e5e7eb;
+  color: #374151;
+
+  &--pass { background: #dcfce7; color: #166534; }
+  &--fail { background: #fee2e2; color: #991b1b; }
 }
 
-.grade-red {
-  background-color: rgba(244, 67, 54, 0.12) !important;
-  color: #c62828 !important;
-}
+.muted { color: #9ca3af; }
 
-.pass-chip {
-  background-color: rgba(76, 175, 80, 0.12) !important;
-  color: #2e7d32 !important;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.fail-chip {
-  background-color: rgba(244, 67, 54, 0.12) !important;
-  color: #c62828 !important;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.table-row:hover {
-  background-color: rgba(212, 168, 67, 0.04);
+/* Mobile cards — slim list under 600px. */
+.r-card {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  &__title { font-weight: 600; color: #111827; }
+  &__inline {
+    display: flex;
+    gap: 14px;
+    font-size: 12.5px;
+    color: #4b5563;
+    margin-top: 2px;
+    flex-wrap: wrap;
+  }
 }
 
 .loading-row {
@@ -115,24 +229,26 @@ $gold-dark: #B8860B;
 
 .empty-card {
   text-align: center;
-  padding: 60px 24px !important;
+  padding: 48px 24px !important;
   border-radius: 12px !important;
 
   .empty-icon {
-    font-size: 64px;
-    width: 64px;
-    height: 64px;
-    color: rgba(0, 0, 0, 0.2);
-    margin-bottom: 16px;
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: rgba(0, 0, 0, 0.15);
+    margin-bottom: 10px;
   }
 
   h3 {
-    margin: 0 0 8px;
-    color: #1a1a1a;
+    margin: 0 0 6px;
+    color: #111827;
+    font-size: 15px;
   }
 
   p {
-    color: rgba(0, 0, 0, 0.5);
+    color: #6b7280;
     margin: 0;
+    font-size: 13px;
   }
 }

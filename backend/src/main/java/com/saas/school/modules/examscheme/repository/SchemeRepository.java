@@ -11,4 +11,8 @@ public interface SchemeRepository extends MongoRepository<Scheme, String> {
     List<Scheme> findByStatusOrderByDisplayOrderAscNameAsc(Scheme.Status status);
     Optional<Scheme> findByNameIgnoreCase(String name);
     boolean existsByNameIgnoreCase(String name);
+
+    /** Every scheme (any status) scoped to one academic year. Caller
+     *  narrows further by applicableClassIds and status in-memory. */
+    List<Scheme> findByAcademicYearId(String academicYearId);
 }

@@ -14,11 +14,29 @@
     (secondaryActionClick)="goBack()"
   ></app-page-header>
 
-  <div class="loading-row" *ngIf="isLoading">
+  <!-- Mode switcher between per-exam view and scheme-weighted Final.
+       Only shows the Final tab when a scheme is configured for this
+       student's class in this year. -->
+  <mat-button-toggle-group class="mode-switch"
+                           [(ngModel)]="viewMode"
+                           (change)="onViewModeChange()"
+                           name="viewMode" hideSingleSelectionIndicator>
+    <mat-button-toggle value="exam" [disabled]="!selectedExamType">
+      <mat-icon>assignment</mat-icon>
+      By Exam
+    </mat-button-toggle>
+    <mat-button-toggle value="final" *ngIf="finalProbed && finalCard">
+      <mat-icon>emoji_events</mat-icon>
+      Final Report
+    </mat-button-toggle>
+  </mat-button-toggle-group>
+
+  <div class="loading-row" *ngIf="isLoading || isLoadingFinal">
     <mat-spinner diameter="36"></mat-spinner>
   </div>
 
-  <div *ngIf="reportCard && !isLoading">
+  <!-- ===== EXAM MODE ===== -->
+  <div *ngIf="viewMode === 'exam' && reportCard && !isLoading">
     <!-- Meta pill bar — slim row of context chips. Replaces the former
          wide Student Info card that spread 4 label/value pairs across
          the viewport before even showing the KPIs. -->
@@ -176,6 +194,180 @@
       <p class="remarks-text" *ngIf="reportCard.principalRemarks">
         <strong>Principal:</strong> {{ reportCard.principalRemarks }}
       </p>
+    </mat-card>
+  </div>
+
+  <!-- ===== FINAL MODE ===== -->
+  <div *ngIf="viewMode === 'final' && finalCard && !isLoadingFinal">
+    <div class="student-meta-bar">
+      <span class="meta-pill meta-pill--primary">{{ finalCard.studentName }}</span>
+      <span class="meta-pill">{{ finalCard.className || '—' }}{{ finalCard.sectionName ? ' · ' + finalCard.sectionName : '' }}</span>
+      <span class="meta-pill">{{ finalCard.academicYearLabel || finalCard.academicYearId }}</span>
+      <span class="meta-pill meta-pill--exam">{{ finalCard.scheme?.name }}</span>
+    </div>
+
+    <div class="kpi-strip">
+      <div class="kpi kpi--rank">
+        <span class="kpi-value">{{ finalCard.rank?.section && finalCard.rank.section > 0 ? ('#' + finalCard.rank.section) : '—' }}</span>
+        <span class="kpi-label">Section Rank</span>
+      </div>
+      <div class="kpi kpi--rank">
+        <span class="kpi-value">{{ finalCard.rank?.classWide && finalCard.rank.classWide > 0 ? ('#' + finalCard.rank.classWide) : '—' }}</span>
+        <span class="kpi-label">Class Rank</span>
+      </div>
+      <div class="kpi kpi--pct">
+        <span class="kpi-value">{{ finalCard.grandTotal?.percentage ?? 0 }}<span class="kpi-sub">%</span></span>
+        <span class="kpi-label">Grand Total</span>
+      </div>
+      <div class="kpi kpi--grade">
+        <span class="kpi-value"><span class="grade-pill" [attr.data-grade]="finalCard.grandTotal?.grade">{{ finalCard.grandTotal?.grade || '—' }}</span></span>
+        <span class="kpi-label">Grade</span>
+      </div>
+      <div class="kpi" [class.kpi--pass]="finalCard.grandTotal?.passed" [class.kpi--fail]="!finalCard.grandTotal?.passed">
+        <span class="kpi-value">{{ finalCard.grandTotal?.passed ? 'PASS' : 'FAIL' }}</span>
+        <span class="kpi-label">{{ finalCard.overallStatus === 'COMPLETED' ? 'Result' : 'So far' }}</span>
+      </div>
+    </div>
+
+    <!-- Projection hint. -->
+    <div class="projection-line"
+         *ngIf="finalCard.grandTotal?.projectedPercentage != null && finalCard.overallStatus !== 'COMPLETED'">
+      <mat-icon>trending_up</mat-icon>
+      <span>At current pace, Final would land near <strong>{{ finalCard.grandTotal.projectedPercentage }}%</strong>.</span>
+    </div>
+
+    <!-- Slot cards grid. -->
+    <mat-card class="slots-card">
+      <div class="slots-head">
+        <h3 class="section-title">Scheme Progress</h3>
+        <button mat-flat-button class="final-pdf-btn" (click)="downloadFinalPdf()">
+          <mat-icon>download</mat-icon> Download Final PDF
+        </button>
+      </div>
+      <div class="slots-grid">
+        <div class="slot-card" *ngFor="let slot of finalCard.slots"
+             [class.slot-card--excluded]="!slot.includedInGrandTotal">
+          <div class="slot-card__head">
+            <span class="slot-card__label">{{ slot.label }}</span>
+            <span class="slot-pill" [ngClass]="slotStatusClass(slot.status)">{{ slot.status }}</span>
+          </div>
+          <div class="slot-card__nums">
+            <div class="slot-num">
+              <span class="slot-num__k">Raw</span>
+              <span class="slot-num__v"><strong>{{ slot.rawObtained ?? '—' }}</strong><span class="sep">/</span>{{ slot.rawMax }}</span>
+            </div>
+            <div class="slot-num">
+              <span class="slot-num__k">Weighted</span>
+              <span class="slot-num__v"><strong>{{ slot.weightObtained ?? '—' }}</strong><span class="sep">/</span>{{ slot.weightMax }}</span>
+            </div>
+            <div class="slot-num">
+              <span class="slot-num__k">%</span>
+              <span class="slot-num__v"><strong>{{ slot.percentage ?? '—' }}</strong>%</span>
+            </div>
+          </div>
+          <div class="slot-bar">
+            <div class="slot-bar__fill" [style.width.%]="slotPct(slot)"></div>
+          </div>
+          <table class="slot-subject-table" *ngIf="slot.subjects?.length">
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Raw</th>
+                <th>Weighted</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let s of slot.subjects">
+                <td class="subj">{{ s.subjectName }}</td>
+                <td>
+                  <ng-container *ngIf="s.rawObtained != null; else dash1">
+                    <strong>{{ s.rawObtained }}</strong><span class="sep">/</span>{{ s.rawMax }}
+                  </ng-container>
+                  <ng-template #dash1><span class="muted">—</span></ng-template>
+                </td>
+                <td>
+                  <ng-container *ngIf="s.weightObtained != null; else dash2">
+                    <strong>{{ s.weightObtained }}</strong><span class="sep">/</span>{{ s.weightMax }}
+                  </ng-container>
+                  <ng-template #dash2><span class="muted">—</span></ng-template>
+                </td>
+                <td><span class="cell-pill" [ngClass]="subjectCellStatusClass(s.status)">{{ s.status }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="slot-note" *ngIf="!slot.includedInGrandTotal">
+            <mat-icon>info_outline</mat-icon> Not counted in Grand Total
+          </div>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Subject rollup matrix. -->
+    <mat-card class="rollup-card" *ngIf="finalCard.subjectRollup?.length">
+      <div class="rollup-head">
+        <h3 class="section-title">Subject-wise Rollup</h3>
+        <mat-button-toggle-group [(ngModel)]="rollupMode" hideSingleSelectionIndicator class="rollup-toggle">
+          <mat-button-toggle value="weighted">Weighted</mat-button-toggle>
+          <mat-button-toggle value="raw">Raw</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+      <div class="rollup-scroll">
+        <table class="rollup-table">
+          <thead>
+            <tr>
+              <th class="subj-h">Subject</th>
+              <th *ngFor="let s of finalCard.slots">{{ s.label }}</th>
+              <th>Total</th>
+              <th>Grade</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of finalCard.subjectRollup">
+              <td class="subj">{{ r.subjectName }}</td>
+              <td *ngFor="let s of $any(finalCard.slots)">
+                <ng-container *ngFor="let c of $any(r).perSlot">
+                  <ng-container *ngIf="$any(c).slotKey === $any(s).slotKey">
+                    <ng-container *ngIf="rollupMode === 'weighted'">
+                      <ng-container *ngIf="$any(c).weightObtained != null; else blank">
+                        <strong>{{ $any(c).weightObtained }}</strong><span class="sep">/</span>{{ $any(c).weightMax }}
+                      </ng-container>
+                    </ng-container>
+                    <ng-container *ngIf="rollupMode === 'raw'">
+                      <ng-container *ngIf="$any(c).rawObtained != null; else blank">
+                        <strong>{{ $any(c).rawObtained }}</strong><span class="sep">/</span>{{ $any(c).rawMax }}
+                      </ng-container>
+                    </ng-container>
+                  </ng-container>
+                </ng-container>
+              </td>
+              <td>
+                <ng-container *ngIf="rollupMode === 'weighted'">
+                  <strong>{{ r.totalWeightObtained }}</strong><span class="sep">/</span>{{ r.totalWeightMax }}
+                </ng-container>
+                <ng-container *ngIf="rollupMode === 'raw'">
+                  <strong>{{ r.totalRawObtained }}</strong><span class="sep">/</span>{{ r.totalRawMax }}
+                </ng-container>
+              </td>
+              <td><span class="grade-pill" [attr.data-grade]="r.grade">{{ r.grade || '—' }}</span></td>
+            </tr>
+            <tr class="rollup-total">
+              <td class="subj">Grand Total</td>
+              <td *ngFor="let s of finalCard.slots"></td>
+              <td>
+                <ng-container *ngIf="rollupMode === 'weighted'">
+                  <strong>{{ finalCard.grandTotal?.weightObtained }}</strong><span class="sep">/</span>{{ finalCard.grandTotal?.weightMax }}
+                </ng-container>
+                <ng-container *ngIf="rollupMode === 'raw'">
+                  <strong>{{ finalCard.grandTotal?.rawObtained }}</strong><span class="sep">/</span>{{ finalCard.grandTotal?.rawMax }}
+                </ng-container>
+              </td>
+              <td><span class="grade-pill" [attr.data-grade]="finalCard.grandTotal?.grade">{{ finalCard.grandTotal?.grade || '—' }}</span></td>
+            </tr>
+            <ng-template #blank><span class="muted">—</span></ng-template>
+          </tbody>
+        </table>
+      </div>
     </mat-card>
   </div>
 

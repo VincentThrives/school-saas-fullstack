@@ -35,7 +35,7 @@
         </mat-select>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" class="filter-field">
+      <mat-form-field appearance="outline" class="filter-field" *ngIf="rankingMode === 'exam'">
         <mat-label>Exam</mat-label>
         <mat-select [(ngModel)]="selectedExamNames" (selectionChange)="onExamNameChange()" [disabled]="!selectedClassId" multiple>
           <mat-option *ngFor="let name of examNames" [value]="name">
@@ -45,12 +45,32 @@
         </mat-select>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" class="filter-field">
+      <mat-form-field appearance="outline" class="filter-field" *ngIf="rankingMode === 'exam'">
         <mat-label>Subjects</mat-label>
         <mat-select [(ngModel)]="selectedSubjectIds" (selectionChange)="onSubjectChange()" [disabled]="selectedExamNames.length === 0" multiple>
           <mat-option *ngFor="let sub of subjects" [value]="sub.subjectId">{{ sub.name }}</mat-option>
         </mat-select>
       </mat-form-field>
+    </div>
+
+    <!-- Mode toggle: per-exam vs scheme-weighted Final. Shows below the
+         filter grid so it reads as an "additional view mode" rather than
+         another filter axis. -->
+    <div class="mode-row">
+      <mat-button-toggle-group [(ngModel)]="rankingMode" (change)="onRankingModeChange()"
+                               hideSingleSelectionIndicator class="mode-switch">
+        <mat-button-toggle value="exam">
+          <mat-icon>assignment</mat-icon>
+          By Exam
+        </mat-button-toggle>
+        <mat-button-toggle value="final">
+          <mat-icon>emoji_events</mat-icon>
+          Final (scheme-weighted)
+        </mat-button-toggle>
+      </mat-button-toggle-group>
+      <span class="mode-hint" *ngIf="rankingMode === 'final'">
+        Ranks students by their scheme Grand Total % across every slot (FA1 + FA2 + SA1 + SA2 …).
+      </span>
     </div>
   </mat-card>
 

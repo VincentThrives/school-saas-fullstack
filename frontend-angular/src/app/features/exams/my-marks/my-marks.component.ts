@@ -63,7 +63,24 @@ export class MyMarksComponent implements OnInit {
   examsMap: Record<string, any> = {};
   isLoading = false;
   isYearLoaded = false; // becomes true once the first year load finishes
-  displayedColumns = ['examName', 'examType', 'subject', 'date', 'marks', 'percentage', 'grade', 'status'];
+  displayedColumns = ['examType', 'subject', 'date', 'score', 'grade', 'status'];
+
+  /** Percent of max for a mark row — drives the mini progress bar. */
+  pct(row: any): number {
+    if (!row || !row.maxMarks) return 0;
+    return Math.max(0, Math.min(100, Math.round((row.marksObtained / row.maxMarks) * 100)));
+  }
+
+  /** Color band for the progress-bar fill. Same palette as Report
+   *  Cards' score bar + grade pills so the brand feels consistent. */
+  pctColor(row: any): string {
+    const p = this.pct(row);
+    if (p >= 85) return '#22c55e';     // A+/A — green
+    if (p >= 70) return '#3b82f6';     // B+/B — blue
+    if (p >= 55) return '#f59e0b';     // C    — amber
+    if (p >= 35) return '#f97316';     // D    — orange
+    return '#ef4444';                   // F    — red
+  }
 
   // Filters
   academicYears: AcademicYear[] = [];
@@ -72,9 +89,13 @@ export class MyMarksComponent implements OnInit {
   subjectOptions: SubjectOption[] = [];
   /** Multi-select; empty array means "all subjects". */
   selectedSubjectIds: string[] = [];
-  /** Exam types present in the selected year for the student's class+section. */
+  /** Exam NAMES present in the selected year for the student's class+
+   *  section — the name prefix (FA1, FA2, SA1 …) extracted from
+   *  exam.name, not the broad examType (FA, SA). Matches what Report
+   *  Cards and Class Rankings show, so students see the same labels
+   *  their teachers do. */
   examTypeOptions: string[] = [];
-  /** Single-select; empty string means "all types". */
+  /** Single-select; empty string means "all". */
   selectedExamType = '';
 
   /** Cached student profile (classId/sectionId scope) — fetched once. */
@@ -92,6 +113,25 @@ export class MyMarksComponent implements OnInit {
     private api: ApiService,
     private subjectService: SubjectService,
   ) {}
+
+  /** Strip the subject suffix ("· Kannada", "— Math", "- Physics") from
+   *  an exam.name so sibling-subject rows collapse into the same event
+   *  name ("FA1 · Kannada" and "FA1 · Math" both become "FA1"). Mirrors
+   *  the backend's examNamePrefix() helper. Falls back to examType for
+   *  legacy exams without a name. */
+  private examNamePrefix(e: any): string {
+    const name = (e?.name || '').toString();
+    if (name) {
+      const seps = [' · ', ' — ', ' - '];
+      let bestIdx = -1;
+      for (const sep of seps) {
+        const idx = name.indexOf(sep);
+        if (idx > 0 && (bestIdx < 0 || idx < bestIdx)) bestIdx = idx;
+      }
+      return (bestIdx > 0 ? name.substring(0, bestIdx) : name).trim();
+    }
+    return (e?.examType || '').toString();
+  }
 
   ngOnInit(): void {
     // Fetch the student's profile once — class/section scopes the visible exams.
@@ -163,10 +203,15 @@ export class MyMarksComponent implements OnInit {
 
       const scopedExams = this.scopeToStudent(exList);
 
-      // Exam-type options — single-select.
+      // Exam options — name prefix (FA1, FA2, SA1 …), not broad type.
       const types = new Set<string>();
-      scopedExams.forEach((e: any) => { if (e?.examType) types.add(e.examType); });
-      this.examTypeOptions = Array.from(types).sort();
+      scopedExams.forEach((e: any) => {
+        const n = this.examNamePrefix(e);
+        if (n) types.add(n);
+      });
+      // Natural-ish sort so FA1 / FA2 / FA10 appear in numeric order.
+      this.examTypeOptions = Array.from(types).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
       // Subject options — bulk-resolve names.
       const subjectIdSet = new Set<string>();
@@ -209,8 +254,12 @@ export class MyMarksComponent implements OnInit {
     const exList = Object.values(this.examsMap || {});
     const scopedExams = this.scopeToStudent(exList);
     const types = new Set<string>();
-    scopedExams.forEach((e: any) => { if (e?.examType) types.add(e.examType); });
-    this.examTypeOptions = Array.from(types).sort();
+    scopedExams.forEach((e: any) => {
+      const n = this.examNamePrefix(e);
+      if (n) types.add(n);
+    });
+    this.examTypeOptions = Array.from(types).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
     const ids = new Set<string>();
     scopedExams.forEach((e: any) => { if (e?.subjectId) ids.add(e.subjectId); });
     this.subjectOptions = this.subjectOptions.filter((s) => ids.has(s.subjectId));
@@ -222,13 +271,24 @@ export class MyMarksComponent implements OnInit {
       .map((m: any) => {
         const exam = this.examsMap[m.examId];
         if (!exam) return null; // exam outside the chosen year (or deleted) → drop
-        const maxMarks = exam.maxMarks || 100;
+        // Combined-mode exams (Theory + Practical, Theory + IA, …) store
+        // the first component's max in the legacy exam.maxMarks scalar.
+        // Using that as the denominator reads "20 / 20" when the student
+        // actually scored 20 out of 50 total. Sum the components array
+        // when present; fall back to the scalar for legacy single-
+        // component exams.
+        const comps = Array.isArray(exam.components) ? exam.components : [];
+        const maxMarks = comps.length > 0
+          ? comps.reduce((sum: number, c: any) => sum + (Number(c?.maxMarks) || 0), 0)
+          : (exam.maxMarks || 100);
         const pct = maxMarks > 0 ? (m.marksObtained / maxMarks) * 100 : 0;
         const subjectId = exam.subjectId || '-';
         const subjectName = this.subjectNameFor(subjectId);
         return {
           examName: exam.name || 'Unknown Exam',
-          examType: exam.examType || '',
+          // Store the NAME PREFIX ("FA1") not the broad examType ("FA")
+          // so the filter and table column match the dropdown options.
+          examType: this.examNamePrefix(exam),
           subjectId,
           subjectName,
           examDate: exam.examDate || '',

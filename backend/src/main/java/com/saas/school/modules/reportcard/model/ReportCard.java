@@ -24,7 +24,10 @@ public class ReportCard {
     private double totalMaxMarks;
     private double percentage;
     private String grade;
+    /** Rank within the student's own section for this exam (e.g. 10-B FA2). */
     private int rank;
+    /** Rank across the WHOLE class (all sections) for this exam (e.g. 10th FA2). */
+    private int classRank;
     private double attendancePercentage;
     private String teacherRemarks;
     private String principalRemarks;
@@ -151,6 +154,14 @@ public class ReportCard {
 
     public void setRank(int rank) {
         this.rank = rank;
+    }
+
+    public int getClassRank() {
+        return classRank;
+    }
+
+    public void setClassRank(int classRank) {
+        this.classRank = classRank;
     }
 
     public double getAttendancePercentage() {

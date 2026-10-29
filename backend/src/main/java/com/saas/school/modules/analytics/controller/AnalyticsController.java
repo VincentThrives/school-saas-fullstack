@@ -58,4 +58,20 @@ public class AnalyticsController {
             @RequestParam(defaultValue = "5") int count) {
         return ResponseEntity.ok(ApiResponse.success(analyticsService.getTopPerformers(classId, count)));
     }
+
+    /**
+     * Final (scheme-weighted) rankings — one row per student in the
+     * class+section with their Grand Total % computed from the scheme's
+     * slot weights. Returns the SAME {@link ClassRankingDto} shape so the
+     * admin UI can reuse the per-exam rendering code with no changes.
+     */
+    @GetMapping("/class/{classId}/final-rankings")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
+    public ResponseEntity<ApiResponse<List<ClassRankingDto>>> finalRankings(
+            @PathVariable String classId,
+            @RequestParam String academicYearId,
+            @RequestParam(required = false) String sectionId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                analyticsService.getFinalRankings(classId, sectionId, academicYearId)));
+    }
 }

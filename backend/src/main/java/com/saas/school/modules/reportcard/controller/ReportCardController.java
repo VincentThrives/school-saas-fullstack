@@ -121,4 +121,69 @@ public class ReportCardController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=report_cards_class.zip")
                 .body(zipBytes);
     }
+
+    // ── FINAL (scheme-weighted) report card endpoints ─────────────────────
+
+    /** Student self-view of the scheme-weighted Final report card. */
+    @GetMapping("/student/me/final")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<com.saas.school.modules.reportcard.dto.FinalReportCardDto>> getMyFinalReportCard(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal String userId,
+            @RequestParam String academicYearId) {
+        String studentId = resolveOwnStudentId(userId);
+        return ResponseEntity.ok(ApiResponse.success(
+                reportCardService.generateFinalReportCard(studentId, academicYearId)));
+    }
+
+    /** Admin-view of one student's Final report card. */
+    @GetMapping("/student/{studentId}/final")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
+    public ResponseEntity<ApiResponse<com.saas.school.modules.reportcard.dto.FinalReportCardDto>> getStudentFinalReportCard(
+            @PathVariable String studentId,
+            @RequestParam String academicYearId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                reportCardService.generateFinalReportCard(studentId, academicYearId)));
+    }
+
+    /** Bulk-generate scheme-weighted Final cards for a class (optionally one section). */
+    @PostMapping("/class/{classId}/final/generate")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
+    public ResponseEntity<ApiResponse<List<com.saas.school.modules.reportcard.dto.FinalReportCardDto>>> generateBulkFinalReportCards(
+            @PathVariable String classId,
+            @RequestParam String academicYearId,
+            @RequestParam(required = false) String sectionId) {
+        List<com.saas.school.modules.reportcard.dto.FinalReportCardDto> cards =
+                reportCardService.generateBulkFinalReportCards(classId, sectionId, academicYearId);
+        return ResponseEntity.ok(ApiResponse.success(cards,
+                "Final report cards generated for " + cards.size() + " students"));
+    }
+
+    /** Student self-view PDF download of the Final report card. */
+    @GetMapping("/student/me/final/pdf")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<byte[]> getMyFinalReportCardPdf(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal String userId,
+            @RequestParam String academicYearId,
+            @RequestParam String tenantId) {
+        String studentId = resolveOwnStudentId(userId);
+        byte[] pdf = reportCardService.generateFinalReportCardPdf(studentId, academicYearId, tenantId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=final_report_card_" + studentId + ".pdf")
+                .body(pdf);
+    }
+
+    /** Admin PDF download of one student's Final report card. */
+    @GetMapping("/student/{studentId}/final/pdf")
+    @PreAuthorize("hasAnyRole('SCHOOL_ADMIN','PRINCIPAL','TEACHER')")
+    public ResponseEntity<byte[]> getStudentFinalReportCardPdf(
+            @PathVariable String studentId,
+            @RequestParam String academicYearId,
+            @RequestParam String tenantId) {
+        byte[] pdf = reportCardService.generateFinalReportCardPdf(studentId, academicYearId, tenantId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=final_report_card_" + studentId + ".pdf")
+                .body(pdf);
+    }
 }

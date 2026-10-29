@@ -8,6 +8,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { ApiService } from '../../../core/services/api.service';
 import { SubjectService, SubjectItem } from '../../../core/services/subject.service';
@@ -27,6 +28,7 @@ import { forkJoin } from 'rxjs';
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    MatButtonToggleModule,
     PageHeaderComponent,
   ],
   templateUrl: './class-rankings.component.html',
@@ -57,6 +59,48 @@ export class ClassRankingsComponent implements OnInit {
   rankings: ClassRanking[] = [];
   displayedColumns = ['rank', 'studentName', 'rollNumber', 'classSection', 'totalMarks', 'percentage'];
   isLoading = false;
+
+  /** 'exam' = per-exam (default). 'final' = scheme Grand Total rankings. */
+  rankingMode: 'exam' | 'final' = 'exam';
+
+  onRankingModeChange(): void {
+    this.rankings = [];
+    if (this.rankingMode === 'final') {
+      this.loadFinalRankings();
+    } else if (this.selectedExamNames.length > 0 && this.selectedSubjectIds.length > 0) {
+      this.loadRankings();
+    }
+  }
+
+  /** Hit the Final rankings endpoint and reshape the result into the same
+   *  table the per-exam view uses so the renderer stays untouched. */
+  loadFinalRankings(): void {
+    if (!this.selectedClassId || !this.selectedAcademicYearId) return;
+    this.isLoading = true;
+    const section = this.selectedSectionId || undefined;
+    this.api.getFinalClassRankings(this.selectedClassId, this.selectedAcademicYearId, section).subscribe({
+      next: (res) => {
+        const rows = (res?.data as any[]) || [];
+        this.rankings = rows.map((r: any, idx: number) => ({
+          studentId: r.studentId,
+          studentName: r.studentName,
+          rollNumber: r.rollNumber || '',
+          obtainedMarks: r.obtainedMarks,
+          totalMarks: r.totalMarks,
+          maxMarks: r.maxMarks,
+          percentage: r.percentage,
+          rank: idx + 1,
+          classId: this.selectedClassId,
+          sectionId: this.selectedSectionId || null,
+        } as any));
+        this.isLoading = false;
+      },
+      error: () => {
+        this.rankings = [];
+        this.isLoading = false;
+      },
+    });
+  }
 
   constructor(
     private api: ApiService,

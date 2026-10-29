@@ -100,6 +100,9 @@ public class ReportCardService {
     @Autowired
     private com.saas.school.modules.settings.repository.SchoolSettingsRepository schoolSettingsRepository;
 
+    @Autowired
+    private com.saas.school.modules.examscheme.repository.SchemeRepository schemeRepository;
+
     /** True when the current tenant has turned ON the per-exam Publish
      *  gate in Settings → Exams. Default (and legacy / no-settings-row)
      *  is false, which bypasses the published filter entirely so results
@@ -530,7 +533,26 @@ public class ReportCardService {
         // and re-ranks in-memory after the whole class is built, so skip
         // the (expensive) per-student findByClassIdAndAcademicYearId
         // query when we're inside a bulk sweep.
-        int rank = (prefetch != null) ? 0 : calculateRank(studentId, classId, academicYearId, overallPercentage);
+        //
+        // Two ranks, both scoped to the SAME exam (name prefix):
+        //   rank      = section rank  (10-B FA2)
+        //   classRank = class-wide rank across all sections (10th FA2)
+        // The bulk path overwrites both after it builds the batch, so we
+        // skip the query there. anyMarksEntered gates both — a card with
+        // no entries yet gets rank 0 (UI renders "—").
+        int rank;
+        int classRank;
+        if (prefetch != null || !anyMarksEntered) {
+            rank = 0;
+            classRank = 0;
+        } else {
+            String examTypeScope = specificExamType ? examType : null;
+            rank = calculateRank(studentId, classId, studentSectionId, academicYearId,
+                    examTypeScope, overallPercentage);
+            // Null sectionId → compare against every section in the class.
+            classRank = calculateRank(studentId, classId, null, academicYearId,
+                    examTypeScope, overallPercentage);
+        }
 
         // Build and save report card
         ReportCard reportCard = new ReportCard();
@@ -556,6 +578,7 @@ public class ReportCardService {
         reportCard.setPercentage(Math.round(overallPercentage * 100.0) / 100.0);
         reportCard.setGrade(overallGrade);
         reportCard.setRank(rank);
+        reportCard.setClassRank(classRank);
         reportCard.setAttendancePercentage(Math.round(attendancePercentage * 100.0) / 100.0);
         // Overall pass = every subject passed. A single failed subject (e.g.
         // Practical below its per-component pass cap) flips the whole card
@@ -566,7 +589,30 @@ public class ReportCardService {
 
         if (!persistImmediately) {
             // Bulk path will saveAll() once after ranks are computed.
+            // Bulk path dedupes before save (see generateBulkReportCards).
             return reportCard;
+        }
+        // UPSERT: reuse the existing document id when a card already
+        // exists for (studentId, academicYearId, examType), so save()
+        // updates in place instead of inserting a brand-new document on
+        // every page load. Without this a single student accumulates
+        // dozens of duplicate cards per exam, and calculateRank then
+        // counts those duplicates when ranking (e.g. #26 when the real
+        // position is #1). Any extra copies left over from the old
+        // insert-happy behaviour are deleted here so the pool is clean
+        // on the next render.
+        String examTypeKey = specificExamType ? examType : null;
+        if (examTypeKey != null) {
+            List<ReportCard> existing = reportCardRepository
+                    .findByStudentIdAndAcademicYearIdAndExamType(studentId, academicYearId, examTypeKey);
+            if (!existing.isEmpty()) {
+                reportCard.setId(existing.get(0).getId());
+                if (existing.size() > 1) {
+                    for (int i = 1; i < existing.size(); i++) {
+                        reportCardRepository.deleteById(existing.get(i).getId());
+                    }
+                }
+            }
         }
         ReportCard saved = reportCardRepository.save(reportCard);
         logger.info("Report card generated and saved for studentId={}, id={}", studentId, saved.getId());
@@ -964,10 +1010,23 @@ public class ReportCardService {
             BULK_PREFETCH.remove();
         }
 
-        // Rank by percentage (descending), then bulk-write everything in one
-        // round trip. Previously this loop save()d each card individually,
-        // turning 50 students into 50 extra Mongo writes that happened
-        // AFTER the 50 writes already done by generateReportCard above.
+        // Rank by percentage (descending), then bulk-write everything in
+        // one round trip. Previously this loop save()d each card
+        // individually, turning 50 students into 50 extra Mongo writes
+        // that happened AFTER the 50 writes already done by
+        // generateReportCard above.
+        //
+        // TWO ranks are stamped on each card:
+        //   rank      = position within the student's OWN SECTION (e.g.
+        //               10-B FA2) — grouped by sectionId before counting.
+        //   classRank = position across the WHOLE CLASS, all sections
+        //               (e.g. 10th FA2) — one straight sort.
+        // When the admin picks a single section the batch is one
+        // section, so rank is just the sort order; classRank needs a
+        // peek at the OTHER sections' already-stored cards (same exam)
+        // to be accurate. When the admin picks "All Sections" the batch
+        // is the whole class, so classRank is just the sort order and
+        // rank is per-section.
         //
         // Students the teacher hasn't entered ANY marks for don't get a
         // rank — otherwise a class whose teacher hasn't started grading
@@ -979,16 +1038,84 @@ public class ReportCardService {
         // generateReportCard above). Rank 0 is interpreted by the UI
         // as "no rank" and renders as "—".
         reportCards.sort((a, b) -> Double.compare(b.getPercentage(), a.getPercentage()));
-        int rank = 0;
+
+        // Map every batched student → their sectionId (one batch read)
+        // so section-rank grouping doesn't fire N round trips.
+        java.util.Map<String, String> sectionByStudent = new java.util.HashMap<>();
+        if (!students.isEmpty()) {
+            students.forEach(s -> sectionByStudent.put(s.getStudentId(), s.getSectionId()));
+        }
+        java.util.Map<String, Integer> perSectionCounter = new java.util.HashMap<>();
+
+        // Pre-sort the OTHER-section percentages (same class, year, exam)
+        // so classRank is accurate when the batch is only one section.
+        // Reads from StudentAssessments (source of truth) — using the
+        // report_cards collection here would miss any section the admin
+        // hasn't bulk-generated yet. When the batch IS the whole class
+        // this list is empty and classRank falls out of the sort directly.
+        List<Double> otherSectionPcts = java.util.Collections.emptyList();
+        if (sectionId != null && !sectionId.isBlank()) {
+            java.util.Map<String, Double> allPctsInClass = computeStudentPercentages(
+                    classId, null, academicYearId, examType);
+            // Keep only students NOT in this batch's section.
+            java.util.Set<String> batchStudentIds = new java.util.HashSet<>();
+            students.forEach(s -> batchStudentIds.add(s.getStudentId()));
+            otherSectionPcts = allPctsInClass.entrySet().stream()
+                    .filter(e -> !batchStudentIds.contains(e.getKey()))
+                    .map(java.util.Map.Entry::getValue)
+                    .collect(Collectors.toList());
+        }
+
+        int classRankCursor = 0;
         for (ReportCard rc : reportCards) {
             boolean hasEntry = rc.getGrade() != null && !"—".equals(rc.getGrade());
-            if (hasEntry) {
-                rc.setRank(++rank);
-            } else {
+            if (!hasEntry) {
                 rc.setRank(0);
+                rc.setClassRank(0);
+                continue;
             }
+            // Section rank — bump the per-section counter.
+            String sid = sectionByStudent.get(rc.getStudentId());
+            int next = perSectionCounter.getOrDefault(sid, 0) + 1;
+            perSectionCounter.put(sid, next);
+            rc.setRank(next);
+
+            // Class rank — straight sort position, plus any other-section
+            // cards that beat this percentage (only non-empty when the
+            // batch was one section).
+            classRankCursor++;
+            int beatenByOthers = 0;
+            for (Double pct : otherSectionPcts) {
+                if (pct > rc.getPercentage()) beatenByOthers++;
+            }
+            rc.setClassRank(classRankCursor + beatenByOthers);
         }
+
         if (!reportCards.isEmpty()) {
+            // UPSERT: reuse any existing stored id for the same
+            // (studentId, year, examType) so saveAll() updates instead
+            // of inserts, and delete stray duplicates left over from the
+            // old insert-happy save path. One pre-fetch covers the whole
+            // batch; without it bulk-generate would silently keep piling
+            // duplicates on top of each other every run.
+            List<ReportCard> siblings = reportCardRepository
+                    .findByClassIdAndAcademicYearId(classId, academicYearId);
+            java.util.Map<String, List<ReportCard>> byKey = new java.util.HashMap<>();
+            for (ReportCard sib : siblings) {
+                if (sib.getStudentId() == null) continue;
+                String key = sib.getStudentId() + "|" + (sib.getExamType() == null ? "" : sib.getExamType());
+                byKey.computeIfAbsent(key, k -> new ArrayList<>()).add(sib);
+            }
+            java.util.List<String> toDelete = new ArrayList<>();
+            for (ReportCard rc : reportCards) {
+                String key = rc.getStudentId() + "|" + (rc.getExamType() == null ? "" : rc.getExamType());
+                List<ReportCard> dupes = byKey.get(key);
+                if (dupes != null && !dupes.isEmpty()) {
+                    rc.setId(dupes.get(0).getId());
+                    for (int i = 1; i < dupes.size(); i++) toDelete.add(dupes.get(i).getId());
+                }
+            }
+            if (!toDelete.isEmpty()) reportCardRepository.deleteAllById(toDelete);
             reportCardRepository.saveAll(reportCards);
         }
 
@@ -1036,6 +1163,728 @@ public class ReportCardService {
         if (percentage >= 50) return "C";
         if (percentage >= 40) return "D";
         return "F";
+    }
+
+    // ── FINAL (scheme-weighted) report card ───────────────────────────────
+
+    /**
+     * Build the scheme-weighted "Final" report card for one student.
+     *
+     * <p>The scheme is the source of truth for how FA1 / FA2 / SA1 / SA2
+     * roll up into a Final: each slot carries its own
+     * {@code SubjectConfig} (per-subject {@code rawMax} + {@code weightMax}),
+     * and only slots with {@code includeInGrandTotal} contribute to the
+     * Grand Total. This method walks the scheme, aggregates each slot's
+     * per-subject marks from {@link StudentAssessments} (the source of
+     * truth — same reads the admin's rankings use), applies the weight
+     * formula per subject, builds the subject-wise rollup matrix, and
+     * computes the Grand Total + rank by Grand Total %.
+     *
+     * <p>Returns null when no active scheme exists for the student's
+     * class+year — the UI uses that signal to hide the Final tab.
+     */
+    public com.saas.school.modules.reportcard.dto.FinalReportCardDto generateFinalReportCard(
+            String studentId, String academicYearId) {
+        Student student = studentRepository.findById(studentId)
+                .filter(s -> s.getDeletedAt() == null)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+
+        String classId = student.getClassId();
+        String sectionId = student.getSectionId();
+        if (classId == null) return null;
+
+        com.saas.school.modules.examscheme.model.Scheme scheme = findActiveSchemeFor(classId, academicYearId);
+        if (scheme == null) return null;
+
+        com.saas.school.modules.reportcard.dto.FinalReportCardDto out =
+                new com.saas.school.modules.reportcard.dto.FinalReportCardDto();
+        out.setStudentId(studentId);
+        out.setStudentName(resolveStudentName(student));
+        out.setClassId(classId);
+        out.setAcademicYearId(academicYearId);
+        academicYearRepository.findById(academicYearId).ifPresent(ay -> out.setAcademicYearLabel(ay.getLabel()));
+        schoolClassRepository.findById(classId).ifPresent(sc -> {
+            out.setClassName(sc.getName());
+            if (sectionId != null && sc.getSections() != null) {
+                sc.getSections().stream()
+                        .filter(s -> sectionId.equals(s.getSectionId()))
+                        .findFirst().ifPresent(s -> out.setSectionName(s.getName()));
+            }
+        });
+
+        com.saas.school.modules.reportcard.dto.FinalReportCardDto.SchemeHeader hdr =
+                new com.saas.school.modules.reportcard.dto.FinalReportCardDto.SchemeHeader();
+        hdr.setSchemeId(scheme.getId());
+        hdr.setName(scheme.getName());
+        hdr.setPassingPercent(scheme.getPassingPercent() != null ? scheme.getPassingPercent() : 35);
+        out.setScheme(hdr);
+
+        // Load every exam for this class+section+year ONCE; filtering by
+        // slotKey below picks the per-slot set without re-hitting Mongo.
+        List<Exam> allExams = (sectionId != null && !sectionId.isBlank())
+                ? examRepository.findByClassIdAndSectionIdAndAcademicYearId(classId, sectionId, academicYearId)
+                : examRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
+        if (isPublishWorkflowEnabled()) {
+            allExams = allExams.stream().filter(Exam::isPublished).collect(Collectors.toList());
+        }
+        // Pre-pull the student's assessments for the whole exam list
+        // (one query), then look up per-exam marks in memory.
+        Map<String, Double> studentMarksByExam = new HashMap<>();
+        Map<String, Boolean> absentByExam = new HashMap<>();
+        if (!allExams.isEmpty()) {
+            List<String> allExamIds = allExams.stream().map(Exam::getExamId).collect(Collectors.toList());
+            for (StudentAssessments batch : assessmentsRepository.findByExamIdIn(allExamIds)) {
+                if (batch.getEntries() == null) continue;
+                for (StudentAssessments.MarkEntry entry : batch.getEntries()) {
+                    if (studentId.equals(entry.getStudentId())) {
+                        studentMarksByExam.put(batch.getExamId(),
+                                entry.getMarksObtained() != null ? entry.getMarksObtained() : 0.0);
+                        absentByExam.put(batch.getExamId(),
+                                entry.getStatus() == StudentAssessments.AttendanceStatus.ABSENT);
+                    }
+                }
+            }
+        }
+
+        // Subject-name lookup for row labels.
+        Map<String, String> subjectName = new HashMap<>();
+        for (Subject s : subjectRepository.findAll()) {
+            if (s.getSubjectId() != null && s.getName() != null) subjectName.put(s.getSubjectId(), s.getName());
+        }
+
+        List<com.saas.school.modules.examscheme.model.Scheme.Slot> slots = scheme.getSlots() == null
+                ? new ArrayList<>() : scheme.getSlots();
+
+        // Build slot rows. The order matches the scheme's declared order
+        // so the UI table reads chronologically (FA1 → FA2 → SA1 → SA2).
+        List<com.saas.school.modules.reportcard.dto.FinalReportCardDto.SlotRow> slotRows = new ArrayList<>();
+        // subjectRollup aggregator: subjectId → per-slot cells + totals.
+        java.util.LinkedHashMap<String, com.saas.school.modules.reportcard.dto.FinalReportCardDto.SubjectRollup> rollupBySubject = new java.util.LinkedHashMap<>();
+
+        double gtRawObtained = 0, gtRawMax = 0, gtWeightObtained = 0, gtWeightMax = 0;
+        double completedWeightObtained = 0, completedWeightMax = 0;
+        int completedSlotCount = 0;
+
+        for (com.saas.school.modules.examscheme.model.Scheme.Slot slot : slots) {
+            com.saas.school.modules.reportcard.dto.FinalReportCardDto.SlotRow slotRow = buildSlotRow(
+                    slot, allExams, studentMarksByExam, absentByExam, subjectName, rollupBySubject);
+            slotRows.add(slotRow);
+
+            if (slotRow.isIncludedInGrandTotal()) {
+                gtRawMax += slotRow.getRawMax();
+                gtWeightMax += slotRow.getWeightMax();
+                if (slotRow.getStatus() != com.saas.school.modules.reportcard.dto.FinalReportCardDto.Status.PENDING) {
+                    gtRawObtained += slotRow.getRawObtained() == null ? 0 : slotRow.getRawObtained();
+                    gtWeightObtained += slotRow.getWeightObtained() == null ? 0 : slotRow.getWeightObtained();
+                }
+                if (slotRow.getStatus() == com.saas.school.modules.reportcard.dto.FinalReportCardDto.Status.COMPLETED) {
+                    completedWeightObtained += slotRow.getWeightObtained() == null ? 0 : slotRow.getWeightObtained();
+                    completedWeightMax += slotRow.getWeightMax();
+                    completedSlotCount++;
+                }
+            }
+        }
+        out.setSlots(slotRows);
+        // Finalize rollup rows (totals, percentage, grade).
+        int passingPercent = scheme.getPassingPercent() != null ? scheme.getPassingPercent() : 35;
+        for (com.saas.school.modules.reportcard.dto.FinalReportCardDto.SubjectRollup row : rollupBySubject.values()) {
+            double pct = row.getTotalWeightMax() > 0
+                    ? (row.getTotalWeightObtained() / row.getTotalWeightMax()) * 100.0
+                    : 0.0;
+            row.setPercentage(Math.round(pct * 100.0) / 100.0);
+            row.setGrade(row.getTotalWeightMax() > 0 ? calculateGrade(pct) : "—");
+            row.setPassed(row.getTotalWeightMax() > 0 && pct >= passingPercent);
+        }
+        out.setSubjectRollup(new ArrayList<>(rollupBySubject.values()));
+
+        // Grand Total — percentage uses the FULL projected max so students
+        // see "25.2 / 100 so far = 25.2%" during the year (not an inflated
+        // "100%" from the pieces that are already done).
+        com.saas.school.modules.reportcard.dto.FinalReportCardDto.GrandTotal gt =
+                new com.saas.school.modules.reportcard.dto.FinalReportCardDto.GrandTotal();
+        gt.setRawObtained(round2(gtRawObtained));
+        gt.setRawMax(round2(gtRawMax));
+        gt.setWeightObtained(round2(gtWeightObtained));
+        gt.setWeightMax(round2(gtWeightMax));
+        double gtPct = gtWeightMax > 0 ? (gtWeightObtained / gtWeightMax) * 100.0 : 0.0;
+        gt.setPercentage(Math.round(gtPct * 100.0) / 100.0);
+        gt.setGrade(gtWeightMax > 0 && gtWeightObtained > 0 ? calculateGrade(gtPct) : "—");
+        gt.setPassed(gtPct >= passingPercent);
+        // Projection = extrapolate the student's completed-slot avg onto
+        // the remaining pending-slot weight. "If you keep going at this
+        // pace, you'd land near X%." Only meaningful once something's done.
+        if (completedWeightMax > 0 && completedSlotCount > 0) {
+            double completedPct = (completedWeightObtained / completedWeightMax) * 100.0;
+            double projected = (gtWeightObtained + (gtWeightMax - completedWeightMax) * (completedPct / 100.0));
+            if (gtWeightMax > 0) {
+                double projectedPct = (projected / gtWeightMax) * 100.0;
+                gt.setProjectedPercentage(Math.round(projectedPct * 100.0) / 100.0);
+            }
+        }
+        out.setGrandTotal(gt);
+
+        // Overall status hero chip.
+        boolean anyCompleted = slotRows.stream().anyMatch(r ->
+                r.getStatus() == com.saas.school.modules.reportcard.dto.FinalReportCardDto.Status.COMPLETED);
+        boolean allCompleted = !slotRows.isEmpty() && slotRows.stream().allMatch(r ->
+                !r.isIncludedInGrandTotal()
+                || r.getStatus() == com.saas.school.modules.reportcard.dto.FinalReportCardDto.Status.COMPLETED);
+        out.setOverallStatus(allCompleted
+                ? com.saas.school.modules.reportcard.dto.FinalReportCardDto.Status.COMPLETED
+                : (anyCompleted
+                    ? com.saas.school.modules.reportcard.dto.FinalReportCardDto.Status.IN_PROGRESS
+                    : com.saas.school.modules.reportcard.dto.FinalReportCardDto.Status.PENDING));
+
+        // Final rank (section + class) by Grand Total %.
+        com.saas.school.modules.reportcard.dto.FinalReportCardDto.RankInfo rank =
+                new com.saas.school.modules.reportcard.dto.FinalReportCardDto.RankInfo();
+        if (anyCompleted) {
+            rank.setSection(calculateFinalRank(studentId, classId, sectionId, academicYearId, scheme, gtPct));
+            rank.setClassWide(calculateFinalRank(studentId, classId, null, academicYearId, scheme, gtPct));
+        }
+        out.setRank(rank);
+
+        return out;
+    }
+
+    /** Resolve student display name — same fallbacks as the per-exam path. */
+    private String resolveStudentName(Student student) {
+        if (student.getFirstName() != null && !student.getFirstName().isEmpty()) {
+            return (student.getFirstName() + " " + (student.getLastName() == null ? "" : student.getLastName())).trim();
+        }
+        if (student.getUserId() != null) {
+            User u = userRepository.findById(student.getUserId()).orElse(null);
+            if (u != null) {
+                return ((u.getFirstName() == null ? "" : u.getFirstName()) + " "
+                        + (u.getLastName() == null ? "" : u.getLastName())).trim();
+            }
+        }
+        return "Student " + (student.getAdmissionNumber() == null ? student.getStudentId() : student.getAdmissionNumber());
+    }
+
+    /** Pick the active scheme covering this class+year. Prefers an ACTIVE
+     *  scheme whose applicableClassIds contains this class; otherwise falls
+     *  back to any class-matching scheme, else null. */
+    private com.saas.school.modules.examscheme.model.Scheme findActiveSchemeFor(String classId, String academicYearId) {
+        List<com.saas.school.modules.examscheme.model.Scheme> yearSchemes =
+                schemeRepository.findByAcademicYearId(academicYearId);
+        if (yearSchemes.isEmpty()) return null;
+        // Prefer ACTIVE + classId-match
+        return yearSchemes.stream()
+                .filter(s -> s.getStatus() == null || s.getStatus() == com.saas.school.modules.examscheme.model.Scheme.Status.ACTIVE)
+                .filter(s -> s.getApplicableClassIds() != null && s.getApplicableClassIds().contains(classId))
+                .min(java.util.Comparator.comparingInt(com.saas.school.modules.examscheme.model.Scheme::getDisplayOrder))
+                .orElseGet(() -> yearSchemes.stream()
+                        .filter(s -> s.getApplicableClassIds() != null && s.getApplicableClassIds().contains(classId))
+                        .findFirst().orElse(null));
+    }
+
+    /** Build one SlotRow + fold its subject cells into {@code rollup}. */
+    private com.saas.school.modules.reportcard.dto.FinalReportCardDto.SlotRow buildSlotRow(
+            com.saas.school.modules.examscheme.model.Scheme.Slot slot,
+            List<Exam> allExams,
+            Map<String, Double> studentMarksByExam,
+            Map<String, Boolean> absentByExam,
+            Map<String, String> subjectName,
+            java.util.LinkedHashMap<String, com.saas.school.modules.reportcard.dto.FinalReportCardDto.SubjectRollup> rollup) {
+        com.saas.school.modules.reportcard.dto.FinalReportCardDto.SlotRow row =
+                new com.saas.school.modules.reportcard.dto.FinalReportCardDto.SlotRow();
+        row.setSlotKey(slot.getKey());
+        row.setLabel(slot.getLabel());
+        row.setTerm(slot.getTerm());
+        row.setIncludedInGrandTotal(slot.countsInGrandTotal());
+        row.setRawMax(slot.getRawMax());
+        row.setWeightMax(slot.getWeightMax());
+
+        // Pick the exams tagged with this slot's key. Falls back to a
+        // name-prefix match for legacy exams that pre-date slotKey stamping.
+        List<Exam> slotExams = allExams.stream()
+                .filter(e -> slot.getKey() != null && slot.getKey().equals(e.getSlotKey())
+                        || (slot.getLabel() != null && slot.getLabel().equalsIgnoreCase(examNamePrefix(e))))
+                .collect(Collectors.toList());
+
+        List<com.saas.school.modules.reportcard.dto.FinalReportCardDto.SlotSubjectRow> subjectRows = new ArrayList<>();
+
+        // Resolve per-subject configuration from the slot. When
+        // subjectConfigs are missing, fall back to a flat split across
+        // every scheduled subject so legacy schemes still render.
+        Map<String, com.saas.school.modules.examscheme.model.Scheme.SubjectConfig> cfgBySubject = new HashMap<>();
+        if (slot.getSubjectConfigs() != null) {
+            for (com.saas.school.modules.examscheme.model.Scheme.SubjectConfig c : slot.getSubjectConfigs()) {
+                if (c.getSubjectId() != null) cfgBySubject.put(c.getSubjectId(), c);
+            }
+        }
+
+        double slotRawObtained = 0, slotRawMax = 0, slotWeightObtained = 0, slotWeightMax = 0;
+        int entriesSeen = 0, absentSeen = 0;
+
+        // Group slot exams by subjectId — one row per subject in this slot.
+        Map<String, Exam> examBySubject = new java.util.LinkedHashMap<>();
+        for (Exam e : slotExams) {
+            if (e.getSubjectId() == null) continue;
+            examBySubject.putIfAbsent(e.getSubjectId(), e);
+        }
+
+        for (Map.Entry<String, Exam> entry : examBySubject.entrySet()) {
+            String subjectId = entry.getKey();
+            Exam exam = entry.getValue();
+            com.saas.school.modules.examscheme.model.Scheme.SubjectConfig cfg = cfgBySubject.get(subjectId);
+            double subjectRawMax = cfg != null && cfg.getRawMax() > 0 ? cfg.getRawMax() : exam.getEffectiveMaxMarks();
+            double subjectWeightMax = cfg != null && cfg.getWeightMax() > 0 ? cfg.getWeightMax() : subjectRawMax;
+            Double passingMarks = cfg != null ? cfg.getPassingMarks() : null;
+
+            com.saas.school.modules.reportcard.dto.FinalReportCardDto.SlotSubjectRow sr =
+                    new com.saas.school.modules.reportcard.dto.FinalReportCardDto.SlotSubjectRow();
+            sr.setSubjectId(subjectId);
+            sr.setSubjectName(subjectName.getOrDefault(subjectId, subjectId));
+            sr.setRawMax(subjectRawMax);
+            sr.setWeightMax(subjectWeightMax);
+            sr.setPassingMarks(passingMarks);
+
+            Double rawObtained = studentMarksByExam.get(exam.getExamId());
+            Boolean absent = absentByExam.get(exam.getExamId());
+            if (Boolean.TRUE.equals(absent)) {
+                sr.setStatus("ABSENT");
+                sr.setRawObtained(0.0);
+                sr.setWeightObtained(0.0);
+                sr.setPassed(false);
+                absentSeen++;
+                entriesSeen++;
+            } else if (rawObtained != null) {
+                sr.setRawObtained(round2(rawObtained));
+                double weighted = subjectRawMax > 0 ? (rawObtained / subjectRawMax) * subjectWeightMax : 0.0;
+                sr.setWeightObtained(round2(weighted));
+                sr.setPassed(passingMarks == null || rawObtained >= passingMarks);
+                sr.setStatus("COMPLETED");
+                entriesSeen++;
+            } else {
+                sr.setStatus("PENDING");
+            }
+
+            subjectRows.add(sr);
+            slotRawMax += subjectRawMax;
+            slotWeightMax += subjectWeightMax;
+            if (sr.getRawObtained() != null) slotRawObtained += sr.getRawObtained();
+            if (sr.getWeightObtained() != null) slotWeightObtained += sr.getWeightObtained();
+
+            // Fold into subject rollup matrix.
+            com.saas.school.modules.reportcard.dto.FinalReportCardDto.SubjectRollup rr =
+                    rollup.computeIfAbsent(subjectId, sid -> {
+                        com.saas.school.modules.reportcard.dto.FinalReportCardDto.SubjectRollup nr =
+                                new com.saas.school.modules.reportcard.dto.FinalReportCardDto.SubjectRollup();
+                        nr.setSubjectId(sid);
+                        nr.setSubjectName(subjectName.getOrDefault(sid, sid));
+                        nr.setPerSlot(new ArrayList<>());
+                        return nr;
+                    });
+            com.saas.school.modules.reportcard.dto.FinalReportCardDto.SubjectSlotCell cell =
+                    new com.saas.school.modules.reportcard.dto.FinalReportCardDto.SubjectSlotCell();
+            cell.setSlotKey(slot.getKey());
+            cell.setSlotLabel(slot.getLabel());
+            cell.setRawObtained(sr.getRawObtained());
+            cell.setRawMax(subjectRawMax);
+            cell.setWeightObtained(sr.getWeightObtained());
+            cell.setWeightMax(subjectWeightMax);
+            rr.getPerSlot().add(cell);
+            // Only completed slots contribute to totals so pending-exam
+            // subjects don't drag the rolling average down to 0.
+            if (slot.countsInGrandTotal() && sr.getRawObtained() != null) {
+                rr.setTotalRawObtained(round2(rr.getTotalRawObtained() + sr.getRawObtained()));
+                rr.setTotalWeightObtained(round2(rr.getTotalWeightObtained() + sr.getWeightObtained()));
+            }
+            if (slot.countsInGrandTotal()) {
+                rr.setTotalRawMax(round2(rr.getTotalRawMax() + subjectRawMax));
+                rr.setTotalWeightMax(round2(rr.getTotalWeightMax() + subjectWeightMax));
+            }
+        }
+
+        row.setSubjects(subjectRows);
+        // Override slot totals with the per-subject sum when subjectConfigs
+        // supplied them; keep the scheme-declared max otherwise.
+        if (slotRawMax > 0) row.setRawMax(round2(slotRawMax));
+        if (slotWeightMax > 0) row.setWeightMax(round2(slotWeightMax));
+        if (entriesSeen > 0) {
+            row.setRawObtained(round2(slotRawObtained));
+            row.setWeightObtained(round2(slotWeightObtained));
+            row.setPercentage(row.getRawMax() > 0
+                    ? Math.round((slotRawObtained / row.getRawMax()) * 10000.0) / 100.0
+                    : 0.0);
+            // Completed when every subject in the slot has an entry.
+            boolean complete = subjectRows.stream().noneMatch(s -> "PENDING".equals(s.getStatus()));
+            row.setStatus(complete
+                    ? com.saas.school.modules.reportcard.dto.FinalReportCardDto.Status.COMPLETED
+                    : com.saas.school.modules.reportcard.dto.FinalReportCardDto.Status.IN_PROGRESS);
+        } else {
+            row.setStatus(com.saas.school.modules.reportcard.dto.FinalReportCardDto.Status.PENDING);
+        }
+        return row;
+    }
+
+    /**
+     * Rank the student by scheme Grand Total % among peers (section or
+     * whole class). Reads from {@link StudentAssessments} — same source
+     * of truth as the per-exam calculateRank, so student and admin views
+     * agree.
+     */
+    private int calculateFinalRank(String studentId, String classId, String sectionId,
+                                     String academicYearId,
+                                     com.saas.school.modules.examscheme.model.Scheme scheme,
+                                     double studentPercentage) {
+        try {
+            Map<String, Double> peerPcts = computeFinalPercentages(classId, sectionId, academicYearId, scheme);
+            int rank = 1;
+            for (Map.Entry<String, Double> e : peerPcts.entrySet()) {
+                if (e.getKey().equals(studentId)) continue;
+                if (e.getValue() > studentPercentage) rank++;
+            }
+            return rank;
+        } catch (Exception ex) {
+            logger.warn("Could not calculate final rank for studentId={}: {}", studentId, ex.getMessage());
+            return 0;
+        }
+    }
+
+    /** Per-student Final totals — obtained, max, pct (null unused). */
+    private static class FinalStats {
+        double obtained;
+        double max;
+        double pct;
+        FinalStats(double o, double m, double p) { obtained = o; max = m; pct = p; }
+    }
+
+    /** Weighted Grand Total % per student across the whole scheme. */
+    private Map<String, Double> computeFinalPercentages(String classId, String sectionId,
+                                                          String academicYearId,
+                                                          com.saas.school.modules.examscheme.model.Scheme scheme) {
+        Map<String, FinalStats> rich = computeFinalStats(classId, sectionId, academicYearId, scheme);
+        Map<String, Double> result = new HashMap<>();
+        for (Map.Entry<String, FinalStats> e : rich.entrySet()) result.put(e.getKey(), e.getValue().pct);
+        return result;
+    }
+
+    /** Full per-student weighted obtained + max + pct for the whole scheme.
+     *  Each student's {@code max} reflects the SUBSET of scheme slots they
+     *  were actually marked on — so the rankings table can print the
+     *  honest "obtained / max" they achieved rather than back-computing
+     *  obtained from a shared scheme-wide max (which displayed e.g.
+     *  "700 / 700" for a student who had only taken one FA1 subject). */
+    private Map<String, FinalStats> computeFinalStats(String classId, String sectionId,
+                                                        String academicYearId,
+                                                        com.saas.school.modules.examscheme.model.Scheme scheme) {
+        Map<String, FinalStats> result = new HashMap<>();
+        if (scheme == null || scheme.getSlots() == null || scheme.getSlots().isEmpty()) return result;
+
+        List<Exam> allExams = (sectionId != null && !sectionId.isBlank())
+                ? examRepository.findByClassIdAndSectionIdAndAcademicYearId(classId, sectionId, academicYearId)
+                : examRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
+        if (isPublishWorkflowEnabled()) {
+            allExams = allExams.stream().filter(Exam::isPublished).collect(Collectors.toList());
+        }
+        if (allExams.isEmpty()) return result;
+
+        Set<String> allowedStudentIds = null;
+        if (sectionId != null && !sectionId.isBlank()) {
+            allowedStudentIds = studentRepository
+                    .findByClassIdAndSectionIdAndDeletedAtIsNull(classId, sectionId)
+                    .stream().map(Student::getStudentId).collect(Collectors.toSet());
+        }
+
+        // For every slot that counts, for every scheduled subject in the
+        // slot, compute each student's weighted contribution. Totals are
+        // summed per student; a student with no entries in any slot is
+        // excluded from the ranking (not "0%" — they're ungraded).
+        Map<String, Double> studentWeightObtained = new HashMap<>();
+        Map<String, Double> studentWeightMax = new HashMap<>();
+        Map<String, Integer> studentEntries = new HashMap<>();
+
+        List<String> allExamIds = allExams.stream().map(Exam::getExamId).collect(Collectors.toList());
+        List<StudentAssessments> allBatches = assessmentsRepository.findByExamIdIn(allExamIds);
+        Map<String, StudentAssessments> batchByExam = new HashMap<>();
+        for (StudentAssessments b : allBatches) batchByExam.put(b.getExamId(), b);
+
+        for (com.saas.school.modules.examscheme.model.Scheme.Slot slot : scheme.getSlots()) {
+            if (!slot.countsInGrandTotal()) continue;
+
+            Map<String, com.saas.school.modules.examscheme.model.Scheme.SubjectConfig> cfgBySubject = new HashMap<>();
+            if (slot.getSubjectConfigs() != null) {
+                for (com.saas.school.modules.examscheme.model.Scheme.SubjectConfig c : slot.getSubjectConfigs()) {
+                    if (c.getSubjectId() != null) cfgBySubject.put(c.getSubjectId(), c);
+                }
+            }
+
+            List<Exam> slotExams = allExams.stream()
+                    .filter(e -> slot.getKey() != null && slot.getKey().equals(e.getSlotKey())
+                            || (slot.getLabel() != null && slot.getLabel().equalsIgnoreCase(examNamePrefix(e))))
+                    .collect(Collectors.toList());
+
+            // One exam per subject in a well-formed slot — the first wins
+            // if the data accidentally has duplicates.
+            Map<String, Exam> examBySubject = new HashMap<>();
+            for (Exam e : slotExams) {
+                if (e.getSubjectId() == null) continue;
+                examBySubject.putIfAbsent(e.getSubjectId(), e);
+            }
+
+            for (Map.Entry<String, Exam> en : examBySubject.entrySet()) {
+                String subjectId = en.getKey();
+                Exam exam = en.getValue();
+                com.saas.school.modules.examscheme.model.Scheme.SubjectConfig cfg = cfgBySubject.get(subjectId);
+                double subjectRawMax = cfg != null && cfg.getRawMax() > 0 ? cfg.getRawMax() : exam.getEffectiveMaxMarks();
+                double subjectWeightMax = cfg != null && cfg.getWeightMax() > 0 ? cfg.getWeightMax() : subjectRawMax;
+
+                StudentAssessments batch = batchByExam.get(exam.getExamId());
+                if (batch == null || batch.getEntries() == null) {
+                    // Still add weight-max for everyone later — handled
+                    // in the finalize loop by using the max from the
+                    // scheme regardless of whether entries exist.
+                    continue;
+                }
+                for (StudentAssessments.MarkEntry mark : batch.getEntries()) {
+                    String sid = mark.getStudentId();
+                    if (sid == null) continue;
+                    if (allowedStudentIds != null && !allowedStudentIds.contains(sid)) continue;
+                    double raw = mark.getMarksObtained() != null ? mark.getMarksObtained() : 0.0;
+                    double weighted = subjectRawMax > 0 ? (raw / subjectRawMax) * subjectWeightMax : 0.0;
+                    studentWeightObtained.merge(sid, weighted, Double::sum);
+                    studentWeightMax.merge(sid, subjectWeightMax, Double::sum);
+                    studentEntries.merge(sid, 1, Integer::sum);
+                }
+            }
+        }
+
+        // Compute percentage per student using THEIR scheme-max (the sum
+        // of weights for exams they were actually marked on). Students
+        // with no entries at all are excluded.
+        for (Map.Entry<String, Integer> e : studentEntries.entrySet()) {
+            String sid = e.getKey();
+            double max = studentWeightMax.getOrDefault(sid, 0.0);
+            if (max <= 0) continue;
+            double obtained = studentWeightObtained.getOrDefault(sid, 0.0);
+            double pct = (obtained / max) * 100.0;
+            result.put(sid, new FinalStats(round2(obtained), round2(max), round2(pct)));
+        }
+        return result;
+    }
+
+    private double round2(double v) { return Math.round(v * 100.0) / 100.0; }
+
+    /**
+     * Final-scope class rankings — one row per student in the scope with
+     * their Grand Total % computed from the scheme. Returns the standard
+     * {@link com.saas.school.modules.analytics.dto.ClassRankingDto} shape
+     * so the Class Rankings UI can reuse the per-exam rendering code
+     * unchanged (just swap the data source when the Final filter is on).
+     * The order is Final % descending; students with no entered marks at
+     * all are omitted (they can't be ranked at 0%).
+     */
+    public List<com.saas.school.modules.analytics.dto.ClassRankingDto> getFinalRankings(
+            String classId, String sectionId, String academicYearId) {
+        List<com.saas.school.modules.analytics.dto.ClassRankingDto> out = new ArrayList<>();
+        com.saas.school.modules.examscheme.model.Scheme scheme = findActiveSchemeFor(classId, academicYearId);
+        if (scheme == null) return out;
+
+        Map<String, FinalStats> stats = computeFinalStats(classId, sectionId, academicYearId, scheme);
+        if (stats.isEmpty()) return out;
+
+        // Build name + section lookup in one batch.
+        List<Student> students = (sectionId != null && !sectionId.isBlank())
+                ? studentRepository.findByClassIdAndSectionIdAndDeletedAtIsNull(classId, sectionId)
+                : studentRepository.findByClassIdAndDeletedAtIsNull(classId, Pageable.unpaged()).getContent();
+        Map<String, Student> studentMap = students.stream()
+                .collect(Collectors.toMap(Student::getStudentId, s -> s, (a, b) -> a));
+
+        // Report EACH student's actual weighted obtained + max — a student
+        // who has only been scored on FA1 (part of the scheme) sees
+        // their real "105 / 105" rather than an inflated scheme-wide
+        // "700 / 700" that would misleadingly imply full scheme coverage.
+        for (Map.Entry<String, FinalStats> e : stats.entrySet()) {
+            Student s = studentMap.get(e.getKey());
+            if (s == null) continue;
+            FinalStats fs = e.getValue();
+            com.saas.school.modules.analytics.dto.ClassRankingDto dto =
+                    new com.saas.school.modules.analytics.dto.ClassRankingDto();
+            dto.setStudentId(s.getStudentId());
+            dto.setStudentName(resolveStudentName(s));
+            dto.setRollNumber(s.getRollNumber());
+            dto.setObtainedMarks(fs.obtained);
+            dto.setTotalMarks(fs.max);
+            dto.setMaxMarks(fs.max);
+            dto.setPercentage(fs.pct);
+            out.add(dto);
+        }
+        out.sort((a, b) -> Double.compare(b.getPercentage(), a.getPercentage()));
+        return out;
+    }
+
+    /**
+     * Bulk-generate scheme-weighted Final cards for every student in a
+     * (class, optional-section) scope. Order matches the admin's roster
+     * so the UI table reads top-down the same way the Report Cards list
+     * already does. Returns an empty list when no scheme applies.
+     */
+    public List<com.saas.school.modules.reportcard.dto.FinalReportCardDto> generateBulkFinalReportCards(
+            String classId, String sectionId, String academicYearId) {
+        logger.info("Bulk Final report cards: classId={}, sectionId={}, academicYearId={}",
+                classId, sectionId, academicYearId);
+        List<Student> students = (sectionId != null && !sectionId.isBlank())
+                ? studentRepository.findByClassIdAndSectionIdAndDeletedAtIsNull(classId, sectionId)
+                : studentRepository.findByClassIdAndDeletedAtIsNull(classId, Pageable.unpaged()).getContent();
+        List<com.saas.school.modules.reportcard.dto.FinalReportCardDto> out = new ArrayList<>();
+        for (Student s : students) {
+            try {
+                com.saas.school.modules.reportcard.dto.FinalReportCardDto dto =
+                        generateFinalReportCard(s.getStudentId(), academicYearId);
+                if (dto != null) out.add(dto);
+            } catch (Exception e) {
+                logger.error("Error generating Final card for studentId={}: {}", s.getStudentId(), e.getMessage());
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Render the Final report card as a PDF. Mirrors the per-exam PDF's
+     * header block, then renders the slot summary table, the per-subject
+     * rollup matrix, and the Grand Total — all driven by the same DTO
+     * the frontend uses so the on-screen and on-paper numbers never drift.
+     */
+    public byte[] generateFinalReportCardPdf(String studentId, String academicYearId, String tenantId) {
+        com.saas.school.modules.reportcard.dto.FinalReportCardDto dto =
+                generateFinalReportCard(studentId, academicYearId);
+        if (dto == null) {
+            throw new IllegalStateException("No active scheme configured for this student's class and year.");
+        }
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (PdfWriter writer = new PdfWriter(baos);
+             PdfDocument pdf = new PdfDocument(writer);
+             Document doc = new Document(pdf, PageSize.A4)) {
+
+            doc.setMargins(28, 32, 28, 32);
+            Tenant tenant = tenantRepository.findById(tenantId).orElse(null);
+            String schoolName = tenant != null ? tenant.getSchoolName() : "School";
+
+            // Header
+            doc.add(new Paragraph(schoolName).setBold().setFontSize(16).setTextAlignment(TextAlignment.CENTER));
+            doc.add(new Paragraph("Final Report Card")
+                    .setBold().setFontSize(12).setTextAlignment(TextAlignment.CENTER)
+                    .setMarginBottom(10));
+
+            // Student info block
+            Table info = new Table(UnitValue.createPercentArray(new float[]{1, 2, 1, 2}))
+                    .setWidth(UnitValue.createPercentValue(100));
+            addCompactInfoCell(info, "Student:", dto.getStudentName());
+            addCompactInfoCell(info, "Class:",
+                    (dto.getClassName() == null ? "-" : dto.getClassName())
+                            + (dto.getSectionName() == null ? "" : " · " + dto.getSectionName()));
+            addCompactInfoCell(info, "Year:", dto.getAcademicYearLabel() == null ? dto.getAcademicYearId() : dto.getAcademicYearLabel());
+            addCompactInfoCell(info, "Scheme:", dto.getScheme() == null ? "-" : dto.getScheme().getName());
+            addCompactInfoCell(info, "Rank (section):",
+                    dto.getRank() != null && dto.getRank().getSection() > 0 ? "#" + dto.getRank().getSection() : "—");
+            addCompactInfoCell(info, "Rank (class):",
+                    dto.getRank() != null && dto.getRank().getClassWide() > 0 ? "#" + dto.getRank().getClassWide() : "—");
+            addCompactInfoCell(info, "Grand Total:",
+                    dto.getGrandTotal() == null ? "-"
+                            : (trimDecimal(dto.getGrandTotal().getWeightObtained())
+                                + " / " + trimDecimal(dto.getGrandTotal().getWeightMax())
+                                + "  (" + dto.getGrandTotal().getPercentage() + "%)"));
+            addCompactInfoCell(info, "Grade:",
+                    dto.getGrandTotal() == null ? "-" : (dto.getGrandTotal().getGrade() == null ? "—" : dto.getGrandTotal().getGrade()));
+            doc.add(info);
+            doc.add(new Paragraph(" ").setFontSize(6));
+
+            // Slot summary table
+            doc.add(new Paragraph("Scheme Progress").setBold().setFontSize(11).setMarginBottom(2));
+            Table slotTable = new Table(UnitValue.createPercentArray(new float[]{2.5f, 1.5f, 1.5f, 1, 1.3f}))
+                    .setWidth(UnitValue.createPercentValue(100));
+            addCompactHeaderCell(slotTable, "Slot");
+            addCompactHeaderCell(slotTable, "Raw");
+            addCompactHeaderCell(slotTable, "Weighted");
+            addCompactHeaderCell(slotTable, "%");
+            addCompactHeaderCell(slotTable, "Status");
+            if (dto.getSlots() != null) {
+                for (com.saas.school.modules.reportcard.dto.FinalReportCardDto.SlotRow r : dto.getSlots()) {
+                    String labelCell = r.getLabel() + (r.isIncludedInGrandTotal() ? "" : "  (not counted)");
+                    addInfoCell(slotTable, labelCell,
+                            r.getRawObtained() == null ? "—" : trimDecimal(r.getRawObtained()) + " / " + trimDecimal(r.getRawMax()));
+                    slotTable.addCell(new Cell().setBorder(Border.NO_BORDER)
+                            .add(new Paragraph(r.getWeightObtained() == null ? "—"
+                                    : trimDecimal(r.getWeightObtained()) + " / " + trimDecimal(r.getWeightMax()))
+                                    .setFontSize(10)));
+                    slotTable.addCell(new Cell().setBorder(Border.NO_BORDER)
+                            .add(new Paragraph(r.getPercentage() == null ? "—" : r.getPercentage() + "%")
+                                    .setFontSize(10)));
+                    slotTable.addCell(new Cell().setBorder(Border.NO_BORDER)
+                            .add(new Paragraph(r.getStatus() == null ? "-" : r.getStatus().name())
+                                    .setFontSize(9)));
+                }
+            }
+            // Grand Total summary row
+            if (dto.getGrandTotal() != null) {
+                slotTable.addCell(new Cell().setBorder(Border.NO_BORDER)
+                        .add(new Paragraph("Grand Total").setBold().setFontSize(10)));
+                slotTable.addCell(new Cell().setBorder(Border.NO_BORDER)
+                        .add(new Paragraph(trimDecimal(dto.getGrandTotal().getRawObtained())
+                                + " / " + trimDecimal(dto.getGrandTotal().getRawMax())).setBold().setFontSize(10)));
+                slotTable.addCell(new Cell().setBorder(Border.NO_BORDER)
+                        .add(new Paragraph(trimDecimal(dto.getGrandTotal().getWeightObtained())
+                                + " / " + trimDecimal(dto.getGrandTotal().getWeightMax())).setBold().setFontSize(10)));
+                slotTable.addCell(new Cell().setBorder(Border.NO_BORDER)
+                        .add(new Paragraph(dto.getGrandTotal().getPercentage() + "%").setBold().setFontSize(10)));
+                slotTable.addCell(new Cell().setBorder(Border.NO_BORDER)
+                        .add(new Paragraph(dto.getGrandTotal().isPassed() ? "PASS" : "FAIL").setBold().setFontSize(10)));
+            }
+            doc.add(slotTable);
+            doc.add(new Paragraph(" ").setFontSize(6));
+
+            // Subject rollup matrix
+            if (dto.getSubjectRollup() != null && !dto.getSubjectRollup().isEmpty()
+                    && dto.getSlots() != null && !dto.getSlots().isEmpty()) {
+                doc.add(new Paragraph("Subject-wise Rollup (weighted)").setBold().setFontSize(11).setMarginBottom(2));
+                float[] widths = new float[dto.getSlots().size() + 3];
+                widths[0] = 2.5f;
+                for (int i = 1; i <= dto.getSlots().size(); i++) widths[i] = 1.2f;
+                widths[widths.length - 2] = 1.4f;
+                widths[widths.length - 1] = 0.8f;
+                Table rollup = new Table(UnitValue.createPercentArray(widths))
+                        .setWidth(UnitValue.createPercentValue(100));
+                addCompactHeaderCell(rollup, "Subject");
+                for (com.saas.school.modules.reportcard.dto.FinalReportCardDto.SlotRow r : dto.getSlots()) {
+                    addCompactHeaderCell(rollup, r.getLabel());
+                }
+                addCompactHeaderCell(rollup, "Total");
+                addCompactHeaderCell(rollup, "Grade");
+                for (com.saas.school.modules.reportcard.dto.FinalReportCardDto.SubjectRollup sr : dto.getSubjectRollup()) {
+                    rollup.addCell(new Cell().setBorder(Border.NO_BORDER)
+                            .add(new Paragraph(sr.getSubjectName()).setFontSize(10)));
+                    Map<String, com.saas.school.modules.reportcard.dto.FinalReportCardDto.SubjectSlotCell> cellsBySlot = new HashMap<>();
+                    if (sr.getPerSlot() != null) {
+                        for (com.saas.school.modules.reportcard.dto.FinalReportCardDto.SubjectSlotCell c : sr.getPerSlot()) {
+                            cellsBySlot.put(c.getSlotKey(), c);
+                        }
+                    }
+                    for (com.saas.school.modules.reportcard.dto.FinalReportCardDto.SlotRow r : dto.getSlots()) {
+                        com.saas.school.modules.reportcard.dto.FinalReportCardDto.SubjectSlotCell c = cellsBySlot.get(r.getSlotKey());
+                        String txt = (c == null || c.getWeightObtained() == null)
+                                ? "—"
+                                : trimDecimal(c.getWeightObtained()) + " / " + trimDecimal(c.getWeightMax());
+                        rollup.addCell(new Cell().setBorder(Border.NO_BORDER)
+                                .add(new Paragraph(txt).setFontSize(9)));
+                    }
+                    rollup.addCell(new Cell().setBorder(Border.NO_BORDER)
+                            .add(new Paragraph(trimDecimal(sr.getTotalWeightObtained()) + " / " + trimDecimal(sr.getTotalWeightMax()))
+                                    .setBold().setFontSize(10)));
+                    rollup.addCell(new Cell().setBorder(Border.NO_BORDER)
+                            .add(new Paragraph(sr.getGrade() == null ? "—" : sr.getGrade()).setFontSize(10)));
+                }
+                doc.add(rollup);
+            }
+
+            return baos.toByteArray();
+        } catch (Exception e) {
+            logger.error("Failed to render Final PDF for studentId={}: {}", studentId, e.getMessage(), e);
+            throw new RuntimeException("Failed to generate Final PDF: " + e.getMessage(), e);
+        }
     }
 
     // ── Per-component aggregation helpers ─────────────────────────────
@@ -1266,14 +2115,127 @@ public class ReportCardService {
         }
     }
 
-    private int calculateRank(String studentId, String classId, String academicYearId, double studentPercentage) {
+    /**
+     * Rank the student against their SAME-SECTION, SAME-EXAM peers only.
+     * The stored-cards pool for a class spans every section and every exam
+     * ever generated, so a straight class-wide comparison would conflate
+     * 10-A/10-B/10-C and FA1/FA2/SA1 cards into one leaderboard — which
+     * is why Bhavya in 10-B FA2 was showing as #26 on her self-view
+     * while the admin's 10-B FA2 Class Rankings had her at #1. Filtering
+     * by sectionId + examType (name prefix) brings the two views back in
+     * line.
+     */
+    /**
+     * Compute each student's percentage for the given scope the same way
+     * {@link #generateReportCard} does. Must match that logic exactly or
+     * ranking in the single-student view disagrees with the bulk-generated
+     * ranking shown in the Report Cards list.
+     *
+     * <p>Specifically: a student's denominator is the SUM of every
+     * matching exam's max marks (not just the ones they have entries
+     * for). An exam with no entry counts as "absent" — zero obtained
+     * added, full max added — exactly the way the outer bulk path does
+     * it. Students with NO entry across the whole set are excluded
+     * (they'd have grade "—" and no rank in the bulk view).
+     */
+    private Map<String, Double> computeStudentPercentages(String classId, String sectionId,
+                                                           String academicYearId, String examNamePrefix) {
+        Map<String, Double> result = new HashMap<>();
+        if (examNamePrefix == null || examNamePrefix.isBlank()) return result;
+
+        List<Exam> exams = (sectionId != null && !sectionId.isBlank())
+                ? examRepository.findByClassIdAndSectionIdAndAcademicYearId(classId, sectionId, academicYearId)
+                : examRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
+        if (isPublishWorkflowEnabled()) {
+            exams = exams.stream().filter(Exam::isPublished).collect(Collectors.toList());
+        }
+        final String prefix = examNamePrefix;
+        exams = exams.stream()
+                .filter(e -> prefix.equalsIgnoreCase(examNamePrefix(e)))
+                .collect(Collectors.toList());
+        if (exams.isEmpty()) return result;
+
+        // Pool of candidate students for ranking — same scope as the bulk
+        // path. Null section means "whole class".
+        List<Student> poolStudents = (sectionId != null && !sectionId.isBlank())
+                ? studentRepository.findByClassIdAndSectionIdAndDeletedAtIsNull(classId, sectionId)
+                : studentRepository.findByClassIdAndDeletedAtIsNull(classId, Pageable.unpaged()).getContent();
+        Set<String> allowedStudentIds = poolStudents.stream()
+                .map(Student::getStudentId)
+                .collect(Collectors.toSet());
+
+        // Total max per student = sum of ALL section-scoped exam maxes
+        // (absent-for-missing semantic). Every student in the pool gets
+        // the same baseline denominator; obtained is 0 until they're
+        // marked on an exam.
+        double totalMaxAllExams = 0;
+        Map<String, Double> examMaxMarks = new HashMap<>();
+        for (Exam e : exams) {
+            double m = (double) e.getEffectiveMaxMarks();
+            examMaxMarks.put(e.getExamId(), m);
+            totalMaxAllExams += m;
+        }
+        if (totalMaxAllExams <= 0) return result;
+        List<String> examIds = new ArrayList<>(examMaxMarks.keySet());
+
+        // Sum each student's obtained marks across the matching exams.
+        Map<String, Double> obtained = new HashMap<>();
+        Set<String> studentsWithAnyEntry = new HashSet<>();
+        for (StudentAssessments batch : assessmentsRepository.findByExamIdIn(examIds)) {
+            if (batch.getEntries() == null) continue;
+            for (StudentAssessments.MarkEntry entry : batch.getEntries()) {
+                String sid = entry.getStudentId();
+                if (sid == null) continue;
+                if (!allowedStudentIds.contains(sid)) continue;
+                double got = entry.getMarksObtained() != null ? entry.getMarksObtained() : 0.0;
+                obtained.merge(sid, got, Double::sum);
+                studentsWithAnyEntry.add(sid);
+            }
+        }
+
+        // Only include students who have at least one entry — the bulk
+        // sort omits students with grade "—" from the rank list, so we
+        // mirror that here to keep the two views in agreement.
+        for (String sid : studentsWithAnyEntry) {
+            double pct = (obtained.getOrDefault(sid, 0.0) / totalMaxAllExams) * 100.0;
+            result.put(sid, pct);
+        }
+        return result;
+    }
+
+    /**
+     * Rank the student against their peers for the given exam name prefix,
+     * reading marks straight from the source of truth
+     * ({@link StudentAssessments}) rather than from the derived
+     * {@code report_cards} collection. The report-cards collection only
+     * contains rows for students who have had a report card generated —
+     * which, on the student self-view, is usually just the viewer — so
+     * ranking from it would always put the viewer at #1 (no peers in the
+     * pool). The admin's Class Rankings page uses the same aggregation,
+     * so this method is what keeps the student and admin numbers in
+     * agreement.
+     *
+     * <p>Algorithm:
+     * <ol>
+     *   <li>Load every exam for the class+year whose name prefix matches
+     *       (FA1 → every FA1 subject-exam). Honor the publish gate.</li>
+     *   <li>Pull every student's assessment entries for those exams.</li>
+     *   <li>Sum obtained+max per student and compute each percentage.</li>
+     *   <li>Count peers (same section for section rank, whole class for
+     *       class rank) whose percentage beats the viewer's.</li>
+     * </ol>
+     * Students who have NO entries across any matching exam are skipped
+     * — they haven't been graded, so they can't "beat" or "lose to"
+     * anyone.
+     */
+    private int calculateRank(String studentId, String classId, String sectionId,
+                               String academicYearId, String examNamePrefix, double studentPercentage) {
         try {
-            List<ReportCard> classReports = reportCardRepository.findByClassIdAndAcademicYearId(classId, academicYearId);
+            Map<String, Double> pcts = computeStudentPercentages(classId, sectionId, academicYearId, examNamePrefix);
             int rank = 1;
-            for (ReportCard rc : classReports) {
-                if (!rc.getStudentId().equals(studentId) && rc.getPercentage() > studentPercentage) {
-                    rank++;
-                }
+            for (Map.Entry<String, Double> e : pcts.entrySet()) {
+                if (e.getKey().equals(studentId)) continue;
+                if (e.getValue() > studentPercentage) rank++;
             }
             return rank;
         } catch (Exception e) {

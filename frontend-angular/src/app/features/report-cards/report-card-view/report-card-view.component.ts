@@ -9,6 +9,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { FormsModule } from '@angular/forms';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { downloadOrOpenBlob } from '../../../shared/utils/download';
 import { ApiService } from '../../../core/services/api.service';
@@ -19,6 +21,7 @@ import { AuthService } from '../../../core/services/auth.service';
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     MatCardModule,
     MatTableModule,
     MatButtonModule,
@@ -27,6 +30,7 @@ import { AuthService } from '../../../core/services/auth.service';
     MatDividerModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    MatButtonToggleModule,
     PageHeaderComponent,
   ],
   templateUrl: './report-card-view.component.html',
@@ -58,7 +62,73 @@ export class ReportCardViewComponent implements OnInit {
   isLoading = false;
   selectedExamType = '';
   selectedAcademicYearId = '';
+  studentIdForView = '';
   missingContext = false;
+
+  // ── Final mode ────────────────────────────────────────────────────
+  viewMode: 'exam' | 'final' = 'exam';
+  rollupMode: 'weighted' | 'raw' = 'weighted';
+  finalCard: any = null;
+  finalProbed = false;
+  isLoadingFinal = false;
+
+  onViewModeChange(): void {
+    if (this.viewMode === 'final' && !this.finalCard && this.studentIdForView) {
+      this.loadFinal();
+    }
+  }
+
+  private probeFinal(): void {
+    if (!this.studentIdForView || !this.selectedAcademicYearId) return;
+    this.api.getStudentFinalReportCard(this.studentIdForView, this.selectedAcademicYearId).subscribe({
+      next: (res) => { this.finalCard = res?.data || null; this.finalProbed = true; },
+      error: () => { this.finalCard = null; this.finalProbed = true; },
+    });
+  }
+
+  loadFinal(): void {
+    if (!this.studentIdForView || !this.selectedAcademicYearId) return;
+    this.isLoadingFinal = true;
+    this.api.getStudentFinalReportCard(this.studentIdForView, this.selectedAcademicYearId).subscribe({
+      next: (res) => { this.finalCard = res?.data || null; this.isLoadingFinal = false; },
+      error: () => { this.finalCard = null; this.isLoadingFinal = false; },
+    });
+  }
+
+  downloadFinalPdf(): void {
+    if (!this.studentIdForView || !this.selectedAcademicYearId) return;
+    const tenantId = this.authService.currentSchoolInfo?.tenantId || '';
+    this.api.downloadFinalReportCardPdf(this.studentIdForView, this.selectedAcademicYearId, tenantId).subscribe({
+      next: (blob) => downloadOrOpenBlob(blob, `final-report-card-${this.finalCard?.studentName || 'student'}.pdf`),
+      error: () => this.snackBar.open('Failed to download Final PDF', 'Close', { duration: 3000 }),
+    });
+  }
+
+  slotStatusClass(status: string): string {
+    switch ((status || '').toUpperCase()) {
+      case 'COMPLETED': return 'slot-pill--completed';
+      case 'IN_PROGRESS': return 'slot-pill--inprogress';
+      case 'PENDING': return 'slot-pill--pending';
+      default: return 'slot-pill--pending';
+    }
+  }
+
+  subjectCellStatusClass(status: string): string {
+    switch ((status || '').toUpperCase()) {
+      case 'COMPLETED': return 'cell-pill--completed';
+      case 'PENDING':   return 'cell-pill--pending';
+      case 'ABSENT':    return 'cell-pill--absent';
+      case 'NOT_SCHEDULED': return 'cell-pill--notsched';
+      default: return 'cell-pill--pending';
+    }
+  }
+
+  slotPct(row: any): number {
+    if (row?.percentage != null) return Math.max(0, Math.min(100, Number(row.percentage)));
+    const max = Number(row?.rawMax || 0);
+    const obt = Number(row?.rawObtained || 0);
+    return max > 0 ? Math.round((obt / max) * 100) : 0;
+  }
 
   constructor(
     private api: ApiService,
@@ -88,18 +158,24 @@ export class ReportCardViewComponent implements OnInit {
     // Read context from query params set by the generator when "View" was clicked.
     this.selectedExamType = this.route.snapshot.queryParamMap.get('examType') || '';
     this.selectedAcademicYearId = this.route.snapshot.queryParamMap.get('academicYearId') || '';
+    const modeParam = (this.route.snapshot.queryParamMap.get('mode') || '').toLowerCase();
+    if (modeParam === 'final') this.viewMode = 'final';
 
     if (!id) {
       this.missingContext = true;
       return;
     }
-    if (!this.selectedExamType) {
-      // Can't show a meaningful card without an exam type.
+    this.studentIdForView = id;
+    if (!this.selectedExamType && this.viewMode === 'exam') {
+      // Can't show a meaningful per-exam card without an exam type —
+      // but Final doesn't need one, so allow Final-only landing.
       this.missingContext = true;
       return;
     }
     if (this.selectedAcademicYearId) {
-      this.loadReportCard(id);
+      if (this.viewMode === 'final') this.loadFinal();
+      else this.loadReportCard(id);
+      this.probeFinal();
     } else {
       this.resolveCurrentYearAndLoad(id);
     }
@@ -115,7 +191,9 @@ export class ReportCardViewComponent implements OnInit {
           this.snackBar.open('No academic year found', 'Close', { duration: 3000 });
           return;
         }
-        this.loadReportCard(studentId);
+        if (this.viewMode === 'final') this.loadFinal();
+        else this.loadReportCard(studentId);
+        this.probeFinal();
       },
     });
   }
