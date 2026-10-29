@@ -634,6 +634,20 @@ export class ApiService {
     return this.http.get<ApiResponse<Student>>(`${this.API}/students/${studentId}`);
   }
 
+  /** Download the admin-only credentials XLSX. All three filters are
+   *  optional — omitting classId exports every class in the tenant,
+   *  one sheet per (class, section). Returns a Blob so the caller can
+   *  save it with the shared download helper. */
+  exportStudentCredentials(classId?: string, sectionId?: string, academicYearId?: string): Observable<Blob> {
+    let url = `${this.API}/students/credentials/export`;
+    const parts: string[] = [];
+    if (classId) parts.push(`classId=${encodeURIComponent(classId)}`);
+    if (sectionId) parts.push(`sectionId=${encodeURIComponent(sectionId)}`);
+    if (academicYearId) parts.push(`academicYearId=${encodeURIComponent(academicYearId)}`);
+    if (parts.length > 0) url += `?${parts.join('&')}`;
+    return this.http.get(url, { responseType: 'blob' });
+  }
+
   /** Teacher's "My Students" page — one call, backend does all the work. */
   getMyClassStudents(): Observable<ApiResponse<MyClassStudentsResponse>> {
     return this.http.get<ApiResponse<MyClassStudentsResponse>>(`${this.API}/students/my-class`);

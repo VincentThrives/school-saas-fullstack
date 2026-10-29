@@ -19,6 +19,7 @@ import { PageHeaderComponent } from '../../../shared/components/page-header/page
 import { ApiService } from '../../../core/services/api.service';
 import { Student, SchoolClass, User } from '../../../core/models';
 import { BulkImportDialogComponent } from '../bulk-import/bulk-import-dialog.component';
+import { downloadOrOpenBlob } from '../../../shared/utils/download';
 
 @Component({
   selector: 'app-students-list',
@@ -286,6 +287,36 @@ export class StudentsListComponent implements OnInit {
 
   navigateToAddStudent(): void {
     this.router.navigate(['/students/new']);
+  }
+
+  /** Download an XLSX of login credentials. Scope follows the filters:
+   *   - a specific Class + Section → single sheet for that section
+   *   - a specific Class, All Sections → one sheet per section of that class
+   *   - All Classes → one sheet per (class, section) across the whole school
+   *  Admins hand this to class teachers so they stop searching student
+   *  records every time a parent calls for login help. */
+  downloadCredentials(): void {
+    const className = this.classFilter
+      ? (this.classes.find(c => c.classId === this.classFilter)?.name || 'class')
+      : 'all-classes';
+    const sectionName = this.sectionFilter
+      ? (this.selectedClassSections.find(s => s.sectionId === this.sectionFilter)?.name || this.sectionFilter)
+      : 'all-sections';
+    this.isLoading = true;
+    this.apiService.exportStudentCredentials(
+      this.classFilter || undefined,
+      this.sectionFilter || undefined,
+      this.academicYearFilter || undefined,
+    ).subscribe({
+      next: (blob: Blob) => {
+        this.isLoading = false;
+        downloadOrOpenBlob(blob, `credentials-${className}-${sectionName}.xlsx`);
+      },
+      error: (err: any) => {
+        this.isLoading = false;
+        this.snackBar.open(err?.error?.message || 'Failed to download credentials', 'Close', { duration: 3000 });
+      },
+    });
   }
 
   navigateToBulkImport(): void {

@@ -175,4 +175,30 @@ public class StudentController {
         return ResponseEntity.ok(ApiResponse.success(
                 result, "Imported " + result.getCreated() + " students"));
     }
+
+    /**
+     * Download an XLSX of student login credentials for one class
+     * (optionally narrowed to a section). Admin-only — the sheet carries
+     * each student's username and their DOB-based default password so a
+     * class teacher doesn't have to search the student record every
+     * time a parent calls for login help.
+     */
+    @GetMapping("/credentials/export")
+    @PreAuthorize("hasRole('SCHOOL_ADMIN')")
+    public ResponseEntity<ByteArrayResource> exportCredentials(
+            @RequestParam(required = false) String classId,
+            @RequestParam(required = false) String sectionId,
+            @RequestParam(required = false) String academicYearId) {
+        byte[] bytes = studentService.exportCredentialsXlsx(classId, sectionId, academicYearId);
+        String scope = (classId != null && !classId.isBlank())
+                ? classId + (sectionId != null && !sectionId.isBlank() ? "-" + sectionId : "")
+                : "all-classes";
+        String filename = "student-credentials-" + scope + ".xlsx";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .contentLength(bytes.length)
+                .body(new ByteArrayResource(bytes));
+    }
 }

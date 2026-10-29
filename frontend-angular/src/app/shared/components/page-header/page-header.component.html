@@ -28,6 +28,18 @@
 
     <div class="actions-section" *ngIf="hasActions">
       <button
+        *ngIf="tertiaryActionLabel"
+        mat-stroked-button
+        class="tertiary-action-btn"
+        [disabled]="tertiaryActionDisabled"
+        [matTooltip]="tertiaryActionTooltip"
+        (click)="onTertiaryActionClick()"
+      >
+        <mat-icon *ngIf="tertiaryActionIcon">{{ tertiaryActionIcon }}</mat-icon>
+        {{ tertiaryActionLabel }}
+      </button>
+
+      <button
         *ngIf="secondaryActionLabel"
         mat-stroked-button
         class="secondary-action-btn"

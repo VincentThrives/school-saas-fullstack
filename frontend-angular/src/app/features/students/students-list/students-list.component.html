@@ -7,8 +7,13 @@
     actionIcon="add"
     secondaryActionLabel="Bulk Import"
     secondaryActionIcon="upload_file"
+    tertiaryActionLabel="Credentials"
+    tertiaryActionIcon="download"
+    [tertiaryActionDisabled]="isLoading"
+    tertiaryActionTooltip="Download login credentials (XLSX). Scope follows the Class / Section filters."
     (actionClick)="navigateToAddStudent()"
-    (secondaryActionClick)="navigateToBulkImport()">
+    (secondaryActionClick)="navigateToBulkImport()"
+    (tertiaryActionClick)="downloadCredentials()">
   </app-page-header>
 
   <!-- Filters -->

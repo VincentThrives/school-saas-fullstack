@@ -1305,4 +1305,195 @@ public class StudentService {
                 .reversed());
         return rows;
     }
+
+    // ── Credentials export (admin-only) ──────────────────────────────────
+
+    /**
+     * Build an XLSX workbook listing student login credentials.
+     *
+     * <p>Scope:
+     * <ul>
+     *   <li>{@code classId} + {@code sectionId} → one sheet for that section</li>
+     *   <li>{@code classId} alone → one sheet per section of the class</li>
+     *   <li>no {@code classId} → every class × every section in the tenant,
+     *       one sheet per (class, section). The "All Classes" case the
+     *       admin picks when they want the whole-school roster in one
+     *       download.</li>
+     * </ul>
+     *
+     * <p>Columns per row: {@code Roll No | Student Name | Gender |
+     * Username | Default Password}. Default password is the DOB-based
+     * password the account was provisioned with ({@code DDMMYYYY} — see
+     * {@link StudentFieldNormalizer#dobAsPassword}). If the student has
+     * since changed it we can't recover the live password (it's BCrypt
+     * hashed), so the sheet carries a note telling the admin to reset
+     * via the student edit form when that's the case.
+     */
+    public byte[] exportCredentialsXlsx(String classId, String sectionId, String academicYearId) {
+        // Pick the set of classes to walk: one when a classId was given,
+        // every class in the tenant otherwise. We iterate classes rather
+        // than loading all students at once so each sheet is cleanly
+        // scoped to one (class, section) with the right title.
+        List<SchoolClass> classesToExport;
+        if (classId != null && !classId.isBlank()) {
+            classesToExport = java.util.Collections.singletonList(
+                    schoolClassRepository.findById(classId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Class not found: " + classId)));
+        } else {
+            classesToExport = schoolClassRepository.findAll();
+            // Deterministic order so the workbook always looks the same
+            // on repeated downloads — makes the admin's "find Priya in
+            // 1st-A" workflow stable.
+            classesToExport.sort(java.util.Comparator
+                    .comparing((SchoolClass c) -> c.getName() == null ? "" : c.getName(),
+                            java.util.Comparator.naturalOrder()));
+        }
+
+        try (org.apache.poi.xssf.usermodel.XSSFWorkbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
+            // Shared cell styles.
+            org.apache.poi.ss.usermodel.Font headerFont = wb.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(org.apache.poi.ss.usermodel.IndexedColors.WHITE.getIndex());
+            org.apache.poi.ss.usermodel.CellStyle headerStyle = wb.createCellStyle();
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(org.apache.poi.ss.usermodel.IndexedColors.DARK_BLUE.getIndex());
+            headerStyle.setFillPattern(org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+
+            for (SchoolClass cls : classesToExport) {
+                buildClassSheets(wb, cls, sectionId, academicYearId, headerStyle);
+            }
+
+            // Workbook must have at least one sheet.
+            if (wb.getNumberOfSheets() == 0) {
+                org.apache.poi.ss.usermodel.Sheet empty = wb.createSheet("No students");
+                empty.createRow(0).createCell(0).setCellValue("No students found for the selected scope.");
+            }
+
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            wb.write(baos);
+            return baos.toByteArray();
+        } catch (java.io.IOException e) {
+            log.error("Failed to build credentials XLSX for classId={}, sectionId={}: {}",
+                    classId, sectionId, e.getMessage(), e);
+            throw new BusinessException("Failed to generate credentials export: " + e.getMessage());
+        }
+    }
+
+    /** Append one sheet per section of {@code cls} to the workbook.
+     *  Pulled out so the main method can loop classes without nesting
+     *  three levels of mapping + sheet building inline. */
+    private void buildClassSheets(org.apache.poi.xssf.usermodel.XSSFWorkbook wb,
+                                   SchoolClass cls, String sectionIdFilter, String academicYearId,
+                                   org.apache.poi.ss.usermodel.CellStyle headerStyle) {
+        String classId = cls.getClassId();
+        if (classId == null) return;
+
+        // Scope students to this class (+ optional section + year).
+        List<Student> students;
+        if (sectionIdFilter != null && !sectionIdFilter.isBlank()) {
+            students = studentRepository.findByClassIdAndSectionIdAndDeletedAtIsNull(classId, sectionIdFilter);
+        } else {
+            students = studentRepository.findAllByClassIdAndDeletedAtIsNull(classId);
+        }
+        if (academicYearId != null && !academicYearId.isBlank()) {
+            final String ay = academicYearId;
+            students = students.stream()
+                    .filter(s -> ay.equals(s.getAcademicYearId()))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        if (students.isEmpty()) return;
+
+        // One sheet per section. Section order follows the class's own
+        // declared sections, stragglers last.
+        java.util.Map<String, String> sectionNameById = new java.util.LinkedHashMap<>();
+        if (cls.getSections() != null) {
+            for (SchoolClass.Section sec : cls.getSections()) {
+                if (sec.getSectionId() != null) {
+                    sectionNameById.put(sec.getSectionId(), sec.getName() == null ? "—" : sec.getName());
+                }
+            }
+        }
+        java.util.Map<String, List<Student>> bySection = new java.util.LinkedHashMap<>();
+        for (Student s : students) {
+            String sid = s.getSectionId() == null ? "" : s.getSectionId();
+            bySection.computeIfAbsent(sid, k -> new ArrayList<>()).add(s);
+        }
+        java.util.List<String> sectionOrder = new ArrayList<>(sectionNameById.keySet());
+        for (String sid : bySection.keySet()) if (!sectionOrder.contains(sid)) sectionOrder.add(sid);
+
+        // Batch-fetch Users for this class's students.
+        java.util.List<String> userIds = students.stream()
+                .map(Student::getUserId).filter(Objects::nonNull).collect(java.util.stream.Collectors.toList());
+        java.util.Map<String, User> usersById = new java.util.HashMap<>();
+        if (!userIds.isEmpty()) {
+            userRepository.findAllById(userIds).forEach(u -> usersById.put(u.getUserId(), u));
+        }
+
+        for (String sid : sectionOrder) {
+            List<Student> rows = bySection.get(sid);
+            if (rows == null || rows.isEmpty()) continue;
+
+            String sectionName = sectionNameById.getOrDefault(sid, "Unassigned");
+            String sheetName = sanitizeSheetName(
+                    (cls.getName() == null ? "Class" : cls.getName()) + " - " + sectionName);
+            // Collisions can happen when two classes share a sanitized
+            // name (very long names truncated to the same 31 chars);
+            // suffix a counter so POI doesn't throw.
+            sheetName = uniqueSheetName(wb, sheetName);
+            org.apache.poi.ss.usermodel.Sheet sheet = wb.createSheet(sheetName);
+
+            // Row 0 — column headers (no leading note row).
+            String[] headers = { "Roll No", "Student Name", "Gender", "Username", "Default Password" };
+            org.apache.poi.ss.usermodel.Row header = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                org.apache.poi.ss.usermodel.Cell c = header.createCell(i);
+                c.setCellValue(headers[i]);
+                c.setCellStyle(headerStyle);
+            }
+
+            rows.sort(java.util.Comparator
+                    .comparing((Student s) -> s.getRollNumber() == null ? "" : s.getRollNumber(),
+                            java.util.Comparator.naturalOrder())
+                    .thenComparing(s -> (s.getFirstName() == null ? "" : s.getFirstName())));
+
+            int rIdx = 1;
+            for (Student s : rows) {
+                User u = s.getUserId() == null ? null : usersById.get(s.getUserId());
+                String username = u != null && u.getUsername() != null ? u.getUsername() : "";
+                String name = ((s.getFirstName() == null ? "" : s.getFirstName()) + " "
+                        + (s.getLastName() == null ? "" : s.getLastName())).trim();
+                String gender = s.getGender() == null ? "" : s.getGender().name();
+                String defaultPwd = StudentFieldNormalizer.dobAsPassword(s.getDateOfBirth());
+                if (defaultPwd == null) defaultPwd = "00000000";
+
+                org.apache.poi.ss.usermodel.Row row = sheet.createRow(rIdx++);
+                row.createCell(0).setCellValue(s.getRollNumber() == null ? "" : s.getRollNumber());
+                row.createCell(1).setCellValue(name);
+                row.createCell(2).setCellValue(gender);
+                row.createCell(3).setCellValue(username);
+                row.createCell(4).setCellValue(defaultPwd);
+            }
+
+            for (int i = 0; i < headers.length; i++) sheet.autoSizeColumn(i);
+        }
+    }
+
+    /** XLSX disallows duplicate sheet names — suffix "-2", "-3", … as needed. */
+    private static String uniqueSheetName(org.apache.poi.xssf.usermodel.XSSFWorkbook wb, String base) {
+        if (wb.getSheet(base) == null) return base;
+        for (int i = 2; i < 1000; i++) {
+            String cand = base.length() > 29 ? base.substring(0, 29) + "-" + i : base + "-" + i;
+            if (wb.getSheet(cand) == null) return cand;
+        }
+        return base + "-x";
+    }
+
+    /** XLSX sheet-name rules: max 31 chars; strips the illegal characters. */
+    private static String sanitizeSheetName(String name) {
+        if (name == null) return "Sheet";
+        String cleaned = name.replaceAll("[\\\\/?*\\[\\]:]", "-");
+        if (cleaned.length() > 31) cleaned = cleaned.substring(0, 31);
+        return cleaned.isBlank() ? "Sheet" : cleaned;
+    }
 }

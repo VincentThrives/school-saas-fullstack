@@ -102,16 +102,22 @@ $black: #1A1A1A;
   }
 }
 
-.secondary-action-btn {
+.secondary-action-btn,
+.tertiary-action-btn {
   border-color: $gold !important;
   color: $gold-dark !important;
   border-radius: 10px !important;
   border-width: 2px !important;
   font-weight: 600;
 
-  &:hover {
+  &:hover:not([disabled]) {
     background-color: rgba(212, 168, 67, 0.06) !important;
     border-color: $gold-dark !important;
+  }
+
+  &[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 
   mat-icon {
